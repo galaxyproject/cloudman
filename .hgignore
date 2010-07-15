@@ -1,0 +1,71 @@
+syntax: regexp
+
+\.svn$
+
+syntax: glob
+
+.hg/*
+# Downloaded and locally built eggs
+eggs
+osX_eggs
+scripts/scramble/build
+scripts/scramble/lib
+scripts/scramble/archives
+
+# Database stuff
+database/beaker_sessions
+database/compiled_templates
+database/files
+database/pbs
+database/tmp
+database/*.sqlite
+
+# Python bytecode
+*.pyc
+
+
+# Packaging.
+cloudman.egg-info/*
+dist/*
+build/*
+
+# Compiled Templates
+database/reports/compiled_templates
+
+# Config files
+gc2_wsgi.ini
+universe_wsgi.ini
+reports_wsgi.ini
+datatypes_conf.xml
+tool_conf.xml
+static/welcome.html.*
+cm_wsgi.ini
+tool-data/*.loc
+
+# Test output
+run_functional_tests.html
+
+# Project files
+*.kpf
+
+# Chrom len files
+*.len
+
+# Tool Data#
+tool-data
+
+#User Data (EC2)
+userData.txt
+persistent-volumes-latest.txt
+
+#ignore .orig backups
+*.orig
+
+#DS_STORE!
+.DS_Store
+
+# Local env for easier uploads
+gc.tar.gz
+update_gc.sh
+upload_gc_to_S3.py
+go_gc_local.sh
