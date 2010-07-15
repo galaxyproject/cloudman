@@ -7,7 +7,7 @@ SAMPLE_FILES="
 cm_wsgi.ini.sample"
 
 for sample_file in $SAMPLE_FILES; do
-    file=`echo $sample_file | sed -e 's/\.sample_file$//'`
+    file=`echo $sample_file | sed -e 's/\.sample$//'`
     if [ -f $file ]; then
         echo "Not overwriting existing $file"
     else
