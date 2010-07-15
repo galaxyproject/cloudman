@@ -23,9 +23,10 @@ setup(name="cloudman",
                            'simplejson',
                            'paste',
                            'routes',
-                           # 'webop',
+                           'webob',
                            'webhelpers',
                            'amqplib',
-                           'boto'
+                           'boto',
+                           'pastescript'
                          ],
       )
