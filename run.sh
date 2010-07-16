@@ -3,7 +3,8 @@
 
 cd `dirname $0`
 conf_file="cm_wsgi.ini"
-if [ ! -f $conf_file ]; then
+ud_file="userData.txt"
+if [ ! -f $conf_file ] || [ ! -f $ud_file ]; then
     echo "Running setup first"
     sh setup.sh
 fi
