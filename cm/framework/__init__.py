@@ -71,7 +71,6 @@ class WebApplication( base.WebApplication ):
         # Mako support
         self.mako_template_lookup = mako.lookup.TemplateLookup(
             directories = [ galaxy_app.config.template_path ] ,
-            module_directory = galaxy_app.config.template_cache,
             collection_size = 500,
             output_encoding = 'utf-8' )
     def handle_controller_exception( self, e, trans, **kwargs ):
