@@ -89,7 +89,7 @@ class UniverseApplication( object ):
         
     def get_type( self ):
         if self.TESTFLAG is True:
-                return "TestType"
+                return "d1.xtreme"
         if self.type is None:
             for i in range(0, 5):
                 try:
@@ -106,7 +106,7 @@ class UniverseApplication( object ):
     def get_instance_id( self ):
         if self.TESTFLAG is True:
             if self.shell_vars['ROLE'] == 'master':
-                return "TestMaster"
+                return "Node231xQ"
             else:
                 return "TestWorker"
         if self.instance_id is None:

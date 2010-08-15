@@ -188,10 +188,10 @@ class ConsoleManager( object ):
     def get_worker_instances( self ):
         if self.app.TESTFLAG is True:
             insts = []
-            for i in range(5):
-                inst = Instance( self.app, inst=None, m_state="Pending" )
-                inst.id = "WorkerInstance"
-                insts.append(inst)
+            # for i in range(5):
+            #     inst = Instance( self.app, inst=None, m_state="Pending" )
+            #     inst.id = "WorkerInstance"
+            #     insts.append(inst)
             return insts
         log.debug( "Trying to retrieve any reference to worker instances..." )
         instances = []
@@ -1627,14 +1627,17 @@ class ConsoleManager( object ):
                 self._run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", "Successfully restarted NFS server")
         except Exception, e:
             log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
-
         if not self._run('/bin/umount -f %s' % mount_point, "Error unmounting file system '%s'" % mount_point, "Successfully unmounted file system '%s'" % mount_point):
             return False
         return True
 
     def get_status_dict( self ):
-        num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
-        load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+        if self.app.TESTFLAG:
+            num_cpus = 1
+            load = "0.00 0.02 0.39"
+        else:
+            num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
+            load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
