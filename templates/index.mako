@@ -6,10 +6,10 @@ vertical-align: top;
 }
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
-    <h2>Galaxy Cloud Console</h2>
+    <h2>Galaxy CloudMan Console</h2>
 <div>
 %if permanent_storage_size == 0:
-	Welcome to the Galaxy Cloud Console.  This application allows you to manage this instance of Galaxy. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, Galaxy will start and you will be able to see its standard interface and you will be able to add and remove 'worker' nodes on which jobs are run.
+	Welcome to the Galaxy Cloud Manager.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
 %else:
 	Welcome to the Galaxy Cloud Console.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
 %endif
@@ -106,6 +106,11 @@ vertical-align: top;
         <b>Available</b>: <span id="status-available">0</span>
         <b>Requested</b>: <span id="status-total">0</span>
     </td></tr>
+    <tr><td><h4>Service status: </h4></td><td>
+		Applications <div style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+		Data <div style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+    </td></tr>
+
     <tr><td colspan=2></td></tr>
     </table>
 
@@ -170,7 +175,7 @@ vertical-align: top;
 </div>
 
 <div id="log_container">
-    <div id="status_svcs">
+    <div id="status_svcs" style="display:none;">
         <ul><li class='fs_det_clicker'><div class='status_nodata'>&nbsp;</div>Filesystems</li>
         <li><div class='status_nodata'>&nbsp;</div>Scheduler</li>
         <li><div class='status_nodata'>&nbsp;</div>Database</li>
