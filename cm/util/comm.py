@@ -1,15 +1,13 @@
-import sys
 import amqplib.client_0_8 as amqp
 import logging
 
 log = logging.getLogger( __name__ )
 
 DEFAULT_HOST = 'localhost:5672'
-WORKERS = ['fooInstance', 'barInstance', 'bazInstance']
 
 class CMMasterComm( object ):
     def __init__(self, iid='MasterInstance'):
-        self.instances = WORKERS
+        self.instances = []
         self.user = 'guest'
         self.password = 'guest'
         self.host = DEFAULT_HOST
@@ -22,6 +20,9 @@ class CMMasterComm( object ):
         self.channel = None
         self.queue = 'master'
 
+    def is_connected(self):
+        return self.conn != None
+    
     def setup(self):
         """Master will use a static 'master' routing key, while all of the instances use their own iid"""
         try:
@@ -31,6 +32,7 @@ class CMMasterComm( object ):
             self.channel.exchange_declare(self.exchange, type='direct', durable=False, auto_delete = True)
             self.channel.queue_declare(queue = 'master', durable = False, exclusive = False, auto_delete = True)
             self.channel.queue_bind(exchange = self.exchange, queue = 'master', routing_key = 'master')
+            log.debug("Successfully established AMQP connection")
         except Exception, e:
             log.error("AMQP Connection Failure:  %s", e)
             self.conn = None
@@ -41,10 +43,6 @@ class CMMasterComm( object ):
             self.channel.close()
         if self.conn:
             self.conn.close()
-#
-#    def sendall(self, message):
-#        for instance in self.instances:
-#            self.send(message, instance)
 
     def send(self, message, to):
         log.debug("S_COMM: Sending from %s to %s message %s" % ('master', to, message ))
@@ -63,8 +61,6 @@ class CMMasterComm( object ):
                 return msg
             else:
                 return None
-        else:
-            log.error("R_COMM FAILURE:  No connection available.")
 
 class CMWorkerComm( object ):
     def __init__(self, iid='WorkerInstance', host=DEFAULT_HOST):
@@ -76,6 +72,7 @@ class CMWorkerComm( object ):
         self.conn = None
         self.channel = None
         self.queue = 'worker_' + iid
+        self.got_conn = False
 
     def setup(self):
         try:
@@ -85,6 +82,8 @@ class CMWorkerComm( object ):
             self.channel.exchange_declare(self.exchange, type='direct', durable=False, auto_delete = True)
             self.channel.queue_declare(queue = self.queue, durable = False, exclusive = False, auto_delete = True)
             self.channel.queue_bind(exchange = self.exchange, queue = self.queue, routing_key = self.iid)
+            self.got_conn = True
+            log.debug("Successfully established AMQP connection")
         except Exception, e:
             log.error("AMQP Connection Failure:  %s", e)
             self.conn = None
@@ -116,28 +115,4 @@ class CMWorkerComm( object ):
                 return None
         else:
             log.error("R_COMM FAILURE:  No connection available.")
-
-if __name__ == "__main__":
-    import time
-    tstM = CMMasterComm()
-    tstM.setup()
-    worker_insts = []
-    for worker in WORKERS:
-        tmpI = CMWorkerComm(worker)
-        tmpI.setup()
-        worker_insts.append(tmpI)
-    tstM.sendall('Master says foo!')
-    print "sleep 2s"
-    time.sleep(2)
-    for wi in worker_insts:
-        m = wi.recv()
-        if m:
-            print wi.iid, " : ", m.body
-    for wi in worker_insts:
-        wi.send(wi.iid + " says baz!")
-    print "sleep 2s"
-    time.sleep(2)
-    m = tstM.recv()
-    while m is not None:
-        print 'Master : ', m.body, " from: ", m.properties['reply_to']
-        m = tstM.recv()
+            

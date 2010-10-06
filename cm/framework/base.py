@@ -6,7 +6,6 @@ import socket
 import types
 import logging
 import os.path
-import sys
 import tarfile
 
 from Cookie import SimpleCookie
@@ -15,7 +14,7 @@ import routes
 import webob
 
 # We will use some very basic HTTP/wsgi utilities from the paste library
-from paste.request import parse_headers, get_cookies, parse_formvars
+from paste.request import get_cookies
 from paste import httpexceptions
 from paste.response import HeaderDict
 
@@ -42,6 +41,10 @@ class WebApplication( object ):
         self.controllers = dict()
         self.mapper = routes.Mapper() 
         self.transaction_factory = DefaultWebTransaction
+        # FIXME: The following two options are deprecated and should be
+        # removed. Consult the Routes documentation.
+        self.mapper.minimization = True
+        self.mapper.explicit = False
     def add_controller( self, controller_name, controller ):
         """
         Add a controller class to this application. A controller class has

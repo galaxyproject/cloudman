@@ -3,7 +3,9 @@ Utility functions used systemwide.
 
 """
 import logging
-import threading, random, string, re, binascii, pickle, time, datetime, math, re, os, sys, tempfile, stat, grp
+import threading, random, string, re, binascii, pickle, os, sys, stat, grp
+
+# DBTODO Find out if we use any of this
 
 # Older py compatibility
 try:
@@ -20,25 +22,6 @@ log   = logging.getLogger(__name__)
 _lock = threading.RLock()
 
 gzip_magic = '\037\213'
-
-def is_multi_byte( chars ):
-    for char in chars:
-        try:
-            char = unicode( char )
-        except UnicodeDecodeError, e:
-            # Probably binary
-            return False
-        if wchartype.is_asian( char ) or \
-            wchartype.is_full_width( char ) or \
-            wchartype.is_kanji( char ) or \
-            wchartype.is_hiragana( char ) or \
-            wchartype.is_katakana( char ) or \
-            wchartype.is_half_katakana( char ) or \
-            wchartype.is_hangul( char ) or \
-            wchartype.is_full_digit( char ) or \
-            wchartype.is_full_letter( char ):
-            return True
-    return False
 
 def synchronized(func):
     """This wrapper will serialize access to 'func' to a single thread. Use it as a decorator."""
@@ -83,18 +66,6 @@ def unique_id(KEY_SIZE=128):
     """
     id  = str( random.getrandbits( KEY_SIZE ) )
     return md5(id).hexdigest()
-
-def parse_xml(fname):
-    """Returns a parsed xml tree"""
-    tree = ElementTree.parse(fname)
-    root = tree.getroot()
-    ElementInclude.include(root)
-    return tree
-
-def xml_to_string(elem):
-    """Returns an string from and xml tree"""
-    text = ElementTree.tostring(elem)
-    return text
 
 # characters that are valid
 valid_chars  = set(string.letters + string.digits + " -=_.()/+*^,:?!")
@@ -210,15 +181,6 @@ class Params:
     def update(self, values):
         self.__dict__.update(values)
 
-def rst_to_html( s ):
-    """Convert a blob of reStructuredText to HTML"""
-    log = logging.getLogger( "docutils" )
-    class FakeStream( object ):
-        def write( self, str ):
-            if len( str ) > 0 and not str.isspace():
-                log.warn( str )
-    return docutils.core.publish_string( s, writer=HTMLFragWriter(), settings_overrides=dict( warning_stream=FakeStream() ) )
-
 def xml_text(root, name):
     """Returns the text inside an element"""
     # Try attribute first
@@ -266,30 +228,6 @@ def object_to_string( obj ):
 def string_to_object( s ):
     return pickle.loads( binascii.unhexlify( s ) )
         
-def get_bx_by_build(build):
-    sites = []
-    for site in bx_build_sites:
-        if build in site['builds']:
-            sites.append((site['name'],site['url']))
-    return sites
-def get_ucsc_by_build(build):
-    sites = []
-    for site in ucsc_build_sites:
-        if build in site['builds']:
-            sites.append((site['name'],site['url']))
-    return sites
-def get_gbrowse_sites_by_build(build):
-    sites = []
-    for site in gbrowse_build_sites:
-        if build in site['builds']:
-            sites.append((site['name'],site['url']))
-    return sites
-def get_genetrack_sites():
-    sites = []
-    for site in genetrack_sites:
-        sites.append( ( site['name'], site['url'] ) )
-    return sites
-
 def read_dbnames(filename):
     """ Read build names from file """
     class DBNames( list ):
@@ -405,26 +343,6 @@ def stringify_dictionary_keys( in_dict ):
         out_dict[ str( key ) ] = value
     return out_dict
 
-def mkstemp_ln( src, prefix='mkstemp_ln_' ):
-    """
-    From tempfile._mkstemp_inner, generate a hard link in the same dir with a
-    random name.  Created so we can persist the underlying file of a
-    NamedTemporaryFile upon its closure.
-    """
-    dir = os.path.dirname(src)
-    names = tempfile._get_candidate_names()
-    for seq in xrange(tempfile.TMP_MAX):
-        name = names.next()
-        file = os.path.join(dir, prefix + name)
-        try:
-            linked_path = os.link( src, file )
-            return (os.path.abspath(file))
-        except OSError, e:
-            if e.errno == errno.EEXIST:
-                continue # try again
-            raise
-    raise IOError, (errno.EEXIST, "No usable temporary file name found")
-
 def umask_fix_perms( path, umask, unmasked_perms, gid=None ):
     """
     umask-friendly permissions fixing
@@ -462,5 +380,5 @@ def umask_fix_perms( path, umask, unmasked_perms, gid=None ):
                                                                                                           e ) )
 
 if __name__ == '__main__':
-    import doctest, sys
+    import doctest
     doctest.testmod(sys.modules[__name__], verbose=False)

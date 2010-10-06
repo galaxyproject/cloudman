@@ -3,7 +3,7 @@
 
 cd `dirname $0`
 conf_file="cm_wsgi.ini"
-ud_file="userData.txt"
+ud_file="userData.yaml"
 if [ ! -f $conf_file ] || [ ! -f $ud_file ]; then
     echo "Running setup first"
     sh setup.sh

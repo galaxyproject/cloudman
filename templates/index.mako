@@ -8,7 +8,7 @@ vertical-align: top;
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>Galaxy CloudMan Console</h2>
 <div>
-%if permanent_storage_size == 0:
+%if initial_cluster_type is None:
 	Welcome to the Galaxy Cloud Manager.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
 %else:
 	Welcome to the Galaxy Cloud Console.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
@@ -48,7 +48,7 @@ vertical-align: top;
 				<div id="instance_type" class="form-row-input">
 		    	<select name="instance_type" id="instance_type">
 					<option value=''>Same as Master</option>
-##					<option value='m1.small'>Small</option>
+					<option value='t1.micro'>Micro</option>
 					<option value='m1.large'>Large</option>
 					<option value='m1.xlarge'>Extra Large</option>
 					<option value='m2.xlarge'>High-Memory Extra Large Instance</option>
@@ -119,8 +119,11 @@ vertical-align: top;
 		<h2>Expand Disk Space</h2>
 		<form id="expand_user_data_volume" name="expand_user_data_volume" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
 			<div class="form-row">
-			Through this you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster) <b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy jobs that are currently running to fail. Note that this new volume size <b>must be larger</b> than the current volume size.
-			<br/>During this process, a snapshot of your data volume will be created and left in you account. For reference, you may provide a brief note that will later be visible in the snapshot description.
+			Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
+			<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
+			jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
+			<br/>During this process, a snapshot of your data volume will be created and left in you account. For reference, you may 
+			provide a brief note that will later be visible in the snapshot description.
 			</div>
 			<div class="form-row">
 				<label>New Disk Size (max 1000GB):</label>
@@ -157,21 +160,59 @@ vertical-align: top;
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
-	<h2>Initial Volume Configuration</h2>
-	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='create_initial_data_vol')}" method="post">
-		<div class="form-row">
-		This initial configurtaion is required to start Galaxy. The data volume created will be used for storing all of data uploaded and analyzed through Galaxy.
-		</div>
-		<div class="form-row">
-			<label>Permanent storage size (1-1000GB):</label>
-			<div id="permanent_storage_size" class="form-row-input">
-				<input type="text" name="pss" id="pss" value="" size="10">
+	<h2>Initial Server Configuration</h2>
+
+
+##	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='create_initial_data_vol')}" method="post">
+##		<div class="form-row">
+##		Please choose an initial sever configuration. Appropriate services will created for this cluster based on the role selected.
+##		</div>
+##		<div class="form-row">
+##			<label>Permanent storage size (1-1000GB):</label>
+##			<div id="permanent_storage_size" class="form-row-input">
+##				<input type="text" name="pss" id="pss" value="" size="10">
+##			</div>
+##			<div class="form-row">
+##				<input type="submit" value="Create Data Volume"/>
+##			</div>
+##		</div>
+##	</form>
+
+	<div class="form-row">
+	Please choose an initial sever configuration. Appropriate services will created for this cluster based on the role selected.
+	</div>
+	<div class="form-row">
+		<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
+		<table><tr>
+		<td>
+			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+				<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
+				<p>Full Galaxy Cluster. Choose initial storage size</p>
+				<input type="text" name="g_pss" id="g_pss" value="" size="10">
+				</div>
 			</div>
-			<div class="form-row">
-				<input type="submit" value="Create Data Volume"/>
+		</td>
+		<td>
+			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+				<input type="radio" name="startup_opt" value="Data">
+				<p>Data volume + SGE. Choose initial storage size</p>
+				<input type="text" name="d_pss" id="d_pss" value="" size="10">
 			</div>
+			</td>
+		<td>
+			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+				<input type="radio" name="startup_opt" value="SGE">
+				<p>SGE Only. No persistent storage created.</p>
+			</div>
+		</td>
+		<tr/></table>
+		<br/>
+		<div class="form-row" style="text-align:center;">
+			<input type="submit" value="Start Cluster"/>
 		</div>
-	</form>
+		</form>
+	</div>
+
 </div>
 
 <div id="log_container">
@@ -268,14 +309,15 @@ function update(){
 				$('#du-total').text(data.disk_usage.total);
 				$('#du-used').text(data.disk_usage.used);
 				$('#du-pct').text(data.disk_usage.pct);
-				$('#snap-progress').text(data.snapshot.progress)
-				$('#snap-status').text(data.snapshot.status)
-		        $('#status_svcs').html(
-		            "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
-		            <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
-		            <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
-		            <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
-		            );
+				$('#snap-progress').text(data.snapshot.progress);
+				$('#snap-status').text(data.snapshot.status);
+				// DBTODO write generic services display
+		        // $('#status_svcs').html(
+		        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
+		        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
+		        //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
+		        //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
+		        //     );
 		        fsdet = "<ul>";
 		        for (i = 0; i < data.all_fs.length; i++){
 		            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
@@ -327,6 +369,8 @@ function update(){
 }
 
 $(document).ready(function() {
+	var initial_cluster_type = '${initial_cluster_type}';
+	var permanent_storage_size = ${permanent_storage_size};
     $('#stop-button').click(function(){
 		$('#overlay').show();
 		$('#power_off').show();
@@ -380,9 +424,10 @@ $(document).ready(function() {
         }
         return false;
     });
+	// console.log("CTC: %s" % initial_cluster_type)
     $('#initial_volume_config_form').submit( function(event) {
         cluster_status = "STARTING";
-        $.post('/cloud/root/create_initial_data_vol', $("#initial_volume_config_form").serialize());
+        $.post('/cloud/root/initialize_cluster', $("#initial_volume_config_form").serialize());
         event.preventDefault();
 		$('#initial_volume_config_form').hide('fast');
         hidebox();
@@ -417,17 +462,19 @@ $(document).ready(function() {
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300 } );
     number_nodes.add( Validate.Numericality, { minimum: 1 } );
-    %if permanent_storage_size == 0:
-        var permanent_storage_size = new LiveValidation('pss', { validMessage: "OK", wait: 300 } );
+    if (permanent_storage_size == 0) {
+        var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300 } );
         permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
-    %endif
+        var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300 } );
+        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+    }
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
 	
-    %if permanent_storage_size == 0:
+    if (initial_cluster_type == 'None') {
 		// Present the user with the dialog.
 		toggleVolDialog();
-    %endif
+	}
     update();
 });
 </script>

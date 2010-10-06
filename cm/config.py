@@ -1,6 +1,6 @@
 """Universe configuration builder."""
 import sys, os, logging, logging.config, ConfigParser
-from optparse import OptionParser
+# from optparse import OptionParser
 from cm.util import string_as_bool
 
 log = logging.getLogger( __name__ )
@@ -23,6 +23,7 @@ class Configuration( object ):
         self.use_remote_user = string_as_bool( kwargs.get( "use_remote_user", "False" ) )
         self.require_login = string_as_bool( kwargs.get( "require_login", "False" ) )
         self.template_path = resolve_path( kwargs.get( "template_path", "templates" ), self.root )
+        self.cloudman_source_file_name = kwargs.get("cloudman_file_name", "cm.tar.gz")
         # self.template_cache = resolve_path( kwargs.get( "template_cache_path", "database/reports/compiled_templates" ), self.root )
         self.sendmail_path = kwargs.get('sendmail_path',"/usr/sbin/sendmail")
         self.brand = kwargs.get( 'brand', None )
@@ -75,7 +76,8 @@ def configure_logging( config ):
     Allow some basic logging configuration to be read from the cherrpy
     config.
     """
-    format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
+    # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
+    format = config.get( "log_format", "[%(levelname)s] %(name)s:%(lineno)d %(asctime)s: %(message)s")
     level = logging._levelNames[ config.get( "log_level", "DEBUG" ) ]
     destination = config.get( "log_destination", "stdout" )
     log.info( "Logging at '%s' level to '%s'" % ( level, destination ) )
