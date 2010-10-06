@@ -160,8 +160,8 @@ div.form-row-input > input{max-width:300px;}
 }
 
 #volume_config{
-    width: 300px;
-    margin-left: -150px;
+    width: 500px;
+    margin-left: -250px;
     left: 50%;
     z-index: 101;
 }

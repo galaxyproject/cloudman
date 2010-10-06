@@ -1,30 +1,34 @@
-import sys, os, operator, string, shutil, re, socket, urllib, urllib2, time
-from datetime import *
-from cgi import escape, FieldStorage
-from cm.base.controller import *
 import logging
+
+from cm.util.json import to_json_string
+
+from cm.framework import expose
+from cm.base.controller import BaseController
+from cm.services import service_states
+
+# from cm.services.apps.postgres import PostgresService
+# from cm.services.apps.sge import SGEService
+# from cm.services.apps.galaxy import GalaxyService
+# from cm.services.data.volume import Volume
+# from cm.services.data.filesystem import Filesystem
+
 log = logging.getLogger( __name__ )
-from cm.util.json import to_json_string, from_json_string
-
-from cm.framework import expose, json, json_pretty, url_for, error, form
-from cm.framework.base import httpexceptions
-
 
 class CM( BaseController ):
     @expose
     def index( self, trans, **kwd ):
-        time_now = datetime.utcnow().strftime( "%Y-%m-%d %I:%M:%S" )
         cluster = {}
         if self.app.manager.get_instance_state():
             cluster['status'] = self.app.manager.get_instance_state()
-        permanent_storage_size = self.app.permanent_storage_size
-        # permanent_storage_size = 5000   #For testing
-        cluster_name = self.app.shell_vars['CLUSTER_NAME']
+        permanent_storage_size = self.app.manager.get_permanent_storage_size()
+        initial_cluster_type = self.app.manager.initial_cluster_type
+        cluster_name = self.app.ud['cluster_name']
         return trans.fill_template( 'index.mako', 
                                     cluster = cluster,
                                     permanent_storage_size = permanent_storage_size,
+                                    initial_cluster_type = initial_cluster_type,
                                     cluster_name = cluster_name )
-
+    
     @expose
     def combined(self, trans):
         return trans.fill_template('cm_combined.mako')
@@ -32,7 +36,7 @@ class CM( BaseController ):
     @expose
     def instance_feed(self, trans):
         return trans.fill_template('instance_feed.mako', instances = self.app.manager.worker_instances)
-
+    
     @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
@@ -41,34 +45,30 @@ class CM( BaseController ):
     @expose
     def minibar(self, trans):
         return trans.fill_template('mini_control.mako')
-
-    @expose
-    def create_initial_data_vol(self, trans, pss=None):
-        try:
-            if pss:
-                self.app.permanent_storage_size = int(pss)
-                self.app.manager.create_user_data_vol = True
-        except ValueError, e:
-            log.error("You must provide valid values: %s" % e)
-            return "Exception. Check the log."
-        except TypeError, ex:
-            log.error("You must provide valid values: %s" % ex)
-            return "Exception. Check the log."
-        return "Volume hook set."
     
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size=0, vol_expand_desc=None):
+    def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None):
+        if self.app.manager.initial_cluster_type is None:
+            self.app.manager.init_cluster(startup_opt, g_pss)
+        else:
+            return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
+        return "Cluster configuration set."
+    
+    @expose
+    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None):
         try:
-            new_vol_size = int(new_vol_size)
-            if new_vol_size > self.app.permanent_storage_size and new_vol_size < 1000:
-                self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc)
+            if new_vol_size.isdigit():
+                new_vol_size = int(new_vol_size)
+                # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
+                if new_vol_size > self.app.manager.get_permanent_storage_size() and new_vol_size < 1000:
+                    self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc)
         except ValueError, e:
             log.error("You must provide valid values: %s" % e)
             return "ValueError exception. Check the log."
         except TypeError, ex:
-            log.error("You must provide valid values: %s" % ex)
+            log.error("You must provide valid value type: %s" % ex)
             return "TypeError exception. Check the log."
-
+    
     @expose
     def power( self, trans, number_nodes=0, pss=None ):
         if self.app.manager.get_cluster_status() == 'OFF': # Cluster is OFF, initiate start procedure
@@ -94,21 +94,25 @@ class CM( BaseController ):
     @expose
     def detailed_shutdown(self, trans, galaxy = True, sge = True, postgres = True, filesystems = True, volumes = True, instances = True):
         self.app.shutdown(sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes, sd_instances=instances, sd_volumes_delete=volumes)
-        
+    
     @expose
     def kill_all(self, trans):
         self.app.shutdown()
-
+    
     @expose
     def cleanup(self, trans):
-        self.app.manager.shutdown(sd_volumes=False, sd_volumes_delete=False)
+        self.app.manager.shutdown()
+    
+    @expose
+    def hard_clean( self, trans ):
+        self.app.manager.clean()
     
     @expose
     def add_instances( self, trans, number_nodes, instance_type = ''):
         try:
             number_nodes = int(number_nodes)
         except ValueError, e:
-            log.error("You must provide valid value.")
+            log.error("You must provide valid value.  %s" % e)
             return
         self.app.manager.add_instances( number_nodes, instance_type)
         
@@ -124,8 +128,9 @@ class CM( BaseController ):
         try:
             number_nodes=int(number_nodes)
         except ValueError, e:
-            log.error("You must provide valid value.")
+            log.error("You must provide valid value.  %s" % e)
             return
+        log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
         self.app.manager.remove_instances(number_nodes, force_termination)
 
     @expose
@@ -184,7 +189,7 @@ class CM( BaseController ):
                 <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all.</a></li>
                 </ul>
                 """
-
+        
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
@@ -201,8 +206,9 @@ class CM( BaseController ):
 
     @expose
     def instance_state_json(self, trans):
-        if self.app.manager.galaxy_running:
-            dns = 'http://%s' % str( self.app.get_self_public_ip() )
+        g_s = self.app.manager.get_services('Galaxy')
+        if g_s and g_s[0].state == service_states.RUNNING:
+            dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_ip() )
         else: 
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
@@ -215,17 +221,17 @@ class CM( BaseController ):
                                 'disk_usage':{'used':str(self.app.manager.disk_used),
                                                 'total':str(self.app.manager.disk_total),
                                                 'pct':str(self.app.manager.disk_pct)},
-                                'services'  : {'fs' : self.app.manager.fs_status_text(),
-                                                'pg' : self.app.manager.pg_status_text(),
-                                                'sge' : self.app.manager.sge_status_text(),
-                                                'galaxy' : self.app.manager.galaxy_status_text()},
+                                # 'services'  : {'fs' : self.app.manager.fs_status_text(),
+                                #                 'pg' : self.app.manager.pg_status_text(),
+                                #                 'sge' : self.app.manager.sge_status_text(),
+                                #                 'galaxy' : self.app.manager.galaxy_status_text()},
                                 'all_fs' : self.app.manager.all_fs_status_array(),
                                 'snapshot' : {'progress' : str(self.app.manager.snapshot_progress),
                                               'status' : str(self.app.manager.snapshot_status)}
                                })
     @expose
-    def update_users_GC(self, trans):
-        self.app.manager.update_users_GC()
+    def update_users_CM(self, trans):
+        self.app.manager.update_users_CM()
         return trans.fill_template('index.mako')
 
     @expose
@@ -233,11 +239,11 @@ class CM( BaseController ):
         brand = trans.app.config.get( "brand", "" )
         if brand:
             brand ="<span class='brand'>/%s</span>" % brand
-        GC_url = None
-        if self.app.manager.check_for_new_version_of_GC():
-            GC_url = trans.app.config.get( "GC_url", "http://bitbucket.org/afgane/galaxy-central-gc2/" )
+        CM_url = None
+        if self.app.manager.check_for_new_version_of_CM():
+            CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman" )
         wiki_url = trans.app.config.get( "wiki_url", "http://g2.trac.bx.psu.edu/" )
         bugs_email = trans.app.config.get( "bugs_email", "mailto:galaxy-bugs@bx.psu.edu"  )
         blog_url = trans.app.config.get( "blog_url", "http://g2.trac.bx.psu.edu/blog"   )
         screencasts_url = trans.app.config.get( "screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts" )
-        return trans.fill_template( "masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url,bugs_email=bugs_email, screencasts_url=screencasts_url, GC_url=GC_url )
+        return trans.fill_template( "masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url,bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url )

@@ -1,15 +1,38 @@
 #!/usr/bin/python
-import logging, time
-from boto.s3.connection import S3Connection
+import logging, time, yaml
 from boto.s3.key import Key
-from boto.exception import S3ResponseError
+from boto.exception import S3ResponseError, EC2ResponseError
 import subprocess
 import threading
 import datetime as dt
+from tempfile import mkstemp
+from shutil import move
+from os import remove, close
 
-from cm.util.paths import *
 
 log = logging.getLogger( __name__ )
+
+def load_yaml_file(filename):
+    with open(filename) as ud_file:
+        ud = yaml.load(ud_file)
+    # log.debug("Loaded user data: %s" % ud)
+    return ud
+    
+def dump_yaml_to_file(data, filename):
+    with open(filename, 'w') as f:
+        yaml.dump(data, f, default_flow_style=False)
+
+def merge_yaml_objects(user, default):
+    """Merge fields from user data (user) YAML object and default data (default)
+    YAML object. If there are conflicts, value from the user data object are
+    kept."""
+    if isinstance(user,dict) and isinstance(default,dict):
+        for k,v in default.iteritems():
+            if k not in user:
+                user[k] = v
+            else:
+                user[k] = merge_yaml_objects(user[k],v)
+    return user
 
 def shellVars2Dict(filename):
 	'''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
@@ -42,10 +65,63 @@ def formatDelta(delta):
     else:
         return '%sm %ss' % (m, s)
 
-def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
-    log.debug( "Establishing handle with bucket '%s'..." % bucket_name )
-    b = conn.lookup( bucket_name )
+def bucket_exists(s3_conn, bucket_name):
+    if bucket_name is not None:
+        try:
+            b = None
+            b = s3_conn.lookup(bucket_name)
+            if b is not None:
+                # log.debug("Checking if bucket '%s' exists... it does." % bucket_name)
+                return True
+            else:
+                log.debug("Checking if bucket '%s' exists... it does not." % bucket_name)
+                return False
+        except Exception, e:
+            log.error("Failed to lookup bucket '%s': %s" % (bucket_name, e))
+    else:
+        log.error("Cannot lookup bucket with no name.")
+        return False
+
+def create_bucket(s3_conn, bucket_name):
+    try:
+        s3_conn.create_bucket(bucket_name)
+        log.debug("Created bucket '%s'." % bucket_name)
+    except S3ResponseError, e:
+        log.error( "Failed to create bucket '%s': %s" % (bucket_name, e))
+        return False
+    return True
+
+def _get_bucket(s3_conn, bucket_name):
+    """Get handle to bucket"""
+    b = None
+    for i in range(0, 5):
+		try:
+			b = s3_conn.get_bucket( bucket_name )
+			break
+		except S3ResponseError: 
+			log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
+			time.sleep(2)
+    return b
+
+def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
+    """Check if remote_filename exists in bucket bucket_name.
+    :rtype: bool
+    :return: True if remote_filename exists in bucket_name
+             False otherwise
+    """
+    b = None
+    if bucket_exists(s3_conn, bucket_name):
+        b = _get_bucket(s3_conn, bucket_name)
+        
     if b is not None:
+		k = Key(b, remote_filename)
+		if k.exists():
+		    return True
+    return False
+
+def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
+    log.debug( "Establishing handle with bucket '%s'" % bucket_name )
+    if bucket_exists(conn, bucket_name):
         b = conn.get_bucket( bucket_name )
         # log.debug( "Establishing handle with key object '%s'..." % remote_filename )
         k = Key( b, remote_filename )
@@ -57,7 +133,7 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
             log.error( "Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
             return False
     else:
-      log.debug("Bucket '%s' does not exist, did not get file '%s'" % (bucket_name, remote_filename))
+      log.debug("Bucket '%s' does not exist, did not get remote file '%s'" % (bucket_name, remote_filename))
       return False
       
     return True
@@ -70,7 +146,7 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
 			b = conn.get_bucket( bucket_name )
 			break
 		except S3ResponseError, e: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i ) )
+			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 	    	
     if b is not None:
@@ -86,10 +162,10 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
 		except S3ResponseError, e:
 		     log.error( "Failed to save file local file '%s' to bucket '%s' as file '%s': %s" % ( local_file, bucket_name, remote_filename, e ) )
 		     return False
-		    
 		return True
     else:
-		return False
+        log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
+        return False
          
 def delete_file_from_bucket( conn, bucket_name, remote_filename ):
 	log.debug( "Establishing handle with bucket '%s'..." % bucket_name )
@@ -110,8 +186,8 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
 		try:
 			b = conn.get_bucket( bucket_name )
 			break
-		except S3ResponseError, e: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i ) )
+		except S3ResponseError: 
+			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 
     if b is not None:
@@ -134,7 +210,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
 			b = conn.get_bucket( bucket_name )
 			break
 		except S3ResponseError, e: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i ) )
+			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 
     if b is not None:
@@ -172,73 +248,43 @@ def get_volume_size(ec2_conn, vol_id):
         return vol[0].size
     else:
         return 0
+
+def run(cmd, err, ok):
+    """ Convenience method for executing a shell command. """
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode == 0:
+        log.debug(ok)
+        return True
+    else:
+        log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'" % (err, cmd, process.returncode, stderr))
+        return False
+
+def replace_string(file_name, pattern, subst):
+    """Replace string in a file
+    :type file_name: str
+    :param file_name: Full path to the file where the string is to be replaced
+
+    :type pattern: str
+    :param pattern: String pattern to search for
     
-class Introspection( object ):
-    def check_all( self ):
-        log.debug( "Checking all services..." )
-        self.check_nfs()
-        self.check_zpools()
-
-    def _exec( self, cmd, ok_msg, err_msg ):
-        log.debug( "Executing cmd: '%s'" % cmd )
-        ret_code = subprocess.call( cmd, shell=True )
-        if ret_code == 0:
-            log.debug( ok_msg )
-            return True
-        else:
-            log.error( err_msg )
-            return False
-
-    def _check_srvc( self, stdout_value, srvc ):
-        """ Simple string search for 'srvc' in 'stdout_value' with OK (True)/not OK (False) notification """
-        if srvc in stdout_value:
-            log.debug( "'%s'.....................OK" % srvc )
-            return True
-        else:
-            log.debug( "'%s'................not OK!" % srvc )
-            return False  
-
-    def check_nfs( self ):
-        log.debug( "Checking status of NFS..." )
-        log.debug( "Checking NFS server..." )
-        proc = subprocess.Popen('/usr/bin/svcs nfs/server',
-                       shell=True,
-                       stdout=subprocess.PIPE )
-        stdout_value = proc.communicate()[0]
-        if 'online' in stdout_value:
-            log.debug( "NFS server..............OK" )
-        else:
-            log.debug( "NFS server.........not OK!" )
-
-        log.debug( "Checking directories..." )
-        proc = subprocess.Popen( '/usr/sbin/dfshares', 
-                                 shell=True,
-                                 stdout=subprocess.PIPE )
-        stdout_value = proc.communicate()[0]
-        self._check_srvc( stdout_value, 'galaxyData')
-        self._check_srvc( stdout_value, 'galaxyIndices')
-        self._check_srvc( stdout_value, 'galaxyTools')
-        self._check_srvc( stdout_value, 'opt/sge')
-
-    def _check_zpool( self, zpool_name ):
-        if self._exec('/usr/sbin/zpool list -o name,health %s' % zpool_name, '%s zpool OK' % zpool_name, '%s zpool not OK' % zpool_name ):
-            return True
-        else:
-            return False
-
-#        if not os.path.exists( '/%s' % zpool_dir ):
-#            log.debug( "'/%s' not OK!" % zpool_dir )
-#            return False
-#        
-#        log.debug( "'/%s' OK" % zpool_dir )
-#        return True
-
-    def check_zpools( self ):
-        log.debug( "Checking zpools..." )
-        self._check_zpool('galaxyData')
-        self._check_zpool('galaxyTools')
-        self._check_zpool('galaxyIndices')
-
+    :type subst: str
+    :param subst: String pattern to replace search pattern with 
+    """
+    # Create temp file
+    fh, abs_path = mkstemp()
+    new_file = open(abs_path,'w')
+    old_file = open(file_name)
+    for line in old_file:
+        new_file.write(line.replace(pattern, subst))
+    # Close temp file
+    new_file.close()
+    close(fh)
+    old_file.close()
+    # Remove original file
+    remove(file_name)
+    # Move new file
+    move(abs_path, file_name)
 
 
 class Sleeper( object ):

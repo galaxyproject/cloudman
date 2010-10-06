@@ -3,21 +3,18 @@ Provides factory methods to assemble the CM web application
 """
 
 import logging, atexit
-import os, os.path, sys
+import os, os.path
 
 from inspect import isclass
 
-from paste.request import parse_formvars
-from paste.util import import_string
 from paste import httpexceptions
 from paste.deploy.converters import asbool
 import pkg_resources
 
 log = logging.getLogger( __name__ )
 
-
-import config
 import cm.framework
+from cm.util import misc
 from cm.util.misc import shellVars2Dict
 from cm.app import UniverseApplication
 
@@ -64,9 +61,10 @@ def app_factory( global_conf, **kwargs ):
     return webapp
 
 def cm_authfunc(environ, username, password):
-    svars = shellVars2Dict('userData.txt')
-    if password == svars['PASSWORD']:
-        return True
+    ud = misc.load_yaml_file("userData.yaml")
+    if ud.has_key('password'):
+        if password == ud['password']:
+            return True
     else:
         return False
 
@@ -136,10 +134,11 @@ def wrap_in_middleware( app, global_conf, **local_conf ):
     app = XForwardedHostMiddleware( app )
     log.debug( "Enabling 'x-forwarded-host' middleware" )
     # Paste digest authentication
-    svars = shellVars2Dict('userData.txt')
-    if 'PASSWORD' in svars and svars['PASSWORD'] != '':
-        from paste.auth.basic import AuthBasicHandler
-        app = AuthBasicHandler(app, 'CM Administration', cm_authfunc)
+    ud = misc.load_yaml_file("userData.yaml")
+    if ud.has_key('password'):
+        if ud['password'] != '':
+            from paste.auth.basic import AuthBasicHandler
+            app = AuthBasicHandler(app, 'CM Administration', cm_authfunc)
     return app
 
     

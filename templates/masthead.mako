@@ -18,7 +18,7 @@
           %if GC_url:
 			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
 			  <a target="_blank" href="${GC_url}">What's New</a> | 
-			  <a target="_top" href="${h.url_for( controller='root', action='update_users_GC' )}">Update CloudMan</a>
+			  <a target="_top" href="${h.url_for( controller='root', action='update_users_CM' )}">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
 		  %endif
 		  Info: <a href="${bugs_email}">report bugs</a>
