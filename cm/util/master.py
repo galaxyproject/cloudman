@@ -774,7 +774,7 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
-            return {'id' : 'LOCALTEST', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'TEST_TYPE'}
+            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester'}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley

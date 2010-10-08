@@ -44,6 +44,7 @@ vertical-align: top;
 	        <div id="num_nodes" class="form-row-input">
 	            <input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
 	        </div>
+			<br/>
 	        <label>Type of Instance(s):</label>
 				<div id="instance_type" class="form-row-input">
 		    	<select name="instance_type" id="instance_type">
