@@ -3,7 +3,7 @@ from cm.util import misc
 
 from cm.clouds.ec2 import EC2Interface
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 logging.getLogger('boto').setLevel(logging.INFO)
 
 class CMLogHandler(logging.Handler):
@@ -23,7 +23,6 @@ class UniverseApplication( object ):
     def __init__( self, **kwargs ):
         self.ud = misc.load_yaml_file("userData.yaml")
         # Setup logging
-        console = logging.StreamHandler()
         self.logger = CMLogHandler(self)
         if self.ud.has_key("testflag"):
             self.TESTFLAG = bool(self.ud['testflag'])
@@ -32,7 +31,6 @@ class UniverseApplication( object ):
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
         log.addHandler(self.logger)
-        
         # Read user data, config file, and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()

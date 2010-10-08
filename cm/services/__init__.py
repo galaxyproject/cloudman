@@ -2,7 +2,7 @@
 from cm.util.bunch import Bunch
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 
 service_states = Bunch(

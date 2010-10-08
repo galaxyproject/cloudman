@@ -21,7 +21,7 @@ from paste.response import HeaderDict
 # For FieldStorage
 import cgi
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 class WebApplication( object ):
     """

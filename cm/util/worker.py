@@ -5,7 +5,7 @@ import datetime as dt
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 
 sge_install_template="""
@@ -72,7 +72,6 @@ worker_states = Bunch(
 
 class ConsoleManager( object ):
     def __init__( self, app ):
-        # log.addHandler(app.logger)
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
         self.worker_status = worker_states.WAKE

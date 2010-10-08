@@ -5,7 +5,7 @@ from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
 
 import logging
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 
 class EC2Interface(CloudInterface):

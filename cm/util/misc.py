@@ -10,7 +10,7 @@ from shutil import move
 from os import remove, close
 
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 def load_yaml_file(filename):
     with open(filename) as ud_file:

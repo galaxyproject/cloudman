@@ -2,7 +2,7 @@
 import os, time, logging
 from cm import util
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 class BaseController( object ):
     """Base class for CM webapp application controllers."""

@@ -12,7 +12,7 @@ from cm.services import service_states
 # from cm.services.data.volume import Volume
 # from cm.services.data.filesystem import Filesystem
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 class CM( BaseController ):
     @expose

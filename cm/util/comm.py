@@ -1,7 +1,7 @@
 import amqplib.client_0_8 as amqp
 import logging
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 DEFAULT_HOST = 'localhost:5672'
 
