@@ -114,7 +114,7 @@ class ConsoleManager( object ):
                     if srvc['service'] == 'Galaxy':
                         self.app.manager.services.append(GalaxyService(self.app))
                         self.app.manager.initial_cluster_type = 'Galaxy'
-            misc.run("stop mountall") # Ubuntu 10.04 bug 649591
+            misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
         except Exception, e:
             log.error("Error in filesystem YAML: %s" % e)
             self.manager_started = False
@@ -869,7 +869,7 @@ class ConsoleMonitor( object ):
             if srvc.svc_type=='Filesystem':
                 dvd_arr = []
                 for vol in srvc.volumes:
-                    if vol.static:
+                    if vol.static and srvc.name!='galaxyData':
                         svl.append({'filesystem': srvc.name, 'snap_id': vol.from_snapshot_id, 'size': int(vol.size)})
                     else:
                         dvd_arr.append({'vol_id': str(vol.volume_id), 'size': int(vol.size)})
@@ -905,9 +905,9 @@ class ConsoleMonitor( object ):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
         # If not existent, save tool_data_table_conf.xml to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud') and os.path.exists(os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml')):
-            log.debug("Saving tool_data_table_conf.xml file to cluster bucket '%s' as '%s'" % (self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud'))
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml'))
+        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud') and os.path.exists(os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud')):
+            log.debug("Saving tool_data_table_conf.xml.cloud file to cluster bucket '%s' as '%s'" % (self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud'))
+            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud'))
     
     def __monitor( self ):
         timer = dt.datetime.utcnow()

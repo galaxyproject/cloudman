@@ -249,7 +249,7 @@ def get_volume_size(ec2_conn, vol_id):
     else:
         return 0
 
-def run(cmd, err, ok):
+def run(cmd, err='cmd failed', ok='cmd OK'):
     """ Convenience method for executing a shell command. """
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
