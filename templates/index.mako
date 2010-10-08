@@ -395,16 +395,14 @@ $(document).ready(function() {
     $('#log_container_body').hide();
     $('#log_container_header').click(function() {
         if ($('#log_container_body').is(":hidden")){
+			$('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
 			$('#log_container_header').addClass('clicked');
-            $('#log_container_body').slideDown('fast', function(){
-				$('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
-			});
+            $('#log_container_body').slideDown('fast');
         } else {
+			$('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
             $('#log_container_body').slideUp('fast', function(){
 				$('#log_container_header').removeClass('clicked');
-				$('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
-			});
-            
+			});   
         }
         return false;
     });
