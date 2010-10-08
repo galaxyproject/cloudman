@@ -3,6 +3,7 @@ from cm.clouds import CloudInterface
 
 from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
+from boto.exception import EC2ResponseError, S3ResponseError
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -145,7 +146,13 @@ class EC2Interface(CloudInterface):
         if self.ec2_conn == None:
             try:
                 self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
-                log.debug( 'Got boto EC2 connection.' )
+                # Do a simple query to test if provided credentials are valid
+                try:
+                    self.ec2_conn.get_all_instances()
+                    log.debug( 'Got boto EC2 connection.' )
+                except EC2ResponseError, e:
+                    log.error("Cannot validate provided AWS credentials: %s" % e)
+                    self.ec2_conn = False
             except Exception, e:
                 log.error(e)
         return self.ec2_conn
@@ -157,6 +164,12 @@ class EC2Interface(CloudInterface):
             try:
                 self.s3_conn = S3Connection(self.aws_access_key, self.aws_secret_key)
                 log.debug( 'Got boto S3 connection.' )
+                # try:
+                #     self.s3_conn.get_bucket('test_creds') # Any bucket name will do - just testing the call
+                #     log.debug( 'Got boto S3 connection.' )
+                # except S3ResponseError, e:
+                #     log.error("Cannot validate provided AWS credentials: %s" % e)
+                #     self.s3_conn = False
             except Exception, e:
                 log.error(e)
         return self.s3_conn
