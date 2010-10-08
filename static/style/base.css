@@ -375,9 +375,8 @@ div.status_nodata{
 }
 
 #log_container_header_img {
-	margin-top:-5px;
-    width:22px;
-    height:28px;
+    width:16px;
+    height:16px;
 	border: none;
 	float: right;
 	background:transparent url(/cloud/static/images/plus_minus.png) no-repeat top left;
