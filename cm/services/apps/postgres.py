@@ -31,7 +31,8 @@ class PostgresService( ApplicationService ):
         psql_data_dir = paths.P_PSQL_DIR
         
         # Make sure postgres is owner of its directory before any operations
-        misc.run("%s --recursive postgres:postgres %s" % (paths.P_CHOWN, os.path.split(paths.P_PSQL_DIR)[0]), "Error changing ownership of just created directory", "Successfully set ownership of Postgres data directory")
+        if os.path.exists(os.path.split(paths.P_PSQL_DIR)[0]):
+            misc.run("%s --recursive postgres:postgres %s" % (paths.P_CHOWN, os.path.split(paths.P_PSQL_DIR)[0]), "Error changing ownership of just created directory", "Successfully set ownership of Postgres data directory")
         
         # Check on the status of PostgreSQL server
         self.status()

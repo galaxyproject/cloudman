@@ -52,10 +52,17 @@ class GalaxyService( ApplicationService ):
                     log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
+                os.chown( self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
                     log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' )
+                os.chown( self.galaxy_home + '/tool_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml' ):
+                    log.debug("Did not get Galaxy tool_data_table_conf.xml.cloud file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
+                    log.debug("Trying to retrieve latest one (tool_data_table_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
+                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml' )
+                os.chown( self.galaxy_home + '/tool_data_table_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 
                 # Ensure the environment is setup for running Galaxy
                 # This can also be setup on the tools snapshot and thus avoid these patches
@@ -104,7 +111,7 @@ class GalaxyService( ApplicationService ):
                 # log.debug("\tGalaxy daemon running and the UI is accessible.")
                 self.state = service_states.RUNNING
             except:
-                log.warning("\tGalaxy UI does not seem to be accessible.")
+                log.debug("\tGalaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
         # else:
         #     log.error("\tGalaxy daemon not running.")

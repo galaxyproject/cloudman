@@ -54,7 +54,7 @@ class SGEService( ApplicationService ):
     
     def status(self):
         if self.check_qmaster():
-            if self.check_sge():
+            if self.check_sge() and self.state!=service_states.SHUT_DOWN:
                 self.state = service_states.RUNNING
             else:
                 self.state = service_states.STARTING

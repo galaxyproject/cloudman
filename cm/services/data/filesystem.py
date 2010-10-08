@@ -36,27 +36,30 @@ class Volume(object):
             return volume_status.NONE
         else:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            try:
-                self.volume = ec2_conn.get_all_volumes([self.volume_id])[0]
-            except EC2ResponseError, e:
-                log.error("Cannot retrieve reference to volume '%s'; setting volume id to None. Error: %s" % (self.volume_id, e))
-                self.volume_id = None
-                return volume_status.NONE
+            if ec2_conn:
+                try:
+                    self.volume = ec2_conn.get_all_volumes([self.volume_id])[0]
+                except EC2ResponseError, e:
+                    log.error("Cannot retrieve reference to volume '%s'; setting volume id to None. Error: %s" % (self.volume_id, e))
+                    self.volume_id = None
+                    return volume_status.NONE
                 
-            if self.volume.status == 'creating':
-                return volume_status.CREATING
-            elif self.volume.status == 'available':
-                return volume_status.AVAILABLE
-            elif self.volume.status == 'in-use':
-                if self.volume.attach_data.status == 'attached':
-                    return volume_status.ATTACHED
+                if self.volume.status == 'creating':
+                    return volume_status.CREATING
+                elif self.volume.status == 'available':
+                    return volume_status.AVAILABLE
+                elif self.volume.status == 'in-use':
+                    if self.volume.attach_data.status == 'attached':
+                        return volume_status.ATTACHED
+                    else:
+                        return volume_status.IN_USE
+                elif self.volume.status == 'deleting':
+                    return volume_status.DELETING
                 else:
-                    return volume_status.IN_USE
-            elif self.volume.status == 'deleting':
-                return volume_status.DELETING
-            else:
-                log.debug("Unrecognized volume '%s' status: '%s'" % (self.volume_id, self.volume.status))
-                return self.volume.status
+                    log.debug("Unrecognized volume '%s' status: '%s'" % (self.volume_id, self.volume.status))
+                    return self.volume.status
+            # Connection failed
+            return volume_status.NONE
     
     def get_device(self):
         if self.device is None:
@@ -170,7 +173,7 @@ class Volume(object):
             log.info("Creation of a snapshot for the volume '%s' completed: '%s'" % (self.volume_id, snapshot))
             self.snapshot_progress = None # Reset because of the UI
             self.snapshot_status = None # Reset because of the UI
-            return snapshot.id
+            return str(snapshot.id)
         else:
             log.error("Could not create snapshot from volume '%s'" % self.volume_id)
             return False
@@ -302,6 +305,8 @@ class Filesystem(DataService):
                     else:
                         log.error("Failed to mount device '%s' to mount point '%s'" % (volume.get_device(), self.mount_point))
                         return False
+                if self.name == 'galaxyIndices':
+                    run("ln -s %s /mnt/biodata" % self.mount_point, "Failed to create a symlink for galaxyIndices to biodata", "Successfully  created a symlink for galaxyIndices to biodata")
                 run('/bin/chown -R galaxy:galaxy %s' % self.mount_point, "Failed to change owner of '%s' to 'galaxy:galaxy'" % self.mount_point, "Changed owner of '%s' to 'galaxy'" % self.mount_point)
                 try:
                     mp = self.mount_point.replace('/', '\/') # Escape slashes for sed

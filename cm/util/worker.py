@@ -88,6 +88,7 @@ class ConsoleManager( object ):
         
     def start( self ):
         self.mount_nfs( self.app.ud['master_ip'] )
+        misc.run("stop mountall") # Ubuntu 10.04 bug 649591
     
     def shutdown( self ):
         self.worker_status = worker_states.SHUTTING_DOWN
