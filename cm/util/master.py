@@ -15,7 +15,7 @@ from cm.services.apps.postgres import PostgresService
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, BotoServerError
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 #Master States
 master_states = Bunch( 
@@ -45,7 +45,6 @@ cluster_status = Bunch(
 
 class ConsoleManager( object ):
     def __init__( self, app ):
-        log.addHandler( app.logger )
         log.debug( "Initializing console manager." )
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
@@ -568,6 +567,9 @@ class ConsoleManager( object ):
             fs = Filesystem(self.app, fs_name)
             fs.add_volume(size=pss)
             self.services.append(fs)
+        elif cluster_type == 'SGE':
+            # Nothing to do special?
+            pass
         else:
             log.error("Tried to initialize a cluster but received unknown configuration: '%s'" % cluster_type)
     
@@ -772,6 +774,7 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
+            return {'id' : 'LOCALTEST', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'TEST_TYPE'}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley

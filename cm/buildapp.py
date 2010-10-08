@@ -11,7 +11,7 @@ from paste import httpexceptions
 from paste.deploy.converters import asbool
 import pkg_resources
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 import cm.framework
 from cm.util import misc

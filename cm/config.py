@@ -3,7 +3,7 @@ import sys, os, logging, logging.config, ConfigParser
 # from optparse import OptionParser
 from cm.util import string_as_bool
 
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 def resolve_path( path, root ):
     """If 'path' is relative make absolute by prepending 'root'"""
@@ -77,7 +77,7 @@ def configure_logging( config ):
     config.
     """
     # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
-    format = config.get( "log_format", "[%(levelname)s] %(name)s:%(lineno)d %(asctime)s: %(message)s")
+    format = config.get( "log_format", "[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
     level = logging._levelNames[ config.get( "log_level", "DEBUG" ) ]
     destination = config.get( "log_destination", "stdout" )
     log.info( "Logging at '%s' level to '%s'" % ( level, destination ) )

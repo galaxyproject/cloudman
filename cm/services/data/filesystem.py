@@ -7,7 +7,7 @@ from boto.exception import EC2ResponseError
 from cm.util.bunch import Bunch
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 volume_status = Bunch(
     NONE="does not exist",

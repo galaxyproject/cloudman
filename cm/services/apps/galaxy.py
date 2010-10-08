@@ -7,7 +7,7 @@ from cm.util import paths
 from cm.util import misc
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 
 class GalaxyService( ApplicationService ):

@@ -11,7 +11,7 @@ import logging, logging.config, commands
 from cm.util import misc
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 try:
     DRMAA = __import__("DRMAA")

@@ -6,7 +6,7 @@ from cm.services import service_states
 from cm.util import misc
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 class PostgresService( ApplicationService ):
 

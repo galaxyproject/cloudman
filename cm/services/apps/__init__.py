@@ -3,7 +3,7 @@ from cm.util import paths
 
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger( 'cloudman' )
 
 """
 Placeholder for ApplicationService methods.

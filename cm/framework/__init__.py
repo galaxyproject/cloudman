@@ -21,7 +21,7 @@ import mako.lookup
 import mako.runtime
 
 import logging
-log = logging.getLogger( __name__ )
+log = logging.getLogger( 'cloudman' )
 
 url_for = base.routes.url_for
 

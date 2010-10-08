@@ -230,7 +230,6 @@ vertical-align: top;
     </div>
     <div id="log_container_body">
 	<ul>
-		<li>Log Messages</li>
 	</ul>
     </div>
 </div>
@@ -303,7 +302,7 @@ function update(){
 					$('#scale_down_button').removeClass('ab_disabled');
 					$('#scale_down_button > img').show();
 				}
-		        $('#status-idle').text( data.instance_status.idle );
+				$('#status-idle').text( data.instance_status.idle );
 		        $('#status-available').text( data.instance_status.available );
 		        $('#status-total').text( data.instance_status.requested );
 				$('#du-total').text(data.disk_usage.total);
@@ -324,26 +323,8 @@ function update(){
 		        }
 		        fsdet += "</ul>";
 		        $('#fs_detail').html(fsdet);
-		        $('.fs_det_clicker').click(function(){
-		            if (fs_det_vis == true){
-						clearTimeout(click_timeout);
-		                $('#fs_detail').hide('fast');
-		                fs_det_vis = false;
-		            }
-		            else{
-						$('#fs_detail').show('fast');
-						click_timeout = setTimeout(function(){
-							if (fs_det_vis == true){
-								$('#fs_detail').hide('fast');
-								fs_det_vis = false;
-							}
-							}, 5000);
-						fs_det_vis = true;
-		            }
-		        });
 		        cluster_status = data.cluster_status;
 			}
-	        window.setTimeout(update, 5000);
         });
     $.getJSON('/cloud/log_json',
 		{l_log : last_log},
@@ -366,6 +347,7 @@ function update(){
 			}
 	});
     scrollLog();
+	window.setTimeout(update, 5000);
 }
 
 $(document).ready(function() {
@@ -458,6 +440,23 @@ $(document).ready(function() {
         event.preventDefault();
         hidebox();
         update();
+    });
+    $('.fs_det_clicker').click(function(){
+        if (fs_det_vis == true){
+			clearTimeout(click_timeout);
+            $('#fs_detail').hide('fast');
+            fs_det_vis = false;
+        }
+        else{
+			$('#fs_detail').show('fast');
+			click_timeout = setTimeout(function(){
+				if (fs_det_vis == true){
+					$('#fs_detail').hide('fast');
+					fs_det_vis = false;
+				}
+				}, 5000);
+			fs_det_vis = true;
+        }
     });
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300 } );
