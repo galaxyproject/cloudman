@@ -305,8 +305,8 @@ class Filesystem(DataService):
                     else:
                         log.error("Failed to mount device '%s' to mount point '%s'" % (volume.get_device(), self.mount_point))
                         return False
-                if self.name == 'galaxyIndices':
-                    run("ln -s %s /mnt/biodata" % self.mount_point, "Failed to create a symlink for galaxyIndices to biodata", "Successfully  created a symlink for galaxyIndices to biodata")
+                # if self.name == 'galaxyIndices':
+                #     run("ln -s %s /mnt/biodata" % self.mount_point, "Failed to create a symlink for galaxyIndices to biodata", "Successfully  created a symlink for galaxyIndices to biodata")
                 run('/bin/chown -R galaxy:galaxy %s' % self.mount_point, "Failed to change owner of '%s' to 'galaxy:galaxy'" % self.mount_point, "Changed owner of '%s' to 'galaxy'" % self.mount_point)
                 try:
                     mp = self.mount_point.replace('/', '\/') # Escape slashes for sed
