@@ -221,6 +221,8 @@ class CM( BaseController ):
                                 'disk_usage':{'used':str(self.app.manager.disk_used),
                                                 'total':str(self.app.manager.disk_total),
                                                 'pct':str(self.app.manager.disk_pct)},
+                                'data_status':self.app.manager.get_data_status(),
+                                'app_status':self.app.manager.get_app_status(),
                                 # 'services'  : {'fs' : self.app.manager.fs_status_text(),
                                 #                 'pg' : self.app.manager.pg_status_text(),
                                 #                 'sge' : self.app.manager.sge_status_text(),
