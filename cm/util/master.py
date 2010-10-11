@@ -123,6 +123,31 @@ class ConsoleManager( object ):
         log.info( "Completed initial cluster configuration." )
         return True
     
+    
+    # DBTODO For now this is a quick fix to get a status.  
+    # Define what 'yellow' would be, and don't just count on "Filesystem" being the only data service.
+    def get_data_status(self):
+        fses = self.get_services("Filesystem")
+        if fses != []:
+            for fs in fses:
+                if fs.state == service_states.ERROR:
+                    return "red"
+            return "green"
+        else:
+            return "nodata"
+    
+    def get_app_status(self):
+        count = 0
+        for svc in self.services:   
+            if svc.svc_type != "Filesystem":
+                count += 1
+                if svc.state == service_states.ERROR:
+                    return "red"
+        if count != 0:
+            return "green"
+        else:
+            return "nodata"
+    
     def get_services(self, svc_type):
         svcs = []
         for s in self.services:

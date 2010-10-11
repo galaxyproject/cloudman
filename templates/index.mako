@@ -108,8 +108,8 @@ vertical-align: top;
         <b>Requested</b>: <span id="status-total">0</span>
     </td></tr>
     <tr><td><h4>Service status: </h4></td><td>
-		Applications <div style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
-		Data <div style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+		Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+		Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
     </td></tr>
 
     <tr><td colspan=2></td></tr>
@@ -189,7 +189,7 @@ vertical-align: top;
 			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
 				<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
 				<p>Full Galaxy Cluster. Choose initial storage size</p>
-				<input type="text" name="g_pss" id="g_pss" value="" size="10">
+				<input type="text" name="g_pss" id="g_pss" value="" size="10"><br id='g_pss_vtag'/>
 				</div>
 			</div>
 		</td>
@@ -197,7 +197,7 @@ vertical-align: top;
 			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
 				<input type="radio" name="startup_opt" value="Data">
 				<p>Data volume + SGE. Choose initial storage size</p>
-				<input type="text" name="d_pss" id="d_pss" value="" size="10">
+				<input type="text" name="d_pss" id="d_pss" value="" size="10"><br id='d_pss_vtag'/>
 			</div>
 			</td>
 		<td>
@@ -311,6 +311,8 @@ function update(){
 				$('#snap-progress').text(data.snapshot.progress);
 				$('#snap-status').text(data.snapshot.status);
 				// DBTODO write generic services display
+				$('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+				$('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
 		        // $('#status_svcs').html(
 		        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
 		        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
@@ -463,9 +465,9 @@ $(document).ready(function() {
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300 } );
     number_nodes.add( Validate.Numericality, { minimum: 1 } );
     if (permanent_storage_size == 0) {
-        var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300 } );
+        var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
         permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
-        var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300 } );
+        var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
     }
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
