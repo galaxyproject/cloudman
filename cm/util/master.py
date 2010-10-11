@@ -132,6 +132,9 @@ class ConsoleManager( object ):
             for fs in fses:
                 if fs.state == service_states.ERROR:
                     return "red"
+                elif fs.state == service_states.SHUT_DOWN or \
+                     fs.state == service_states.SHUTTING_DOWN:
+                    return "nodata"
             return "green"
         else:
             return "nodata"
@@ -143,6 +146,9 @@ class ConsoleManager( object ):
                 count += 1
                 if svc.state == service_states.ERROR:
                     return "red"
+                elif svc.state == service_states.SHUT_DOWN or \
+                     svc.state == service_states.SHUTTING_DOWN:
+                    return "nodata"
         if count != 0:
             return "green"
         else:

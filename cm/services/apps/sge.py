@@ -30,7 +30,7 @@ class SGEService( ApplicationService ):
         
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master")
         self.state = service_states.SHUT_DOWN
-
+    
     def clean(self):
         """ Stop SGE and clean up the system as if SGE was never installed. Useful for CloudMan restarts."""
         self.remove()
@@ -52,15 +52,6 @@ class SGEService( ApplicationService ):
                 with open('/etc/bash.bashrc', 'w') as f:
                     f.writelines(lines)
     
-    def status(self):
-        if self.check_qmaster():
-            if self.check_sge() and self.state!=service_states.SHUT_DOWN:
-                self.state = service_states.RUNNING
-            else:
-                self.state = service_states.STARTING
-        elif self.state!=service_states.ERROR and self.state!=service_states.SHUT_DOWN:
-            self.state = service_states.UNSTARTED
-    
     def unpack_sge( self ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to get volumes, but TESTFLAG is set." )
@@ -76,7 +67,8 @@ class SGEService( ApplicationService ):
         # Ensure SGE_ROOT directory is empty (useful for restarts)
         if len(os.listdir(paths.P_SGE_ROOT)) > 0:
             # Check if qmaster is running in that case
-            if self.check_qmaster():
+            self.status()
+            if self.state==service_states.RUNNING:
                 log.info("Found SGE already running; will reconfigure it.")
                 self.stop_sge()
             log.debug("Cleaning '%s' directory." % paths.P_SGE_ROOT)
@@ -273,7 +265,7 @@ class SGEService( ApplicationService ):
             ahl.remove(to_remove)
         elif to_remove is not None:
             log.debug( "Instance's IP '%s' not matched in allhosts list: %s" % ( to_remove, ahl ) )
-
+        
         # Now reasemble and save to file 'filename'
         if len(ahl) > 0:
             new_allhosts = 'group_name @allhosts \n'+'hostlist ' + ' \\\n\t '.join(ahl) + ' \\\n'
@@ -288,13 +280,13 @@ class SGEService( ApplicationService ):
         log.info( "Removing instance '%s' from SGE" % inst.id )
         log.debug("Removing instance '%s' from SGE administrative host list" % inst.id )
         ret_code = subprocess.call( 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -dh %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst.private_ip), shell=True )
-
+        
         inst_ip = inst.get_private_ip()
         log.debug( "Removing instance '%s' with FQDN '%s' from SGE execution host list (including @allhosts)" % ( inst.id, inst_ip) )
         now = datetime.datetime.utcnow()
         ah_file = '/tmp/ah_remove_' + now.strftime("%H_%M_%S")
         self.write_allhosts_file(filename=ah_file, to_remove=inst_ip)
-
+        
         ret_code = subprocess.call( 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), shell=True )
         if ret_code == 0:
             log.info( "Successfully updated @allhosts to remove '%s'" % inst.id )
@@ -349,12 +341,25 @@ class SGEService( ApplicationService ):
             log.error("\tSGE qmaster daemon not running.")
             return False
     
-    def check_qmaster(self):
-        # log.debug("Checking SGE qmaster")
+    def status(self):
         if self._check_daemon('sge'):
-            # log.debug("SGE qmaster is running.")
-            return True
+            if self.check_sge():
+                self.state = service_states.RUNNING
+        elif self.state==service_states.SHUTTING_DOWN or \
+             self.state==service_states.SHUT_DOWN or \
+             self.state==service_states.UNSTARTED or \
+             self.state==service_states.WAITING_FOR_USER_ACTION or \
+             self.state==service_states.STARTING:
+            pass
         else:
-            log.debug("SGE qmaster is not running.")
-            return False
+            log.error("SGE error; SGE not runnnig")
+            self.state = service_states.ERROR
     
+    # def check_qmaster(self):
+    #     # log.debug("Checking SGE qmaster")
+    #     if self._check_daemon('sge'):
+    #         # log.debug("SGE qmaster is running.")
+    #         return True
+    #     else:
+    #         log.debug("SGE qmaster is not running.")
+    #         return False

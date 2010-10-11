@@ -8,7 +8,7 @@ log = logging.getLogger( 'cloudman' )
 service_states = Bunch(
     UNSTARTED="Unstarted",
     WAITING_FOR_USER_ACTION="Waiting for user action",
-    STARTING="Initial startup",
+    STARTING="Starting",
     RUNNING = "Running",
     SHUTTING_DOWN = "Shutting down",
     SHUT_DOWN="Shut down",
@@ -25,7 +25,7 @@ class Service( object):
         self.reqs = {}
 
     def add (self):
-        log.info("Trying to add service '%s'" % self.svc_type)
+        log.debug("Trying to add service '%s'" % self.svc_type)
         self.state = service_states.STARTING
         flag = True # indicate if current service prerequisites are satisfied
         for svc_type, svc_name in self.reqs.iteritems():

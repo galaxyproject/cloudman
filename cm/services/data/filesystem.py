@@ -355,7 +355,12 @@ class Filesystem(DataService):
         if self.dirty:
             if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", "As part of filesystem '%s-%s' update, successfully restarted NFS server" % (self.svc_type, self.name)):
                 self.dirty = False
-        if self.state != service_states.UNSTARTED and self.state != service_states.SHUTTING_DOWN and self.state != service_states.SHUT_DOWN and self.mount_point is not None:
+        if self.state==service_states.SHUTTING_DOWN or \
+           self.state==service_states.SHUT_DOWN or \
+           self.state==service_states.UNSTARTED or \
+           self.state==service_states.WAITING_FOR_USER_ACTION:
+            pass
+        elif self.mount_point is not None:
             mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f2" % self.mount_point)
             if mnt_location[0] == 0:
                 if mnt_location[1] == self.mount_point:
@@ -367,7 +372,7 @@ class Filesystem(DataService):
                 log.error("File system named '%s' is not mounted. Error code %s" % (self.name, mnt_location[0]))
                 self.state = service_states.ERROR
         else:
-            log.debug("Not checking filesystem '%s' status because of it's state (%s), unavailable mount point (%s), or because it's been shut down" % (self.name, self.state, self.mount_point))
+            log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" % (self.name, self.mount_point, self.state))
     
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
         self.volumes.append(Volume(self.app, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))

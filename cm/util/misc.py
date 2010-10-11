@@ -127,7 +127,7 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
         k = Key( b, remote_filename )
         try:
             k.get_contents_to_filename( local_file )
-            log.info( "Successfully retrieved file '%s' from bucket '%s' to '%s'." \
+            log.info( "Retrieved file '%s' from bucket '%s' to '%s'." \
                          % (remote_filename, bucket_name, local_file))
         except S3ResponseError, e:
             log.error( "Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
@@ -155,7 +155,7 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
 		log.debug( "Attempting to save file '%s' to bucket '%s'..." % (remote_filename, bucket_name))
 		try:
 		    k.set_contents_from_filename( local_file )
-		    log.info( "Successfully saved file '%s' to bucket '%s'." \
+		    log.info( "Saved file '%s' to bucket '%s'." \
 		                 % ( remote_filename, bucket_name ) )
 		    # Store some metadata (key-value pairs) about the contents of the file being uploaded
 		    k.set_metadata('date_uploaded', dt.datetime.utcnow())

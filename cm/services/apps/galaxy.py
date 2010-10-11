@@ -116,7 +116,13 @@ class GalaxyService( ApplicationService ):
             except:
                 log.debug("\tGalaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
-        # else:
-        #     log.error("\tGalaxy daemon not running.")
-        #     self.state = service_states.SHUT_DOWN
+        elif self.state==service_states.SHUTTING_DOWN or \
+             self.state==service_states.SHUT_DOWN or \
+             self.state==service_states.UNSTARTED or \
+             self.state==service_states.WAITING_FOR_USER_ACTION or \
+             self.state==service_states.STARTING:
+            pass
+        else:
+            log.error("\tGalaxy daemon not running.")
+            self.state = service_states.ERROR
     
