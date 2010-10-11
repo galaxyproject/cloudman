@@ -42,7 +42,8 @@ vertical-align: top;
 	        <div class="form-row">
 	        <label>Number of instances to start:</label>
 	        <div id="num_nodes" class="form-row-input">
-	            <input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
+	            <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="0" size="10">
+				<div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
 	        </div>
 			<br/>
 	        <label>Type of Instance(s):</label>
@@ -189,7 +190,8 @@ vertical-align: top;
 			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
 				<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
 				<p>Full Galaxy Cluster. Choose initial storage size</p>
-				<input type="text" name="g_pss" id="g_pss" value="" size="10"><br id='g_pss_vtag'/>
+				<input type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="10">
+				<div class="LV_msgbox"><span id="g_pss_vtag"></span></div>
 				</div>
 			</div>
 		</td>
@@ -197,7 +199,8 @@ vertical-align: top;
 			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
 				<input type="radio" name="startup_opt" value="Data">
 				<p>Data volume + SGE. Choose initial storage size</p>
-				<input type="text" name="d_pss" id="d_pss" value="" size="10"><br id='d_pss_vtag'/>
+				<input type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="10">
+				<div class="LV_msgbox"><span id="d_pss_vtag"></span></div>
 			</div>
 			</td>
 		<td>
@@ -462,7 +465,7 @@ $(document).ready(function() {
         }
     });
     // Form validation
-    var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300 } );
+    var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1 } );
     if (permanent_storage_size == 0) {
         var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );

@@ -880,9 +880,18 @@ div.volume_expand_popup{
 .LV_valid {
     color:#DDDDDD;
 }
-	
+
+.LV_msgbox{
+    display:block;
+    height:1em;
+}
+
 .LV_invalid {
     color:#CC0000;
+}
+
+.LV_field{
+    margin:2px;
 }
 
 .LV_valid_field,
@@ -898,5 +907,5 @@ div.volume_expand_popup{
     input.LV_invalid_field:active,
     textarea.LV_invalid_field:hover, 
     textarea.LV_invalid_field:active {
-    border: 1px solid #CC0000;
+/*    border: 1px solid #CC0000;*/
 }
