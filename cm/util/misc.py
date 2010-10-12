@@ -180,7 +180,6 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     found, the method returns None.    
     """
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
-
     b = None
     for i in range(0, 5):
 		try:
