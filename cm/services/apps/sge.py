@@ -316,50 +316,37 @@ class SGEService( ApplicationService ):
         :return: True if the daemon is running and a sample job can be run,
                  False otherwise.
         """
-        if self._check_daemon('sge'):
-            qstat_out = ''
-            qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
-                . %s/default/common/settings.sh; \
-                %s/bin/lx24-amd64/qstat -f | grep all.q"' 
-                % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT))
-            qstat_out = qstat_out.split('\n')
-            cleaned_qstat_out = []
-            for line in qstat_out:
-                if line.startswith('all.q'):
-                    cleaned_qstat_out.append(line)
-            log.debug("qstat: %s" % cleaned_qstat_out)
-            if len(cleaned_qstat_out) > 0: #i.e., at least 1 exec host exists
-                # At least 1 exec host exists, assume it will accept jobs
-                return True
-            elif self.app.manager.get_num_available_workers() == 0:
-                # Daemon running but no ready worker instances yet so assume all OK
-                return True
-            else:
-                log.warning("\tNo machines available to test SGE (qstat: %s)." % cleaned_qstat_out)
-                return False
+        qstat_out = ''
+        qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
+            . %s/default/common/settings.sh; \
+            %s/bin/lx24-amd64/qstat -f | grep all.q"' 
+            % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT))
+        qstat_out = qstat_out.split('\n')
+        cleaned_qstat_out = []
+        for line in qstat_out:
+            if line.startswith('all.q'):
+                cleaned_qstat_out.append(line)
+        log.debug("qstat: %s" % cleaned_qstat_out)
+        if len(cleaned_qstat_out) > 0: #i.e., at least 1 exec host exists
+            # At least 1 exec host exists, assume it will accept jobs
+            return True
+        elif self.app.manager.get_num_available_workers() == 0:
+            # Daemon running but no ready worker instances yet so assume all OK
+            return True
         else:
-            log.error("\tSGE qmaster daemon not running.")
+            log.warning("\tNo machines available to test SGE (qstat: %s)." % cleaned_qstat_out)
             return False
     
     def status(self):
-        if self._check_daemon('sge'):
+        if self.state==service_states.SHUTTING_DOWN or \
+           self.state==service_states.SHUT_DOWN or \
+           self.state==service_states.UNSTARTED or \
+           self.state==service_states.WAITING_FOR_USER_ACTION:
+            pass
+        elif self._check_daemon('sge'):
             if self.check_sge():
                 self.state = service_states.RUNNING
-        elif self.state==service_states.SHUTTING_DOWN or \
-             self.state==service_states.SHUT_DOWN or \
-             self.state==service_states.UNSTARTED or \
-             self.state==service_states.WAITING_FOR_USER_ACTION or \
-             self.state==service_states.STARTING:
-            pass
-        else:
+        elif self.state!=service_states.STARTING:
             log.error("SGE error; SGE not runnnig")
             self.state = service_states.ERROR
     
-    # def check_qmaster(self):
-    #     # log.debug("Checking SGE qmaster")
-    #     if self._check_daemon('sge'):
-    #         # log.debug("SGE qmaster is running.")
-    #         return True
-    #     else:
-    #         log.debug("SGE qmaster is not running.")
-    #         return False

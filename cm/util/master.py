@@ -450,7 +450,7 @@ class ConsoleManager( object ):
                      # log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
                      if w_instance.get_private_ip() is not None:
                          if w_instance.get_private_ip().lower().startswith( str(idle_instance_dn).lower() ) is True:
-                            log.debug( "Marking instance '%s' with FQDN '%s' as idle." % ( w_instance.id, idle_instance_dn ) )
+                            # log.debug( "Marking instance '%s' with FQDN '%s' as idle." % ( w_instance.id, idle_instance_dn ) )
                             idle_instances.append( w_instance )
         return idle_instances
     
@@ -594,7 +594,7 @@ class ConsoleManager( object ):
             log.info("Initializing a '%s' cluster." % cluster_type)
             # Add required services:
             # User data - add a new file system for user data of size 'pss'                    
-            fs_name = 'userData'
+            fs_name = 'galaxyData'
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name)
             fs.add_volume(size=pss)
@@ -652,8 +652,9 @@ class ConsoleManager( object ):
         s3_conn = self.app.cloud_interface.get_s3_connection()
         user_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision')
         default_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_default'], self.app.config.cloudman_source_file_name, 'revision')
+        log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
         if user_CM_rev and default_CM_rev:
-            log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
+            # log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
             if default_CM_rev > user_CM_rev:
                 return True
         return False
@@ -893,28 +894,31 @@ class ConsoleMonitor( object ):
         seen services in the master. 
         In addition, local Galaxy configuration files (universe_wsgi.ini and tool_conf.xml),
         if they do not exist in the cluster bucket, are saved to bucket."""
-        cc = {}
-        svl = [] # static volume list
-        dvd = {} # data volume dict
-        for srvc in self.app.manager.services:
-            if srvc.svc_type=='Filesystem':
-                dvd_arr = []
-                for vol in srvc.volumes:
-                    if vol.static and srvc.name!='galaxyData':
-                        svl.append({'filesystem': srvc.name, 'snap_id': vol.from_snapshot_id, 'size': int(vol.size)})
-                    else:
-                        dvd_arr.append({'vol_id': str(vol.volume_id), 'size': int(vol.size)})
-                if dvd_arr:
-                    dvd[srvc.name] = dvd_arr
-            else:
-                if cc.has_key('services'):
-                    cc['services'].append({'service': srvc.svc_type})
+        try:
+            cc = {}
+            svl = [] # static volume list
+            dvd = {} # data volume dict
+            for srvc in self.app.manager.services:
+                if srvc.svc_type=='Filesystem':
+                    dvd_arr = []
+                    for vol in srvc.volumes:
+                        if vol.static and srvc.name!='galaxyData':
+                            svl.append({'filesystem': srvc.name, 'snap_id': vol.from_snapshot_id, 'size': int(vol.size)})
+                        else:
+                            dvd_arr.append({'vol_id': str(vol.volume_id), 'size': int(vol.size)})
+                    if dvd_arr:
+                        dvd[srvc.name] = dvd_arr
                 else:
-                    cc['services'] = [{'service':srvc.svc_type}]
-        if svl: cc['static_filesystems'] = svl
-        if dvd: cc['data_filesystems'] = dvd
-        cc_file = 'cm_cluster_config.yaml'
-        misc.dump_yaml_to_file(cc, cc_file)
+                    if cc.has_key('services'):
+                        cc['services'].append({'service': srvc.svc_type})
+                    else:
+                        cc['services'] = [{'service':srvc.svc_type}]
+            if svl: cc['static_filesystems'] = svl
+            if dvd: cc['data_filesystems'] = dvd
+            cc_file = 'cm_cluster_config.yaml'
+            misc.dump_yaml_to_file(cc, cc_file)
+        except Exception, e:
+            log.error("Problem creating cluster configuration file: '%s'" % e)
         s3_conn = self.app.cloud_interface.get_s3_connection()
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
@@ -932,6 +936,7 @@ class ConsoleMonitor( object ):
             log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
         # If not existent, save CloudMan source to cluster's bucket
+        # TODO: Save file's metadata (i.e., revision) to copied file for versioning
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
