@@ -155,7 +155,7 @@ function renderGraph(){
         return;
     }
 	ctx.clearRect(0, 0, c_width, c_height);
-	if (instances.length < 20){
+	if (instances.length <= 20){
 		var q = 0;
 		for ( i = 0 ; i < n_height; i++){
 			for ( j = 0; j < n_width; j++){

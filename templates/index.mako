@@ -473,6 +473,7 @@ $(document).ready(function() {
         var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
     }
+
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
 	
