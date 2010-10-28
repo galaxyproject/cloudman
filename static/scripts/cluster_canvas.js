@@ -19,13 +19,17 @@
 
 COLORING_ARR = ['red', 'green', 'nodata']
 
+var cluster_view_tooltip_base = "";
+
+var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Running</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
+
+// var cluster_view_tooltip_base = "<ul><li>Green- Running</li><li>Blue- Pending</li><li>Blue- Pending</li><li>Red- Error</li></ul>";
 var TESTING = false;
-// Fake data to view.
+var instances = Array();
 if (TESTING == true){
-    //            0   1   2   3     4          5              6         7  8  9 10 11 12 13
-var instances = [
+    instances = [
                 {'id' : 'instance-1', 
-                'ld' : '0.38 0.60 0.80',
+                'ld' : '0 0 0',
                 'time_in_state' : 2, 
                 'nfs_data' : 0, 
                 'nfs_tools' : 0, 
@@ -79,7 +83,18 @@ var instances = [
                  'sge_started' : 0, 
                  'worker_status' : 'Starting',
                  'instance_state' : 'running'},
-                {'id' : 'instance-6', 
+                 {'id' : 'instance-5', 
+                  'ld' : 0,
+                  'time_in_state' : 2, 
+                  'nfs_data' : 0, 
+                  'nfs_tools' : 0, 
+                  'nfs_indices' : 0, 
+                  'nfs_sge' : 0, 
+                  'get_cert' : 0, 
+                  'sge_started' : 0, 
+                  'worker_status' : 'Pending',
+                  'instance_state' : 'pending'},
+                  {'id' : 'instance-1', 
                   'ld' : '0.38 0.20 0.50',
                   'time_in_state' : 2, 
                   'nfs_data' : 0, 
@@ -89,10 +104,64 @@ var instances = [
                   'get_cert' : 0, 
                   'sge_started' : 0, 
                   'worker_status' : 'Starting',
-                  'instance_state' : 'running'}
+                  'instance_state' : 'running'},
+                  {'id' : 'instance-2', 
+                  'ld' : '0.38 0.20 0.50',
+                  'time_in_state' : 2, 
+                  'nfs_data' : 0, 
+                  'nfs_tools' : 0, 
+                  'nfs_indices' : 0, 
+                  'nfs_sge' : 0, 
+                  'get_cert' : 0, 
+                  'sge_started' : 0, 
+                  'worker_status' : 'Starting',
+                  'instance_state' : 'running'},
+                  {'id' : 'instance-3', 
+                  'ld' : '0',
+                  'time_in_state' : '2123s', 
+                  'nfs_data' : 1, 
+                  'nfs_tools' : 1, 
+                  'nfs_indices' : 1, 
+                  'nfs_sge' : 1, 
+                  'get_cert' : -1, 
+                  'sge_started' : 1, 
+                  'worker_status' : 'Error',
+                  'instance_state' : 'running'},
+                  {'id' : 'instance-4', 
+                  'ld' : 0,
+                  'time_in_state' : 0, 
+                  'nfs_data' : 0, 
+                  'nfs_tools' : 0, 
+                  'nfs_indices' : 0, 
+                  'nfs_sge' : 0, 
+                  'get_cert' : 0, 
+                  'sge_started' : 0, 
+                  'worker_status' : 'Pending',
+                  'instance_state' : 'pending'},
+
+                   {'id' : 'instance-6', 
+                     'ld' : '0.38 0.20 0.50',
+                     'time_in_state' : 2, 
+                     'nfs_data' : 0, 
+                     'nfs_tools' : 0, 
+                     'nfs_indices' : 0, 
+                     'nfs_sge' : 0, 
+                     'get_cert' : 0, 
+                     'sge_started' : 0, 
+                     'worker_status' : 'Error',
+                     'instance_state' : 'running'},
+                  {'id' : 'instance-6', 
+                    'ld' : '0.38 0.20 0.50',
+                    'time_in_state' : 2, 
+                    'nfs_data' : 0, 
+                    'nfs_tools' : 0, 
+                    'nfs_indices' : 0, 
+                    'nfs_sge' : 0, 
+                    'get_cert' : 0, 
+                    'sge_started' : 0, 
+                    'worker_status' : 'Error',
+                    'instance_state' : 'running'}
                 ];
-}else{
-    var instances = Array();
 }
 
 var selected_instance = -1;
@@ -280,7 +349,7 @@ function refreshTip(){
 	    }
         $('#cluster_view_tooltip').html(i_str);
     }else{
-        $('#cluster_view_tooltip').html('');
+        $('#cluster_view_tooltip').html(cluster_view_tooltip_base);
     }
 }
 
@@ -294,7 +363,7 @@ $('#cluster_canvas').click(function(eventObj){
 			c_y <= y_offset + instances[i].b_ydy){
 			    if (i == selected_instance){
                     selected_instance = -1;
-                   $('#cluster_view_tooltip').html("");
+                   $('#cluster_view_tooltip').html(cluster_view_tooltip_base);
 			    }
 			    else{
 			        selected_instance = i;

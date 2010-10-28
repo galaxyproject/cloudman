@@ -504,7 +504,8 @@ class ConsoleManager( object ):
         worker_ud = {}
         worker_ud['access_key'] = self.app.ud['access_key']
         worker_ud['secret_key'] = self.app.ud['secret_key']
-        worker_ud['password'] = self.app.ud['password']
+        if self.app.ud.has_key('password'):
+            worker_ud['password'] = self.app.ud['password']
         worker_ud['cluster_name'] = self.app.ud['cluster_name']
         worker_ud['role'] = 'worker'
         worker_ud['master_ip'] = self.app.cloud_interface.get_self_private_ip()

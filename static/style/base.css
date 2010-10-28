@@ -279,6 +279,18 @@ a.boxclose{
 
 #cluster_view_tooltip li{
     width:105px;
+    list-style-type:none;
+}
+
+#cluster_view_tooltip .legendrow{
+    width:105px;
+    height:20px;
+    vertical-align:center;
+    line-height:28px;
+}
+#cluster_view_tooltip .legendrow img{
+    float:left;
+    margin:4px;
 }
 
 #cluster_view_tooltip div{
