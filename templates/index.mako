@@ -14,7 +14,6 @@ vertical-align: top;
 	Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
 %endif
 
-
 <div>
 </div>
 </div>
@@ -26,10 +25,10 @@ vertical-align: top;
 				<a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
 			</li>
 			<li style='display:inline;width:150px;'>
-	        	<a class="action-button" original-title="Add Instances..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
+	        	<a class="action-button" original-title="Add Nodes..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
 			</li>
 			<li style='display:inline;width:150px;'>
-	        	<a class="action-button" original-title="Remove Instances..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
+	        	<a class="action-button" original-title="Remove Nodes..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
 			</li>
 			<li style='display:inline;width:150px;'>
 				<a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
@@ -37,52 +36,52 @@ vertical-align: top;
 		</ul>
 
 		<div id='cluster_scale_up_popup' class='cluster_scale_popup'>
-		<h4>Add Instances</h4>
+		<h4>Add Nodes</h4>
 		<form id="add_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
 	        <div class="form-row">
-	        <label>Number of instances to start:</label>
+	        <label>Number of nodes to start:</label>
 	        <div id="num_nodes" class="form-row-input">
 	            <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="0" size="10">
 				<div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
 	        </div>
 			<br/>
-	        <label>Type of Instance(s):</label>
+	        <label>Type of Nodes(s):</label>
 				<div id="instance_type" class="form-row-input">
 		    	<select name="instance_type" id="instance_type">
 					<option value=''>Same as Master</option>
 					<option value='t1.micro'>Micro</option>
 					<option value='m1.large'>Large</option>
 					<option value='m1.xlarge'>Extra Large</option>
-					<option value='m2.xlarge'>High-Memory Extra Large Instance</option>
-					<option value='m2.2xlarge'>High-Memory Double Extra Large Instance</option>
-					<option value='m2.4xlarge'>High-Memory Quadruple Extra Large Instance</option>
-##					<option value='c1.medium'>High-CPU Medium Instance</option>
-					<option value='c1.xlarge'>High-CPU Extra Large Instance</option>
+					<option value='m2.xlarge'>High-Memory Extra Large</option>
+					<option value='m2.2xlarge'>High-Memory Double Extra Large</option>
+					<option value='m2.4xlarge'>High-Memory Quadruple Extra Large</option>
+##					<option value='c1.medium'>High-CPU Medium</option>
+					<option value='c1.xlarge'>High-CPU Extra Large</option>
 				</select>
 			</div>
-	        <div class="form-row"><input type="submit" value="Start Additional Instances"></div>
+	        <div class="form-row"><input type="submit" value="Start Additional Nodes"></div>
 	        </div>
 	    </form>
 		</div>
 		<div id='cluster_scale_down_popup' class='cluster_scale_popup'>
-	    <h4>Remove Instances</h4>
+	    <h4>Remove Nodes</h4>
 	    <form id="remove_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
 	        <div class="form-row">
 	        <div id="num_nodes" class="form-row-input">
-	            <label>Number of instances to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
+	            <label>Number of nodes to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
 	        </div>
 	        <div id="num_nodes" class="form-row-input">
 				&nbsp;
 	        </div>
 	        <div id="force_termination" class="form-row-input">
-	            <label>Force Termination of non-idle instances?</label>
+	            <label>Force Termination of non-idle nodes?</label>
 				Yes<input type="radio" name="force_termination" id="force_termination" value="True">
 				No<input type="radio" name="force_termination" id="force_termination" value="False"  checked="True">
 	        </div>
 	        <div id="num_nodes" class="form-row-input">
 				&nbsp;
 	        </div>
-	        <div class="form-row"><input type="submit" value="Remove Existing Instances"></div>
+	        <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
 	        </div>
 	    </form>
 		</div>
@@ -204,9 +203,6 @@ vertical-align: top;
 			<p><input type="radio" name="startup_opt" value="Galaxy" checked='true'>Start a full Galaxy Cluster. Specify initial storage size (in Gigabytes)</p>
 			<input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
 		</div>
-
-		<div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
-
 		<div id='extra_startup_options'>
 			<div class="form-row">
 				<p><input type="radio" name="startup_opt" value="Data">Data volume and SGE only. Specify initial storage size (in Gigabytes)</p>
@@ -217,6 +213,7 @@ vertical-align: top;
 				<p><input type="radio" name="startup_opt" value="SGE">SGE Only. No persistent storage created.</p>
 			</div>
 		</div>
+		<div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
 		<br/>
 		<div class="form-row" style="text-align:center;">
 			<input type="submit" value="Start Cluster"/>
@@ -243,15 +240,20 @@ vertical-align: top;
 	</ul>
     </div>
 </div>
-<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
-<script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
+
 <script type="text/javascript">
 
-var instances = {};
+var instances = Array();
 var cluster_status = "OFF";
 var fs_det_vis = false;
 var last_log = 0;
 var click_timeout = null;
+</script>
+
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
+<script type="text/javascript">
+
 
 function fixForms(){
     $('form').submit( function(event){
@@ -397,15 +399,15 @@ $(document).ready(function() {
 		hidebox();
 	});
 	$('#toggle_extra_startup_options').click(function(){
-		$('#toggle_extra_startup_options_cont').hide();
-		$('#extra_startup_options').show();
-		// if ($('#extra_startup_options').is(":visible")){
-		// 	$('#extra_startup_options').hide();
-		// 	$('#toggle_extra_startup_options').text('Show more startup options')
-		// }else{
-		// 	$('#extra_startup_options').show();
-		// 	$('#toggle_extra_startup_options').text("Hide extra options");
-		// }
+		// $('#toggle_extra_startup_options_cont').hide();
+		// $('#extra_startup_options').show();
+		if ($('#extra_startup_options').is(":visible")){
+			$('#extra_startup_options').hide();
+			$('#toggle_extra_startup_options').text('Show more startup options')
+		}else{
+			$('#extra_startup_options').show();
+			$('#toggle_extra_startup_options').text("Hide extra options");
+		}
 	});
 	$('#popupoverlay').click(function(){
 		$('.cluster_scale_popup').hide();
@@ -495,7 +497,7 @@ $(document).ready(function() {
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
 	
-    if (initial_cluster_type == 'None') {
+	    if (initial_cluster_type == 'None') {
 		// Present the user with the dialog.
 		toggleVolDialog();
 	}
