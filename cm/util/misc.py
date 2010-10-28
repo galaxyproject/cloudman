@@ -130,12 +130,11 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
             log.info( "Retrieved file '%s' from bucket '%s' to '%s'." \
                          % (remote_filename, bucket_name, local_file))
         except S3ResponseError, e:
-            log.error( "Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
+            log.debug( "Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
             return False
     else:
       log.debug("Bucket '%s' does not exist, did not get remote file '%s'" % (bucket_name, remote_filename))
       return False
-      
     return True
 
 def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):

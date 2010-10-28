@@ -6,12 +6,12 @@ vertical-align: top;
 }
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
-    <h2>Galaxy CloudMan Console</h2>
+    <h2>Galaxy Cloudman Console</h2>
 <div>
 %if initial_cluster_type is None:
-	Welcome to the Galaxy Cloud Manager.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
+	Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
 %else:
-	Welcome to the Galaxy Cloud Console.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
+	Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
 %endif
 
 
@@ -26,10 +26,10 @@ vertical-align: top;
 				<a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
 			</li>
 			<li style='display:inline;width:150px;'>
-	        	<a class="action-button" original-title="Add Instances..." id="scale_up_button">Add instances <img src="/cloud/static/images/downarrow.png"></a>
+	        	<a class="action-button" original-title="Add Instances..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
 			</li>
 			<li style='display:inline;width:150px;'>
-	        	<a class="action-button" original-title="Remove Instances..." id="scale_down_button">Remove instances <img src="/cloud/static/images/downarrow.png"></a>
+	        	<a class="action-button" original-title="Remove Instances..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
 			</li>
 			<li style='display:inline;width:150px;'>
 				<a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
