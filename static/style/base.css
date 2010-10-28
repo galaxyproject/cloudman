@@ -66,6 +66,10 @@ div.form-row-input > input{max-width:300px;}
 	background-position: left bottom;
 }
 
+#extra_startup_options{
+    display:none;
+}
+
 /*
 #scale_up_button{
     background: url(/cloud/static/images/plus_large.png) no-repeat;
@@ -878,7 +882,7 @@ div.volume_expand_popup{
 }
 
 .LV_valid {
-    color:#DDDDDD;
+    color:#66BB67;
 }
 
 .LV_msgbox{
@@ -909,3 +913,4 @@ div.volume_expand_popup{
     textarea.LV_invalid_field:active {
 /*    border: 1px solid #CC0000;*/
 }
+
