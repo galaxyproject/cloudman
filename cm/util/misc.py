@@ -146,7 +146,7 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
 			b = conn.get_bucket( bucket_name )
 			break
 		except S3ResponseError, e: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
+			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 	    	
     if b is not None:
@@ -186,7 +186,7 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
 			b = conn.get_bucket( bucket_name )
 			break
 		except S3ResponseError: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
+			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 
     if b is not None:
@@ -209,7 +209,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
 			b = conn.get_bucket( bucket_name )
 			break
 		except S3ResponseError, e: 
-			log.error ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
+			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
 			time.sleep(2)
 
     if b is not None:
@@ -222,7 +222,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
                 k.copy(bucket_name, remote_filename, metadata={metadata_key:metadata_value}, preserve_acl=True)
                 return True
             except Exception, e:
-                log.error("Could not set metadata for file '%s' in bucket '%s': %e" % (remote_filename, bucket_name, e))
+                log.debug("Could not set metadata for file '%s' in bucket '%s': %e" % (remote_filename, bucket_name, e))
     return False
 
 def check_process_running(proc_in):

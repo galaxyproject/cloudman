@@ -162,54 +162,61 @@ vertical-align: top;
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
-	<h2>Initial Server Configuration</h2>
-
-
-##	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='create_initial_data_vol')}" method="post">
-##		<div class="form-row">
-##		Please choose an initial sever configuration. Appropriate services will created for this cluster based on the role selected.
-##		</div>
-##		<div class="form-row">
-##			<label>Permanent storage size (1-1000GB):</label>
-##			<div id="permanent_storage_size" class="form-row-input">
-##				<input type="text" name="pss" id="pss" value="" size="10">
-##			</div>
-##			<div class="form-row">
-##				<input type="submit" value="Create Data Volume"/>
-##			</div>
-##		</div>
-##	</form>
-
+	<h2>Initial Cluster Configuration</h2>
 	<div class="form-row">
-	Please choose an initial sever configuration. Appropriate services will created for this cluster based on the role selected.
+		<p>Welcome to Galaxy Cloudman.  This application will allow you to manage this cluster and the services provided within. To get started, choose the type of cluster you'd like to work with and specify the size of your persistent data storage, if any.</p>
 	</div>
-	<div class="form-row">
-		<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
-		<table><tr>
-		<td>
-			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-				<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
-				<p>Full Galaxy Cluster. Choose initial storage size</p>
-				<input type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="10">
-				<div class="LV_msgbox"><span id="g_pss_vtag"></span></div>
-				</div>
+	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
+
+<!--
+<table><tr>
+<td>
+	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+		<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
+		<p>Full Galaxy Cluster. Choose initial storage size</p>
+		<input type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="10">
+		<div class="LV_msgbox"><span id="g_pss_vtag"></span></div>
+		</div>
+	</div>
+</td>
+</tr></table>
+</div>
+<a id='toggle_extra_startup_options' href="#">Show more startup options</a>
+<div id='extra_startup_options'>
+<table><tr>
+<td>
+	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+		<input type="radio" name="startup_opt" value="Data">
+		<p>Data volume + SGE. Choose initial storage size</p>
+		<input type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="10">
+		<div class="LV_msgbox"><span id="d_pss_vtag"></span></div>
+	</div>
+	</td>
+<td>
+	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
+		<input type="radio" name="startup_opt" value="SGE">
+		<p>SGE Only. No persistent storage created.</p>
+	</div>
+</td>
+<tr/></table>
+-->
+		<div class="form-row">
+			<p><input type="radio" name="startup_opt" value="Galaxy" checked='true'>Start a full Galaxy Cluster. Specify initial storage size (in Gigabytes)</p>
+			<input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+		</div>
+
+		<div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
+
+		<div id='extra_startup_options'>
+			<div class="form-row">
+				<p><input type="radio" name="startup_opt" value="Data">Data volume and SGE only. Specify initial storage size (in Gigabytes)</p>
+				<input style="margin-left:20px"  type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
 			</div>
-		</td>
-		<td>
-			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-				<input type="radio" name="startup_opt" value="Data">
-				<p>Data volume + SGE. Choose initial storage size</p>
-				<input type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="10">
-				<div class="LV_msgbox"><span id="d_pss_vtag"></span></div>
+			
+			<div class="form-row">
+				<p><input type="radio" name="startup_opt" value="SGE">SGE Only. No persistent storage created.</p>
 			</div>
-			</td>
-		<td>
-			<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-				<input type="radio" name="startup_opt" value="SGE">
-				<p>SGE Only. No persistent storage created.</p>
-			</div>
-		</td>
-		<tr/></table>
+		</div>
 		<br/>
 		<div class="form-row" style="text-align:center;">
 			<input type="submit" value="Start Cluster"/>
@@ -388,7 +395,18 @@ $(document).ready(function() {
     });
 	$('#overlay').click(function(){
 		hidebox();
-	})
+	});
+	$('#toggle_extra_startup_options').click(function(){
+		$('#toggle_extra_startup_options_cont').hide();
+		$('#extra_startup_options').show();
+		// if ($('#extra_startup_options').is(":visible")){
+		// 	$('#extra_startup_options').hide();
+		// 	$('#toggle_extra_startup_options').text('Show more startup options')
+		// }else{
+		// 	$('#extra_startup_options').show();
+		// 	$('#toggle_extra_startup_options').text("Hide extra options");
+		// }
+	});
 	$('#popupoverlay').click(function(){
 		$('.cluster_scale_popup').hide();
 		$('#volume_expand_popup').hide();
