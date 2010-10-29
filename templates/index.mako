@@ -497,11 +497,10 @@ $(document).ready(function() {
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
 	
-	    if (initial_cluster_type == 'None') {
-		// Present the user with the dialog.
+    if (initial_cluster_type == 'None') {
 		toggleVolDialog();
 	}
-    update();
+	update();
 });
 </script>
     </div>
