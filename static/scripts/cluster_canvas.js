@@ -21,7 +21,7 @@ COLORING_ARR = ['red', 'green', 'nodata']
 
 var cluster_view_tooltip_base = "";
 
-var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Running</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
+var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Ready</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
 
 // var cluster_view_tooltip_base = "<ul><li>Green- Running</li><li>Blue- Pending</li><li>Blue- Pending</li><li>Red- Error</li></ul>";
 var TESTING = false;
@@ -258,14 +258,30 @@ function renderGraph(){
                 if (instances[q].worker_status == 'Error'){
 			        ctx.fillStyle = "#DF594B";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
-			    }else if (ld_arr.length == 3){
+			    }
+			    else if (instances[q].instance_state == "Running" || instances[q].instance_state == "running" || (q == 0)){
+					ctx.fillStyle = "#66BB67";
+    				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
+			    }
+				else if(instances[q].instance_state == "Pending" || instances[q].instance_state == "pending"){
+					ctx.fillStyle = "#5CBBFF";
+    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				else if(instances[q].instance_state == "Shutdown" || instances[q].instance_state=="shutting down"){
+					ctx.fillStyle = "#575757";
+    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				else{
+                    // Else we have numbers to parse and display, instance is running.
+					ctx.fillStyle = "#FFDC40";
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				if (ld_arr.length == 3){
     				    scale_height = 1; //Scales the boxes.
-    					ctx.fillStyle = "#66BB67";
-                        // Hard cap load at 1.
+    				    // Hard cap load at 1.
     					ld_arr[0] = Math.min(ld_arr[0], 1); 
     					ld_arr[1] = Math.min(ld_arr[1], 1);
     					ld_arr[2] = Math.min(ld_arr[2], 1);
-        				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
     			        ctx.fillStyle = "#575757";
                         ctx.fillRect(x_offset + b_x + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[2]) + bar_top_padding,
@@ -280,19 +296,6 @@ function renderGraph(){
                                             ld_1,
                                             bar_height * ld_arr[0]);
                 }
-				else if(instances[q].instance_state == "Pending" || instances[q].instance_state == "pending"){
-					ctx.fillStyle = "#5CBBFF";
-    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
-				else if(instances[q].instance_state == "Shutdown" || instances[q].instance_state=="shutting down"){
-					ctx.fillStyle = "#575757";
-    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
-				else{
-                    // Else we have numbers to parse and display, instance is running.
-					ctx.fillStyle = "#FFDC40";
-                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
                 if (q == selected_instance){
     				roundedBox(x_offset + instances[q].b_x, y_offset + instances[q].b_y, b_width, b_height, b_corner_rad, ctx, b_stroke);
                 }
