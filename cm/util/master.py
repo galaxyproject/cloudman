@@ -460,7 +460,6 @@ class ConsoleManager( object ):
         idle_instances = self.get_idle_instances()
         log.info( "Found '%s' idle instances; trying to remove '%s'" % ( len( idle_instances ), num_nodes ) )
         num_terminated = 0
-        
         for i in range ( 0, num_nodes ):
             if len( idle_instances ) > 0:
                 for inst in idle_instances:
@@ -490,10 +489,12 @@ class ConsoleManager( object ):
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 sge_svc = self.get_services('SGE')[0]
-                if sge_svc.remove_sge_host(inst) is True:
-                    inst.terminate()
-                    if inst in self.worker_instances:
-                        self.worker_instances.remove(inst)
+                # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
+                # if sge_svc.remove_sge_host(inst) is True:
+                inst.terminate()
+                if inst in self.worker_instances:
+                    self.worker_instances.remove(inst)
+
         log.info( "Initiated requested termination of instance. Terminating '%s'." % instance_id )
     
     def add_instances( self, num_nodes, instance_type=''):
