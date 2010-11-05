@@ -259,15 +259,15 @@ function renderGraph(){
 			        ctx.fillStyle = "#DF594B";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
 			    }
-			    else if (instances[q].instance_state == "Running" || instances[q].instance_state == "running" || (q == 0)){
+			    else if (instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
 					ctx.fillStyle = "#66BB67";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
 			    }
-				else if(instances[q].instance_state == "Pending" || instances[q].instance_state == "pending"){
+				else if(instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
 					ctx.fillStyle = "#5CBBFF";
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
-				else if(instances[q].instance_state == "Shutdown" || instances[q].instance_state=="shutting down"){
+				else if(instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
 					ctx.fillStyle = "#575757";
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}

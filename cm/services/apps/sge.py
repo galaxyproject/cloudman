@@ -13,6 +13,7 @@ class SGEService( ApplicationService ):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
         self.svc_type = "SGE"
+        self.hosts = []
     
     def start(self):
         if self.unpack_sge():
