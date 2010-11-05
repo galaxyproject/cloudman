@@ -5,7 +5,8 @@ from cm.util.json import to_json_string
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
-
+from cm.util import misc
+import cm.util.paths as paths
 # from cm.services.apps.postgres import PostgresService
 # from cm.services.apps.sge import SGEService
 # from cm.services.apps.galaxy import GalaxyService
@@ -162,6 +163,17 @@ class CM( BaseController ):
             return self.app.manager.manage_galaxy(to_be_started=True)
     
     @expose
+    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/cloudman"):
+        log.debug("Updating Galaxy... Using repository %s" % repository)
+        svcs = self.app.manager.get_services('Galaxy')
+        for service in svcs:
+            service.remove()
+        misc.run('su galaxy -c "cd %s; hg pull %s --update"' % (paths.P_GALAXY_HOME, repository))
+        misc.run('su galaxy -c "cd %s; sh setup.sh; sh manage_db.sh upgrade"' % (paths.P_GALAXY_HOME))
+        for service in svcs:
+            service.add()
+    
+    @expose
     def manage_sge(self, trans, to_be_started=True):
         if to_be_started == "False":
             return self.app.manager.manage_sge(to_be_started=False)
@@ -178,11 +190,16 @@ class CM( BaseController ):
     
     @expose
     def admin(self, trans):
-        return """<ul>
+        return """
+            <ul>
                 <li>This admin panel is only a very temporary way to control galaxy services.  Use with caution.</li>
                 <li><strong>Service Control</strong></li>
                 <li><a href='manage_galaxy'>Start Galaxy</a></li>
                 <li><a href='manage_galaxy?to_be_started=False'>Stop Galaxy</a></li>
+                <form action="update_galaxy" method="get">
+                    <input type="text" value="http://bitbucket.org/galaxy/cloudman" name="repository">
+                    <input type="submit" value="Update Galaxy">
+                </form>
                 
                 <li><a href='manage_postgres'>Start Postgres</a></li>
                 <li><a href='manage_postgres?to_be_started=False'>Start Postgres</a></li>
@@ -198,7 +215,7 @@ class CM( BaseController ):
                 <li><a href='remove_instances?number_nodes=1&force=True'>Remove one instance *with Force*.</a></li>
                 <li><a href='cleanup'>Cleanup - shutdown all services/instances, keep volumes</a></li>
                 <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all.</a></li>
-                </ul>
+            </ul>
                 """
         
     @expose
