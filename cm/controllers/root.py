@@ -1,11 +1,10 @@
-import logging
+import logging, os
 
 from cm.util.json import to_json_string
 
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
-from cm.util import misc
 import cm.util.paths as paths
 # from cm.services.apps.postgres import PostgresService
 # from cm.services.apps.sge import SGEService
@@ -163,15 +162,20 @@ class CM( BaseController ):
             return self.app.manager.manage_galaxy(to_be_started=True)
     
     @expose
-    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/cloudman"):
+    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central"):
         log.debug("Updating Galaxy... Using repository %s" % repository)
         svcs = self.app.manager.get_services('Galaxy')
         for service in svcs:
             service.remove()
-        misc.run('su galaxy -c "cd %s; hg pull %s --update"' % (paths.P_GALAXY_HOME, repository))
-        misc.run('su galaxy -c "cd %s; sh setup.sh; sh manage_db.sh upgrade"' % (paths.P_GALAXY_HOME))
+        cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
+        retval = os.system(cmd)
+        log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
+        cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, paths.P_GALAXY_HOME)
+        retval = os.system(cmd)
+        log.debug("Galaxy DB update cmd '%s'; return value %s" % (cmd, retval))
         for service in svcs:
-            service.add()
+            service.start()
+        log.debug("Done updating Galaxy")
     
     @expose
     def manage_sge(self, trans, to_be_started=True):
@@ -197,7 +201,7 @@ class CM( BaseController ):
                 <li><a href='manage_galaxy'>Start Galaxy</a></li>
                 <li><a href='manage_galaxy?to_be_started=False'>Stop Galaxy</a></li>
                 <form action="update_galaxy" method="get">
-                    <input type="text" value="http://bitbucket.org/galaxy/cloudman" name="repository">
+                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository">
                     <input type="submit" value="Update Galaxy">
                 </form>
                 
