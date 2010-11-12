@@ -317,7 +317,6 @@ class SGEService( ApplicationService ):
         :return: True if the daemon is running and a sample job can be run,
                  False otherwise.
         """
-        qstat_out = ''
         qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
             . %s/default/common/settings.sh; \
             %s/bin/lx24-amd64/qstat -f | grep all.q"' 

@@ -49,17 +49,12 @@ class CM( BaseController ):
     @expose
     def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None):
         if self.app.manager.initial_cluster_type is None:
-            try:
+            pss = None
+            if startup_opt == "Galaxy" or startup_opt == "Data":
                 if g_pss is not None and g_pss.isdigit():
                     pss = int(g_pss)
                 elif d_pss is not None and d_pss.isdigit():
                     pss = int(d_pss)
-                else:
-                    log.error("No value provided for volume size?")
-                    return "No value provided for volume size."
-            except:
-                log.error("Wrong value provided for volume size! (%s, %s)" % (g_pss, d_pss))
-                return "Wrong value provided for volume size."
             self.app.manager.init_cluster(startup_opt, pss)
         else:
             return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type

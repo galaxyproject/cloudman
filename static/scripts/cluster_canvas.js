@@ -259,7 +259,7 @@ function renderGraph(){
 			        ctx.fillStyle = "#DF594B";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
 			    }
-			    else if (instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
+			    else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
 					ctx.fillStyle = "#66BB67";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
 			    }

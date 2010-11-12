@@ -555,7 +555,7 @@ class ConsoleManager( object ):
         log.debug( "Started %s instance(s)" % num_nodes )
         return True
     
-    def init_cluster(self, cluster_type, pss):
+    def init_cluster(self, cluster_type, pss = None):
         """ Initialize a cluster. This implies starting requested services and 
         storing cluster configuration into cluster's bucket.
         
