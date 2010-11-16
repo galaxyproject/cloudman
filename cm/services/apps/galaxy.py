@@ -32,6 +32,12 @@ class GalaxyService( ApplicationService ):
         self.state = service_states.SHUTTING_DOWN
         self.manage_galaxy(False)
     
+    def restart(self):
+        log.info('Restarting Galaxy service')
+        self.remove()
+        self.status()
+        self.start()
+    
     def manage_galaxy( self, to_be_started=True ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
@@ -47,11 +53,12 @@ class GalaxyService( ApplicationService ):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
                     log.debug("ls /mnt/: %s" % os.listdir('/mnt/'))
                     return False
-
+                # Retrieve config files from a persistent data repository (i.e., S3)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' ):
                     log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
+                self.add_galaxy_admin_users()
                 os.chown( self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
                     log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
@@ -94,6 +101,8 @@ class GalaxyService( ApplicationService ):
                 
             if self.state != service_states.RUNNING:
                 log.info( "Starting Galaxy..." )
+                # Make sure admin users get added
+                self.add_galaxy_admin_users()
                 if not misc.run('%s - galaxy -c "export SGE_ROOT=%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, paths.P_SGE_ROOT), "Error invoking Galaxy", "Successfully initiated Galaxy start."):
                     self.state = service_states.ERROR
             else:
@@ -125,4 +134,37 @@ class GalaxyService( ApplicationService ):
         else:
             log.error("\tGalaxy daemon not running.")
             self.state = service_states.ERROR
+    
+    def add_galaxy_admin_users(self, admins_list=[]):
+        """ Galaxy admin users can now be added by providing them in user data
+            (see below) or by calling this method and providing a user list.
+            YAML format for user data for providing admin users:
+            admin_users:
+             - user@example.com
+             - user2@anotherexaple.edu """
+        if self.app.ud.has_key('admin_users'):
+            for admin in self.app.ud['admin_users']:
+            	admins_list.append(admin)
+        log.info('Adding Galaxy admin users: %s' % admins_list)
+        edited = False
+        config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
+        new_config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), 'w')
+        for line in config_file:
+            # Add all of the users in admins_list if no admin users exist
+            if '#admin_users = None' in line:
+                line = line.replace('#admin_users = None', 'admin_users = %s' % ', '.join(str(a) for a in admins_list))
+                edited = True
+            # Add only admin users that don't already exist in the admin user list
+            if not edited and 'admin_users' in line:
+                if line.endswith('\n'):
+                    line = line.rstrip('\n') + ', '
+                for admin in admins_list:
+                    if admin not in line:
+                        line += "%s, " % admin
+                if line.endswith(', '):
+                    line = line[:-2] + '\n' # remove trailing space and comma and add newline
+                edited = True
+            new_config_file.write(line)
+        new_config_file.close()
+        shutil.move(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), os.path.join(self.galaxy_home, 'universe_wsgi.ini'))
     

@@ -1,4 +1,4 @@
-import logging, os
+import logging, os, re
 
 from cm.util.json import to_json_string
 
@@ -173,6 +173,31 @@ class CM( BaseController ):
         log.debug("Done updating Galaxy")
     
     @expose
+    def add_galaxy_admin_users(self, trans, admin_users=None):
+        log.info('Received following list of admin users: %s' % admin_users)
+        if admin_users is not None:
+            admins_list = admin_users.split(',')
+            # Test if provided values are in email format and remove non-email formatted ones
+            admins_list_check = admins_list
+            for admin in admins_list_check:
+                 m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
+                 if not m:
+                     admins_list.remove(admin)
+            # Get a handle to Galaxy service and add admins
+            svcs = self.app.manager.get_services('Galaxy')
+            if len(svcs)>0 and len(admins_list)>0:
+                svcs[0].add_galaxy_admin_users(admins_list)
+                log.info("Galaxy admins added: %s; restarting Galaxy" % admins_list)
+                svcs[0].restart()
+                return "Galaxy admins added: %s" % admins_list
+            else:
+                log.error("Either no admins provided (%s) or Galaxy service not found" % admins_list)
+                return "Either no admins provided (%s) or Galaxy service not found" % admins_list
+        else:
+            log.error("No admin users provided: %s" % admin_users)
+            return "No admin users provided: %s" % admin_users
+    
+    @expose
     def manage_sge(self, trans, to_be_started=True):
         if to_be_started == "False":
             return self.app.manager.manage_sge(to_be_started=False)
@@ -198,6 +223,10 @@ class CM( BaseController ):
                 <form action="update_galaxy" method="get">
                     <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository">
                     <input type="submit" value="Update Galaxy">
+                </form>
+                <form action="add_galaxy_admin_users" method="get">
+                    <input type="text" value="CSV list of emails" name="admin_users">
+                    <input type="submit" value="Add admin users">
                 </form>
                 
                 <li><a href='manage_postgres'>Start Postgres</a></li>
