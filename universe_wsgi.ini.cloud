@@ -313,13 +313,13 @@ allow_user_creation = True
 # -- Beta features
 
 # Enable Galaxy's built-in visualization module, Trackster.
-#enable_tracks = False
+enable_tracks = True
 
 # Enable Galaxy Pages. Pages are custom webpages that include embedded Galaxy items, 
 # such as datasets, histories, workflows, and visualizations; pages are useful for 
 # documenting and sharing multiple analyses or workflows. Pages are created using a 
 # WYSIWYG editor that is very similar to a word processor.
-#enable_pages = False
+enable_pages = True
 
 # Enable the (experimental! beta!) Web API.  Documentation forthcoming.
 #enable_api = False
