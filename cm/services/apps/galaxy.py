@@ -115,6 +115,7 @@ class GalaxyService( ApplicationService ):
     
     def status(self):
         """Check if Galaxy daemon is running and the UI is accessible."""
+        old_state = self.state
         if self._check_daemon('galaxy'):
             # log.debug("\tGalaxy daemon running. Checking if UI is accessible.")
             dns = "http://127.0.0.1:8080"
@@ -134,37 +135,42 @@ class GalaxyService( ApplicationService ):
         else:
             log.error("\tGalaxy daemon not running.")
             self.state = service_states.ERROR
+        if old_state != self.state:
+            log.info("Galaxy service state changed from '%s' to '%s'" % (old_state, self.state))
     
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
             (see below) or by calling this method and providing a user list.
-            YAML format for user data for providing admin users:
+            YAML format for user data for providing admin users 
+            (note that these users will still have to manually register on the given cloud instance):
             admin_users:
              - user@example.com
-             - user2@anotherexaple.edu """
+             - user2@anotherexample.edu """
         if self.app.ud.has_key('admin_users'):
             for admin in self.app.ud['admin_users']:
-            	admins_list.append(admin)
-        log.info('Adding Galaxy admin users: %s' % admins_list)
-        edited = False
-        config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
-        new_config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), 'w')
-        for line in config_file:
-            # Add all of the users in admins_list if no admin users exist
-            if '#admin_users = None' in line:
-                line = line.replace('#admin_users = None', 'admin_users = %s' % ', '.join(str(a) for a in admins_list))
-                edited = True
-            # Add only admin users that don't already exist in the admin user list
-            if not edited and 'admin_users' in line:
-                if line.endswith('\n'):
-                    line = line.rstrip('\n') + ', '
-                for admin in admins_list:
-                    if admin not in line:
-                        line += "%s, " % admin
-                if line.endswith(', '):
-                    line = line[:-2] + '\n' # remove trailing space and comma and add newline
-                edited = True
-            new_config_file.write(line)
-        new_config_file.close()
-        shutil.move(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), os.path.join(self.galaxy_home, 'universe_wsgi.ini'))
+                if admin not in admins_list:
+                	admins_list.append(admin)
+        if len(admins_list) > 0:
+            log.info('Adding Galaxy admin users: %s' % admins_list)
+            edited = False
+            config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
+            new_config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), 'w')
+            for line in config_file:
+                # Add all of the users in admins_list if no admin users exist
+                if '#admin_users = None' in line:
+                    line = line.replace('#admin_users = None', 'admin_users = %s' % ', '.join(str(a) for a in admins_list))
+                    edited = True
+                # Add only admin users that don't already exist in the admin user list
+                if not edited and 'admin_users' in line:
+                    if line.endswith('\n'):
+                        line = line.rstrip('\n') + ', '
+                    for admin in admins_list:
+                        if admin not in line:
+                            line += "%s, " % admin
+                    if line.endswith(', '):
+                        line = line[:-2] + '\n' # remove trailing space and comma and add newline
+                    edited = True
+                new_config_file.write(line)
+            new_config_file.close()
+            shutil.move(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), os.path.join(self.galaxy_home, 'universe_wsgi.ini'))
     

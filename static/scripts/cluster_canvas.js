@@ -352,7 +352,32 @@ function refreshTip(){
 	    }
         $('#cluster_view_tooltip').html(i_str);
     }else{
-        $('#cluster_view_tooltip').html(cluster_view_tooltip_base);
+        if (use_autoscaling == true) {
+            // i_str = "<span id='toggle_autoscaling_link' style='cursor:pointer; background-image:url(/cloud/static/images/ying_yang.png); background-repeat:no-repeat; display:block; width:50px; height:50px; margin-left:auto; margin-right:auto;'>&nbsp;</span>"
+            i_str = '<br/>Autoscaling is <span style="color: green;">on</span>.<br/> Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">off</a>?'
+            i_str += '<p>Min nodes: <a class="editable">' + as_min + '</a>'
+            i_str += '<br/>Max nodes: <a class="editable">' + as_max + '</a>'
+            i_str += '<br/><span id="adjust_autoscaling_link" style="text-decoration: underline; cursor:pointer;">Adjust limits?</span></p>'
+        } else {
+            // i_str = "<br/><span id='toggle_autoscaling_link' style='cursor:pointer; background-image:url(/cloud/static/images/ying_yang.png); background-repeat:no-repeat; display:block; width:50px; height:50px; margin-left:auto; margin-right:auto;'>&nbsp;</span>"
+            i_str = '<br/><br/>Autoscaling is <span style="color: red;">off</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">on</a>?'
+    	}
+    	$('#cluster_view_tooltip').html(i_str);
+    	$('#toggle_autoscaling_link').click(function(){
+    		$('#overlay').show();
+    		if (use_autoscaling == true) {
+    			$('#turn_autoscaling_off').show();
+    		} else {
+    			$('#turn_autoscaling_on').show();
+    		}
+        });
+        $('#adjust_autoscaling_link').click(function(){
+    		$('#overlay').show();
+    		if (use_autoscaling == true) {
+    			$('#adjust_autoscaling').show();
+    		}
+    	});
+        //$('#cluster_view_tooltip').html(cluster_view_tooltip_base);
     }
 }
 
@@ -366,7 +391,7 @@ $('#cluster_canvas').click(function(eventObj){
 			c_y <= y_offset + instances[i].b_ydy){
 			    if (i == selected_instance){
                     selected_instance = -1;
-                   $('#cluster_view_tooltip').html(cluster_view_tooltip_base);
+                    refreshTip();
 			    }
 			    else{
 			        selected_instance = i;

@@ -27,7 +27,8 @@ class CM( BaseController ):
                                     cluster = cluster,
                                     permanent_storage_size = permanent_storage_size,
                                     initial_cluster_type = initial_cluster_type,
-                                    cluster_name = cluster_name )
+                                    cluster_name = cluster_name,
+                                    use_autoscaling = bool(self.app.manager.get_services('Autoscale')) )
     
     @expose
     def combined(self, trans):
@@ -121,14 +122,13 @@ class CM( BaseController ):
             log.error("You must provide valid value.  %s" % e)
             return
         self.app.manager.add_instances( number_nodes, instance_type)
-        
-
+    
     @expose
     def remove_instance( self, trans, instance_id = ''):
         if instance_id == '':
             return
         self.app.manager.remove_instance( instance_id)
-
+    
     @expose
     def remove_instances( self, trans, number_nodes, force_termination ):
         try:
@@ -138,12 +138,12 @@ class CM( BaseController ):
             return
         log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
         self.app.manager.remove_instances(number_nodes, force_termination)
-
+    
     @expose
     def log( self, trans, l_log = 0):
         trans.response.set_content_type( "text" )
         return "\n".join(self.app.logger.logmessages)
-
+    
     @expose
     def log_json(self, trans, l_log = 0):
         return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
@@ -210,8 +210,39 @@ class CM( BaseController ):
             return self.app.manager.manage_postgres(to_be_started=False)
         else:
             return self.app.manager.manage_postgres(to_be_started=True)
-
     
+    @expose
+    def toggle_autoscaling(self, trans, as_min=None, as_max=None):
+        if self.app.manager.get_services('Autoscale'):
+            log.debug("Turning autoscaling OFF")
+            self.app.manager.stop_autoscaling()
+        else:
+            log.debug("Turning autoscaling ON")
+            if self.check_as_vals(as_min, as_max):
+                self.app.manager.start_autoscaling(int(as_min), int(as_max))
+            else:
+                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
+        return "Toggled autoscaling (autoscaling is now set to '%s')" % 'ON' if self.app.manager.get_services('Autoscale') else 'OFF'
+    
+    @expose 
+    def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
+        if self.app.manager.get_services('Autoscale'):
+            if self.check_as_vals(as_min_adj, as_max_adj):
+                # log.debug("Adjusting autoscaling; new bounds min: %s, max: %s" % (as_min_adj, as_max_adj))
+                self.app.manager.adjust_autoscaling(int(as_min_adj), int(as_max_adj))
+            else:
+                log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (as_min_adj, as_max_adj))
+        else:
+            log.error("Cannot adjust autoscaling because it's off.")
+            
+    def check_as_vals(self, as_min, as_max):
+        """ Check if limits for autoscaling are acceptable."""
+        if as_min is not None and as_min.isdigit() and int(as_min)>=0 and int(as_min)<20 and \
+           as_max is not None and as_max.isdigit() and int(as_max)>=int(as_min) and int(as_max)<20:
+           return True
+        else:
+           return False
+        
     @expose
     def admin(self, trans):
         return """
@@ -245,11 +276,11 @@ class CM( BaseController ):
                 <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all.</a></li>
             </ul>
                 """
-        
+    
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
-
+    
     @expose
     def recover_monitor(self, trans, force='False'):
         if self.app.manager.console_monitor and force == 'False':
@@ -259,7 +290,7 @@ class CM( BaseController ):
                 return "The instance has a new monitor now."
             else:
                 return "There was an error.  Can't create a new monitor."
-
+    
     @expose
     def instance_state_json(self, trans):
         g_s = self.app.manager.get_services('Galaxy')
@@ -285,13 +316,17 @@ class CM( BaseController ):
                                 #                 'galaxy' : self.app.manager.galaxy_status_text()},
                                 'all_fs' : self.app.manager.all_fs_status_array(),
                                 'snapshot' : {'progress' : str(self.app.manager.snapshot_progress),
-                                              'status' : str(self.app.manager.snapshot_status)}
+                                              'status' : str(self.app.manager.snapshot_status)},
+                                'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
+                                                'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
+                                                'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
                                })
+    
     @expose
     def update_users_CM(self, trans):
         self.app.manager.update_users_CM()
         return trans.fill_template('index.mako')
-
+    
     @expose
     def masthead( self, trans ):
         brand = trans.app.config.get( "brand", "" )
@@ -305,3 +340,4 @@ class CM( BaseController ):
         blog_url = trans.app.config.get( "blog_url", "http://g2.trac.bx.psu.edu/blog"   )
         screencasts_url = trans.app.config.get( "screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts" )
         return trans.fill_template( "masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url,bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url )
+    
