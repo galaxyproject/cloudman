@@ -327,10 +327,6 @@ var as_max = 0; //max number of instances autoscaling should maintain
 <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
 <script type="text/javascript">
 
-$(function() {
-  $('.editable').inlineEdit();
-});
-
 function fixForms(){
     $('form').submit( function(event){
         $.post($(this).attr('action'), $(this).serialize());
