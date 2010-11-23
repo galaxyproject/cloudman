@@ -6,6 +6,7 @@ import datetime as dt
 from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
+from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.sge import SGEService
@@ -53,25 +54,26 @@ class ConsoleManager( object ):
         self.master_state = master_states.INITIAL_STARTUP
         self.persistent_vol_file = 'persistent-volumes-latest.txt'
         self.cluster_nodes_file = 'cluster_nodes.txt'
-        self.num_workers_requested = None # Number of worker nodes requested by user
+        self.num_workers_requested = 0 # Number of worker nodes requested by user
         self.create_user_data_vol = False # Indicates whether persistent user data volume should be created
         self.worker_instances = self.get_worker_instances() # actual number of worker nodes (note: this is a list of Instance objects)
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
         self.startup_time = dt.datetime.utcnow()
-        
-        self.start_galaxy = False
-        self.galaxy_starting = False
-        
         self.manager_started = False
         
         self.snapshot_progress = None
         self.snapshot_status = None
         
         self.initial_cluster_type = None
-        self.gc_standalone = False
         self.services = []
+        
+        # Autoscaling configuration
+        # self.use_autoscaling = True # Flag to indicate if autoscaling is currently active or not
+        # self.autoscale = None # object for the class that implements autoscaling
+        # self.as_max = 0 # Max number of nodes autoscale should maintain
+        # self.as_min = 0 # Min number of nodes autoscale should maintain
     
     def recover_monitor(self, force='False'):
         if self.console_monitor:
@@ -123,6 +125,30 @@ class ConsoleManager( object ):
         log.info( "Completed initial cluster configuration." )
         return True
     
+    def start_autoscaling(self, as_min, as_max):
+        as_svc = self.get_services('Autoscale')
+        if not as_svc:
+            self.app.manager.services.append(Autoscale(self.app, as_min, as_max))
+        else:
+            log.debug("Autoscaling is already on.")
+        as_svc = self.get_services('Autoscale')
+        log.debug(as_svc[0])
+    
+    def stop_autoscaling(self):
+        as_svc = self.get_services('Autoscale')
+        if as_svc:
+            self.app.manager.services.remove(as_svc[0])
+        else:
+            log.debug("Cannot stop autoscaling because autoscaling is not on.")
+    
+    def adjust_autoscaling(self, as_min, as_max):
+        as_svc = self.get_services('Autoscale')
+        if as_svc:
+            as_svc[0].as_min = int(as_min)
+            as_svc[0].as_max = int(as_max)
+            log.debug("Adjusted autoscaling limits; new min: %s, new max: %s" % (as_svc[0].as_min, as_svc[0].as_max))
+        else:
+            log.debug("Cannot adjust autoscaling because autoscaling is not on.")
     
     # DBTODO For now this is a quick fix to get a status.  
     # Define what 'yellow' would be, and don't just count on "Filesystem" being the only data service.
@@ -315,8 +341,13 @@ class ConsoleManager( object ):
                 log.debug( "Bucket '%s' not found, continuing fresh." % self.app.ud['bucket_cluster'] )
         return instances
         
-    def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True):
+    def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True, sd_autoscaling=True):
+        if self.app.TESTFLAG is True:
+            log.debug("Shutting down the cluster but the TESTFLAG is set")
+            return
         # Services need to be shut down in particular order
+        if sd_autoscaling:
+            self.stop_autoscaling()
         if sd_galaxy:
             svcs = self.get_services('Galaxy')
             for service in svcs:
@@ -491,6 +522,8 @@ class ConsoleManager( object ):
                 sge_svc = self.get_services('SGE')[0]
                 # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
                 # if sge_svc.remove_sge_host(inst) is True:
+                # Best-effort PATCH until above issue is handled
+                sge_svc.remove_sge_host(inst)
                 inst.terminate()
                 if inst in self.worker_instances:
                     self.worker_instances.remove(inst)
@@ -567,6 +600,9 @@ class ConsoleManager( object ):
         :param pss: Persistent Storage Size associated with data volumes being 
             created for the given cluster
         """
+        if self.app.TESTFLAG is True:
+            log.debug( "Attempted to initialize a new cluster, but TESTFLAG is set." )
+            return
         self.app.manager.initial_cluster_type = cluster_type
         if cluster_type == 'Galaxy':
             log.info("Initializing a '%s' cluster." % cluster_type)
@@ -897,7 +933,7 @@ class ConsoleMonitor( object ):
         In addition, local Galaxy configuration files (universe_wsgi.ini and tool_conf.xml),
         if they do not exist in the cluster bucket, are saved to bucket."""
         try:
-            cc = {}
+            cc = {} # cluster configuration
             svl = [] # static volume list
             dvd = {} # data volume dict
             for srvc in self.app.manager.services:
@@ -949,6 +985,7 @@ class ConsoleMonitor( object ):
     
     def __monitor( self ):
         timer = dt.datetime.utcnow()
+        # as_timer = dt.datetime.utcnow() # Autoscaling timer
         if self.app.manager.manager_started == False:
             if not self.app.manager.start():
                 log.error("***** Manager failed to start *****")
@@ -967,11 +1004,11 @@ class ConsoleMonitor( object ):
                 self.app.manager.check_disk()
                 for service in self.app.manager.services:
                     service.status()
-            # Log current services' states (in condensed format)
-            svcs_state = "S&S: "
-            for s in self.app.manager.services:
-                svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state=='Running' else s.state)
-            log.debug(svcs_state)
+                # Log current services' states (in condensed format)
+                svcs_state = "S&S: "
+                for s in self.app.manager.services:
+                    svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state=='Running' else s.state)
+                log.debug(svcs_state)
             # Check and add any new services
             for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
@@ -1172,12 +1209,13 @@ class Instance( object ):
         elif state == 'pending': # Display pending instances status to console log
             log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
         else:
-            log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            # log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            pass
         if self.app.TESTFLAG is True:
             return True
         # If an instance has been in state 'running' for a while we still have not heard from it, check on it 
         # DBTODO Figure out something better for state management.
-        if state == 'running' and not self.is_alive and ( dt.datetime.utcnow() - self.last_m_state_change ).seconds > 300 and ( dt.datetime.utcnow() - self.time_rebooted ).seconds > 200:
+        if state == 'running' and not self.is_alive and (dt.datetime.utcnow()-self.last_m_state_change).seconds>400 and (dt.datetime.utcnow()-self.time_rebooted).seconds>300:
             if self.reboot_count < 4:
                 log.info( "Instance '%s' not responding, rebooting instance..." % self.inst.id )
                 self.inst.reboot()
@@ -1249,9 +1287,6 @@ class Instance( object ):
                 except:
                     log.debug("Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." % (self.id, self.num_cpus))
-                # if not self.app.manager.galaxy_running and not self.app.manager.galaxy_starting:
-                #     log.debug("\tMT: Setting hook to start Galaxy")
-                #     self.app.manager.start_galaxy = True
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split( ' | ' )
                 self.nfs_data = msplit[1]

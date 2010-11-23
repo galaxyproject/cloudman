@@ -45,7 +45,7 @@ class CMMasterComm( object ):
             self.conn.close()
 
     def send(self, message, to):
-        log.debug("S_COMM: Sending from %s to %s message %s" % ('master', to, message ))
+        # log.debug("S_COMM: Sending from %s to %s message %s" % ('master', to, message ))
         msg = amqp.Message(message, reply_to = 'master', content_type='text/plain')
         self.channel.basic_publish(msg, exchange=self.exchange, routing_key=to)
 

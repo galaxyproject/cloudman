@@ -25,27 +25,28 @@ class Service( object):
         self.reqs = {}
 
     def add (self):
-        log.debug("Trying to add service '%s'" % self.svc_type)
-        self.state = service_states.STARTING
-        flag = True # indicate if current service prerequisites are satisfied
-        for svc_type, svc_name in self.reqs.iteritems():
-            log.debug("Checking service prerequisite '%s:%s' for service '%s'" % (svc_type, svc_name, self.svc_type))
-            for svc in self.app.manager.services:
-                # log.debug("Checking service %s state." % svc.svc_type)
-                if svc_type==svc.svc_type:
-                    if svc_name is not None and svc.name==svc_name:
-                        # log.debug("Service %s:%s running: %s" % (svc.svc_type, svc.name, svc.running()))
-                        if not svc.running():
-                            flag = False
-                    else:
-                        # log.debug("Service %s running: %s" % (svc.svc_type, svc.running()))
-                        if not svc.running():
-                            flag = False
-        if flag:
-            log.info("Starting service '%s'" % self.svc_type)
-            self.start()
-        else:
-            log.info("Cannot start service '%s' because prerequisites are not yet satisfied." % self.svc_type)
+        if self.state != service_states.RUNNING:
+            log.debug("Trying to add service '%s'" % self.svc_type)
+            self.state = service_states.STARTING
+            flag = True # indicate if current service prerequisites are satisfied
+            for svc_type, svc_name in self.reqs.iteritems():
+                log.debug("Checking service prerequisite '%s:%s' for service '%s'" % (svc_type, svc_name, self.svc_type))
+                for svc in self.app.manager.services:
+                    # log.debug("Checking service %s state." % svc.svc_type)
+                    if svc_type==svc.svc_type:
+                        if svc_name is not None and svc.name==svc_name:
+                            # log.debug("Service %s:%s running: %s" % (svc.svc_type, svc.name, svc.running()))
+                            if not svc.running():
+                                flag = False
+                        else:
+                            # log.debug("Service %s running: %s" % (svc.svc_type, svc.running()))
+                            if not svc.running():
+                                flag = False
+            if flag:
+                log.info("Starting service '%s'" % self.svc_type)
+                self.start()
+            else:
+                log.info("Cannot start service '%s' because prerequisites are not yet satisfied." % self.svc_type)
     
     def running(self):
         return self.state == service_states.RUNNING

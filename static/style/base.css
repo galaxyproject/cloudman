@@ -870,7 +870,13 @@ div.volume_expand_popup{
 #scale_down_button.ab_disabled{
     color:#999999;
 }
-
+#scale_up_button.ab_disabled:hover {
+    background:#EEEEEE;
+    cursor: default;
+}
+#scale_up_button.ab_disabled{
+    color:#999999;
+}
 .action-button-left:hover {
     color: black;
     background: #dddddd;

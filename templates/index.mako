@@ -7,19 +7,15 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>Galaxy Cloudman Console</h2>
-<div>
-%if initial_cluster_type is None:
-	Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
-%else:
-	Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
-%endif
-
-<div>
-</div>
-</div>
-<div style="clear: both;"></div>
-<br/>
-		<div style='position:relative;text-align:center;'>
+	<div>
+		%if initial_cluster_type is None:
+			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
+		%else:
+			Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
+		%endif
+	</div>
+	<div style="clear: both;"></div><br/>
+	<div style='position:relative;text-align:center;'>
 		<ul style='display:inline;padding:0;'>
 			<li style='display:inline;width:150px;'>
 				<a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
@@ -35,10 +31,10 @@ vertical-align: top;
 			</li>
 		</ul>
 
-		<div id='cluster_scale_up_popup' class='cluster_scale_popup'>
-		<h4>Add Nodes</h4>
+	<div id='cluster_scale_up_popup' class='cluster_scale_popup'>
+		<h4>Add nodes</h4>
 		<form id="add_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
-	        <div class="form-row">
+        <div class="form-row">
 	        <label>Number of nodes to start:</label>
 	        <div id="num_nodes" class="form-row-input">
 	            <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="0" size="10">
@@ -46,7 +42,7 @@ vertical-align: top;
 	        </div>
 			<br/>
 	        <label>Type of Nodes(s):</label>
-				<div id="instance_type" class="form-row-input">
+			<div id="instance_type" class="form-row-input">
 		    	<select name="instance_type" id="instance_type">
 					<option value=''>Same as Master</option>
 					<option value='t1.micro'>Micro</option>
@@ -55,96 +51,96 @@ vertical-align: top;
 					<option value='m2.xlarge'>High-Memory Extra Large</option>
 					<option value='m2.2xlarge'>High-Memory Double Extra Large</option>
 					<option value='m2.4xlarge'>High-Memory Quadruple Extra Large</option>
-##					<option value='c1.medium'>High-CPU Medium</option>
+					## <option value='c1.medium'>High-CPU Medium</option>
 					<option value='c1.xlarge'>High-CPU Extra Large</option>
 				</select>
 			</div>
 	        <div class="form-row"><input type="submit" value="Start Additional Nodes"></div>
-	        </div>
+        </div>
 	    </form>
-		</div>
-		<div id='cluster_scale_down_popup' class='cluster_scale_popup'>
-	    <h4>Remove Nodes</h4>
+	</div>
+	<div id='cluster_scale_down_popup' class='cluster_scale_popup'>
+	    <h4>Remove nodes</h4>
 	    <form id="remove_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
 	        <div class="form-row">
-	        <div id="num_nodes" class="form-row-input">
-	            <label>Number of nodes to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
-	        </div>
-	        <div id="num_nodes" class="form-row-input">
-				&nbsp;
-	        </div>
-	        <div id="force_termination" class="form-row-input">
-	            <label>Force Termination of non-idle nodes?</label>
-				Yes<input type="radio" name="force_termination" id="force_termination" value="True">
-				No<input type="radio" name="force_termination" id="force_termination" value="False"  checked="True">
-	        </div>
-	        <div id="num_nodes" class="form-row-input">
-				&nbsp;
-	        </div>
-	        <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
+		        <div id="num_nodes" class="form-row-input">
+		            <label>Number of nodes to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
+		        </div>
+		        <div id="num_nodes" class="form-row-input">
+					&nbsp;
+		        </div>
+		        <div id="force_termination" class="form-row-input">
+		            <label>Force Termination of non-idle nodes?</label>
+					Yes<input type="radio" name="force_termination" id="force_termination" value="True">
+					No<input type="radio" name="force_termination" id="force_termination" value="False"  checked="True">
+		        </div>
+		        <div id="num_nodes" class="form-row-input">
+					&nbsp;
+		        </div>
+		        <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
 	        </div>
 	    </form>
-		</div>
-		</div>
-<div style="clear: both;"></div>
+	</div>
+</div>
 <h2>Status</h2>
 <div id="status_container">
     <div id="cluster_view">
-    <div id="cluster_view_tooltip">
-    </div>
-    <canvas id="cluster_canvas" width="150" height="120"></canvas>
+	    <div id="cluster_view_tooltip" style="text-align: center;"></div>
+	    <canvas id="cluster_canvas" width="150" height="120"></canvas>
     </div>
     <table cellpadding="0" cellspacing="10">
-            %if cluster_name:
-                <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span></td></tr>
-            %endif
-    <tr><td><h4>Disk status: </h4></td><td>
-        <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' style='cursor: pointer;background-image:url(/cloud/static/images/disc_plus.png); background-repeat:no-repeat; display:inline-block; width:20px;'>&nbsp;</span>
-    	##<span id="snap-status"></span><span id="snap-progress"></span>
-	</td></tr>
-    <tr><td><h4>Worker status: </h4></td><td>
-        <b>Idle</b>: <span id="status-idle">0</span>
-        <b>Available</b>: <span id="status-available">0</span>
-        <b>Requested</b>: <span id="status-total">0</span>
-    </td></tr>
-    <tr><td><h4>Service status: </h4></td><td>
-		Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
-		Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
-    </td></tr>
+			%if cluster_name:
+			    <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span></td></tr>
+			%endif
+	    <tr><td><h4>Disk status: </h4></td><td>
+	        <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' style='cursor: pointer;background-image:url(/cloud/static/images/disc_plus.png); background-repeat:no-repeat; display:inline-block; width:20px;'>&nbsp;</span>
+	    	##<span id="snap-status"></span><span id="snap-progress"></span>
+		</td></tr>
+	    <tr><td><h4>Worker status: </h4></td><td>
+	        <b>Idle</b>: <span id="status-idle">0</span>
+	        <b>Available</b>: <span id="status-available">0</span>
+	        <b>Requested</b>: <span id="status-total">0</span>
+	    </td></tr>
+	    <tr><td><h4>Service status: </h4></td><td>
+			Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+			Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+	    </td></tr>
 
-    <tr><td colspan=2></td></tr>
+	    <tr><td colspan=2></td></tr>
     </table>
-
-	<div class="box" id="volume_expand_popup">
-    <a class="boxclose"></a>
-		<h2>Expand Disk Space</h2>
-		<form id="expand_user_data_volume" name="expand_user_data_volume" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
-			<div class="form-row">
-			Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
-			<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
-			jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-			<br/>During this process, a snapshot of your data volume will be created and left in you account. For reference, you may 
-			provide a brief note that will later be visible in the snapshot description.
-			</div>
-			<div class="form-row">
-				<label>New Disk Size (max 1000GB):</label>
-				<div id="permanent_storage_size" class="form-row-input">
-					<input type="text" name="new_vol_size" id="new_vol_size" value="0" size="10">
-				</div>
-				<label>Note (optional):</label>
-				<div id="permanent_storage_size" class="form-row-input">
-					<input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="10">
-				</div>
-				<div class="form-row">
-					<input type="submit" value="Create Data Volume"/>
-				</div>
-			</div>
-		</form>
-	</div>
-	
-	
-
 </div>
+
+## ****************************************************************************
+## ***************************** Overlays and such ****************************
+## ****************************************************************************
+
+<div class="box" id="volume_expand_popup">
+   <a class="boxclose"></a>
+	<h2>Expand Disk Space</h2>
+	<form id="expand_user_data_volume" name="expand_user_data_volume" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
+		<div class="form-row">
+		Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
+		<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
+		jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
+		<br/>During this process, a snapshot of your data volume will be created and left in you account. For reference, you may 
+		provide a brief note that will later be visible in the snapshot description.
+		</div>
+		<div class="form-row">
+			<label>New Disk Size (max 1000GB):</label>
+			<div id="permanent_storage_size" class="form-row-input">
+				<input type="text" name="new_vol_size" id="new_vol_size" value="0" size="10">
+			</div>
+			<label>Note (optional):</label>
+			<div id="permanent_storage_size" class="form-row-input">
+				<input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="10">
+			</div>
+			<div class="form-row">
+				<input type="submit" value="Create Data Volume"/>
+			</div>
+		</div>
+	</form>
+</div>
+
 <div style="clear: both;"></div>
 <div class="overlay" id="overlay" style="display:none"></div>
 <div class="box" id="power_off">
@@ -154,6 +150,76 @@ vertical-align: top;
         <div class="form-row">
             <label>Are you sure you want to power the cluster off?</label>
             <div class="form-row"><input type="submit" value="Yes, power off"></div>
+        </div>
+    </form>
+</div>
+
+<div style="clear: both;"></div>
+## Autoscaling link
+##Autoscaling is <span id='autoscaling_status'>N/A</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">N/A</a>?
+## Autoscaling configuration popup
+<div class="box" id="turn_autoscaling_off">
+    <a class="boxclose"></a>
+    <h2>Autoscaling Configuration</h2>
+	<form id="turn_autoscaling_off_form" name="turn_autoscaling_off_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
+        <div class="form-row">
+            If autoscaling is turned off, the cluster will remain in it's current state and you will
+			be able to manually add or remove nodes.
+			<div class="form-row"><input type="submit" value="Turn autoscaling off"/></div>
+        </div>
+    </form>
+</div>
+<div class="box" id="turn_autoscaling_on">
+	<a class="boxclose"></a>
+	<h2>Autoscaling Configuration</h2>
+	<form id="turn_autoscaling_on_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
+        <div class="form-row">
+            Autoscaling attempts to automate the elasticity offered by cloud computing for this 
+			particular cluster. <b>Once turned on, autoscaling takes over the control over the size 
+			of your cluster.</b> Before turning autoscaling on, specify the cluster size limits you 
+			want to ensure are respected by autoscaling and use your cluster as you normally do.
+			The cluster will never be smaller than the minimum number of worker nodes you specify 
+			and it will never grow larger than the maximum number of worker nodes you specify.
+			Within those limits, if there are more jobs than the cluster can comfortably process at
+			a given time, autoscaling will automatically add compute nodes; if there are cluster nodes
+			sitting idle at the end of an hour, autoscaling will terminate those nodes, thus reducing
+			the size of the cluster and	your cost. 
+			<p>Once turned on, the cluster size limits respected by autoscaling can be adjusted or 
+			autoscaling can be turned off.</p>
+			<div class="form-row">
+				<label>Min number of nodes to maintain:</label>
+				<div class="form-row-input">
+					<input type="text" name="as_min" id="as_min" value="" size="10">
+				</div>
+				<label>Max number of nodes to maintain</label>
+				<div class="form-row-input">
+					<input type="text" name="as_max" id="as_max" value="" size="10">
+				</div>
+				<div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
+			</div>
+        </div>
+    </form>
+</div>
+<div class="box" id="adjust_autoscaling">
+	<a class="boxclose"></a>
+	<h2>Adjust Autoscaling Configuration</h2>
+	<form id="adjust_autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
+        <div class="form-row">
+            Adjust the number of instances autoscaling should maintain for this cluster. 
+			<p>NOTE that <b>if there are no idle nodes to remove</b>, although the maximum 
+			limit may be higher than the number of available nodes, autoscaling will wait 
+			until the nodes become idle to terminate them.
+			<div class="form-row">
+				<label>Min number of nodes to maintain:</label>
+				<div class="form-row-input">
+					<input type="text" name="as_min_adj" id="as_min_adj" value="" size="10">
+				</div>
+				<label>Max number of nodes to maintain</label>
+				<div class="form-row-input">
+					<input type="text" name="as_max_adj" id="as_max_adj" value="" size="10">
+				</div>
+				<div class="form-row"><input type="submit" value="Adjust autoscaling"/></div>
+			</div>
         </div>
     </form>
 </div>
@@ -216,7 +282,7 @@ vertical-align: top;
 		<div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
 		<br/>
 		<div class="form-row" style="text-align:center;">
-			<input type="submit" value="Start Cluster"/>
+			<input type="submit" value="Start Cluster" id="start_cluster_submit_btn"/>
 		</div>
 		</form>
 	</div>
@@ -241,19 +307,29 @@ vertical-align: top;
     </div>
 </div>
 
-<script type="text/javascript">
+## ****************************************************************************
+## ******************************** Javascript ********************************
+## ****************************************************************************
 
+<script type="text/javascript">
 var instances = Array();
 var cluster_status = "OFF";
 var fs_det_vis = false;
 var last_log = 0;
 var click_timeout = null;
+var use_autoscaling = null;
+var as_min = 0; //min number of instances autoscaling should maintain
+var as_max = 0; //max number of instances autoscaling should maintain
 </script>
 
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
 <script type="text/javascript">
 
+$(function() {
+  $('.editable').inlineEdit();
+});
 
 function fixForms(){
     $('form').submit( function(event){
@@ -338,6 +414,28 @@ function update(){
 		        fsdet += "</ul>";
 		        $('#fs_detail').html(fsdet);
 		        cluster_status = data.cluster_status;
+				if (data.autoscaling.use_autoscaling==true) {
+					// $('#autoscaling_status').text('on')
+					// $('#toggle_autoscaling_link').text('off')
+					use_autoscaling = true;
+					as_min = data.autoscaling.as_min
+					as_max = data.autoscaling.as_max
+					$('#scale_up_button').addClass('ab_disabled');
+					$('#scale_up_button > img').hide();
+					$('#scale_down_button').addClass('ab_disabled');
+					$('#scale_down_button > img').hide();
+				} else {
+					// $('#autoscaling_status').text('off')
+					// $('#toggle_autoscaling_link').text('on')
+					use_autoscaling = false;
+					as_min = 0
+					as_max = 0
+					$('#scale_up_button').removeClass('ab_disabled');
+					$('#scale_up_button > img').hide();
+					$('#scale_down_button').removeClass('ab_disabled');
+					$('#scale_down_button > img').hide();
+				}
+				
 			}
         });
     $.getJSON('/cloud/log_json',
@@ -467,6 +565,24 @@ $(document).ready(function() {
         hidebox();
         update();
     });
+    $('#turn_autoscaling_on_form').submit( function(event) {
+        $.post('/cloud/root/toggle_autoscaling', $("#turn_autoscaling_on_form").serialize());
+        event.preventDefault();
+        hidebox();
+        update();
+    });
+    $('#turn_autoscaling_off_form').submit( function(event) {
+        $.post('/cloud/root/toggle_autoscaling', $("#turn_autoscaling_off_form").serialize());
+        event.preventDefault();
+        hidebox();
+        update();
+    });
+    $('#adjust_autoscaling_form').submit( function(event) {
+        $.post('/cloud/root/adjust_autoscaling', $("#adjust_autoscaling_form").serialize());
+        event.preventDefault();
+        hidebox();
+        update();
+    });
     $('.fs_det_clicker').click(function(){
         if (fs_det_vis == true){
 			clearTimeout(click_timeout);
@@ -486,22 +602,46 @@ $(document).ready(function() {
     });
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
-    number_nodes.add( Validate.Numericality, { minimum: 1 } );
+    number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size == 0) {
         var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
         var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
-
+	
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+	
+	var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
+    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
+    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	$('#as_min').change(function(){
+		autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
+	});
+	$('#as_max').change(function(){
+		autoscaling_min_bound.validations[0].params.maximum = $('#as_max').val();
+	});
+	// FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
+	var autoscaling_min_bound = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
+    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	var autoscaling_max_bound = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
+    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	$('#as_min_adj').change(function(){
+		autoscaling_max_bound.validations[0].params.minimum = $('#as_min_adj').val();
+	});
+	$('#as_max_adj').change(function(){
+		autoscaling_min_bound.validations[0].params.maximum = $('#as_max_adj').val();
+	});
+	
 	
     if (initial_cluster_type == 'None') {
 		toggleVolDialog();
 	}
 	update();
 });
+
 </script>
     </div>
 </%def>
