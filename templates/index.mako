@@ -232,39 +232,6 @@ vertical-align: top;
 		<p>Welcome to Galaxy Cloudman.  This application will allow you to manage this cluster and the services provided within. To get started, choose the type of cluster you'd like to work with and specify the size of your persistent data storage, if any.</p>
 	</div>
 	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
-
-<!--
-<table><tr>
-<td>
-	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-		<input type="radio" name="startup_opt" value="Galaxy" checked='true'>
-		<p>Full Galaxy Cluster. Choose initial storage size</p>
-		<input type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="10">
-		<div class="LV_msgbox"><span id="g_pss_vtag"></span></div>
-		</div>
-	</div>
-</td>
-</tr></table>
-</div>
-<a id='toggle_extra_startup_options' href="#">Show more startup options</a>
-<div id='extra_startup_options'>
-<table><tr>
-<td>
-	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-		<input type="radio" name="startup_opt" value="Data">
-		<p>Data volume + SGE. Choose initial storage size</p>
-		<input type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="10">
-		<div class="LV_msgbox"><span id="d_pss_vtag"></span></div>
-	</div>
-	</td>
-<td>
-	<div id="permanent_storage_size" class="form-row-input" style="text-align:center;width:150px">
-		<input type="radio" name="startup_opt" value="SGE">
-		<p>SGE Only. No persistent storage created.</p>
-	</div>
-</td>
-<tr/></table>
--->
 		<div class="form-row">
 			<p><input type="radio" name="startup_opt" value="Galaxy" checked='true'>Start a full Galaxy Cluster. Specify initial storage size (in Gigabytes)</p>
 			<input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
@@ -596,6 +563,7 @@ $(document).ready(function() {
 			fs_det_vis = true;
         }
     });
+    
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
@@ -613,12 +581,14 @@ $(document).ready(function() {
     autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
 	var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
     autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+    
 	$('#as_min').change(function(){
 		autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
 	});
 	$('#as_max').change(function(){
 		autoscaling_min_bound.validations[0].params.maximum = $('#as_max').val();
 	});
+	
 	// FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
 	var autoscaling_min_bound = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
     autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );

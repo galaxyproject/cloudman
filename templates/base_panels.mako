@@ -11,6 +11,7 @@ from routes import url_for
 ## Default stylesheets
 <%def name="stylesheets()">
   <link href="${h.url_for('/static/style/base.css')}" rel="stylesheet" type="text/css" />
+  <link href="${h.url_for('/static/style/masthead.css')}" rel="stylesheet" type="text/css" />
 </%def>
 
 ## Default javascripts
@@ -30,7 +31,27 @@ from routes import url_for
     
 ## Masthead
 <%def name="masthead()">
-  <iframe name="galaxy_masthead" src="${h.url_for( '/root/masthead' )}" width="100%" height="38" frameborder="0" scrolling="no" style="margin: 0; border: 0 none; width: 100%; height: 38px; overflow: hidden;"> </iframe>
+  <table width="100%" cellspacing="0" border="0">
+    <tr valign="middle">
+      <td width="26px">
+        <a target="_blank" href="http://usegalaxy.org/cloud">
+        <img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}"></a>
+      </td>
+      <td align="left" valign="middle"><div class="pageTitle">Galaxy Cloudman</div></td>
+      <td align="right" valign="middle">
+        %if GC_url:
+			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
+			  <a target="_blank" href="${GC_url}">What's New</a> | 
+			  <a target="_top" href="${h.url_for( controller='root', action='update_users_CM' )}">Update CloudMan</a>
+	          &nbsp;&nbsp;&nbsp;
+		  %endif
+		  Info: <a href="mailto:galaxy-bugs@bx.psu.edu">report bugs</a>
+        | <a target="_blank" href="http://usegalaxy.org/cloud">wiki</a>                  
+        | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">screencast</a>
+        &nbsp;
+      </td>
+    </tr>
+  </table>
 </%def>
 
 ## Document
