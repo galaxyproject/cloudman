@@ -17,18 +17,25 @@ log = logging.getLogger( 'cloudman' )
 class CM( BaseController ):
     @expose
     def index( self, trans, **kwd ):
-        cluster = {}
-        if self.app.manager.get_instance_state():
-            cluster['status'] = self.app.manager.get_instance_state()
-        permanent_storage_size = self.app.manager.get_permanent_storage_size()
-        initial_cluster_type = self.app.manager.initial_cluster_type
-        cluster_name = self.app.ud['cluster_name']
-        return trans.fill_template( 'index.mako', 
-                                    cluster = cluster,
-                                    permanent_storage_size = permanent_storage_size,
-                                    initial_cluster_type = initial_cluster_type,
-                                    cluster_name = cluster_name,
-                                    use_autoscaling = bool(self.app.manager.get_services('Autoscale')) )
+        if self.app.ud['role'] == 'worker':
+            trans.fill_template('worker_index.mako', master_ip = self.app.ud['master_ip'])
+        else:
+            cluster = {}
+            if self.app.manager.get_instance_state():
+                cluster['status'] = self.app.manager.get_instance_state()
+            permanent_storage_size = self.app.manager.get_permanent_storage_size()
+            initial_cluster_type = self.app.manager.initial_cluster_type
+            cluster_name = self.app.ud['cluster_name']
+            CM_url = None
+            if self.app.manager.check_for_new_version_of_CM():
+                CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman" )
+            return trans.fill_template( 'index.mako', 
+                                        cluster = cluster,
+                                        permanent_storage_size = permanent_storage_size,
+                                        initial_cluster_type = initial_cluster_type,
+                                        cluster_name = cluster_name,
+                                        use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
+                                        CM_url=CM_url)
     
     @expose
     def combined(self, trans):

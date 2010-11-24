@@ -45,7 +45,6 @@ class UniverseApplication( object ):
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(), self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
-
         if self.ud.has_key('role'):
             if self.ud['role'] == 'master':
                 log.info( "Master starting" )

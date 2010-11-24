@@ -1,26 +1,23 @@
-body
+#masthead
 {
     background: #2C3143 url(masthead_bg.png) bottom;
     color: #eeeeee;
-    padding: 0;
+    padding:4px 8px 4px 8px;
     border: 0;
-    margin: 3px;
-    margin-right: 5px;
-    margin-left: 5px;
 }
 
-div.pageTitle
+#masthead div.pageTitle
 {
     font-size: 175%;
     font-weight: bold;
 }
 
-div.pageTitle a:link, div.pageTitle a:visited, div.pageTitle a:active, div.pageTitle a:hover
+#masthead div.pageTitle a:link, div.pageTitle a:visited, div.pageTitle a:active, div.pageTitle a:hover
 {
     text-decoration: none;
 }
 
-a:link, a:visited, a:active
+#masthead a:link, #masthead a:visited, #masthead a:active
 {
     color: #eeeeee;
 }

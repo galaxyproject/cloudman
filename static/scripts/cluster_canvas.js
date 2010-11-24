@@ -255,7 +255,11 @@ function renderGraph(){
                 }else{
                     ld_arr = []
                 }
-                if (instances[q].worker_status == 'Error'){
+                if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
+					ctx.fillStyle = "#FFDC40";
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                }
+                else if (instances[q].worker_status == 'Error'){
 			        ctx.fillStyle = "#DF594B";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
 			    }
@@ -272,7 +276,7 @@ function renderGraph(){
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
 				else{
-                    // Else we have numbers to parse and display, instance is running.
+                    // Yellow unknown state.
 					ctx.fillStyle = "#FFDC40";
                     roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
