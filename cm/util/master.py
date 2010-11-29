@@ -304,41 +304,17 @@ class ConsoleManager( object ):
             return insts
         log.debug("Trying to discover any worker instances associated with this cluster...")
         instances = []
-        s3_conn = self.app.cloud_interface.get_s3_connection()
-        log.debug("Looking for bucket '%s'..." % self.app.ud['bucket_cluster'])
-        if self.app.ud['bucket_cluster'] is not None:
-            b = s3_conn.lookup( self.app.ud['bucket_cluster'] )
-            if b is not None: # If bucket does not exist, start fresh
-                log.debug( "Found bucket '%s'; looking for file '%s'" % ( self.app.ud['bucket_cluster'], self.cluster_nodes_file ) )
-                if misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], self.cluster_nodes_file, self.cluster_nodes_file ):
-                    with open( self.cluster_nodes_file, 'r' ) as f:
-                        instanceIDs = f.readlines()
-                    # Retrieve instances one at a time vs. entire list at once because some
-                    # might be alive while other are not and this way we'll know which ones
-                    ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                    for ID in instanceIDs:
-                        ID = ID.strip() # get rid of the end line character
-                        log.debug( "Trying to retrieve instance with ID '%s'..." % ID )
-                        try:
-                            reservation = ec2_conn.get_all_instances( ID )
-                            if reservation:
-                                if reservation[0].instances[0].state != 'terminated':
-                                    instance = Instance( self.app, inst=reservation[0].instances[0], m_state=reservation[0].instances[0].state )
-                                    instances.append( instance )
-                                    log.info( "Instance '%s' alive." % ID )
-                        except EC2ResponseError, e:
-                            log.debug( "Instance ID '%s' is no longer valid..." % ID )
-                            log.debug( "Retrieving instance ID '%s' returned following error message: %s" % ( ID, e ) )
-                    if len( instances ) > 0:
-                        self.save_worker_instance_IDs_to_S3( instances )
-                        # Update cluster status
-                        self.cluster_status = cluster_status.ON
-                        self.console_monitor.last_state_change_time = dt.datetime.utcnow()
-                        log.debug( "Changed state to '%s'" % self.master_state )
-                else:
-                    log.info( "No existing instances found; starting fresh." )
-            else:
-                log.debug( "Bucket '%s' not found, continuing fresh." % self.app.ud['bucket_cluster'] )
+        filters = {'tag:clusterName': self.app.ud['cluster_name'], 'tag:role': 'worker'}
+        try:
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            reservations = ec2_conn.get_all_instances(filters=filters)
+            for reservation in reservations:
+                if reservation.instances[0].state != 'terminated':
+                    i = Instance( self.app, inst=reservation[0].instances[0], m_state=reservation[0].instances[0].state )
+                    instances.append( i )
+                    log.info( "Instance '%s' alive." % reservation.instances[0].id )
+        except EC2ResponseError, e:
+            log.debug( "Error checking for live instances: %s" % e )
         return instances
         
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True, sd_autoscaling=True):
@@ -527,7 +503,6 @@ class ConsoleManager( object ):
                 inst.terminate()
                 if inst in self.worker_instances:
                     self.worker_instances.remove(inst)
-
         log.info( "Initiated requested termination of instance. Terminating '%s'." % instance_id )
     
     def add_instances( self, num_nodes, instance_type=''):
@@ -562,6 +537,8 @@ class ConsoleManager( object ):
                                                   placement=self.app.cloud_interface.get_zone() )
             if reservation:
                 for instance in reservation.instances:
+                    instance.add_tag("clusterName", self.app.ud['cluster_name'])
+                    instance.add_tag("role", worker_ud['role'])
                     i = Instance( self.app, inst=instance, m_state=instance.state )
                     self.worker_instances.append( i )
                 # Save list of started instances into a file on S3 to be used in case of cluster restart
@@ -874,6 +851,14 @@ class ConsoleMonitor( object ):
     
     def start( self ):
         self.last_state_change_time = dt.datetime.utcnow()
+        # Set 'role' tag for master instance
+        try:
+            i_id = self.app.cloud_interface.get_instance_id()
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            ir = ec2_conn.get_all_instances([i_id])
+            ir[0].instances[0].add_tag('role', self.app.ud['role'])
+        except EC2ResponseError, e:
+            log.debug("Error setting 'role' tag: %s" % e)
         self.monitor_thread.start()
     
     def shutdown( self ):

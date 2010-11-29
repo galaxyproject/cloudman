@@ -74,13 +74,16 @@ class Volume(object):
                 self.device = '/dev/sdg1'
         return self.device
     
-    def create(self):
+    def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
             try:
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                 self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s'" % (self.size, self.from_snapshot_id, self.volume_id))
+                self.volume.add_tag('clusterName', self.app.ud['cluster_name'])
+                if filesystem:
+                    self.volume.add_tag('filesystem', filesystem)
                 # Mark a volume as 'static' if created from a snapshot
                 # Note that if a volume is marked as 'static', it is assumed it can be deleted
                 # upon cluster termination! This will need some attention once data volumes can 
@@ -125,6 +128,11 @@ class Volume(object):
                     volumestatus = volumes[0].attachment_state()
                     time.sleep( 3 )
                 return True
+            elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
+                # Check if the volume is already attached to current instance (can happen following a reboot/crash)
+                if self.volume.attach_data.instance_id == self.app.self.app.cloud_interface.get_instance_id():
+                    self.device = self.volume.attach_data.device
+                    return True
             if counter == 29:
                 log.warning("Cannot attach volume '%s' in state '%s'" % (self.volume_id, self.status()))
                 return False
@@ -204,7 +212,7 @@ class Filesystem(DataService):
         try:
             self.state = service_states.STARTING
             for vol in self.volumes:
-                vol.create()
+                vol.create(self.name)
                 vol.attach()
                 self.mount(vol)
                 self.status()
@@ -276,7 +284,7 @@ class Filesystem(DataService):
             if volume.status() == volume_status.ATTACHED:
                 if os.path.exists(self.mount_point):
                     if len(os.listdir(self.mount_point)) != 0:
-                        log.error("Filesystem at %s already exists and is not empty." % self.mount_point)
+                        log.warning("Filesystem at %s already exists and is not empty." % self.mount_point)
                         return False
                 else:
                     os.mkdir( self.mount_point )
