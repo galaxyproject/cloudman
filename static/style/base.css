@@ -855,10 +855,21 @@ div.volume_expand_popup{
     background: #aaaaaa;
 }
 
+#stop-button.ab_disabled:hover {
+    background:#EEEEEE;
+    cursor: default;
+}
+
+#stop-button.ab_disabled{
+    color:#999999;
+}
+
+
 #dns.ab_disabled:hover {
     background:#EEEEEE;
     cursor: default;
 }
+
 #dns.ab_disabled{
     color:#999999;
 }

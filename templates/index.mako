@@ -372,6 +372,9 @@ function update(){
 		        cluster_status = data.cluster_status;
 		        if (cluster_status === "SHUT_DOWN"){
 		            $('#main_text').html("<h4>Important:</h4><p>This cluster has terminated.  Please terminate the master instance from the AWS console.</p>");
+		            $('.action-button').addClass('ab_disabled');
+                    // Cluster has shut down.  There is nothing else to update after disabling inputs.
+		            return true;
 		        }
 				if (data.autoscaling.use_autoscaling === true) {
 					// $('#autoscaling_status').text('on')
@@ -435,18 +438,26 @@ $(document).ready(function() {
 	var permanent_storage_size = ${permanent_storage_size};
 	
     $('#stop-button').click(function(){
-		$('#overlay').show();
-		$('#power_off').show();
+        if ($(this).hasClass('ab_disabled')){
+			return;
+		}else{
+    		$('#overlay').show();
+    		$('#power_off').show();
+		}
     });
     $('#scale_up_button').click(function(){
-		$('.cluster_scale_popup').hide();
-		$('.action-button.button-clicked').removeClass('button-clicked');
-		$('#popupoverlay').show();
-		$('#scale_up_button').addClass('button-clicked');
-		$('#cluster_scale_up_popup').show();
+        if ($(this).hasClass('ab_disabled')){
+			return;
+		}else{
+    		$('.cluster_scale_popup').hide();
+    		$('.action-button.button-clicked').removeClass('button-clicked');
+    		$('#popupoverlay').show();
+    		$('#scale_up_button').addClass('button-clicked');
+    		$('#cluster_scale_up_popup').show();
+		}
 	});
     $('#scale_down_button').click(function(){
-		if ($('#scale_down_button').hasClass('ab_disabled')){
+		if ($(this).hasClass('ab_disabled')){
 			return;
 		}else{
 			$('.cluster_scale_popup').hide();
