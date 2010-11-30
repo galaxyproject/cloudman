@@ -151,6 +151,19 @@ class CM( BaseController ):
         return "\n".join(self.app.logger.logmessages)
     
     @expose
+    def galaxy_log( self, trans):
+        # We might want to do some cleanup of the log here to display 
+        # only relevant information, but for now, send the whole thing.
+        trans.response.set_content_type( "text" )
+        if os.path.exists('/mnt/galaxyTools/galaxy-central/paster.log'):
+            f = open('/mnt/galaxyTools/galaxy-central/paster.log', 'rt')
+            log = f.read()
+            f.close()
+            return log
+        else:
+            return "No galaxy log available."
+
+    @expose
     def log_json(self, trans, l_log = 0):
         return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
