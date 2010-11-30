@@ -111,8 +111,10 @@ class CM( BaseController ):
         self.app.shutdown(sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes, sd_instances=instances, sd_volumes_delete=volumes)
     
     @expose
-    def kill_all(self, trans):
-        self.app.shutdown()
+    def kill_all(self, trans, delete_cluster=False):
+        if delete_cluster:
+            delete_cluster = True
+        self.app.shutdown(delete_cluster)
     
     @expose
     def cleanup(self, trans):
