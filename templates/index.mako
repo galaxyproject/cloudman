@@ -294,14 +294,15 @@ var as_max = 0; //max number of instances autoscaling should maintain
 <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
 <script type="text/javascript">
 
-function fixForms(){
-    $('form').submit( function(event){
-        $.post($(this).attr('action'), $(this).serialize());
-        event.preventDefault();
-        hidebox();
-        update();
-    });
-	$('#volume_config')
+function hidebox(){
+	$('.box').hide();
+	$('.overlay').hide();
+	$('.cluster_scale_popup').hide();
+	$('.action-button.button-clicked').removeClass('button-clicked');
+	$('#popupoverlay').hide();
+	$('#volume_expand_popup').hide();
+	$('#power_off').hide();
+	$('#overlay').hide();
 }
 
 function scrollLog(){
@@ -320,17 +321,6 @@ function toggleVolDialog(){
 		$('#voloverlay').show();
 		$('#volume_config').show();
 	}
-}
-
-function hidebox(){
-	$('.box').hide();
-	$('.overlay').hide();
-	$('.cluster_scale_popup').hide();
-	$('.action-button.button-clicked').removeClass('button-clicked');
-	$('#popupoverlay').hide();
-	$('#volume_expand_popup').hide();
-	$('#power_off').hide();
-	$('#overlay').hide();
 }
 
 function update(){
@@ -377,12 +367,15 @@ function update(){
 		        fsdet += "</ul>";
 		        $('#fs_detail').html(fsdet);
 		        cluster_status = data.cluster_status;
-				if (data.autoscaling.use_autoscaling==true) {
+		        if (cluster_status === "SHUT_DOWN"){
+		            $('#main_text').html("<h4>Important:</h4><p>This cluster has terminated.  Please terminate the master instance from the AWS console.</p>");
+		        }
+				if (data.autoscaling.use_autoscaling === true) {
 					// $('#autoscaling_status').text('on')
 					// $('#toggle_autoscaling_link').text('off')
 					use_autoscaling = true;
-					as_min = data.autoscaling.as_min
-					as_max = data.autoscaling.as_max
+					as_min = data.autoscaling.as_min;
+					as_max = data.autoscaling.as_max;
 					$('#scale_up_button').addClass('ab_disabled');
 					$('#scale_up_button > img').hide();
 					$('#scale_down_button').addClass('ab_disabled');
@@ -391,14 +384,13 @@ function update(){
 					// $('#autoscaling_status').text('off')
 					// $('#toggle_autoscaling_link').text('on')
 					use_autoscaling = false;
-					as_min = 0
-					as_max = 0
+					as_min = 0;
+					as_max = 0;
 					$('#scale_up_button').removeClass('ab_disabled');
 					$('#scale_up_button > img').hide();
 					$('#scale_down_button').removeClass('ab_disabled');
 					$('#scale_down_button > img').hide();
 				}
-				
 			}
         });
     $.getJSON('/cloud/log_json',
@@ -425,9 +417,20 @@ function update(){
 	window.setTimeout(update, 5000);
 }
 
+function fixForms(){
+    $('form').submit( function(event){
+        $.post($(this).attr('action'), $(this).serialize());
+        event.preventDefault();
+        hidebox();
+        update();
+    });
+	$('#volume_config');
+}
+
 $(document).ready(function() {
 	var initial_cluster_type = '${initial_cluster_type}';
 	var permanent_storage_size = ${permanent_storage_size};
+	
     $('#stop-button').click(function(){
 		$('#overlay').show();
 		$('#power_off').show();
@@ -464,7 +467,7 @@ $(document).ready(function() {
 		// $('#extra_startup_options').show();
 		if ($('#extra_startup_options').is(":visible")){
 			$('#extra_startup_options').hide();
-			$('#toggle_extra_startup_options').text('Show more startup options')
+			$('#toggle_extra_startup_options').text('Show more startup options');
 		}else{
 			$('#extra_startup_options').show();
 			$('#toggle_extra_startup_options').text("Hide extra options");
@@ -475,7 +478,7 @@ $(document).ready(function() {
 		$('#volume_expand_popup').hide();
 		$('.action-button.button-clicked').removeClass('button-clicked');
 		$('#popupoverlay').hide();
-	})
+	});
     $('.boxclose').click(function(){
         hidebox();
     });
@@ -493,7 +496,6 @@ $(document).ready(function() {
         }
         return false;
     });
-	// console.log("CTC: %s" % initial_cluster_type)
     $('#initial_volume_config_form').submit( function(event) {
         cluster_status = "STARTING";
         $.post('/cloud/root/initialize_cluster', $("#initial_volume_config_form").serialize());
@@ -548,7 +550,7 @@ $(document).ready(function() {
         update();
     });
     $('.fs_det_clicker').click(function(){
-        if (fs_det_vis == true){
+        if (fs_det_vis === true){
 			clearTimeout(click_timeout);
             $('#fs_detail').hide('fast');
             fs_det_vis = false;
@@ -556,7 +558,7 @@ $(document).ready(function() {
         else{
 			$('#fs_detail').show('fast');
 			click_timeout = setTimeout(function(){
-				if (fs_det_vis == true){
+				if (fs_det_vis === true){
 					$('#fs_detail').hide('fast');
 					fs_det_vis = false;
 				}
@@ -568,11 +570,11 @@ $(document).ready(function() {
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
-    if (permanent_storage_size == 0) {
-        var permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
-        var permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+    if (permanent_storage_size === 0) {
+        var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
+        g_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
+        d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
 	
 	var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
@@ -591,19 +593,19 @@ $(document).ready(function() {
 	});
 	
 	// FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
-	var autoscaling_min_bound = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
-	var autoscaling_max_bound = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
+    autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+	var autoscaling_max_bound_adj = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
+    autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
 	$('#as_min_adj').change(function(){
-		autoscaling_max_bound.validations[0].params.minimum = $('#as_min_adj').val();
+		autoscaling_max_bound_adj.validations[0].params.minimum = $('#as_min_adj').val();
 	});
 	$('#as_max_adj').change(function(){
-		autoscaling_min_bound.validations[0].params.maximum = $('#as_max_adj').val();
+		autoscaling_min_bound_adj.validations[0].params.maximum = $('#as_max_adj').val();
 	});
 	
 	
-    if (initial_cluster_type == 'None') {
+    if (initial_cluster_type === 'None') {
 		toggleVolDialog();
 	}
 	update();
