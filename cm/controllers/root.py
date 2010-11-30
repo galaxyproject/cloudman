@@ -69,13 +69,15 @@ class CM( BaseController ):
         return "Cluster configuration set."
     
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None):
+    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
+        if delete_snap:
+            delete_snap = True
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
                 # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
                 if new_vol_size > self.app.manager.get_permanent_storage_size() and new_vol_size < 1000:
-                    self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc)
+                    self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc, delete_snap)
         except ValueError, e:
             log.error("You must provide valid values: %s" % e)
             return "ValueError exception. Check the log."

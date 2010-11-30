@@ -254,8 +254,10 @@ class Filesystem(DataService):
     def expand(self):
         if self.grow is not None:
             self.__remove()
+            smaller_vols = []
             # Create a snapshot of detached volume
             for vol in self.volumes:
+                smaller_vols.append(vol)
                 snap_id = vol.snapshot(self.grow['snap_description'])
                 vol.size = self.grow['new_size']
                 vol.from_snapshot_id = snap_id
@@ -267,6 +269,16 @@ class Filesystem(DataService):
             # Grow file system
             if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'" % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
+            # Delete old, smaller volumes since everything seems to have gone ok
+            for smaller_vol in smaller_vols:
+                smaller_vol.delete()
+            # If desired by user, delete snapshot used during the resizing process
+            if self.grow['delete_snap'] is True:
+                try:
+                    ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                    ec2_conn.delete_snapshot(snap_id)
+                except EC2ResponseError, e:
+                    log.error("Error deleting snapshot '%s' during '%s' resizing: %s" % (snap_id, self.get_full_name(), e))
             self.grow = None # Reset flag
             return True
         else:

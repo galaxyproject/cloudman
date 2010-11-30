@@ -122,8 +122,9 @@ vertical-align: top;
 		Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
 		<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
 		jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-		<br/>During this process, a snapshot of your data volume will be created and left in you account. For reference, you may 
-		provide a brief note that will later be visible in the snapshot description.
+		<p>During this process, a snapshot of your data volume will be created, which can optionally be left in you account. 
+		If you decide to leave the snapshot, for reference, you may also provide a brief note that will later be visible in
+		the snapshot description.</p>
 		</div>
 		<div class="form-row">
 			<label>New Disk Size (max 1000GB):</label>
@@ -132,8 +133,10 @@ vertical-align: top;
 			</div>
 			<label>Note (optional):</label>
 			<div id="permanent_storage_size" class="form-row-input">
-				<input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="10">
+				<input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="40"><br/>
 			</div>
+			<label>or delete created snapshot after filesystem resizing?</label>
+			<input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will be deleted
 			<div class="form-row">
 				<input type="submit" value="Create Data Volume"/>
 			</div>

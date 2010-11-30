@@ -696,13 +696,13 @@ class ConsoleManager( object ):
                     return True
         return False
     
-    def expand_user_data_volume(self, new_vol_size, snap_description=None):
+    def expand_user_data_volume(self, new_vol_size, snap_description=None, delete_snap=False):
         # Mark file system as needing to be expanded
         svcs = self.get_services('Filesystem')
         for svc in svcs:
             if svc.name == 'galaxyData':
                 log.debug("Marking '%s' for expansion to %sGB with snap description '%s'" % (svc.get_full_name(), new_vol_size, snap_description))
-                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description}
+                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description, 'delete_snap': delete_snap}
     
     def get_root_public_key( self ):
         if self.app.TESTFLAG is True:
@@ -854,14 +854,15 @@ class ConsoleMonitor( object ):
     
     def start( self ):
         self.last_state_change_time = dt.datetime.utcnow()
-        # Set 'role' tag for master instance
-        try:
-            i_id = self.app.cloud_interface.get_instance_id()
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            ir = ec2_conn.get_all_instances([i_id])
-            ir[0].instances[0].add_tag('role', self.app.ud['role'])
-        except EC2ResponseError, e:
-            log.debug("Error setting 'role' tag: %s" % e)
+        if not self.app.TESTFLAG:
+            # Set 'role' tag for master instance
+            try:
+                i_id = self.app.cloud_interface.get_instance_id()
+                ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                ir = ec2_conn.get_all_instances([i_id])
+                ir[0].instances[0].add_tag('role', self.app.ud['role'])
+            except EC2ResponseError, e:
+                log.debug("Error setting 'role' tag: %s" % e)
         self.monitor_thread.start()
     
     def shutdown( self ):
