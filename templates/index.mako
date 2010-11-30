@@ -7,7 +7,7 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>Galaxy Cloudman Console</h2>
-	<div>
+	<div id="main_text">
 		%if initial_cluster_type is None:
 			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
 		%else:
@@ -504,6 +504,7 @@ $(document).ready(function() {
     });
     $('#power_cluster_off_form').submit( function(event) {
         cluster_status = "OFF";
+        $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating.  Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
         $.post('/cloud/root/kill_all', $("#power_cluster_off_form").serialize());
         event.preventDefault();
         hidebox();
