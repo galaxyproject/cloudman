@@ -52,10 +52,7 @@ class ConsoleManager( object ):
         self.root_pub_key = None
         self.cluster_status = cluster_status.OFF
         self.master_state = master_states.INITIAL_STARTUP
-        self.persistent_vol_file = 'persistent-volumes-latest.txt'
-        self.cluster_nodes_file = 'cluster_nodes.txt'
         self.num_workers_requested = 0 # Number of worker nodes requested by user
-        self.create_user_data_vol = False # Indicates whether persistent user data volume should be created
         self.worker_instances = self.get_worker_instances() # actual number of worker nodes (note: this is a list of Instance objects)
         self.disk_total = "0"
         self.disk_used = "0"
@@ -67,14 +64,8 @@ class ConsoleManager( object ):
         self.snapshot_status = None
         
         self.initial_cluster_type = None
-        self.services = []
-        
-        # Autoscaling configuration
-        # self.use_autoscaling = True # Flag to indicate if autoscaling is currently active or not
-        # self.autoscale = None # object for the class that implements autoscaling
-        # self.as_max = 0 # Max number of nodes autoscale should maintain
-        # self.as_min = 0 # Min number of nodes autoscale should maintain
-    
+        self.services = []        
+    Í
     def recover_monitor(self, force='False'):
         if self.console_monitor:
             if force=='True':
@@ -541,8 +532,6 @@ class ConsoleManager( object ):
                     instance.add_tag("role", worker_ud['role'])
                     i = Instance( self.app, inst=instance, m_state=instance.state )
                     self.worker_instances.append( i )
-                # Save list of started instances into a file on S3 to be used in case of cluster restart
-                self.save_worker_instance_IDs_to_S3( self.worker_instances )
         except BotoServerError, e:
             log.error( "EC2 insufficient capacity error: %s" % str( e ) )
             return False
@@ -629,30 +618,6 @@ class ConsoleManager( object ):
             log.debug("Initiating termination of instance '%s'" % inst.id )
             inst.terminate()
             log.debug("Initiated termination of instance '%s'" % inst.id )
-            
-        # Update or delete list of started instances to a file on S3 to be used in case of cluster restart
-        if len( self.worker_instances ) > 0:
-            self.save_worker_instance_IDs_to_S3( self.worker_instances )
-        else:
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            if s3_conn is not None:
-                misc.delete_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], self.cluster_nodes_file )
-    
-    def save_worker_instance_IDs_to_S3( self, instances ):
-        """ instances must be an EC2 object"""
-        if self.app.TESTFLAG is True:
-            log.debug( "Attempted to save instances to S3, but TESTFLAG is set." )
-            return None
-        try:
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            f = open( self.cluster_nodes_file, 'w' )
-            for instance in instances:
-                f.write( str( instance.id ) + "\n" )
-            f.close()
-            log.debug( "Saving list of started instances to S3 bucket '%s' as file '%s'..." % ( self.app.ud['bucket_cluster'], self.cluster_nodes_file ) )
-            misc.save_file_to_bucket( s3_conn, self.app.ud['bucket_cluster'], self.cluster_nodes_file, self.cluster_nodes_file )
-        except Exception, e:
-            log.error( "Saving list of started instances to S3 bucket '%s' failed. Not retrying but continuing. Error: %s" % ( self.app.ud['bucket_cluster'], e ) )
     
     def check_for_new_version_of_CM(self):
         """ Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.

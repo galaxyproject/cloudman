@@ -91,7 +91,6 @@ class CM( BaseController ):
                 # started for the first time), store the pss value in the app
                 if pss:
                     self.app.permanent_storage_size = int(pss)
-                    self.app.manager.create_user_data_vol = True
                 self.app.manager.num_workers_requested = int(number_nodes)
             except ValueError, e:
                 log.error("You must provide valid values: %s" % e)
