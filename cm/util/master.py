@@ -979,6 +979,9 @@ class ConsoleMonitor( object ):
                 return False
         while self.running:
             self.sleeper.sleep( 3 )
+            if self.app.manager.cluster_status == cluster_status.SHUT_DOWN:
+                self.running = False
+                return
             # In case queue connection was not established, try again (this will happen if
             # RabbitMQ does not start in time for CloudMan)
             if not self.conn.is_connected():
