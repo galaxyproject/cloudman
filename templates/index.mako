@@ -7,6 +7,7 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>Galaxy Cloudman Console</h2>
+    <div id="storage_warning" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
 	<div id="main_text">
 		%if initial_cluster_type is None:
 			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
@@ -105,8 +106,8 @@ vertical-align: top;
 			Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
 			Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
 	    </td></tr>
-
-	    <tr><td colspan=2></td></tr>
+	    <tr><td colspan=2>
+	    </td></tr>
     </table>
 </div>
 
@@ -354,6 +355,11 @@ function update(){
 				$('#du-total').text(data.disk_usage.total);
 				$('#du-used').text(data.disk_usage.used);
 				$('#du-pct').text(data.disk_usage.pct);
+				if (parseInt(data.disk_usage.pct) > 80){
+				    $('#storage_warning').show();
+				}else{
+				    $('#storage_warning').hide();
+				}
 				$('#snap-progress').text(data.snapshot.progress);
 				$('#snap-status').text(data.snapshot.status);
 				// DBTODO write generic services display

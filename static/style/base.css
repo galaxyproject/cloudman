@@ -943,3 +943,16 @@ div.volume_expand_popup{
 /*    border: 1px solid #CC0000;*/
 }
 
+.warning{
+    display:none;
+    width:700px;
+    margin-bottom:10px;
+    padding:7px;
+    border:1px solid ;
+    text-align:center;
+    background: transparent;
+    background-color:#EEEEEE;
+    display: inline-block;
+    border: solid #aaaaaa 1px;
+    clear:both;
+}
