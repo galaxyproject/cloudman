@@ -174,6 +174,20 @@ def delete_file_from_bucket( conn, bucket_name, remote_filename ):
 	log.debug( "Deleting key object '%s'" % remote_filename )
 	k.delete()
 
+def delete_bucket(conn, bucket_name):
+    """Delete given bucket. This method will itterate through all the keys in
+    the given bucket first and delete them. Finally, the bucket will be deleted."""
+    try:
+        b = conn.get_bucket(bucket_name)
+        keys = b.get_all_keys()
+        for key in keys:
+            key.delete()
+        b.delete()
+        log.info("Successfully deleted cluster bucket '%s'" % bucket_name)
+    except S3ResponseError, e:
+        log.error("Error deleting bucket '%s': %s" % (bucket_name, e))
+    return True
+
 def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     """ Get metadata value for the given key. If bucket or remote_filename is not 
     found, the method returns None.    

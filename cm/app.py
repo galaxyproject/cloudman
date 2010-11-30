@@ -58,6 +58,6 @@ class UniverseApplication( object ):
         else:
             log.error("************ No ROLE in userData.yaml - this is a fatal error. ************")
                 
-    def shutdown( self ):
+    def shutdown(self, delete_cluster=False):
         if self.manager:
-            self.manager.shutdown()
+            self.manager.shutdown(delete_cluster)

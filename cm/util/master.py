@@ -53,7 +53,7 @@ class ConsoleManager( object ):
         self.cluster_status = cluster_status.OFF
         self.master_state = master_states.INITIAL_STARTUP
         self.num_workers_requested = 0 # Number of worker nodes requested by user
-        self.worker_instances = self.get_worker_instances() # actual number of worker nodes (note: this is a list of Instance objects)
+        self.worker_instances = self.get_worker_instances() # The actual number of worker nodes (note: this is a list of Instance objects)
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
@@ -96,7 +96,7 @@ class ConsoleManager( object ):
                     self.app.manager.services.append(fs)
                     self.app.manager.initial_cluster_type = 'Galaxy'
             if self.app.ud.has_key("data_filesystems"):
-                for fs, vol_array  in self.app.ud['data_filesystems'].iteritems():
+                for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
                     log.debug("Adding a previously existing data filesystem: '%s'" % fs)
                     fs = Filesystem(self.app, fs)
                     for vol in vol_array:
@@ -138,7 +138,7 @@ class ConsoleManager( object ):
         except EC2ResponseError, e:
             log.debug("Error checking attached volume '%s' tags: %s" % (vol.id, e))
         return None
-        
+    
     def start_autoscaling(self, as_min, as_max):
         as_svc = self.get_services('Autoscale')
         if not as_svc:
@@ -285,7 +285,7 @@ class ConsoleManager( object ):
             for vol in fs.volumes:
                 pss += int(vol.size)
         return pss
-
+    
     def check_disk(self):
         try:
             fs_arr = [s for s in self.services if s.svc_type=='Filesystem' and s.name=='galaxyData']
@@ -344,7 +344,7 @@ class ConsoleManager( object ):
         log.debug("Attached volumes: %s" % volumes)
         return volumes
     
-    def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True, sd_autoscaling=True):
+    def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True, sd_autoscaling=True, delete_cluster=False):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
@@ -373,63 +373,19 @@ class ConsoleManager( object ):
             svcs = self.get_services('SGE')
             for service in svcs:
                 service.remove()
-        
-        # s3_conn = self.app.cloud_interface.get_s3_connection()
-        # if sd_galaxy:
-        #     try:
-        #         log.info( "Initiating cluster shutdown procedure..." )
-        #         self.master_state = master_states.SHUTTING_DOWN
-        #         #self.console_monitor.shutdown()
-        #         #stop galaxy
-        #         if self.galaxy_running:
-        #             self.manage_galaxy( False )
-        #     except Exception, ex:
-        #         log.error( "Problem shutting down Galaxy, Exception: %s", ex )
-        # if sd_instances:
-        #     try:
-        #         # stop worker instances
-        #         self.stop_worker_instances()
-        #     except Exception, ex:
-        #         log.error( "Unclean shutdown, Exception: %s", ex )    # Update cluster status
-        # if sd_sge:
-        #     try:
-        #         # stop SGE
-        #         if self.sge_running:
-        #             self.stop_sge()
-        #     except Exception, ex:
-        #         log.error( "Problem shutting down SGE, Exception: %s", ex )
-        # if sd_postgres:
-        #     try:
-        #         #stop postgres
-        #         if self.postgres_running:
-        #             self.manage_postgres( False )
-        #     except Exception, ex:
-        #         log.error( "Problem shutting down PostgreSQL, Exception: %s", ex )
-        # if sd_filesystems:
-        #     try:
-        #         #export fss
-        #         self.manage_file_systems( False )
-        #     except Exception, ex:
-        #         log.error( "Problem exporting fss, Exception: %s", ex )
-        # if sd_volumes:
-        #     try:
-        #         #detach EBS volumes
-        #         self.manage_volumes( False )
-        #         # Delete 'attached_volumes.txt' bookkeeping file from cluster bucket
-        #         if s3_conn is not None:
-        #             misc.delete_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'attached_volumes.txt')
-        #     except Exception, ex:
-        #         log.error( "Problem detaching volumes, Exception: %s", ex )
-        # if sd_volumes_delete:
-        #     try:
-        #         # Delete 'galaxyTools' and 'galaxyIndices' EBS volumes 
-        #         self.delete_volumes()
-        #         # Delete 'created_volumes.txt' bookkeeping file from cluster bucket
-        #         # if s3_conn is not None:
-        #         #     misc.delete_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'created_volumes.txt')
-        #     except Exception, ex:
-        #         log.error( "Problem deleting volumes, Exception: %s", ex )
-        
+        if delete_cluster:
+            log.info("All services shut down; deleting this cluster.")
+            # Delete cluster bucket on S3
+            s3_conn = self.app.cloud_interface.get_s3_connection()
+            misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            # Delete persistent data volume(s)
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
+                for vol in vol_array:
+                    try:
+                        ec2_conn.delete_volume(vol['vol_id'])
+                    except EC2ResponseError, e:
+                        log.error("Error deleting volume: %s" % e)
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down. Manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
