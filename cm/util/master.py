@@ -65,7 +65,7 @@ class ConsoleManager( object ):
         
         self.initial_cluster_type = None
         self.services = []        
-    Í
+    
     def recover_monitor(self, force='False'):
         if self.console_monitor:
             if force=='True':
@@ -81,11 +81,17 @@ class ConsoleManager( object ):
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return None
         try:
+            attached_volumes = self.get_attached_volumes()
             self.app.manager.services.append(SGEService(self.app))
             if self.app.ud.has_key("static_filesystems"):
                 for vol in self.app.ud['static_filesystems']:
                     fs = Filesystem(self.app, vol['filesystem'])
-                    fs.add_volume(size=vol['size'], from_snapshot_id=vol['snap_id'])
+                    # Check if an already attached volume maps to the current filesystem
+                    att_vol = self.get_vol_if_fs(attached_volumes, vol['filesystem'])
+                    if att_vol:
+                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                    else:
+                        fs.add_volume(size=vol['size'], from_snapshot_id=vol['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % vol['filesystem'])
                     self.app.manager.services.append(fs)
                     self.app.manager.initial_cluster_type = 'Galaxy'
@@ -97,7 +103,7 @@ class ConsoleManager( object ):
                         fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
                     self.app.manager.services.append(fs)
                     self.app.manager.initial_cluster_type = 'Data'
-            if  self.app.ud.has_key("services"):
+            if self.app.ud.has_key("services"):
                 for srvc in self.app.ud['services']:
                     log.debug("Adding service: '%s'" % srvc['service'])
                     # TODO: translation from predefined service names into classes is not quite ideal...
@@ -116,6 +122,23 @@ class ConsoleManager( object ):
         log.info( "Completed initial cluster configuration." )
         return True
     
+    def get_vol_if_fs(self, attached_volumes, filesystem_name):
+        """ Iterate through the list of (attached) volumes and check if any
+        one of them matches the current cluster name and filesystem (as stored
+        in volume tags). Returns a matching volume of None.
+        Note that this method returns the first matching volume and will thus 
+        not work for filesystems composed of multiple volumes. """
+        try:
+            for vol in attached_volumes:
+                if vol.tags.has_key('clusterName') and \
+                   vol.tags['clusterName']==self.app.ud['cluster_name'] and \
+                   vol.tags.has_key('filesystem') and \
+                   vol.tags['filesystem']==filesystem_name:
+                    return vol
+        except EC2ResponseError, e:
+            log.debug("Error checking attached volume '%s' tags: %s" % (vol.id, e))
+        return None
+        
     def start_autoscaling(self, as_min, as_max):
         as_svc = self.get_services('Autoscale')
         if not as_svc:
@@ -285,16 +308,14 @@ class ConsoleManager( object ):
         return self.master_state
     
     def get_worker_instances( self ):
-        # EATODO: Do something else here to hopefully avoid having to maintain an instance reference file
-        if self.app.TESTFLAG is True:
-            insts = []
-            # for i in range(5):
-            #     inst = Instance( self.app, inst=None, m_state="Pending" )
-            #     inst.id = "WorkerInstance"
-            #     insts.append(inst)
-            return insts
-        log.debug("Trying to discover any worker instances associated with this cluster...")
         instances = []
+        if self.app.TESTFLAG is True:
+            # for i in range(5):
+            #     instance = Instance( self.app, inst=None, m_state="Pending" )
+            #     instance.id = "WorkerInstance"
+            #     instances.append(instance)
+            return instances
+        log.debug("Trying to discover any worker instances associated with this cluster...")
         filters = {'tag:clusterName': self.app.ud['cluster_name'], 'tag:role': 'worker'}
         try:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -307,7 +328,24 @@ class ConsoleManager( object ):
         except EC2ResponseError, e:
             log.debug( "Error checking for live instances: %s" % e )
         return instances
-        
+    
+    def get_attached_volumes(self):
+        """Get a list of EBS volumes attached to the current instance."""
+        volumes = []
+        if self.app.TESTFLAG is True:
+            return volumes
+        log.debug("Trying to discover any volumes attached to this instance...")
+        try:
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            vols = ec2_conn.get_all_volumes()
+            for v in vols:
+                if v.attach_data.status=='attached' and v.attach_data.instance_id==self.app.cloud_interface.get_instance_id():
+                    volumes.append(v)
+        except EC2ResponseError, e:
+            log.debug( "Error checking for live instances: %s" % e )
+        log.debug("Attached volumes: %s" % volumes)
+        return volumes
+    
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True, sd_instances=True, sd_autoscaling=True):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
@@ -935,7 +973,6 @@ class ConsoleMonitor( object ):
     
     def __monitor( self ):
         timer = dt.datetime.utcnow()
-        # as_timer = dt.datetime.utcnow() # Autoscaling timer
         if self.app.manager.manager_started == False:
             if not self.app.manager.start():
                 log.error("***** Manager failed to start *****")
