@@ -1,0 +1,40 @@
+syntax: regexp
+
+\.svn$
+
+syntax: glob
+
+.hg/*
+
+# Database stuff
+database/*
+
+# Python bytecode
+*.pyc
+
+# Config files
+universe_wsgi.ini
+cm_wsgi.ini
+userData.yaml
+persistent-volumes-latest.txt
+cm_cluster_config.yaml
+snaps.yaml
+paster.log
+__init__.py.oUs
+
+# Project files
+*.kpf
+
+# Chrom len files
+*.len
+
+#ignore .orig backups
+*.orig
+
+#DS_STORE!
+.DS_Store
+
+# Local env for easier uploads
+cm.tar.gz
+update_cm.sh
+upload_cm_to_S3.py
