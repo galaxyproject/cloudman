@@ -134,6 +134,7 @@ class ConsoleManager( object ):
                    vol.tags['clusterName']==self.app.ud['cluster_name'] and \
                    vol.tags.has_key('filesystem') and \
                    vol.tags['filesystem']==filesystem_name:
+                    log.debug("Identified attached volume '%s' as filesystem '%s'" % (vol.id, filesystem_name))
                     return vol
         except EC2ResponseError, e:
             log.debug("Error checking attached volume '%s' tags: %s" % (vol.id, e))
@@ -808,12 +809,13 @@ class ConsoleMonitor( object ):
     def start( self ):
         self.last_state_change_time = dt.datetime.utcnow()
         if not self.app.TESTFLAG:
-            # Set 'role' tag for master instance
+            # Set 'role' and 'clusterName' tags for the master instance
             try:
                 i_id = self.app.cloud_interface.get_instance_id()
                 ec2_conn = self.app.cloud_interface.get_ec2_connection()
                 ir = ec2_conn.get_all_instances([i_id])
                 ir[0].instances[0].add_tag('role', self.app.ud['role'])
+                ir[0].instances[0].add_tag('clusterName', self.app.ud['cluster_name'])
             except EC2ResponseError, e:
                 log.debug("Error setting 'role' tag: %s" % e)
         self.monitor_thread.start()
@@ -931,6 +933,7 @@ class ConsoleMonitor( object ):
             if not self.app.manager.start():
                 log.error("***** Manager failed to start *****")
                 return False
+        log.debug("Monitor started; manager started")
         while self.running:
             self.sleeper.sleep( 3 )
             if self.app.manager.cluster_status == cluster_status.SHUT_DOWN:

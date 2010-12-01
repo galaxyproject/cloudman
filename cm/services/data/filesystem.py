@@ -1,4 +1,4 @@
-import commands, os, time, shutil, threading
+import commands, os, time, shutil, threading, copy
 
 from cm.services.data import DataService
 from cm.util.misc import run
@@ -92,6 +92,8 @@ class Volume(object):
                     self.static = True
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
+        else:
+            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" % (self.status(), self.volume_id))
     
     def delete(self):
         try:
@@ -130,8 +132,9 @@ class Volume(object):
                 return True
             elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
                 # Check if the volume is already attached to current instance (can happen following a reboot/crash)
-                if self.volume.attach_data.instance_id == self.app.self.app.cloud_interface.get_instance_id():
+                if self.volume.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
                     self.device = self.volume.attach_data.device
+                    log.debug("Tried to attach a volume but the volume '%s' is already attached (as device %s)" % (self.volume_id, self.device))
                     return True
             if counter == 29:
                 log.warning("Cannot attach volume '%s' in state '%s'" % (self.volume_id, self.status()))
@@ -210,6 +213,7 @@ class Filesystem(DataService):
     
     def add(self):
         try:
+            log.debug("Trying to add service '%s'" % self.svc_type)
             self.state = service_states.STARTING
             for vol in self.volumes:
                 vol.create(self.name)
@@ -226,7 +230,7 @@ class Filesystem(DataService):
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread( target=self.__remove() )
         r_thread.start()
-        
+    
     def __remove(self):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
@@ -257,7 +261,8 @@ class Filesystem(DataService):
             smaller_vols = []
             # Create a snapshot of detached volume
             for vol in self.volumes:
-                smaller_vols.append(vol)
+                smaller_vol = copy.deepcopy(vol) # Make a deep copy and keep up with it for deletion bc. otherwise ref to the vol gets changed
+                smaller_vols.append(smaller_vol)
                 snap_id = vol.snapshot(self.grow['snap_description'])
                 vol.size = self.grow['new_size']
                 vol.from_snapshot_id = snap_id
