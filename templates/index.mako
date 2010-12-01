@@ -167,7 +167,7 @@ vertical-align: top;
 <div class="box" id="turn_autoscaling_off">
     <a class="boxclose"></a>
     <h2>Autoscaling Configuration</h2>
-	<form id="turn_autoscaling_off_form" name="turn_autoscaling_off_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
+	<form id="turn_autoscaling_off_form" class="autoscaling_form" name="turn_autoscaling_off_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
         <div class="form-row">
             If autoscaling is turned off, the cluster will remain in it's current state and you will
 			be able to manually add or remove nodes.
@@ -178,7 +178,7 @@ vertical-align: top;
 <div class="box" id="turn_autoscaling_on">
 	<a class="boxclose"></a>
 	<h2>Autoscaling Configuration</h2>
-	<form id="turn_autoscaling_on_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
+	<form id="turn_autoscaling_on_form" class="autoscaling_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
         <div class="form-row">
             Autoscaling attempts to automate the elasticity offered by cloud computing for this 
 			particular cluster. <b>Once turned on, autoscaling takes over the control over the size 
@@ -209,7 +209,7 @@ vertical-align: top;
 <div class="box" id="adjust_autoscaling">
 	<a class="boxclose"></a>
 	<h2>Adjust Autoscaling Configuration</h2>
-	<form id="adjust_autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
+	<form id="adjust_autoscaling_form" class="autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
         <div class="form-row">
             Adjust the number of instances autoscaling should maintain for this cluster. 
 			<p>NOTE that <b>if there are no idle nodes to remove</b>, although the maximum 
@@ -296,8 +296,9 @@ var as_max = 0; //max number of instances autoscaling should maintain
 </script>
 
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
-<script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
+## <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
 <script type="text/javascript">
 
 function hidebox(){
@@ -310,7 +311,7 @@ function hidebox(){
 	$('#power_off').hide();
 	$('#overlay').hide();
 }
-
+ 
 function scrollLog(){
     if ($("#log_container_body").attr("scrollHeight") <= ($("#log_container_body").scrollTop() + $("#log_container_body").height() + 100)){
         $('#log_container_body').animate({
@@ -329,8 +330,8 @@ function toggleVolDialog(){
 	}
 }
 
-function update(){
-    $.getJSON('/cloud/instance_state_json', 
+function update(repeat_update){
+    $.getJSON('/cloud/instance_state_json',
 		function(data) {
 			if (data){
 		        $('#status').html(data.instance_state);
@@ -385,8 +386,6 @@ function update(){
 		            return true;
 		        }
 				if (data.autoscaling.use_autoscaling === true) {
-					// $('#autoscaling_status').text('on')
-					// $('#toggle_autoscaling_link').text('off')
 					use_autoscaling = true;
 					as_min = data.autoscaling.as_min;
 					as_max = data.autoscaling.as_max;
@@ -395,8 +394,6 @@ function update(){
 					$('#scale_down_button').addClass('ab_disabled');
 					$('#scale_down_button > img').hide();
 				} else {
-					// $('#autoscaling_status').text('off')
-					// $('#toggle_autoscaling_link').text('on')
 					use_autoscaling = false;
 					as_min = 0;
 					as_max = 0;
@@ -428,7 +425,9 @@ function update(){
 			}
 	});
     scrollLog();
-	window.setTimeout(update, 5000);
+    if (repeat_update === true){
+	    window.setTimeout(update, 5000);        
+    }
 }
 
 function fixForms(){
@@ -436,14 +435,30 @@ function fixForms(){
         $.post($(this).attr('action'), $(this).serialize());
         event.preventDefault();
         hidebox();
-        update();
+        update(false);
     });
-	$('#volume_config');
 }
 
 $(document).ready(function() {
 	var initial_cluster_type = '${initial_cluster_type}';
 	var permanent_storage_size = ${permanent_storage_size};
+	
+    $('.autoscaling_form').ajaxForm( {
+        type: 'POST',
+        dataType: 'json',
+        beforeSubmit: function(data){
+            hidebox();
+        },
+        success: function( data ) {
+            if (data){
+                use_autoscaling = data.running;
+                as_min = data.as_min;
+                as_max = data.as_max;
+            }
+            refreshTip();
+            update(false);
+        }
+    });
 	
     $('#stop-button').click(function(){
         if ($(this).hasClass('ab_disabled')){
@@ -524,7 +539,7 @@ $(document).ready(function() {
         event.preventDefault();
 		$('#initial_volume_config_form').hide('fast');
         hidebox();
-        update();
+        update(false);
     });
     $('#power_cluster_off_form').submit( function(event) {
         cluster_status = "OFF";
@@ -532,45 +547,28 @@ $(document).ready(function() {
         $.post('/cloud/root/kill_all', $("#power_cluster_off_form").serialize());
         event.preventDefault();
         hidebox();
-        update();
+        update(false);
     });
     $('#expand_user_data_volume').submit( function(event) {
         $.post('/cloud/root/expand_user_data_volume', $("#expand_user_data_volume").serialize());
         event.preventDefault();
 		$('#volume_expand_popup').hide('fast');
         hidebox();
-        update();
+        update(false);
     });
     $('#add_instances_form').submit( function(event) {
         $.post('/cloud/root/add_instances', $("#add_instances_form").serialize());
         event.preventDefault();
         hidebox();
-        update();
+        update(false);
     });
     $('#remove_instances_form').submit( function(event) {
         $.post('/cloud/root/remove_instances', $("#remove_instances_form").serialize());
         event.preventDefault();
         hidebox();
-        update();
+        update(false);
     });
-    $('#turn_autoscaling_on_form').submit( function(event) {
-        $.post('/cloud/root/toggle_autoscaling', $("#turn_autoscaling_on_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update();
-    });
-    $('#turn_autoscaling_off_form').submit( function(event) {
-        $.post('/cloud/root/toggle_autoscaling', $("#turn_autoscaling_off_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update();
-    });
-    $('#adjust_autoscaling_form').submit( function(event) {
-        $.post('/cloud/root/adjust_autoscaling', $("#adjust_autoscaling_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update();
-    });
+    
     $('.fs_det_clicker').click(function(){
         if (fs_det_vis === true){
 			clearTimeout(click_timeout);

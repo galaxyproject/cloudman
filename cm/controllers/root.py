@@ -245,7 +245,15 @@ class CM( BaseController ):
                 self.app.manager.start_autoscaling(int(as_min), int(as_max))
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
-        return "Toggled autoscaling (autoscaling is now set to '%s')" % 'ON' if self.app.manager.get_services('Autoscale') else 'OFF'
+        if self.app.manager.get_services('Autoscale'):
+            
+            return to_json_string({'running' : True,
+                                    'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
+                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max})
+        else:
+            return to_json_string({'running' : False,
+                                    'as_min' : 0,
+                                    'as_max' : 0})
     
     @expose 
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
@@ -255,8 +263,13 @@ class CM( BaseController ):
                 self.app.manager.adjust_autoscaling(int(as_min_adj), int(as_max_adj))
             else:
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (as_min_adj, as_max_adj))
+            return to_json_string({'running' : True,
+                                    'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
+                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max})
         else:
-            log.error("Cannot adjust autoscaling because it's off.")
+            return to_json_string({'running' : False,
+                                    'as_min' : 0,
+                                    'as_max' : 0})
             
     def check_as_vals(self, as_min, as_max):
         """ Check if limits for autoscaling are acceptable."""
