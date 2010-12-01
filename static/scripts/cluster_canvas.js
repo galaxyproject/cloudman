@@ -1,31 +1,9 @@
-// x, y, dx, dy, inst_id, state, timestamp
-
-
-// Expected Instances list description
-// 0   topleft x   (for clickdetection!)
-// 1   topleft y
-// 2   btmleft x
-// 3   btmleft y
-// 4   instance_id
-// 5   load
-// 6   last state change
-// 7   nfs_data
-// 8   nfs_tools
-// 9   nfs_indices
-// 10  nfs_sge
-// 11  get_cert
-// 12  sge_started
-// 13  status
-
 COLORING_ARR = ['red', 'green', 'nodata']
-
 var cluster_view_tooltip_base = "";
-
 var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Ready</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
-
-// var cluster_view_tooltip_base = "<ul><li>Green- Running</li><li>Blue- Pending</li><li>Blue- Pending</li><li>Red- Error</li></ul>";
 var TESTING = false;
 var instances = Array();
+
 if (TESTING == true){
     instances = [
                 {'id' : 'instance-1', 
