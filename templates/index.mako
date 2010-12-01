@@ -180,24 +180,29 @@ vertical-align: top;
 	<h2>Autoscaling Configuration</h2>
 	<form id="turn_autoscaling_on_form" class="autoscaling_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
         <div class="form-row">
-            Autoscaling attempts to automate the elasticity offered by cloud computing for this 
+            <p>Autoscaling attempts to automate the elasticity offered by cloud computing for this 
 			particular cluster. <b>Once turned on, autoscaling takes over the control over the size 
-			of your cluster.</b> Before turning autoscaling on, specify the cluster size limits you 
-			want to ensure are respected by autoscaling and use your cluster as you normally do.
-			The cluster will never be smaller than the minimum number of worker nodes you specify 
-			and it will never grow larger than the maximum number of worker nodes you specify.
-			Within those limits, if there are more jobs than the cluster can comfortably process at
-			a given time, autoscaling will automatically add compute nodes; if there are cluster nodes
-			sitting idle at the end of an hour, autoscaling will terminate those nodes, thus reducing
-			the size of the cluster and	your cost. 
+			of your cluster.</b></p>
+			<p>
+			Autoscaling is simple, just specify the cluster size limits you want to want to work within 
+			and use your cluster as you normally do.  The cluster will not automatically shrink to less 
+			than the minimum number of worker nodes you specify and it will never grow larger than the 
+			maximum number of worker nodes you specify.
+			</p>
+			<p>
+			While respecting the set limits, if there are more jobs than the cluster can comfortably process at
+			a given time autoscaling will automatically add compute nodes; if there are cluster nodes
+			sitting idle at the end of an hour autoscaling will terminate those nodes reducing the size 
+			of the cluster and	your cost.
+			</p>
 			<p>Once turned on, the cluster size limits respected by autoscaling can be adjusted or 
 			autoscaling can be turned off.</p>
 			<div class="form-row">
-				<label>Min number of nodes to maintain:</label>
+				<label>Minimum number of nodes to maintain:</label>
 				<div class="form-row-input">
 					<input type="text" name="as_min" id="as_min" value="" size="10">
 				</div>
-				<label>Max number of nodes to maintain</label>
+				<label>Maximum number of nodes to maintain:</label>
 				<div class="form-row-input">
 					<input type="text" name="as_max" id="as_max" value="" size="10">
 				</div>
@@ -216,11 +221,11 @@ vertical-align: top;
 			limit may be higher than the number of available nodes, autoscaling will wait 
 			until the nodes become idle to terminate them.
 			<div class="form-row">
-				<label>Min number of nodes to maintain:</label>
+				<label>Minimum number of nodes to maintain:</label>
 				<div class="form-row-input">
 					<input type="text" name="as_min_adj" id="as_min_adj" value="" size="10">
 				</div>
-				<label>Max number of nodes to maintain</label>
+				<label>Maximum number of nodes to maintain:</label>
 				<div class="form-row-input">
 					<input type="text" name="as_max_adj" id="as_max_adj" value="" size="10">
 				</div>
