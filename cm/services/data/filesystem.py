@@ -1,4 +1,4 @@
-import commands, os, time, shutil, threading, copy
+import commands, os, time, shutil, threading
 
 from cm.services.data import DataService
 from cm.util.misc import run
@@ -258,11 +258,10 @@ class Filesystem(DataService):
     def expand(self):
         if self.grow is not None:
             self.__remove()
-            smaller_vols = []
+            smaller_vol_ids = []
             # Create a snapshot of detached volume
             for vol in self.volumes:
-                smaller_vol = copy.deepcopy(vol) # Make a deep copy and keep up with it for deletion bc. otherwise ref to the vol gets changed
-                smaller_vols.append(smaller_vol)
+                smaller_vol_ids.append(vol.volume_id)
                 snap_id = vol.snapshot(self.grow['snap_description'])
                 vol.size = self.grow['new_size']
                 vol.from_snapshot_id = snap_id
@@ -275,8 +274,12 @@ class Filesystem(DataService):
             if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'" % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
             # Delete old, smaller volumes since everything seems to have gone ok
-            for smaller_vol in smaller_vols:
-                smaller_vol.delete()
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            for smaller_vol_id in smaller_vol_ids:
+                try:
+                    ec2_conn.delete_volume(smaller_vol_id)
+                except EC2ResponseError, e:
+                    log.error("Error deleting old data volume '%s' during '%s' resizing: %s" % (smaller_vol_id, self.get_full_name(), e))
             # If desired by user, delete snapshot used during the resizing process
             if self.grow['delete_snap'] is True:
                 try:
