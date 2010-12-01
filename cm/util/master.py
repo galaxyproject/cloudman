@@ -445,7 +445,6 @@ class ConsoleManager( object ):
         return idle_instances
     
     def remove_instances(self, num_nodes, force=False):
-        num_nodes = int( num_nodes )
         # Decide which instance(s) to terminate, remove the from SGE and terminate
         idle_instances = self.get_idle_instances()
         log.info( "Found '%s' idle instances; trying to remove '%s'" % ( len( idle_instances ), num_nodes ) )

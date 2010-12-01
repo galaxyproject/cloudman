@@ -106,8 +106,9 @@ vertical-align: top;
 			Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
 			Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
 	    </td></tr>
-	    <tr><td colspan=2>
-	    </td></tr>
+	    <tr><td><h4>External Logs:</h4></td><td><span id="galaxy_log"><a href="${h.url_for(controller='root',action='galaxy_log')}">Galaxy Log</a></span></td></tr>
+##	    <tr><td colspan=2>
+##	    </td></tr>
     </table>
 </div>
 
@@ -344,9 +345,11 @@ function update(repeat_update){
 				if (data.dns == '#'){
 					$('#dns').addClass('ab_disabled');
 			        $('#dns').attr("target", '');
+			        $('#galaxy_log').hide()
 				}else{
 					$('#dns').removeClass('ab_disabled');
 			        $('#dns').attr("target", '_blank');
+			        $('#galaxy_log').show()
 				}
 				if (data.instance_status.requested == '0'){
 					$('#scale_down_button').addClass('ab_disabled');
