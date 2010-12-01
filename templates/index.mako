@@ -434,7 +434,7 @@ function update(repeat_update){
 	});
     scrollLog();
     if (repeat_update === true){
-	    window.setTimeout(update, 5000);        
+	    window.setTimeout(function(){update(true)}, 5000);
     }
 }
 
@@ -636,7 +636,7 @@ $(document).ready(function() {
     if (initial_cluster_type === 'None') {
 		toggleVolDialog();
 	}
-	update();
+	update(true);
 });
 
 </script>
