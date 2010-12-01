@@ -52,6 +52,7 @@ class GalaxyService( ApplicationService ):
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
                     log.debug("ls /mnt/: %s" % os.listdir('/mnt/'))
+                    self.state = service_states.ERROR
                     return False
                 # Retrieve config files from a persistent data repository (i.e., S3)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' ):
