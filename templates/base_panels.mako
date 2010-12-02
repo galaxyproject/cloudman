@@ -39,9 +39,9 @@ from routes import url_for
       </td>
       <td align="left" valign="middle"><div class="pageTitle">Galaxy Cloudman</div></td>
       <td align="right" valign="middle">
-        %if GC_url:
+        %if CM_url:
 			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
-			  <a target="_blank" href="${GC_url}">What's New</a> | 
+			  <a target="_blank" href="${CM_url}">What's New</a> | 
 			  <a target="_top" href="${h.url_for( controller='root', action='update_users_CM' )}">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
 		  %endif

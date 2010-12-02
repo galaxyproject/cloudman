@@ -5,7 +5,7 @@ Requires:
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
 
-import logging, sys, os, subprocess, yaml, tarfile, shutil
+import logging, sys, os, subprocess, yaml, tarfile, shutil, time
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
@@ -17,6 +17,7 @@ CM_BOOT_PATH = '/tmp/cm'
 USER_DATA_FILE = 'userData.yaml'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
+CM_REV_FILENAME = 'cm_revision.txt'
 SERVICE_ROOT = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
 DEFAULT_BUCKET_NAME = 'cloudman'
 
@@ -42,7 +43,7 @@ def _run(cmd):
     else:
         log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd, process.returncode, stderr))
         return False
-        
+
 def _make_dir(path):
     log.debug("Checking existence of directory '%s'..." % path)
     if not os.path.exists( path ):
@@ -54,7 +55,7 @@ def _make_dir(path):
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
-        
+
 def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename):
     try:
         # log.debug("Establishing handle with bucket '%s'" % bucket_name)
@@ -95,7 +96,7 @@ def _start_nginx():
         _run('/opt/galaxy/sbin/nginx')
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
-    
+
 def _get_cm(ud):
     log.info("<< Downloading CloudMan >>")
     _make_dir(CM_HOME)
@@ -111,10 +112,12 @@ def _get_cm(ud):
             if b is not None: # Try to retrieve user's instance of CM
                 log.info("User's bucket '%s' found." % b.name)
                 if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
+                    _write_cm_revision_to_file(s3_conn, b.name)
                     return True
             # Retrieve default instance of CM
             log.info("Could not retrieve CloudMan from user's bucket; using default CloudMan (%s) from bucket '%s'." % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
             if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
+                _write_cm_revision_to_file(s3_conn, b.name)
                 return True
     # Default to public repo and wget
     log.error("Could not retrieve CloudMan from user's bucket")
@@ -122,13 +125,42 @@ def _get_cm(ud):
     log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
     # This assumes the default repository/bucket is readable to anyone w/o authentication
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
-        
+
+def _write_cm_revision_to_file(s3_conn, bucket_name):
+    """ Get the revision number associated with the CM_REMOTE_FILENAME and save 
+    it locally to CM_REV_FILENAME """
+    with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
+        rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME, 'revision')
+        if rev:
+            rev_file.write(rev)
+        else:
+            rev_file.write('9999999')
+
+def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
+    """ Get metadata value for the given key. If bucket or remote_filename is not 
+    found, the method returns None.    
+    """
+    log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
+    b = None
+    for i in range(0, 5):
+		try:
+			b = conn.get_bucket( bucket_name )
+			break
+		except S3ResponseError: 
+			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
+			time.sleep(2)
+    if b is not None:
+        k = b.get_key(remote_filename)
+        if k and metadata_key:
+            return k.get_metadata(metadata_key)
+    return None 
+
 def _unpack_cm():
     local_path = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
     log.info("<< Unpacking CloudMan from %s >>" % local_path)
     tar = tarfile.open(local_path, "r:gz")
     tar.extractall(CM_HOME) # Extract contents of downloaded file to CM_HOME
-  
+
 def _start_cm():
     log.debug("Copying user data file to '%s'" % os.path.join(CM_HOME, USER_DATA_FILE))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
@@ -136,6 +168,7 @@ def _start_cm():
     _run('cd %s; sh run.sh --daemon' % CM_HOME)
 
 def main():
+    _run('easy_install -U boto') # Update boto
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     
