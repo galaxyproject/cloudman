@@ -165,7 +165,20 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
     else:
         log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
         return False
-         
+
+def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename):
+    b = s3_conn.get_bucket(src_bucket_name)
+    if b:
+        try:
+            log.debug("Establishing handle with key object '%s'" % orig_filename)
+            k = Key(b, orig_filename)
+            log.debug("Copying file '%s/%s' to file '%s/%s'" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename))
+            k.copy(dest_bucket_name, copy_filename, preserve_acl=True)
+            return True
+        except S3ResponseError, e: 
+            log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
+    return False
+
 def delete_file_from_bucket( conn, bucket_name, remote_filename ):
 	log.debug( "Establishing handle with bucket '%s'..." % bucket_name )
 	b = conn.get_bucket( bucket_name )
@@ -211,7 +224,7 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
 def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata_value):
     """ Set metadata key-value pair for the remote file. 
     :rtype: bool
-    :return: If specified bucket and remote_file name exist, return True.
+    :return: If specified bucket and remote_filename exist, return True.
              Else, return False
     """
     log.debug("Setting metadata '%s' for file '%s' in bucket '%s'" % (metadata_key, remote_filename, bucket_name))

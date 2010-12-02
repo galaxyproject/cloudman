@@ -29,14 +29,11 @@ class PostgresService( ApplicationService ):
             log.debug( "Attempted to manage Postgres, but TESTFLAG is set." )
             return
         psql_data_dir = paths.P_PSQL_DIR
-        
         # Make sure postgres is owner of its directory before any operations
         if os.path.exists(os.path.split(paths.P_PSQL_DIR)[0]):
             misc.run("%s --recursive postgres:postgres %s" % (paths.P_CHOWN, os.path.split(paths.P_PSQL_DIR)[0]), "Error changing ownership of just created directory", "Successfully set ownership of Postgres data directory")
-        
         # Check on the status of PostgreSQL server
         self.status()
-
         if to_be_started and not self.state==service_states.RUNNING:
             to_be_configured = False
 
@@ -95,13 +92,14 @@ class PostgresService( ApplicationService ):
                         log.warning("Successfully started PosgreSQL but did it start and is it accessible?")
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (to_be_started, self.state))
-
         elif not to_be_started:
             # Stop PostgreSQL database
             log.info( "Stopping PostgreSQL..." )
+            self.state = service_states.SHUTTING_DOWN
             if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
                 self.state = service_states.SHUT_DOWN
             else:
+                self.state = service_states.ERROR
                 return False
                 
         return True
@@ -114,7 +112,10 @@ class PostgresService( ApplicationService ):
                  False otherwise.
         """
         # log.debug("\tChecking PostgreSQL")
-        if self._check_daemon('postgres'):
+        if self.state==service_states.SHUTTING_DOWN or \
+           self.state==service_states.SHUT_DOWN:
+            return None
+        elif self._check_daemon('postgres'):
             # log.debug("\tPostgreSQL daemon running. Trying to connect and select tables.")
             dbs = commands.getoutput('%s - postgres -c "%s/psql -p %s -c \\\"SELECT datname FROM PG_DATABASE;\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port))
             if dbs.find('galaxy') > -1:

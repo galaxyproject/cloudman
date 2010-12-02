@@ -29,6 +29,7 @@ class Configuration( object ):
         self.brand = kwargs.get( 'brand', None )
         self.wiki_url = kwargs.get( 'wiki_url', "http://g2.trac.bx.psu.edu/" )
         self.GC_url = kwargs.get( 'GC_url', 'http://bitbucket.org/afgane/galaxy-central-gc2/' )
+        self.CM_url = kwargs.get( 'GC_url', 'http://bitbucket.org/galaxy/cloudman/' )
         self.bugs_email = kwargs.get( 'bugs_email', "mailto:galaxy-bugs@bx.psu.edu" )
         self.blog_url = kwargs.get( 'blog_url', "http://g2.trac.bx.psu.edu/blog" )
         self.screencasts_url = kwargs.get( 'screencasts_url', "http://g2.trac.bx.psu.edu/wiki/ScreenCasts" )

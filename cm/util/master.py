@@ -349,6 +349,7 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
+        log.debug("List of services before shutdown: %s" % self.services)
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
@@ -626,7 +627,6 @@ class ConsoleManager( object ):
         default_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_default'], self.app.config.cloudman_source_file_name, 'revision')
         log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
         if user_CM_rev and default_CM_rev:
-            # log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
             if default_CM_rev > user_CM_rev:
                 return True
         return False
@@ -643,10 +643,13 @@ class ConsoleManager( object ):
             log.debug( "Attempted to update CM, but TESTFLAG is set." )
             return None
         if self.check_for_new_version_of_CM():
-            log.info("Updating CloudMan application source file in user's bucket '%s'. It will be automatically available the next this cluster is instantiated." % self.app.ud['bucket_cluster'] )
+            log.info("Updating CloudMan application source file in cluster's bucket '%s'. It will be automatically available the next this cluster is instantiated." % self.app.ud['bucket_cluster'] )
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], self.app.config.cloudman_source_file_name, '%s_new' % self.app.config.cloudman_source_file_name):
-                if misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, '%s_new' % self.app.config.cloudman_source_file_name):
+            # Make a copy of the old/original CM source in cluster's bucket called 'copy_name'
+            copy_name = "%s_%s" % (self.app.config.cloudman_source_file_name, dt.date.today())
+            if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, copy_name):
+                # Copy over the default CM to cluster's bucket as self.app.config.cloudman_source_file_name
+                if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_default'], self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, self.app.config.cloudman_source_file_name):
                     return True
         return False
     
@@ -922,6 +925,12 @@ class ConsoleMonitor( object ):
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
+            try:
+                with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+                    rev = rev_file.read()
+                misc.set_file_metadata(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+            except Exception, e:
+                log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s" % self.app.ud['bucket_cluster'])
         # If not existent, save tool_data_table_conf.xml to cluster's bucket
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud') and os.path.exists(os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud')):
             log.debug("Saving tool_data_table_conf.xml.cloud file to cluster bucket '%s' as '%s'" % (self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud'))
