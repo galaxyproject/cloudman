@@ -320,10 +320,10 @@ class ConsoleManager( object ):
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
             reservations = ec2_conn.get_all_instances(filters=filters)
             for reservation in reservations:
-                if reservation.instances[0].state != 'terminated':
-                    i = Instance( self.app, inst=reservation[0].instances[0], m_state=reservation[0].instances[0].state )
+                if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
+                    i = Instance( self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state )
                     instances.append( i )
-                    log.info( "Instance '%s' alive." % reservation.instances[0].id )
+                    log.info( "Instance '%s' found alive." % reservation.instances[0].id )
         except EC2ResponseError, e:
             log.debug( "Error checking for live instances: %s" % e )
         return instances
@@ -391,6 +391,23 @@ class ConsoleManager( object ):
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down. Manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
+    
+    def reboot(self):
+        self.shutdown(sd_instances=False)
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
+        try:
+            ec2_conn.reboot_instances([self.app.cloud_interface.get_instance_id()])
+        except EC2ResponseError, e:
+            log.error("Error rebooting master instance (i.e., self): %s" % e)
+
+    def terminate_master_instance(self):
+        if not (self.cluster_status == cluster_status.SHUT_DOWN and self.master_state == master_states.SHUT_DOWN):
+            self.shutdown()
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
+        try:
+            ec2_conn.terminate_instances([self.app.cloud_interface.get_instance_id()])
+        except EC2ResponseError, e:
+            log.error("Error terminating master instance (i.e., self): %s" % e)
     
     def clean(self):
         """ Clean the system as if it was freshly booted. All services are shut down 
