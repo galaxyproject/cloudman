@@ -34,7 +34,7 @@ vertical-align: top;
 
 	<div id='cluster_scale_up_popup' class='cluster_scale_popup'>
 		<h4>Add nodes</h4>
-		<form id="add_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
+		<form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
         <div class="form-row">
 	        <label>Number of nodes to start:</label>
 	        <div id="num_nodes" class="form-row-input">
@@ -62,7 +62,7 @@ vertical-align: top;
 	</div>
 	<div id='cluster_scale_down_popup' class='cluster_scale_popup'>
 	    <h4>Remove nodes</h4>
-	    <form id="remove_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
+	    <form id="remove_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
 	        <div class="form-row">
 		        <div id="num_nodes" class="form-row-input">
 		            <label>Number of nodes to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
@@ -151,7 +151,7 @@ vertical-align: top;
 <div class="box" id="power_off">
     <a class="boxclose"></a>
     <h1>EC2 Cluster Configuration</h1>
-    <form id="power_cluster_off_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
+    <form id="power_cluster_off_form" class="generic_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
         <div class="form-row">
             <label>Are you sure you want to power the cluster off?</label><p></p>
 			<label>Also delete this cluster?</label>
@@ -336,137 +336,114 @@ function toggleVolDialog(){
 	}
 }
 
+function update_ui(data){
+	if (data){
+        $('#status').html(data.instance_state);
+        $('#dns').attr("href", data.dns);
+		if (data.dns == '#'){
+			$('#dns').addClass('ab_disabled');
+	        $('#dns').attr("target", '');
+	        $('#galaxy_log').hide()
+		}else{
+			$('#dns').removeClass('ab_disabled');
+	        $('#dns').attr("target", '_blank');
+	        $('#galaxy_log').show()
+		};
+		$('#status-idle').text( data.instance_status.idle );
+        $('#status-available').text( data.instance_status.available );
+        $('#status-total').text( data.instance_status.requested );
+		$('#du-total').text(data.disk_usage.total);
+		$('#du-used').text(data.disk_usage.used);
+		$('#du-pct').text(data.disk_usage.pct);
+		if (parseInt(data.disk_usage.pct) > 80){
+		    $('#storage_warning').show();
+		}else{
+		    $('#storage_warning').hide();
+		}
+		$('#snap-progress').text(data.snapshot.progress);
+		$('#snap-status').text(data.snapshot.status);
+		// DBTODO write generic services display
+		$('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+		$('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
+        // $('#status_svcs').html(
+        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
+        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
+        //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
+        //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
+        //     );
+        fsdet = "<ul>";
+        for (i = 0; i < data.all_fs.length; i++){
+            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
+        }
+        fsdet += "</ul>";
+        $('#fs_detail').html(fsdet);
+        cluster_status = data.cluster_status;
+        if (cluster_status === "SHUT_DOWN"){
+            $('#main_text').html("<h4>Important:</h4><p>This cluster has terminated.  Please terminate the master instance from the AWS console.</p>");
+            $('.action-button').addClass('ab_disabled');
+            // Cluster has shut down.  There is nothing else to update after disabling inputs.
+            return true;
+        }
+		if (data.autoscaling.use_autoscaling === true) {
+			use_autoscaling = true;
+			as_min = data.autoscaling.as_min;
+			as_max = data.autoscaling.as_max;
+			$('#scale_up_button').addClass('ab_disabled');
+			$('#scale_up_button > img').hide();
+			$('#scale_down_button').addClass('ab_disabled');
+			$('#scale_down_button > img').hide();
+		} else {
+			use_autoscaling = false;
+			as_min = 0;
+			as_max = 0;
+			$('#scale_up_button').removeClass('ab_disabled');
+			$('#scale_up_button > img').show();
+			if (data.instance_status.requested == '0'){
+				$('#scale_down_button').addClass('ab_disabled');
+				$('#scale_down_button > img').hide();
+			}else{
+				$('#scale_down_button').removeClass('ab_disabled');
+				$('#scale_down_button > img').show();
+			}
+		}
+	}
+}
+function update_log(data){
+	if (data){
+		if(data.log_messages.length > 0){
+			// Check to make sure the log isn't huge (1000? 5000?) and truncate it first if it is.
+			var loglen = $('#log_container_body>ul>li').size();
+			if (loglen > 200){
+				$('#log_container_body>ul>li:lt(' +(loglen - 100)+')').remove();
+				$('#log_container_body>ul').prepend('<li>The log has been truncated to keep up performance.  The <a href="/cloud/log/">full log is available here</a>. </li>');
+			}
+			last_log = data.log_cursor;
+			var to_add = "";
+			for (i = 0; i < data.log_messages.length; i++){
+				to_add += "<li>"+data.log_messages[i]+"</li>";
+			}
+			$('#log_container_body>ul').append(to_add);
+			scrollLog();
+		}
+	}
+}
 function update(repeat_update){
-    $.getJSON('/cloud/instance_state_json',
-		function(data) {
-			if (data){
-		        $('#status').html(data.instance_state);
-		        $('#dns').attr("href", data.dns);
-				if (data.dns == '#'){
-					$('#dns').addClass('ab_disabled');
-			        $('#dns').attr("target", '');
-			        $('#galaxy_log').hide()
-				}else{
-					$('#dns').removeClass('ab_disabled');
-			        $('#dns').attr("target", '_blank');
-			        $('#galaxy_log').show()
-				}
-				if (data.instance_status.requested == '0'){
-					$('#scale_down_button').addClass('ab_disabled');
-					$('#scale_down_button > img').hide();
-				}else{
-					$('#scale_down_button').removeClass('ab_disabled');
-					$('#scale_down_button > img').show();
-				}
-				$('#status-idle').text( data.instance_status.idle );
-		        $('#status-available').text( data.instance_status.available );
-		        $('#status-total').text( data.instance_status.requested );
-				$('#du-total').text(data.disk_usage.total);
-				$('#du-used').text(data.disk_usage.used);
-				$('#du-pct').text(data.disk_usage.pct);
-				if (parseInt(data.disk_usage.pct) > 80){
-				    $('#storage_warning').show();
-				}else{
-				    $('#storage_warning').hide();
-				}
-				$('#snap-progress').text(data.snapshot.progress);
-				$('#snap-status').text(data.snapshot.status);
-				// DBTODO write generic services display
-				$('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
-				$('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
-		        // $('#status_svcs').html(
-		        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
-		        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
-		        //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
-		        //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
-		        //     );
-		        fsdet = "<ul>";
-		        for (i = 0; i < data.all_fs.length; i++){
-		            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
-		        }
-		        fsdet += "</ul>";
-		        $('#fs_detail').html(fsdet);
-		        cluster_status = data.cluster_status;
-		        if (cluster_status === "SHUT_DOWN"){
-		            $('#main_text').html("<h4>Important:</h4><p>This cluster has terminated.  Please terminate the master instance from the AWS console.</p>");
-		            $('.action-button').addClass('ab_disabled');
-                    // Cluster has shut down.  There is nothing else to update after disabling inputs.
-		            return true;
-		        }
-				if (data.autoscaling.use_autoscaling === true) {
-					use_autoscaling = true;
-					as_min = data.autoscaling.as_min;
-					as_max = data.autoscaling.as_max;
-					$('#scale_up_button').addClass('ab_disabled');
-					$('#scale_up_button > img').hide();
-					$('#scale_down_button').addClass('ab_disabled');
-					$('#scale_down_button > img').hide();
-				} else {
-					use_autoscaling = false;
-					as_min = 0;
-					as_max = 0;
-					$('#scale_up_button').removeClass('ab_disabled');
-					$('#scale_up_button > img').hide();
-					$('#scale_down_button').removeClass('ab_disabled');
-					$('#scale_down_button > img').hide();
-				}
-			}
+    $.getJSON("${h.url_for(controller='root',action='full_update')}",
+        {l_log : last_log},
+        function(data){
+            if (data){
+                update_ui(data.ui_update_data);
+                update_log(data.log_update_data);
+            }
         });
-    $.getJSON('/cloud/log_json',
-		{l_log : last_log},
-		function(data) {
-			if (data){
-				if(data.log_messages.length > 0){
-					// Check to make sure the log isn't huge (1000? 5000?) and truncate it first if it is.
-					var loglen = $('#log_container_body>ul>li').size();
-					if (loglen > 200){
-						$('#log_container_body>ul>li:lt(' +(loglen - 100)+')').remove();
-						$('#log_container_body>ul').prepend('<li>The log has been truncated to keep up performance.  The <a href="/cloud/log/">full log is available here</a>. </li>');
-					}
-					last_log = data.log_cursor;
-					var to_add = "";
-					for (i = 0; i < data.log_messages.length; i++){
-						to_add += "<li>"+data.log_messages[i]+"</li>";
-					}
-					$('#log_container_body>ul').append(to_add);
-				}
-			}
-	});
-    scrollLog();
     if (repeat_update === true){
 	    window.setTimeout(function(){update(true)}, 5000);
     }
 }
 
-function fixForms(){
-    $('form').submit( function(event){
-        $.post($(this).attr('action'), $(this).serialize());
-        event.preventDefault();
-        hidebox();
-        update(false);
-    });
-}
-
 $(document).ready(function() {
 	var initial_cluster_type = '${initial_cluster_type}';
 	var permanent_storage_size = ${permanent_storage_size};
-	
-    $('.autoscaling_form').ajaxForm( {
-        type: 'POST',
-        dataType: 'json',
-        beforeSubmit: function(data){
-            hidebox();
-        },
-        success: function( data ) {
-            if (data){
-                use_autoscaling = data.running;
-                as_min = data.as_min;
-                as_max = data.as_max;
-            }
-            refreshTip();
-            update(false);
-        }
-    });
 	
     $('#stop-button').click(function(){
         if ($(this).hasClass('ab_disabled')){
@@ -541,57 +518,57 @@ $(document).ready(function() {
         }
         return false;
     });
-    $('#initial_volume_config_form').submit( function(event) {
-        cluster_status = "STARTING";
-        $.post('/cloud/root/initialize_cluster', $("#initial_volume_config_form").serialize());
-        event.preventDefault();
-		$('#initial_volume_config_form').hide('fast');
-        hidebox();
-        update(false);
+
+    $('.generic_form').ajaxForm({
+        type: 'POST',
+        dataType: 'json',
+        beforeSubmit: function(data){
+            hidebox();
+        },
+        success: function( data ) {
+            update_ui(data);
+        }        
     });
-    $('#power_cluster_off_form').submit( function(event) {
-        cluster_status = "OFF";
-        $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating.  Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
-        $.post('/cloud/root/kill_all', $("#power_cluster_off_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update(false);
-    });
-    $('#expand_user_data_volume').submit( function(event) {
-        $.post('/cloud/root/expand_user_data_volume', $("#expand_user_data_volume").serialize());
-        event.preventDefault();
-		$('#volume_expand_popup').hide('fast');
-        hidebox();
-        update(false);
-    });
-    $('#add_instances_form').submit( function(event) {
-        $.post('/cloud/root/add_instances', $("#add_instances_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update(false);
-    });
-    $('#remove_instances_form').submit( function(event) {
-        $.post('/cloud/root/remove_instances', $("#remove_instances_form").serialize());
-        event.preventDefault();
-        hidebox();
-        update(false);
-    });
-    
-    $('.fs_det_clicker').click(function(){
-        if (fs_det_vis === true){
-			clearTimeout(click_timeout);
-            $('#fs_detail').hide('fast');
-            fs_det_vis = false;
+
+    $('.autoscaling_form').ajaxForm( {
+        type: 'POST',
+        dataType: 'json',
+        beforeSubmit: function(data){
+            hidebox();
+        },
+        success: function( data ) {
+            if (data){
+                use_autoscaling = data.running;
+                as_min = data.as_min;
+                as_max = data.as_max;
+                update_ui(data.ui_update_data);
+            }
+            refreshTip();
         }
-        else{
-			$('#fs_detail').show('fast');
-			click_timeout = setTimeout(function(){
-				if (fs_det_vis === true){
-					$('#fs_detail').hide('fast');
-					fs_det_vis = false;
-				}
-				}, 5000);
-			fs_det_vis = true;
+    });
+
+    $('#initial_volume_config_form').ajaxForm( {
+        type: 'POST',
+        dataType: 'json',
+        beforeSubmit: function(data){
+            cluster_status = "STARTING";
+            hidebox();
+        },
+        success: function( data ) {
+            update_ui(data);
+        }
+    });
+
+    $('#power_cluster_off_form').ajaxForm( {
+        type: 'POST',
+        dataType: 'json',
+        beforeSubmit: function(data){
+            cluster_status = "OFF";
+            $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating.  Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
+            hidebox();
+        },
+        success: function( data ) {
+            update_ui(data);
         }
     });
     
