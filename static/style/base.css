@@ -157,6 +157,22 @@ div.form-row-input > input{max-width:300px;}
     position:fixed;
 }
 
+#snapshot_status_box{
+    width: 500px;
+    margin-left: -250px;
+    left: 50%;
+}
+
+#snapshotoverlay{
+    background:transparent url(/cloud/static/images/overlay.png) repeat top left;
+    position:fixed;
+    top:0px;
+    bottom:0px;
+    left:0px;
+    right:0px;
+    z-index:100;
+}
+
 #voloverlay{
     position:absolute;
 }
