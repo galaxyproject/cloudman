@@ -163,6 +163,13 @@ div.form-row-input > input{max-width:300px;}
     left: 50%;
 }
 
+#expand_vol{
+    cursor: pointer;
+    background-image:url(/cloud/static/images/disc_plus.png);
+    background-repeat:no-repeat;
+    display:inline-block;
+    width:20px;
+}
 #snapshotoverlay{
     background:transparent url(/cloud/static/images/overlay.png) repeat top left;
     position:fixed;

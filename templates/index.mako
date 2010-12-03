@@ -94,7 +94,7 @@ vertical-align: top;
 			    <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span></td></tr>
 			%endif
 	    <tr><td><h4>Disk status: </h4></td><td>
-	        <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' style='cursor: pointer;background-image:url(/cloud/static/images/disc_plus.png); background-repeat:no-repeat; display:inline-block; width:20px;'>&nbsp;</span>
+	        <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol'>&nbsp;</span>
 	    	##<span id="snap-status"></span><span id="snap-progress"></span>
 		</td></tr>
 	    <tr><td><h4>Worker status: </h4></td><td>
