@@ -1,7 +1,6 @@
 import logging, os, re
 
 from cm.util.json import to_json_string
-
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
@@ -351,6 +350,14 @@ class CM( BaseController ):
         else: 
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
+        # TEMP TEST FOR RESIZING
+        import time
+        if time.gmtime().tm_sec < 20 or time.gmtime().tm_sec > 40:
+            ss_status = "Working"
+            ss_progress = (time.gmtime().tm_sec % 20) * 5
+        else:
+            ss_progress = None
+            ss_status = None
         ret_dict = {'instance_state':self.app.manager.get_instance_state(),
                                 'cluster_status':self.app.manager.get_cluster_status(),
                                 'dns':dns,
@@ -367,8 +374,10 @@ class CM( BaseController ):
                                 #                 'sge' : self.app.manager.sge_status_text(),
                                 #                 'galaxy' : self.app.manager.galaxy_status_text()},
                                 'all_fs' : self.app.manager.all_fs_status_array(),
-                                'snapshot' : {'progress' : str(self.app.manager.snapshot_progress),
-                                              'status' : str(self.app.manager.snapshot_status)},
+                                # 'snapshot' : {'progress' : str(self.app.manager.snapshot_progress),
+                                #               'status' : str(self.app.manager.snapshot_status)},
+                                'snapshot' : {'progress' : str(ss_progress),
+                                              'status' : str(ss_status)},
                                 'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
                                                 'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
                                                 'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}

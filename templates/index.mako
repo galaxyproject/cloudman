@@ -7,7 +7,7 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>Galaxy Cloudman Console</h2>
-    <div id="storage_warning" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
 	<div id="main_text">
 		%if initial_cluster_type is None:
 			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
@@ -116,7 +116,7 @@ vertical-align: top;
 ## ***************************** Overlays and such ****************************
 ## ****************************************************************************
 
-<div class="box" id="volume_expand_popup">
+<div id="volume_expand_popup" class="box">
    <a class="boxclose"></a>
 	<h2>Expand Disk Space</h2>
 	<form id="expand_user_data_volume" name="expand_user_data_volume" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
@@ -145,6 +145,18 @@ vertical-align: top;
 		</div>
 	</form>
 </div>
+
+<div id="snapshotoverlay" style="display:none"></div>
+<div id="snapshot_status_box" class="box">
+	<h2>Expand Disk Space In Progress</h2>
+	<div class="form-row">
+		<p>Step away from the computer.  TODO: Informative text.</p>
+	</div>
+	<div class="form-row">
+	    Snapshot progress: <span id="snapshot_progress">None</span>
+	</div>
+</div>
+
 
 <div style="clear: both;"></div>
 <div class="overlay" id="overlay" style="display:none"></div>
@@ -405,6 +417,14 @@ function update_ui(data){
 				$('#scale_down_button').removeClass('ab_disabled');
 				$('#scale_down_button > img').show();
 			}
+		}
+		if (data.snapshot.status !== "None"){
+		    $('#snapshotoverlay').show();
+		    $('#snapshot_status_box').show();
+		    $('#snapshot_progress').text(data.snapshot.progress);
+		}else{
+		    $('#snapshot_status_box').hide();
+		    $('#snapshotoverlay').hide();
 		}
 	}
 }
