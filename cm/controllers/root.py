@@ -115,6 +115,7 @@ class CM( BaseController ):
         if delete_cluster:
             delete_cluster = True
         self.app.shutdown(delete_cluster)
+        return self.instance_state_json(trans)
     
     @expose
     def cleanup(self, trans):
@@ -130,24 +131,25 @@ class CM( BaseController ):
             number_nodes = int(number_nodes)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
-            return
         self.app.manager.add_instances( number_nodes, instance_type)
+        return self.instance_state_json(trans)
     
     @expose
     def remove_instance( self, trans, instance_id = ''):
         if instance_id == '':
             return
         self.app.manager.remove_instance( instance_id)
+        return self.instance_state_json(trans)
     
     @expose
     def remove_instances( self, trans, number_nodes, force_termination ):
         try:
             number_nodes=int(number_nodes)
+            log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
+            self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
-            return
-        log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
-        self.app.manager.remove_instances(number_nodes, force_termination)
+        return self.instance_state_json(trans)
     
     @expose
     def log( self, trans, l_log = 0):
@@ -168,8 +170,18 @@ class CM( BaseController ):
             return "No galaxy log available."
 
     @expose
-    def log_json(self, trans, l_log = 0):
-        return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
+    def full_update(self, trans, l_log = 0):
+        return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
+                                'log_update_data' : self.log_json(trans, l_log, no_json=True)})
+
+    
+    @expose
+    def log_json(self, trans, l_log = 0, no_json = False):
+        if no_json:
+            return {'log_messages' : self.app.logger.logmessages[int(l_log):],
+                                'log_cursor' : len(self.app.logger.logmessages)}
+        else:
+            return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
     
     @expose
@@ -249,11 +261,13 @@ class CM( BaseController ):
             
             return to_json_string({'running' : True,
                                     'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
-                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max})
+                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max,
+                                    'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
             return to_json_string({'running' : False,
                                     'as_min' : 0,
-                                    'as_max' : 0})
+                                    'as_max' : 0,
+                                    'ui_update_data' : self.instance_state_json(trans, no_json=True)})
     
     @expose 
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
@@ -265,11 +279,13 @@ class CM( BaseController ):
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (as_min_adj, as_max_adj))
             return to_json_string({'running' : True,
                                     'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
-                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max})
+                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max,
+                                    'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
             return to_json_string({'running' : False,
                                     'as_min' : 0,
-                                    'as_max' : 0})
+                                    'as_max' : 0,
+                                    'ui_update_data' : self.instance_state_json(trans, no_json=True)})
             
     def check_as_vals(self, as_min, as_max):
         """ Check if limits for autoscaling are acceptable."""
@@ -328,14 +344,14 @@ class CM( BaseController ):
                 return "There was an error.  Can't create a new monitor."
     
     @expose
-    def instance_state_json(self, trans):
+    def instance_state_json(self, trans, no_json=False):
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
             dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_ip() )
         else: 
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
-        return to_json_string({'instance_state':self.app.manager.get_instance_state(),
+        ret_dict = {'instance_state':self.app.manager.get_instance_state(),
                                 'cluster_status':self.app.manager.get_cluster_status(),
                                 'dns':dns,
                                 'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())), 
@@ -356,7 +372,11 @@ class CM( BaseController ):
                                 'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
                                                 'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
                                                 'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
-                               })
+                               }
+        if no_json:
+            return ret_dict
+        else:
+            return to_json_string(ret_dict)
     
     @expose
     def update_users_CM(self, trans):
