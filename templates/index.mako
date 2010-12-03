@@ -166,7 +166,9 @@ vertical-align: top;
     <form id="power_cluster_off_form" class="generic_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
         <div class="form-row">
             <label>Are you sure you want to power the cluster off?</label><p></p>
-			<label>Also delete this cluster?</label>
+			<label>Automatically terminate master instance?</label>
+			<input type="checkbox" name="terminate_master_instance" id="terminate_master_instance"> If checked, this master instance will automatically terminate after all services have been shut down.
+			<p></p><label>Also delete this cluster?</label>
 			<input type="checkbox" name="delete_cluster" id="delete_cluster"> If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
             <div class="form-row"><input type="submit" value="Yes, power off"></div>
         </div>

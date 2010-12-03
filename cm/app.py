@@ -60,4 +60,4 @@ class UniverseApplication( object ):
                 
     def shutdown(self, delete_cluster=False):
         if self.manager:
-            self.manager.shutdown(delete_cluster)
+            self.manager.shutdown(delete_cluster=delete_cluster)

@@ -110,10 +110,18 @@ class CM( BaseController ):
         self.app.shutdown(sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes, sd_instances=instances, sd_volumes_delete=volumes)
     
     @expose
-    def kill_all(self, trans, delete_cluster=False):
+    def kill_all(self, trans, terminate_master_instance=False, delete_cluster=False):
+        if terminate_master_instance:
+            self.app.manager.terminate_master_instance()
+            return self.instance_state_json(trans)
         if delete_cluster:
             delete_cluster = True
-        self.app.shutdown(delete_cluster)
+        self.app.shutdown(delete_cluster=delete_cluster)
+        return self.instance_state_json(trans)
+    
+    @expose
+    def reboot(self, trans):
+        self.app.manager.reboot()
         return self.instance_state_json(trans)
     
     @expose
@@ -310,6 +318,7 @@ class CM( BaseController ):
                     <input type="text" value="CSV list of emails" name="admin_users">
                     <input type="submit" value="Add admin users">
                 </form>
+                <li><a href="reboot>Reboot master</a></li>
                 
                 <li><a href='manage_postgres'>Start Postgres</a></li>
                 <li><a href='manage_postgres?to_be_started=False'>Start Postgres</a></li>
