@@ -261,9 +261,12 @@ function renderGraph(){
 				if (ld_arr.length == 3){
     				    scale_height = 1; //Scales the boxes.
     				    // Hard cap load at 1.
-    					ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
-    					ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
-    					ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
+                        // ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
+                        // ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
+                        // ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
+    					ld_arr[0] = Math.min(ld_arr[0], 1);
+    					ld_arr[1] = Math.min(ld_arr[1], 1);
+    					ld_arr[2] = Math.min(ld_arr[2], 1);
     			        ctx.fillStyle = "#575757";
                         ctx.fillRect(x_offset + b_x + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[2]) + bar_top_padding,
