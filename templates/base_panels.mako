@@ -39,12 +39,14 @@ from routes import url_for
       </td>
       <td align="left" valign="middle"><div class="pageTitle">Galaxy Cloudman</div></td>
       <td align="right" valign="middle">
-        %if CM_url:
+      %if CM_url:
+        <span id='cm_update_message'>
 			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
 			  <a target="_blank" href="${CM_url}">What's New</a> | 
-			  <a target="_top" href="${h.url_for( controller='root', action='update_users_CM' )}">Update CloudMan</a>
+			  <a target="_top" id='update_cm' href="#">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
-		  %endif
+        </span>
+      %endif
 		  Info: <a href="mailto:galaxy-bugs@bx.psu.edu">report bugs</a>
         | <a target="_blank" href="http://usegalaxy.org/cloud">wiki</a>                  
         | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">screencast</a>
