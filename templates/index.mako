@@ -592,6 +592,17 @@ $(document).ready(function() {
         }
     });
     
+    $('#update_cm').click(function(){
+        $.getJSON("${h.url_for(controller='root',action='update_users_CM')}",
+            function(data){
+                if (data.updated === true){
+                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CM update will be applied on cluster restart.&nbsp;&nbsp;&nbsp;');
+                }else{
+                    $('#cm_update_message').html('There was an error updating Cloudman.');
+                }
+            });
+    });
+    
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );

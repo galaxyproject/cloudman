@@ -389,8 +389,7 @@ class CM( BaseController ):
     
     @expose
     def update_users_CM(self, trans):
-        self.app.manager.update_users_CM()
-        return trans.fill_template('index.mako')
+        return to_json_string({'updated':self.app.manager.update_users_CM()})
     
     @expose
     def masthead( self, trans ):
