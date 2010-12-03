@@ -1091,7 +1091,7 @@ class Instance( object ):
     
     def terminate( self ):
         self.worker_status = "Stopping"
-        t_thread = threading.Thread( target=self.__terminate() )
+        t_thread = threading.Thread( target=self.__terminate )
         t_thread.start()
     
     def __terminate( self ):
