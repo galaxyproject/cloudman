@@ -376,6 +376,11 @@ function update_ui(data){
 		$('#snap-status').text(data.snapshot.status);
 		// DBTODO write generic services display
 		$('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+		if (data.data_status !== 'green'){
+		    $('#expand_vol').hide();
+		}else{
+		    $('#expand_vol').show();
+		}
 		$('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
         // $('#status_svcs').html(
         //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
