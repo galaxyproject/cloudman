@@ -254,14 +254,14 @@ class CM( BaseController ):
             return self.app.manager.manage_postgres(to_be_started=True)
     
     @expose
-    def toggle_autoscaling(self, trans, as_min=None, as_max=None):
+    def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
         if self.app.manager.get_services('Autoscale'):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
             log.debug("Turning autoscaling ON")
             if self.check_as_vals(as_min, as_max):
-                self.app.manager.start_autoscaling(int(as_min), int(as_max))
+                self.app.manager.start_autoscaling(int(as_min), int(as_max), as_instance_type)
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services('Autoscale'):

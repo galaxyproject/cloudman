@@ -43,7 +43,7 @@ from routes import url_for
         <span id='cm_update_message'>
 			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
 			  <a target="_blank" href="${CM_url}">What's New</a> | 
-			  <a target="_top" id='update_cm' href="#">Update CloudMan</a>
+			  <a id='update_cm' href="#">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
         </span>
       %endif
