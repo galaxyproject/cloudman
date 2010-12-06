@@ -617,9 +617,9 @@ $(document).ready(function() {
         $.getJSON("${h.url_for(controller='root',action='update_users_CM')}",
             function(data){
                 if (data.updated === true){
-                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CloudMan update will be applied on cluster restart.&nbsp;&nbsp;&nbsp;');
+                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CloudMan update will be applied on cluster restart. <a href="${h.url_for(controller="root",action="reboot")}">Restart now?</a>&nbsp;&nbsp;&nbsp;');
                 }else{
-                    $('#cm_update_message').html('There was an error updating CloudMan.');
+                    $('#cm_update_message').html('There was an error updating CloudMan.&nbsp;&nbsp;&nbsp;');
                 }
             });
     });

@@ -318,7 +318,7 @@ class CM( BaseController ):
                     <input type="text" value="CSV list of emails" name="admin_users">
                     <input type="submit" value="Add admin users">
                 </form>
-                <li><a href="reboot>Reboot master</a></li>
+                <li><a href="/cloud/root/reboot">Reboot master</a></li>
                 
                 <li><a href='manage_postgres'>Start Postgres</a></li>
                 <li><a href='manage_postgres?to_be_started=False'>Start Postgres</a></li>

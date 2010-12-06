@@ -321,10 +321,9 @@ class ConsoleManager( object ):
             reservations = ec2_conn.get_all_instances(filters=filters)
             for reservation in reservations:
                 if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
-                    i = Instance( self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state )
-                    instances.append( i )
-                    log.info( "Instance '%s' found alive. Restarting instance so it can register with the master." % reservation.instances[0].id )
-                    ec2_conn.reboot_instances([reservation.instances[0].id])
+                    i = Instance(self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state, reboot_required=True)
+                    instances.append(i)
+                    log.info( "Instance '%s' found alive (will configure it later)." % reservation.instances[0].id)
         except EC2ResponseError, e:
             log.debug( "Error checking for live instances: %s" % e )
         return instances
@@ -1013,6 +1012,14 @@ class ConsoleMonitor( object ):
                         self.app.manager.worker_instances.remove( w_instance )
                 elif w_instance.get_m_state() == 'running' and ( dt.datetime.utcnow() - w_instance.last_comm ).seconds > 15:
                     w_instance.send_status_check()
+                if w_instance.reboot_required:
+                    try:
+                        ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                        log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
+                        ec2_conn.reboot_instances([w_instance.id])
+                        w_instance.reboot_required = False
+                    except EC2ResponseError, e:
+                        log.debug("Error rebooting instance '%s': %s" % (w_instance.id, e))
             m = self.conn.recv()
             while m is not None:
                 match = False
@@ -1026,7 +1033,7 @@ class ConsoleMonitor( object ):
     
 
 class Instance( object ):
-    def __init__( self, app, inst=None, m_state=None, last_m_state_change=None, sw_state=None ):
+    def __init__( self, app, inst=None, m_state=None, last_m_state_change=None, sw_state=None, reboot_required=False):
         self.app = app
         self.inst = inst
         self.id = None
@@ -1054,6 +1061,7 @@ class Instance( object ):
         self.worker_status = 'Pending'
         self.load = 0
         self.type = 'Unknown'
+        self.reboot_required = reboot_required
     
     def get_status_dict( self ):
         toret = {'id' : self.id, 
