@@ -140,10 +140,10 @@ class ConsoleManager( object ):
             log.debug("Error checking attached volume '%s' tags: %s" % (vol.id, e))
         return None
     
-    def start_autoscaling(self, as_min, as_max):
+    def start_autoscaling(self, as_min, as_max, instance_type):
         as_svc = self.get_services('Autoscale')
         if not as_svc:
-            self.app.manager.services.append(Autoscale(self.app, as_min, as_max))
+            self.app.manager.services.append(Autoscale(self.app, as_min, as_max, instance_type))
         else:
             log.debug("Autoscaling is already on.")
         as_svc = self.get_services('Autoscale')
@@ -394,6 +394,9 @@ class ConsoleManager( object ):
         log.info( "Cluster shut down. Manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
     
     def reboot(self):
+        if self.app.TESTFLAG is True:
+            log.debug("Restart the cluster but the TESTFLAG is set")
+            return
         self.shutdown(sd_instances=False)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:

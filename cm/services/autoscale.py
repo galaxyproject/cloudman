@@ -9,13 +9,14 @@ log = logging.getLogger('cloudman')
 
 
 class Autoscale(Service):
-    def __init__(self, app, as_min=-1, as_max=-1):
+    def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
         self.app = app
         self.state = service_states.UNSTARTED
         self.svc_type = "Autoscale"
         self.reqs = {}
         self.as_max = as_max # Max number of nodes autoscale should maintain
         self.as_min = as_min # Min number of nodes autoscale should maintain
+        self.instance_type = instance_type # Type of instances to start
     
     def get_full_name(self):
         return "AS" # A shortcut name for log display
@@ -23,6 +24,9 @@ class Autoscale(Service):
     def start(self):
         if self.state != service_states.RUNNING:
             if self.as_min>-1 and self.as_max>-1:
+                if self.instance_type is None or self.instance_type=='':
+                    self.instance_type = self.app.cloud_interface.get_type()
+                log.debug("Turning autoscaling ON; using instances of type '%s'" % self.instance_type)
                 self.state = service_states.RUNNING
             else:
                 log.debug("Cannot start autoscaling because limits are not set (min: '%s' max: '%s')" % (self.as_min, self.as_max))
@@ -37,7 +41,7 @@ class Autoscale(Service):
         elif self.too_small():
             num_instances_to_add = self.get_num_instances_to_add()
             log.debug("Autoscaling UP: %s instance(s)" % num_instances_to_add)
-            self.app.manager.add_instances(num_instances_to_add, instance_type='t1.micro')
+            self.app.manager.add_instances(num_instances_to_add, instance_type=self.instance_type)
     
     def too_large(self):
         """Check if the current size of the cluster is too large. 
@@ -166,4 +170,4 @@ class Autoscale(Service):
         return mean, std 
     
     def __str__(self):
-        return "Autoscaling limits min: %s max: %s" % (self.as_min, self.as_max)
+        return "Autoscaling limits min: %s max: %s; instance type: '%s'" % (self.as_min, self.as_max, self.instance_type)

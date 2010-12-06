@@ -221,7 +221,21 @@ vertical-align: top;
 				<div class="form-row-input">
 					<input type="text" name="as_max" id="as_max" value="" size="10">
 				</div>
-				<div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
+				<label>Type of Nodes(s):</label>
+				<div id="instance_type" class="form-row-input">
+			    	<select name="as_instance_type" id="as_instance_type">
+						<option value=''>Same as Master</option>
+						<option value='t1.micro'>Micro</option>
+						<option value='m1.large'>Large</option>
+						<option value='m1.xlarge'>Extra Large</option>
+						<option value='m2.xlarge'>High-Memory Extra Large</option>
+						<option value='m2.2xlarge'>High-Memory Double Extra Large</option>
+						<option value='m2.4xlarge'>High-Memory Quadruple Extra Large</option>
+						## <option value='c1.medium'>High-CPU Medium</option>
+						<option value='c1.xlarge'>High-CPU Extra Large</option>
+					</select>
+				</div>
+				<br/><div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
 			</div>
         </div>
     </form>
@@ -232,7 +246,7 @@ vertical-align: top;
 	<form id="adjust_autoscaling_form" class="autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
         <div class="form-row">
             Adjust the number of instances autoscaling should maintain for this cluster. 
-			<p>NOTE that <b>if there are no idle nodes to remove</b>, although the maximum 
+			<p>NOTE: <b>If there are no idle nodes to remove</b>, although the maximum 
 			limit may be higher than the number of available nodes, autoscaling will wait 
 			until the nodes become idle to terminate them.
 			<div class="form-row">
@@ -591,7 +605,7 @@ $(document).ready(function() {
         dataType: 'json',
         beforeSubmit: function(data){
             cluster_status = "OFF";
-            $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating.  Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
+            $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
             hidebox();
         },
         success: function( data ) {
@@ -603,9 +617,9 @@ $(document).ready(function() {
         $.getJSON("${h.url_for(controller='root',action='update_users_CM')}",
             function(data){
                 if (data.updated === true){
-                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CM update will be applied on cluster restart.&nbsp;&nbsp;&nbsp;');
+                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CloudMan update will be applied on cluster restart.&nbsp;&nbsp;&nbsp;');
                 }else{
-                    $('#cm_update_message').html('There was an error updating Cloudman.');
+                    $('#cm_update_message').html('There was an error updating CloudMan.');
                 }
             });
     });
