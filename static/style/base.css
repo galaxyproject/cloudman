@@ -31,6 +31,10 @@ div.form-row label{font-weight:bold;display:block;margin-bottom:.2em;}
 div.form-row-input{width:300px;}
 div.form-row-input > input{max-width:300px;}
 
+#masthead td, th{
+    vertical-align: middle;
+}
+
 #center_container {
 	width: 400px;
 	margin: 20px auto;
