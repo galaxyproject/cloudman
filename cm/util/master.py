@@ -323,7 +323,8 @@ class ConsoleManager( object ):
                 if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
                     i = Instance( self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state )
                     instances.append( i )
-                    log.info( "Instance '%s' found alive." % reservation.instances[0].id )
+                    log.info( "Instance '%s' found alive. Restarting instance so it can register with the master." % reservation.instances[0].id )
+                    ec2_conn.reboot_instances([reservation.instances[0].id])
         except EC2ResponseError, e:
             log.debug( "Error checking for live instances: %s" % e )
         return instances
