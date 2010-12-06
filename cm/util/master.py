@@ -377,17 +377,18 @@ class ConsoleManager( object ):
                 service.remove()
         if delete_cluster:
             log.info("All services shut down; deleting this cluster.")
+            # Delete any remaining volume(s) assoc. w/ given cluster
+            filters = {'tag:clusterName': self.app.ud['cluster_name']}
+            try:
+                ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                vols = ec2_conn.get_all_volumes(filters=filters)
+                for vol in vols:
+                    ec2_conn.delete_volume(vol.id)
+            except EC2ResponseError, e:
+                log.error("Error deleting volume %s: %s" % (vol.id, e))
             # Delete cluster bucket on S3
             s3_conn = self.app.cloud_interface.get_s3_connection()
             misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
-            # Delete persistent data volume(s)
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
-                for vol in vol_array:
-                    try:
-                        ec2_conn.delete_volume(vol['vol_id'])
-                    except EC2ResponseError, e:
-                        log.error("Error deleting volume: %s" % e)
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down. Manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
