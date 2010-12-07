@@ -157,6 +157,14 @@ vertical-align: top;
 	</div>
 </div>
 
+<div id="reboot_overlay" style="display:none"></div>
+<div id="reboot_status_box" class="box">
+	<h2>Reboot In Progress</h2>
+	<div class="form-row">
+		<p>Step away from the computer.  This page will reload automatically when the reboot is complete.  TODO: More informative text.</p>
+	</div>
+</div>
+
 
 <div style="clear: both;"></div>
 <div class="overlay" id="overlay" style="display:none"></div>
@@ -468,6 +476,7 @@ function update_log(data){
 		}
 	}
 }
+
 function update(repeat_update){
     $.getJSON("${h.url_for(controller='root',action='full_update')}",
         {l_log : last_log},
@@ -481,6 +490,21 @@ function update(repeat_update){
 	    window.setTimeout(function(){update(true)}, 5000);
     }
 }
+
+function reboot_update(){
+    $.ajax({
+      url: "${h.url_for(controller='root',action='full_update')}",
+      dataType: 'json',
+      success: function(data){
+                update_ui(data.ui_update_data);
+                update_log(data.log_update_data);
+                $('#reboot_overlay').hide();
+                $('#reboot_status_box').hide();
+                },
+      error: function(data){window.setTimeout(function(){reboot_update()}, 10000)}
+    });
+}
+
 
 $(document).ready(function() {
 	var initial_cluster_type = '${initial_cluster_type}';
@@ -613,11 +637,25 @@ $(document).ready(function() {
         }
     });
     
+    $('#update_reboot_now').click(function(){
+        $('#reboot_overlay').show();
+        $('#reboot_status_box').show();
+        $.getJSON("${h.url_for(controller='root',action='reboot')}",
+            function(data){
+                if (data.rebooting === true){
+                    window.setTimeout(function(){reboot_update()}, 10000);
+                }else{
+                    update(false);
+                }
+            });
+    });
+    
     $('#update_cm').click(function(){
         $.getJSON("${h.url_for(controller='root',action='update_users_CM')}",
             function(data){
                 if (data.updated === true){
-                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CloudMan update will be applied on cluster restart. <a href="${h.url_for(controller="root",action="reboot")}">Restart now?</a>&nbsp;&nbsp;&nbsp;');
+                    $('#cm_update_message').html('<span style="color:#5CBBFF">Update Successful</span>, CloudMan update will be applied on cluster restart.&nbsp;&nbsp;&nbsp;');
+                    $('#update_reboot_now').show();
                 }else{
                     $('#cm_update_message').html('There was an error updating CloudMan.&nbsp;&nbsp;&nbsp;');
                 }

@@ -46,6 +46,7 @@ from routes import url_for
 			  <a id='update_cm' href="#">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
         </span>
+         <span style='display:none' id="update_reboot_now"><a href="#">Restart cluster now?</a></span>&nbsp;&nbsp;&nbsp;
       %endif
 		  Info: <a href="mailto:galaxy-bugs@bx.psu.edu">report bugs</a>
         | <a target="_blank" href="http://usegalaxy.org/cloud">wiki</a>                  
