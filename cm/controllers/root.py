@@ -17,7 +17,7 @@ class CM( BaseController ):
     @expose
     def index( self, trans, **kwd ):
         if self.app.ud['role'] == 'worker':
-            trans.fill_template('worker_index.mako', master_ip = self.app.ud['master_ip'])
+            return trans.fill_template('worker_index.mako', master_ip = self.app.ud['master_ip'])
         else:
             cluster = {}
             if self.app.manager.get_instance_state():
@@ -129,8 +129,7 @@ class CM( BaseController ):
     
     @expose
     def reboot(self, trans):
-        self.app.manager.reboot()
-        return self.instance_state_json(trans)
+        return to_json_string({'rebooting':self.app.manager.reboot()})
     
     @expose
     def cleanup(self, trans):

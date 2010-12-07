@@ -167,6 +167,12 @@ div.form-row-input > input{max-width:300px;}
     left: 50%;
 }
 
+#reboot_status_box{
+    width: 500px;
+    margin-left: -250px;
+    left: 50%;
+}
+
 #expand_vol{
     cursor: pointer;
     background-image:url(/cloud/static/images/disc_plus.png);
@@ -174,6 +180,7 @@ div.form-row-input > input{max-width:300px;}
     display:inline-block;
     width:20px;
 }
+
 #snapshotoverlay{
     background:transparent url(/cloud/static/images/overlay.png) repeat top left;
     position:fixed;
@@ -184,6 +191,15 @@ div.form-row-input > input{max-width:300px;}
     z-index:100;
 }
 
+#reboot_overlay{
+    background:transparent url(/cloud/static/images/overlay.png) repeat top left;
+    position:fixed;
+    top:0px;
+    bottom:0px;
+    left:0px;
+    right:0px;
+    z-index:100;
+}
 #voloverlay{
     position:absolute;
 }

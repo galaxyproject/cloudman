@@ -396,13 +396,15 @@ class ConsoleManager( object ):
     def reboot(self):
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
-            return
+            return True
         self.shutdown(sd_instances=False)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
             ec2_conn.reboot_instances([self.app.cloud_interface.get_instance_id()])
+            return True
         except EC2ResponseError, e:
             log.error("Error rebooting master instance (i.e., self): %s" % e)
+        return False
 
     def terminate_master_instance(self):
         if not (self.cluster_status == cluster_status.SHUT_DOWN and self.master_state == master_states.SHUT_DOWN):
