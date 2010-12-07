@@ -79,6 +79,9 @@ class ConsoleManager( object ):
             for vol in fs.volumes:
                 if vol.snapshot_status != None:
                     return (vol.snapshot_status, vol.snapshot_progress)
+        for fs in fsarr:
+            if fs.grow:
+                return ("Configuring", None)
         return (None, None)
     
     def start( self ):

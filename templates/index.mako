@@ -450,7 +450,11 @@ function update_ui(data){
 		if (data.snapshot.status !== "None"){
 		    $('#snapshotoverlay').show();
 		    $('#snapshot_status_box').show();
-		    $('#snapshot_progress').text(data.snapshot.progress);
+		    if (data.snapshot.progress === "None"){
+		        $('#snapshot_progress').text(data.snapshot.status);
+		    }else{
+		        $('#snapshot_progress').text(data.snapshot.progress);		        
+		    }
 		}else{
 		    $('#snapshot_status_box').hide();
 		    $('#snapshotoverlay').hide();

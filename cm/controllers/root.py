@@ -91,6 +91,7 @@ class CM( BaseController ):
         except TypeError, ex:
             log.error("You must provide valid value type: %s" % ex)
             return "TypeError exception. Check the log."
+        return self.instance_state_json(trans)
     
     @expose
     def power( self, trans, number_nodes=0, pss=None ):
