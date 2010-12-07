@@ -119,7 +119,7 @@ vertical-align: top;
 <div id="volume_expand_popup" class="box">
    <a class="boxclose"></a>
 	<h2>Expand Disk Space</h2>
-	<form id="expand_user_data_volume" name="expand_user_data_volume" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
+	<form id="expand_user_data_volume" name="expand_user_data_volume" class="generic_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
 		<div class="form-row">
 		Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
 		<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 

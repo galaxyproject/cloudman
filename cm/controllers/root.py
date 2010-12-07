@@ -366,14 +366,7 @@ class CM( BaseController ):
         else: 
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
-        # TEMP TEST FOR RESIZING
-        # import time
-        # if time.gmtime().tm_sec < 20 or time.gmtime().tm_sec > 40:
-        #     ss_status = "Working"
-        #     ss_progress = (time.gmtime().tm_sec % 20) * 5
-        # else:
-        #     ss_progress = None
-        #     ss_status = None
+        ss_status = self.app.manager.snapshot_status()
         ret_dict = {'instance_state':self.app.manager.get_instance_state(),
                                 'cluster_status':self.app.manager.get_cluster_status(),
                                 'dns':dns,
@@ -385,15 +378,9 @@ class CM( BaseController ):
                                                 'pct':str(self.app.manager.disk_pct)},
                                 'data_status':self.app.manager.get_data_status(),
                                 'app_status':self.app.manager.get_app_status(),
-                                # 'services'  : {'fs' : self.app.manager.fs_status_text(),
-                                #                 'pg' : self.app.manager.pg_status_text(),
-                                #                 'sge' : self.app.manager.sge_status_text(),
-                                #                 'galaxy' : self.app.manager.galaxy_status_text()},
                                 'all_fs' : self.app.manager.all_fs_status_array(),
-                                'snapshot' : {'progress' : str(self.app.manager.snapshot_progress),
-                                              'status' : str(self.app.manager.snapshot_status)},
-                                # 'snapshot' : {'progress' : str(ss_progress),
-                                #               'status' : str(ss_status)},
+                                'snapshot' : {'progress' : str(ss_status[1]),
+                                              'status' : str(ss_status[0])},
                                 'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
                                                 'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
                                                 'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
