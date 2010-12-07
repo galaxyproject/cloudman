@@ -60,9 +60,6 @@ class ConsoleManager( object ):
         self.startup_time = dt.datetime.utcnow()
         self.manager_started = False
         
-        self.snapshot_progress = None
-        self.snapshot_status = None
-        
         self.initial_cluster_type = None
         self.services = []        
     
@@ -75,6 +72,14 @@ class ConsoleManager( object ):
         self.console_monitor = ConsoleMonitor(self.app)
         self.console_monitor.start()
         return True
+
+    def snapshot_status(self):
+        fsarr = [s for s in self.services if s.svc_type == "Filesystem"]
+        for fs in fsarr:
+            for vol in fs.volumes:
+                if vol.snapshot_status != None:
+                    return (vol.snapshot_status, vol.snapshot_progress)
+        return (None, None)
     
     def start( self ):
         if self.app.TESTFLAG is True:
