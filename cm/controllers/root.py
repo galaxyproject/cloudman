@@ -25,9 +25,7 @@ class CM( BaseController ):
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
-            CM_url = None
-            if self.app.manager.check_for_new_version_of_CM():
-                CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman" )
+            CM_url = self.get_CM_url(trans)
             return trans.fill_template( 'index.mako', 
                                         cluster = cluster,
                                         permanent_storage_size = permanent_storage_size,
@@ -35,6 +33,16 @@ class CM( BaseController ):
                                         cluster_name = cluster_name,
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
                                         CM_url=CM_url)
+    def get_CM_url(self, trans):
+        CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/" )
+        changesets = self.app.manager.check_for_new_version_of_CM()
+        if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):
+            try:
+                num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
+                CM_url += changesets['default_CM_rev'] + '/' + str(num_changes)
+            except Exception, e:
+                log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
+        return CM_url
     
     @expose
     def combined(self, trans):
@@ -405,9 +413,7 @@ class CM( BaseController ):
         brand = trans.app.config.get( "brand", "" )
         if brand:
             brand ="<span class='brand'>/%s</span>" % brand
-        CM_url = None
-        if self.app.manager.check_for_new_version_of_CM():
-            CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman" )
+        CM_url = self.get_CM_url(trans)
         wiki_url = trans.app.config.get( "wiki_url", "http://g2.trac.bx.psu.edu/" )
         bugs_email = trans.app.config.get( "bugs_email", "mailto:galaxy-bugs@bx.psu.edu"  )
         blog_url = trans.app.config.get( "blog_url", "http://g2.trac.bx.psu.edu/blog"   )

@@ -641,7 +641,7 @@ class ConsoleManager( object ):
         """
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to check for new version of CloudMan, but TESTFLAG is set." )
-            return 'http://boto.s3.amazonaws.com/s3_tut.html'
+            return {} #{'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
         log.debug("Checking for new version of CloudMan")
         s3_conn = self.app.cloud_interface.get_s3_connection()
         user_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision')
@@ -649,8 +649,8 @@ class ConsoleManager( object ):
         log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
         if user_CM_rev and default_CM_rev:
             if default_CM_rev > user_CM_rev:
-                return True
-        return False
+                return {'default_CM_rev': default_CM_rev, 'user_CM_rev':user_CM_rev}
+        return {}
     
     def update_users_CM(self):
         """ If the revision number of CloudMan (CM) source file (as stored in file's metadata)
