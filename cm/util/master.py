@@ -91,6 +91,11 @@ class ConsoleManager( object ):
         try:
             attached_volumes = self.get_attached_volumes()
             self.app.manager.services.append(SGEService(self.app))
+            # Make sure we have a complete Galaxy cluster configuration and don't start partial set of services
+            if self.app.ud.has_key("static_filesystems") and not self.app.ud.has_key("data_filesystems"):
+                log.warning("Conflicting cluster configuration loaded; corrupted persistent_data.yaml? Starting a new cluster.")
+                self.app.manager.initial_cluster_type = None
+                return True
             if self.app.ud.has_key("static_filesystems"):
                 for vol in self.app.ud['static_filesystems']:
                     fs = Filesystem(self.app, vol['filesystem'])
@@ -121,7 +126,6 @@ class ConsoleManager( object ):
                     if srvc['service'] == 'Galaxy':
                         self.app.manager.services.append(GalaxyService(self.app))
                         self.app.manager.initial_cluster_type = 'Galaxy'
-            misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
         except Exception, e:
             log.error("Error in filesystem YAML: %s" % e)
             self.manager_started = False
@@ -594,20 +598,30 @@ class ConsoleManager( object ):
             log.debug( "Attempted to initialize a new cluster, but TESTFLAG is set." )
             return
         self.app.manager.initial_cluster_type = cluster_type
+        log.info("Initializing a '%s' cluster." % cluster_type)
         if cluster_type == 'Galaxy':
-            log.info("Initializing a '%s' cluster." % cluster_type)
             # Add required services:
             # Static data - get snapshot IDs from the default bucket and add respective file systems
             s3_conn = self.app.cloud_interface.get_s3_connection()
             snaps_file = 'cm_snaps.yaml'
             snaps = None
-            if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
-                snaps = misc.load_yaml_file(snaps_file)
-                for snap in snaps['static_filesystems']:
+            if self.app.ud.has_key('static_filesystems'):
+                snaps = self.app.ud['static_filesystems']                
+            elif misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+                snaps_file = misc.load_yaml_file(snaps_file)
+                snaps = snaps_file['static_filesystems']
+            if snaps:
+                attached_volumes = self.get_attached_volumes()
+                for snap in snaps:
                     fs = Filesystem(self.app, snap['filesystem'])
-                    fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
+                    # Check if an already attached volume maps to the current filesystem
+                    att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
+                    if att_vol:
+                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                    else:
+                        fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % snap['filesystem'])
-                    self.services.append(fs)
+                    self.app.manager.services.append(fs)
             # User data - add a new file system for user data of size 'pss'                    
             fs_name = 'galaxyData'
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
@@ -619,7 +633,6 @@ class ConsoleManager( object ):
             # Galaxy
             self.services.append(GalaxyService(self.app))
         elif cluster_type == 'Data':
-            log.info("Initializing a '%s' cluster." % cluster_type)
             # Add required services:
             # User data - add a new file system for user data of size 'pss'                    
             fs_name = 'galaxyData'

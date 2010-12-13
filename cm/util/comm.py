@@ -32,7 +32,7 @@ class CMMasterComm( object ):
             self.channel.exchange_declare(self.exchange, type='direct', durable=False, auto_delete = True)
             self.channel.queue_declare(queue = 'master', durable = False, exclusive = False, auto_delete = True)
             self.channel.queue_bind(exchange = self.exchange, queue = 'master', routing_key = 'master')
-            log.info("Successfully established AMQP connection")
+            log.debug("Successfully established AMQP connection")
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
@@ -83,7 +83,7 @@ class CMWorkerComm( object ):
             self.channel.queue_declare(queue = self.queue, durable = False, exclusive = False, auto_delete = True)
             self.channel.queue_bind(exchange = self.exchange, queue = self.queue, routing_key = self.iid)
             self.got_conn = True
-            log.info("Successfully established AMQP connection")
+            log.debug("Successfully established AMQP connection")
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
