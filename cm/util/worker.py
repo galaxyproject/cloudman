@@ -88,7 +88,7 @@ class ConsoleManager( object ):
         
     def start( self ):
         self.mount_nfs( self.app.ud['master_ip'] )
-        misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
+        # misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
     
     def shutdown( self, delete_cluster=None ):
         self.worker_status = worker_states.SHUTTING_DOWN

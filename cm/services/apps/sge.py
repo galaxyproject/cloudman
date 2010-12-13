@@ -101,7 +101,7 @@ class SGEService( ApplicationService ):
             print >> f, templates.SGE_INSTALL_TEMPLATE % ( self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_self_private_ip(), exec_nodes )
         os.chown( SGE_config_file, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2] )
         log.debug( "Created SGE install template as file '%s'" % SGE_config_file )
-        log.info( "Setting up SGE." )
+        log.debug( "Setting up SGE." )
         if misc.run( 'cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.info("Successfully setup SGE; configuring SGE")
             SGE_allq_file = '%s/all.q.conf' % paths.P_SGE_ROOT
