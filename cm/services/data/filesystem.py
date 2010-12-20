@@ -364,15 +364,18 @@ class Filesystem(DataService):
             log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
             return False
         self.status()
-        for counter in range(10):
-            if run('/bin/umount -f %s' % self.mount_point, "Error unmounting file system '%s'" % self.mount_point, "Successfully unmounted file system '%s'" % self.mount_point):
-                break
-            if counter == 9:
-                log.warning("Could not unmount file system at '%s'" % self.mount_point)
-                return False
-            counter += 1
-            time.sleep(3)
-        return True
+        if self.state == service_states.RUNNING:
+            for counter in range(10):
+                if run('/bin/umount -f %s' % self.mount_point, "Error unmounting file system '%s'" % self.mount_point, "Successfully unmounted file system '%s'" % self.mount_point):
+                    break
+                if counter == 9:
+                    log.warning("Could not unmount file system at '%s'" % self.mount_point)
+                    return False
+                counter += 1
+                time.sleep(3)
+            return True
+        else:
+            return False
     
     def status(self):
         """Check if file system is mounted to the location based on its name.

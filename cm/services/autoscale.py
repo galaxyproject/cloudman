@@ -52,7 +52,7 @@ class Autoscale(Service):
         log.debug("Checking if cluster is too LARGE")
         if len(self.app.manager.worker_instances) > self.as_max:
             return True
-        elif int(datetime.datetime.utcnow().strftime("%M")) > 55 and \
+        elif int(datetime.datetime.utcnow().strftime("%M")) > 57 and \
              len(self.app.manager.worker_instances) > self.as_min and \
              self.get_num_instances_to_remove() > 0:
              # len(self.app.manager.get_idle_instances()) > 0 and \
@@ -72,7 +72,7 @@ class Autoscale(Service):
             
         if len(self.app.manager.worker_instances) < self.as_min:
             return True
-        elif int(datetime.datetime.utcnow().strftime("%M")) < 54 and \
+        elif int(datetime.datetime.utcnow().strftime("%M")) < 55 and \
              len(self.app.manager.get_idle_instances()) == 0 and \
              len(self.app.manager.worker_instances) < self.as_max and \
              len(self.app.manager.worker_instances) == self.app.manager.get_num_available_workers() and \
@@ -131,12 +131,17 @@ class Autoscale(Service):
                 except Exception, e:
                     log.debug("Trouble parsing qstat output (%s) as part of autoscaling: %s" % (qstat_out, e))
         return {'running': running_jobs, 'queued': queued_jobs}
-        
+    
     def get_num_instances_to_remove(self):
         """Return the number of instance to remove during auto-DOWN-scaling. 
            The function returns the number of idle instances while respecting 
            the min number of instances that autoscaling should maintain."""
         num_instances_to_remove = len(self.app.manager.get_idle_instances())
+        # If there are already more running instances than the current as_max, 
+        # leave the max number of instances running after scaling down
+        if len(self.app.manager.worker_instances) > int(self.as_max):
+            num_instances_to_remove = len(self.app.manager.worker_instances) - int(self.as_max)
+        # Ensure the as_min number of instances are maintained
         if len(self.app.manager.worker_instances)-num_instances_to_remove < self.as_min:
             num_instances_to_remove = len(self.app.manager.worker_instances) - int(self.as_min)
         return num_instances_to_remove
@@ -171,3 +176,4 @@ class Autoscale(Service):
     
     def __str__(self):
         return "Autoscaling limits min: %s max: %s; instance type: '%s'" % (self.as_min, self.as_max, self.instance_type)
+    

@@ -381,6 +381,9 @@ default_cluster_job_runner = drmaa:///
 # started runner.
 cluster_job_queue_workers = 3
 
+# Root path to tool installation directory (used for tool dependency injection)
+tool_dependency_dir = /mnt/galaxyTools/tools
+
 # These options are only used when using file staging with PBS.
 #pbs_application_server = 
 #pbs_stage_path = 
