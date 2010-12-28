@@ -256,7 +256,7 @@ def check_process_running(proc_in):
     lines = str(ps.communicate()[0], 'utf-8')
     for line in lines.split('\n'):
         if line.find(proc_in) != -1:
-            print(line)
+            log.debug(line)
     ps.stdout.close()
     ps.wait()
     
