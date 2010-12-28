@@ -150,8 +150,8 @@ class Volume(object):
         if self.status() == volume_status.ATTACHED:
             try:
                 volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), force=True )
-            except EC2ResponseError, ( e ):
-                print "Detaching volume '%s' from instance '%s' failed. Exception: %s" % ( self.volume_id, self.app.cloud_interface.get_instance_id(), e )
+            except EC2ResponseError, e:
+                log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                 return False
                 
             for counter in range( 30 ):
