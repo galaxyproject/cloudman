@@ -932,7 +932,7 @@ class ConsoleMonitor( object ):
                     dvd_arr = []
                     for vol in srvc.volumes:
                         if vol.static and srvc.name!='galaxyData':
-                            svl.append({'filesystem': srvc.name, 'snap_id': vol.from_snapshot_id, 'size': int(vol.size)})
+                            svl.append({'filesystem': srvc.name, 'snap_id': vol.get_from_snap_id(), 'size': int(vol.size)})
                         else:
                             dvd_arr.append({'vol_id': str(vol.volume_id), 'size': int(vol.size)})
                     if dvd_arr:
