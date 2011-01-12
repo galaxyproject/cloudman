@@ -104,7 +104,7 @@ class Volume(object):
             self.volume_id = None
             self.volume = None
         except EC2ResponseError, e:
-            log.error("Error deleting volume '%s': %s" % (self.volume_id, e))
+            log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
     
     def attach(self):
         """
@@ -156,15 +156,15 @@ class Volume(object):
                 log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                 return False
                 
-            for counter in range( 30 ):
+            for counter in range(30):
                 log.debug( "Volume '%s' status '%s'" % ( self.volume_id, volumestatus ))
                 if volumestatus == 'available':
                     log.debug("Volume '%s' successfully detached from instance '%s'." % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
                     self.volume = None
                     break
                 if counter == 29:
-                    log.debug("Volume '%s' FAILED to detach to instance '%s'." % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
-                time.sleep( 3 )
+                    log.debug("Volume '%s' FAILED to detach from instance '%s'" % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
+                time.sleep(5)
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes( [self.volume_id] )
                 volumestatus = volumes[0].status
         else:
