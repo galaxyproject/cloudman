@@ -43,7 +43,9 @@ class Volume(object):
                     log.error("Cannot retrieve reference to volume '%s'; setting volume id to None. Error: %s" % (self.volume_id, e))
                     self.volume_id = None
                     return volume_status.NONE
-                
+                self.from_snapshot_id = self.volume.snapshot_id
+                if self.from_snapshot_id is '': # ensure consistency
+                    self.from_snapshot_id = None
                 if self.volume.status == 'creating':
                     return volume_status.CREATING
                 elif self.volume.status == 'available':
@@ -189,6 +191,9 @@ class Volume(object):
             log.error("Could not create snapshot from volume '%s'" % self.volume_id)
             return False
     
+    def get_from_snap_id(self):
+        self.status()
+        return self.from_snapshot_id
 
 class Filesystem(DataService):
     def __init__(self, app, name):
