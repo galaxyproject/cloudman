@@ -10,9 +10,14 @@ vertical-align: top;
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
 	<div id="main_text">
 		%if initial_cluster_type is None:
-			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud and the services provided within. If this is your first time running this cluster, you will need to select an initial data volume size.  Once the data store is configured, default services will start and you will be add and remove additional services as well as 'worker' nodes on which jobs are run.
+			Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud instance and the services 
+			provided within. If this is your first time running this cluster, you will need to select an initial data volume 
+			size. Once the data store is configured, default services will start and you will be able to add and remove additional
+			services as well as 'worker' nodes on which jobs are run.
 		%else:
-			Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy.  Your previous data store has been reconnected.  Once Galaxy has initialized, use the controls below to add and remove 'worker' nodes for running jobs.
+			Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy CloudMan. Your previous 
+			data store has been reconnected.  Once the cluster has initialized, use the controls below to add and remove 'worker' 
+			nodes for running jobs.
 		%endif
 	</div>
 	<div style="clear: both;"></div><br/>
@@ -124,9 +129,9 @@ vertical-align: top;
 		Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
 		<b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
 		jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-		<p>During this process, a snapshot of your data volume will be created, which can optionally be left in you account. 
-		If you decide to leave the snapshot, for reference, you may also provide a brief note that will later be visible in
-		the snapshot description.</p>
+		<p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account. 
+		If you decide to leave the snapshot for reference, you may also provide a brief note that will later be visible in
+		the snapshot's description.</p>
 		</div>
 		<div class="form-row">
 			<label>New Disk Size (max 1000GB):</label>
@@ -281,7 +286,7 @@ vertical-align: top;
 <div class="box" id="volume_config">
 	<h2>Initial Cluster Configuration</h2>
 	<div class="form-row">
-		<p>Welcome to Galaxy Cloudman.  This application will allow you to manage this cluster and the services provided within. To get started, choose the type of cluster you'd like to work with and specify the size of your persistent data storage, if any.</p>
+		<p>Welcome to Galaxy Cloudman. This application will allow you to manage this cluster and the services provided within. To get started, choose the type of cluster you'd like to work with and specify the size of your persistent data storage, if any.</p>
 	</div>
 	<form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
 		<div class="form-row">
