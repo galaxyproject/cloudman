@@ -45,10 +45,10 @@ def _run(cmd):
         return False
 
 def _make_dir(path):
-    log.debug("Checking existence of directory '%s'..." % path)
+    log.debug("Checking existence of directory '%s'" % path)
     if not os.path.exists( path ):
         try:
-            log.debug("Creating directory: '%s'..." % path)
+            log.debug("Creating directory '%s'" % path)
             os.makedirs(path, 0755)
             log.debug("Directory '%s' successfully created." % path)
         except OSError, e:
@@ -64,10 +64,10 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
         # log.debug("Establishing handle with file object '%s'" % remote_filename)
         k = Key(b, remote_filename)
     
-        log.debug("Attempting to retrieve file '%s' from bucket '%s" % (remote_filename, bucket_name))
+        log.debug("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name))
         if k.exists():
             k.get_contents_to_filename(local_filename)
-            log.info("Successfully retrieved file '%s' from bucket '%s' to '%s'." % (remote_filename, bucket_name, local_filename))
+            log.info("Successfully retrieved file '%s' from bucket '%s' to '%s'" % (remote_filename, bucket_name, local_filename))
             return True
         else:
             log.error("File '%s' in bucket '%s' not found." % (remote_filename, bucket_name))
@@ -115,9 +115,9 @@ def _get_cm(ud):
                     _write_cm_revision_to_file(s3_conn, b.name)
                     return True
             # Retrieve default instance of CM
-            log.info("Could not retrieve CloudMan from user's bucket; using default CloudMan (%s) from bucket '%s'." % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
+            log.info("Could not retrieve CloudMan from user's bucket; using default CloudMan (%s) from bucket '%s'" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
             if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, b.name)
+                _write_cm_revision_to_file(s3_conn, DEFAULT_BUCKET_NAME)
                 return True
     # Default to public repo and wget
     log.error("Could not retrieve CloudMan from user's bucket")
@@ -131,6 +131,7 @@ def _write_cm_revision_to_file(s3_conn, bucket_name):
     it locally to CM_REV_FILENAME """
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
         rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME, 'revision')
+        log.debug("Revision of remote file '%s' from bucket '%s': %s" % (CM_REMOTE_FILENAME, bucket_name, rev))
         if rev:
             rev_file.write(rev)
         else:
@@ -168,7 +169,7 @@ def _start_cm():
     _run('cd %s; sh run.sh --daemon' % CM_HOME)
 
 def main():
-    _run('easy_install -U boto') # Update boto
+    # _run('easy_install -U boto') # Update boto
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     
