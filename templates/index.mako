@@ -150,7 +150,10 @@ vertical-align: top;
 <div id="snapshot_status_box" class="box">
 	<h2>Expand Disk Space In Progress</h2>
 	<div class="form-row">
-		<p>Step away from the computer.  TODO: Informative text.</p>
+		<p>Your data volume is in progress. All of the cluster services have been
+		stopped for the time being and will resume automatically upon completion
+		of the process.<br/>This message should go away after the process completes
+		but if it does not, try refreshing the page then.</p>
 	</div>
 	<div class="form-row">
 	    Snapshot progress: <span id="snapshot_progress">None</span>
@@ -161,7 +164,8 @@ vertical-align: top;
 <div id="reboot_status_box" class="box">
 	<h2>Reboot In Progress</h2>
 	<div class="form-row">
-		<p>Step away from the computer.  This page will reload automatically when the reboot is complete.  TODO: More informative text.</p>
+		<p>This page should reload automatically when the reboot is complete. 
+		However, if it does not after approximately 5 minutes, reload it manually.</p>
 	</div>
 </div>
 
