@@ -63,14 +63,15 @@ class Volume(object):
             # Connection failed
             return volume_status.NONE
     
-    def get_device(self):
-        if self.device is None:
+    def get_device(self, offset=0):
+        """ Offset forces creation of a new device ID"""
+        if self.device is None or offset != 0:
             # Get list of Galaxy-specific devices already attached to 
             # the instance and set current volume as the next one in line
             # TODO: make device root an app config option vs. hard coding here
             dev_list = commands.getstatusoutput('ls /dev/sdg*')
             if dev_list[0]==0:
-                self.device = '/dev/sdg%s' % str(max([int(d[8:]) for d in dev_list[1].split()])+1)
+                self.device = '/dev/sdg%s' % str(max([int(d[8:]) for d in dev_list[1].split()])+1+offset)
             else:
                 log.debug("No devices found attached to /dev/sdg#, defaulting current volume device to /dev/sdg1")
                 self.device = '/dev/sdg1'
@@ -106,6 +107,15 @@ class Volume(object):
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
     
+    def do_attach(self):
+        try:
+            log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device() ))
+            volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_device() )
+        except EC2ResponseError, e:
+            log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device(), e ))
+            return False
+        return volumestatus
+    
     def attach(self):
         """
         Attach EBS volume to the given device.
@@ -114,23 +124,30 @@ class Volume(object):
         for counter in range( 30 ):
             if self.status() == volume_status.AVAILABLE:
                 self.get_device() # Ensure device ID is assigned to current volume
-                try:
-                    log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device() ))
-                    volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_device() )
-                except EC2ResponseError, e:
-                    log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device(), e ))
-                    return False
-                for counter in range( 30 ):
-                    log.debug("Attach attempt %s, volume status: %s" % ( counter, volumestatus ))
+                volumestatus = self.do_attach()
+                # Wait until the volume is 'attached'
+                ctn = 0
+                attempts = 30
+                while ctn < attempts:
+                    log.debug("Attach check %s, volume status: %s" % ( ctn, volumestatus ))
                     if volumestatus == 'attached':
                         log.debug("Volume '%s' attached to instance '%s' as device '%s'" % (  self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device()))
                         break
-                    if counter == 29:
-                        log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'. Aborting." % (  self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device() ))
-                        return False
+                    if ctn == attempts-1:
+                        log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'." % (self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_device()))
+                        if attempts < 90:
+                            log.debug("Will try another device")
+                            attempts += 30 # Increment attempts for another try
+                            if self.detach():
+                                self.get_device(offset=attempts/30-1) # Offset device num by number of attempts
+                                volumestatus = self.do_attach()
+                        else:
+                            log.debug("Will not try again. Aborting attaching of volume")
+                            return False
                     volumes = (self.app.cloud_interface.get_ec2_connection()).get_all_volumes( [self.volume_id] )
                     volumestatus = volumes[0].attachment_state()
-                    time.sleep( 3 )
+                    time.sleep(2)
+                    ctn += 1
                 return True
             elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
                 # Check if the volume is already attached to current instance (can happen following a reboot/crash)
@@ -146,10 +163,10 @@ class Volume(object):
     
     def detach(self):
         """
-        Detach EBS volume from the given instance (using boto).
+        Detach EBS volume from an instance.
         Try it for some time.
         """
-        if self.status() == volume_status.ATTACHED:
+        if self.status() == volume_status.ATTACHED or self.status() == volume_status.IN_USE:
             try:
                 volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), force=True )
             except EC2ResponseError, e:
@@ -222,8 +239,8 @@ class Filesystem(DataService):
             self.state = service_states.STARTING
             for vol in self.volumes:
                 vol.create(self.name)
-                vol.attach()
-                self.mount(vol)
+                if vol.attach():
+                    self.mount(vol)
                 self.status()
         except Exception, e:
             log.error("Error adding service '%s-%s': %s" % (self.svc_type, self.name, e))
