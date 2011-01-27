@@ -3,7 +3,7 @@ from cm.clouds import CloudInterface
 
 from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
-from boto.exception import EC2ResponseError, S3ResponseError
+from boto.exception import EC2ResponseError
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -15,7 +15,7 @@ class EC2Interface(CloudInterface):
         super(EC2Interface, self).__init__()
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
-
+    
     def get_ami( self ):
         if self.ami is None:
             for i in range(0, 5):
@@ -29,7 +29,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.ami
-        
+    
     def get_type( self ):
         if self.instance_type is None:
             for i in range(0, 5):
@@ -43,7 +43,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.instance_type
-        
+    
     def get_instance_id( self ):
         if self.instance_id is None:
             for i in range(0, 5):
@@ -53,11 +53,12 @@ class EC2Interface(CloudInterface):
                     self.instance_id = fp.read()
                     fp.close()
                     if self.instance_id:
+                        log.debug("Instance ID is '%s'" % self.instance_id)
                         break
                 except IOError:
                     pass
         return self.instance_id
-
+    
     def get_zone( self ):
         if self.zone is None:
             for i in range(0, 5):
@@ -67,11 +68,12 @@ class EC2Interface(CloudInterface):
                     self.zone = fp.read()
                     fp.close()
                     if self.zone:
+                        log.debug("Instance zone is '%s'" % self.zone)
                         break
                 except IOError:
                     pass
         return self.zone
-        
+    
     def get_security_groups( self ):
         if self.security_groups is None:
             for i in range(0, 5):
@@ -87,7 +89,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.security_groups
-
+    
     def get_key_pair_name( self ):
         if self.key_pair_name is None:
             for i in range(0, 5):
@@ -103,7 +105,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.key_pair_name
-        
+    
     def get_self_private_ip( self ):
         if self.self_private_ip is None:
             for i in range(0, 5):
@@ -117,7 +119,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.self_private_ip
-        
+    
     def get_self_public_ip( self ):
         if self.self_public_ip is None:
             for i in range(0, 5):
@@ -145,18 +147,30 @@ class EC2Interface(CloudInterface):
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
-                self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
+                # In order to get a connection for the correct region, get instance zone and go from there
+                zone = self.get_zone()[:-1] # truncate zone and be left with region name
+                tmp_conn = EC2Connection(self.aws_access_key, self.aws_secret_key) # get conn in default region
+                try:
+                    regions = tmp_conn.get_all_regions()
+                except EC2ResponseError, e:
+                    log.error("Cannot validate provided AWS credentials: %s" % e)
+                # Find region that matches instance zone and then create ec2_conn
+                for r in regions:
+                    if zone in r.name:
+                        region = r
+                        break
+                self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key, region=region)
                 # Do a simple query to test if provided credentials are valid
                 try:
                     self.ec2_conn.get_all_instances()
-                    log.debug( 'Got boto EC2 connection.' )
+                    log.debug("Got boto EC2 connection for region '%s'" % self.ec2_conn.region.name)
                 except EC2ResponseError, e:
-                    log.error("Cannot validate provided AWS credentials: %s" % e)
+                    log.error("Cannot validate provided AWS credentials (A:%s, S:%s): %s" % (self.aws_access_key, self.aws_secret_key, e))
                     self.ec2_conn = False
             except Exception, e:
                 log.error(e)
         return self.ec2_conn
-        
+    
     def get_s3_connection( self ):
         log.debug( 'Establishing boto S3 connection' )
         if self.s3_conn == None:
@@ -173,3 +187,4 @@ class EC2Interface(CloudInterface):
             except Exception, e:
                 log.error(e)
         return self.s3_conn
+    

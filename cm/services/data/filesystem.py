@@ -80,6 +80,7 @@ class Volume(object):
     def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
             try:
+                log.debug("Creating a new volume of size '%s' from snapshot '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.app.cloud_interface.get_zone()))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                 self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
@@ -155,6 +156,9 @@ class Volume(object):
                     self.device = self.volume.attach_data.device
                     log.debug("Tried to attach a volume but the volume '%s' is already attached (as device %s)" % (self.volume_id, self.device))
                     return True
+            elif self.volume_id is None:
+                log.error("Wanted to attach a volume but missing volume ID; cannot attach")
+                return False
             if counter == 29:
                 log.warning("Cannot attach volume '%s' in state '%s'" % (self.volume_id, self.status()))
                 return False
@@ -211,6 +215,7 @@ class Volume(object):
     def get_from_snap_id(self):
         self.status()
         return self.from_snapshot_id
+    
 
 class Filesystem(DataService):
     def __init__(self, app, name):
@@ -235,7 +240,7 @@ class Filesystem(DataService):
     
     def add(self):
         try:
-            log.debug("Trying to add service '%s'" % self.svc_type)
+            log.debug("Trying to add service '%s'" % self.get_full_name())
             self.state = service_states.STARTING
             for vol in self.volumes:
                 vol.create(self.name)
@@ -265,7 +270,7 @@ class Filesystem(DataService):
                 if vol.static and self.name != 'galaxyData':
                     log.debug("Deleting %s" % self.get_full_name())
                     vol.delete()
-            log.debug("Setting state of %s to %s" % (self.get_full_name(), service_states.SHUT_DOWN))
+            log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
             self.state = service_states.SHUT_DOWN
     
     def clean(self):
@@ -419,10 +424,10 @@ class Filesystem(DataService):
                 if mnt_location[1] == self.mount_point:
                     self.state = service_states.RUNNING
                 else:
-                    log.error("Retrieved mount path '%s' does not match expected path '%s'" % (mnt_location[1], self.mount_point))
+                    log.error("STATUS CHECK: Retrieved mount path '%s' does not match expected path '%s'" % (mnt_location[1], self.mount_point))
                     self.state = service_states.ERROR
             else:
-                log.error("File system named '%s' is not mounted. Error code %s" % (self.name, mnt_location[0]))
+                log.error("STATUS CHECK: File system named '%s' is not mounted. Error code %s" % (self.name, mnt_location[0]))
                 self.state = service_states.ERROR
         else:
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" % (self.name, self.mount_point, self.state))
