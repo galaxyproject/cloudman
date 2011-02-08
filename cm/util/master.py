@@ -137,7 +137,7 @@ class ConsoleManager( object ):
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
         """ Iterate through the list of (attached) volumes and check if any
         one of them matches the current cluster name and filesystem (as stored
-        in volume tags). Returns a matching volume of None.
+        in volume tags). Returns a matching volume or None.
         Note that this method returns the first matching volume and will thus 
         not work for filesystems composed of multiple volumes. """
         try:
@@ -388,22 +388,10 @@ class ConsoleManager( object ):
             for service in svcs:
                 service.remove()
         if delete_cluster:
-            log.info("All services shut down; deleting this cluster.")
-            # Delete any remaining volume(s) assoc. w/ given cluster
-            filters = {'tag:clusterName': self.app.ud['cluster_name']}
-            try:
-                ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                vols = ec2_conn.get_all_volumes(filters=filters)
-                for vol in vols:
-                    ec2_conn.delete_volume(vol.id)
-            except EC2ResponseError, e:
-                log.error("Error deleting volume %s: %s" % (vol.id, e))
-            # Delete cluster bucket on S3
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            self.delete_cluster()
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
-        log.info( "Cluster shut down. Manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
+        log.info( "Cluster shut down. If not done automatically, manually terminate master instance (and any remaining instances associated with this cluster) from the AWS console." )
     
     def reboot(self):
         if self.app.TESTFLAG is True:
@@ -418,14 +406,30 @@ class ConsoleManager( object ):
             log.error("Error rebooting master instance (i.e., self): %s" % e)
         return False
 
-    def terminate_master_instance(self):
+    def terminate_master_instance(self, delete_cluster=False):
         if not (self.cluster_status == cluster_status.SHUT_DOWN and self.master_state == master_states.SHUT_DOWN):
-            self.shutdown()
+            self.shutdown(delete_cluster=delete_cluster)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
             ec2_conn.terminate_instances([self.app.cloud_interface.get_instance_id()])
         except EC2ResponseError, e:
             log.error("Error terminating master instance (i.e., self): %s" % e)
+    
+    def delete_cluster(self):
+        log.info("All services shut down; deleting this cluster.")
+        # Delete any remaining volume(s) assoc. w/ given cluster
+        filters = {'tag:clusterName': self.app.ud['cluster_name']}
+        try:
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            vols = ec2_conn.get_all_volumes(filters=filters)
+            for vol in vols:
+                log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                ec2_conn.delete_volume(vol.id)
+        except EC2ResponseError, e:
+            log.error("Error deleting volume %s: %s" % (vol.id, e))
+        # Delete cluster bucket on S3
+        s3_conn = self.app.cloud_interface.get_s3_connection()
+        misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
     
     def clean(self):
         """ Clean the system as if it was freshly booted. All services are shut down 

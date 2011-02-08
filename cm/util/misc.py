@@ -120,10 +120,8 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     return False
 
 def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
-    log.debug( "Establishing handle with bucket '%s'" % bucket_name )
     if bucket_exists(conn, bucket_name):
         b = conn.get_bucket( bucket_name )
-        # log.debug( "Establishing handle with key object '%s'..." % remote_filename )
         k = Key( b, remote_filename )
         try:
             k.get_contents_to_filename( local_file )
@@ -138,7 +136,6 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
     return True
 
 def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
-    # log.debug( "Establishing handle with bucket '%s'..." % bucket_name )
     b = None
     for i in range(0, 5):
 		try:
@@ -149,13 +146,10 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
 			time.sleep(2)
 	    	
     if b is not None:
-        # log.debug( "Establishing handle with key object '%s'..." % remote_filename )
 		k = Key( b, remote_filename )
-		log.debug( "Attempting to save file '%s' to bucket '%s'..." % (remote_filename, bucket_name))
 		try:
 		    k.set_contents_from_filename( local_file )
-		    log.info( "Saved file '%s' to bucket '%s'." \
-		                 % ( remote_filename, bucket_name ) )
+		    log.info( "Saved file '%s' to bucket '%s'" % ( remote_filename, bucket_name ) )
 		    # Store some metadata (key-value pairs) about the contents of the file being uploaded
 		    k.set_metadata('date_uploaded', dt.datetime.utcnow())
 		except S3ResponseError, e:
@@ -180,15 +174,13 @@ def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filenam
     return False
 
 def delete_file_from_bucket( conn, bucket_name, remote_filename ):
-	log.debug( "Establishing handle with bucket '%s'..." % bucket_name )
 	b = conn.get_bucket( bucket_name )
-	log.debug( "Establishing handle with key object '%s'" % remote_filename )
 	k = Key( b, remote_filename )
-	log.debug( "Deleting key object '%s'" % remote_filename )
+	log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
 	k.delete()
 
 def delete_bucket(conn, bucket_name):
-    """Delete given bucket. This method will itterate through all the keys in
+    """Delete given bucket. This method will iterate through all the keys in
     the given bucket first and delete them. Finally, the bucket will be deleted."""
     try:
         b = conn.get_bucket(bucket_name)

@@ -121,11 +121,11 @@ class CM( BaseController ):
     
     @expose
     def kill_all(self, trans, terminate_master_instance=False, delete_cluster=False):
-        if terminate_master_instance:
-            self.app.manager.terminate_master_instance()
-            return self.instance_state_json(trans)
         if delete_cluster:
             delete_cluster = True
+        if terminate_master_instance:
+            self.app.manager.terminate_master_instance(delete_cluster=delete_cluster)
+            return self.instance_state_json(trans)
         self.app.shutdown(delete_cluster=delete_cluster)
         return self.instance_state_json(trans)
     

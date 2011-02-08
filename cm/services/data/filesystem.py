@@ -31,6 +31,14 @@ class Volume(object):
         self.snapshot_progress = None
         self.snapshot_status = None
         
+    def update(self, vol):
+        """ Update reference to the 'self' to point to argument 'vol' """
+        self.volume = vol
+        self.volume_id = vol.id
+        self.device = vol.attach_data.device
+        self.size = vol.size
+        self.from_snapshot_id = vol.snapshot_id
+    
     def status(self):
         if self.volume_id is None:
             return volume_status.NONE
@@ -419,6 +427,7 @@ class Filesystem(DataService):
            self.state==service_states.WAITING_FOR_USER_ACTION:
             pass
         elif self.mount_point is not None:
+            # Check mount point
             mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f2" % self.mount_point)
             if mnt_location[0] == 0:
                 if mnt_location[1] == self.mount_point:
