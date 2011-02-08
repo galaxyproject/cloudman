@@ -58,10 +58,7 @@ def _make_dir(path):
 
 def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename):
     try:
-        # log.debug("Establishing handle with bucket '%s'" % bucket_name)
         b = s3_conn.get_bucket(bucket_name)
-
-        # log.debug("Establishing handle with file object '%s'" % remote_filename)
         k = Key(b, remote_filename)
     
         log.debug("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name))
