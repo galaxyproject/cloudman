@@ -33,6 +33,7 @@ class Volume(object):
         
     def update(self, vol):
         """ Update reference to the 'self' to point to argument 'vol' """
+        log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
         self.volume = vol
         self.volume_id = vol.id
         self.device = vol.attach_data.device
@@ -88,11 +89,11 @@ class Volume(object):
     def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
             try:
-                log.debug("Creating a new volume of size '%s' from snapshot '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.app.cloud_interface.get_zone()))
+                log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                 self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
-                log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s'" % (self.size, self.from_snapshot_id, self.volume_id))
+                log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
                 self.volume.add_tag('clusterName', self.app.ud['cluster_name'])
                 if filesystem:
                     self.volume.add_tag('filesystem', filesystem)
@@ -412,6 +413,27 @@ class Filesystem(DataService):
         else:
             return False
     
+    def check_and_update_volume(self, device):
+        f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+        vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+        if len(vols) == 1:
+            att_vol = vols[0]
+            for vol in self.volumes: # Currently, bc. only 1 vol can be assoc. w/ FS, we'll only deal w/ 1 vol
+                if (vol is None and att_vol) or (vol and att_vol and vol.volume_id != att_vol.id):
+                    log.debug("Discovered change of vol %s to '%s', attached as device '%s', for FS '%s'" \
+                        % ([vol.volume_id for vol in self.volumes], att_vol.id, device, self.name))
+                    vol.update(att_vol)
+                    # If the new volume does not have tags (clusterName & filesystem), add those
+                    if not att_vol.tags.has_key('clusterName'):
+                        att_vol.add_tag('clusterName', self.app.ud['cluster_name'])
+                    if not att_vol.tags.has_key('filesystem'):
+                        att_vol.add_tag('filesystem', self.name)
+                    # Update cluster configuration (i.e., persistent_data.yaml) in cluster's bucket
+                    self.app.manager.console_monitor.create_cluster_config_file()
+        else:
+            log.warning("Did not find a volume attached to instance '%s' as device '%s', file system '%s' (vols=%s)" \
+                % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
+    
     def status(self):
         """Check if file system is mounted to the location based on its name.
         Set state to RUNNING if file system is accessible.
@@ -427,14 +449,22 @@ class Filesystem(DataService):
            self.state==service_states.WAITING_FOR_USER_ACTION:
             pass
         elif self.mount_point is not None:
-            # Check mount point
-            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f2" % self.mount_point)
-            if mnt_location[0] == 0:
-                if mnt_location[1] == self.mount_point:
-                    self.state = service_states.RUNNING
-                else:
-                    log.error("STATUS CHECK: Retrieved mount path '%s' does not match expected path '%s'" % (mnt_location[1], self.mount_point))
+            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" % self.mount_point)
+            if mnt_location[0] == 0 and mnt_location[1] != '':
+                try:
+                    device, mnt_path = mnt_location[1].split(' ')
+                    # Check volume
+                    self.check_and_update_volume(device)
+                    # Check mount point
+                    if mnt_path == self.mount_point:
+                        self.state = service_states.RUNNING
+                    else:
+                        log.error("STATUS CHECK: Retrieved mount path '%s' does not match expected path '%s'" % (mnt_location[1], self.mount_point))
+                        self.state = service_states.ERROR
+                except Exception, e:
+                    log.error("STATUS CHECK: Exception checking status of FS '%s': %s" % (self.name, e))
                     self.state = service_states.ERROR
+                    log.debug(mnt_location)
             else:
                 log.error("STATUS CHECK: File system named '%s' is not mounted. Error code %s" % (self.name, mnt_location[0]))
                 self.state = service_states.ERROR

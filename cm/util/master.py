@@ -347,13 +347,10 @@ class ConsoleManager( object ):
             return volumes
         log.debug("Trying to discover any volumes attached to this instance...")
         try:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            vols = ec2_conn.get_all_volumes()
-            for v in vols:
-                if v.attach_data.status=='attached' and v.attach_data.instance_id==self.app.cloud_interface.get_instance_id():
-                    volumes.append(v)
+            f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+            volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
         except EC2ResponseError, e:
-            log.debug( "Error checking for live instances: %s" % e )
+            log.debug( "Error checking for attached volumes: %s" % e )
         log.debug("Attached volumes: %s" % volumes)
         return volumes
     
@@ -992,7 +989,7 @@ class ConsoleMonitor( object ):
                 return False
         log.debug("Monitor started; manager started")
         while self.running:
-            self.sleeper.sleep( 3 )
+            self.sleeper.sleep( 4 )
             if self.app.manager.cluster_status == cluster_status.SHUT_DOWN:
                 self.running = False
                 return
