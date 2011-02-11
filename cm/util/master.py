@@ -555,6 +555,7 @@ class ConsoleManager( object ):
                                                   user_data=worker_ud_str,
                                                   instance_type=instance_type,
                                                   placement=self.app.cloud_interface.get_zone() )
+            time.sleep(3) # Rarely, instances take a bit to register, so wait a few seconds (although this is a very poor 'solution')
             if reservation:
                 for instance in reservation.instances:
                     instance.add_tag("clusterName", self.app.ud['cluster_name'])
@@ -562,7 +563,7 @@ class ConsoleManager( object ):
                     i = Instance( self.app, inst=instance, m_state=instance.state )
                     self.worker_instances.append( i )
         except BotoServerError, e:
-            log.error( "EC2 insufficient capacity error: %s" % str( e ) )
+            log.error( "boto server error when starting an instance: %s" % str( e ) )
             return False
         except EC2ResponseError, e:
             err = "EC2 response error when starting worker nodes: %s" % str( e )
@@ -582,6 +583,27 @@ class ConsoleManager( object ):
         
         log.debug( "Started %s instance(s)" % num_nodes )
         return True
+    
+    def add_live_instance(self, instance_id):
+        """ Add an instance to the list of worker instances; get a handle to the
+        instance object in the process. """
+        try:
+            log.debug("Adding live instance '%s'" % instance_id)
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            reservation = ec2_conn.get_all_instances([instance_id])
+            if reservation and len(reservation[0].instances)==1:
+                instance = reservation[0].instances[0]
+                if instance.state != 'terminated' and instance.state != 'shutting-down':
+                    i = Instance(self.app, inst=instance, m_state=instance.state)
+                    instance.add_tag("clusterName", self.app.ud['cluster_name'])
+                    instance.add_tag("role", 'worker') # Default to 'worker' role tag
+                    self.worker_instances.append(i)
+                else:
+                    log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." % (instance_id, instance.state))
+                return True
+        except EC2ResponseError, e:
+            log.debug("Problem adding a live instance (tried ID: %s): %s" % (instance_id, e))
+        return False
     
     def init_cluster(self, cluster_type, pss = None):
         """ Initialize a cluster. This implies starting requested services and 
@@ -1047,13 +1069,20 @@ class ConsoleMonitor( object ):
                         log.debug("Error rebooting instance '%s': %s" % (w_instance.id, e))
             m = self.conn.recv()
             while m is not None:
-                match = False
-                for inst in self.app.manager.worker_instances:
-                    if inst.id == m.properties['reply_to']:
-                        match = True
-                        inst.handle_message( m.body )
-                if match is False:
-                    log.debug( "Potential error, no instance (%s) match found for message %s." % ( m.properties['reply_to'], m.body ) )
+                def do_match():
+                    match = False
+                    for inst in self.app.manager.worker_instances:
+                        if inst.id == m.properties['reply_to']:
+                            match = True
+                            inst.handle_message( m.body )
+                    return match
+                
+                if not do_match():
+                    log.debug( "No instance (%s) match found for message %s; will add instance now!" % ( m.properties['reply_to'], m.body ) )
+                    if self.app.manager.add_live_instance(m.properties['reply_to']):
+                        do_match()
+                    else:
+                        log.warning("Potential error, got message from instance '%s' but not aware of this instance. Ignoring the instance." % m.properties['reply_to'])
                 m = self.conn.recv()
     
 
