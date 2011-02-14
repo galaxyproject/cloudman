@@ -188,7 +188,7 @@ class SGEService( ApplicationService ):
             now = datetime.datetime.utcnow()
             ah_file = '/tmp/ah_add_' + now.strftime("%H_%M_%S")
             self.write_allhosts_file( filename=ah_file, to_add = inst_ip)
-            misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file),"Problems updating @allhosts aimed at removing '%s'" % inst.id, "Successfully updated @allhosts to remove '%s'" % inst.id)
+            misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file),"Problems updating @allhosts aimed at adding '%s'" % inst.id, "Successfully updated @allhosts to add '%s'" % inst.id)
             
             # On instance reboot, SGE might have already been configured for given instance and this
             # process will fail although instance may register fine with SGE...
@@ -205,76 +205,35 @@ class SGEService( ApplicationService ):
             self.remove_sge_host( inst )
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master." )
     
-    # def write_allhosts_file_NEW_not_working(self, filename = '/tmp/ah', to_add = None, to_remove = None):
-    #     ahl = []
-    #     for inst in self.worker_instances:
-    #         log.debug( "Adding instance IP '%s' to SGE's group config file '%s'" % ( inst.get_private_ip(), filename ) )
-    #         ahl.append(inst.private_ip)
-    #         
-    #     # For comparisson purposes, make sure all elements are lower case
-    #     for i in range(len(ahl)):
-    #         ahl[i] = ahl[i].lower()
-    #
-    #     # Now reasemble and save to file 'filename'
-    #     if len(ahl) > 0:
-    #         new_allhosts = 'group_name @allhosts \n'+'hostlist ' + ' \\\n\t '.join(ahl) + ' \\\n'
-    #     else:
-    #         new_allhosts = 'group_name @allhosts \nhostlist NONE\n'
-    #     f = open( filename, 'w' )
-    #     f.write( new_allhosts )
-    #     f.close()
-    #     log.debug("new_allhosts: %s" % new_allhosts)
-    #     log.debug("New SGE @allhosts file written successfully to %s." % filename)
-    
     def write_allhosts_file(self, filename = '/tmp/ah', to_add = None, to_remove = None):
-        proc = subprocess.Popen( "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -shgrp @allhosts" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE )
-        allhosts_out = proc.communicate()[0]
-        # Parsed output is in all lower case so standardize now
-        try:
-            to_add = to_add.lower()
-        except AttributeError: # Means, value is None
-            pass
-        try:
-            to_remove = to_remove.lower()
-        except AttributeError: # Means, value is None
-            pass
-        
-        ahl = allhosts_out.split()
-        if 'NONE' in ahl:
-            ahl.remove( 'NONE' )
-        if 'hostlist' in ahl:
-            ahl.remove( 'hostlist' )
-        if '@allhosts' in ahl:
-            ahl.remove( '@allhosts' )
-        if 'group_name' in ahl:
-            ahl.remove( 'group_name' )            
-        while '\\' in ahl: # remove all backslashes
-            ahl.remove('\\')
+        ahl = []
+        log.debug( "to_add: '%s'" % to_add )
+        log.debug( "to_remove: '%s'" % to_remove )
+        # Add master instance to the execution host list
+        log.debug("Composing SGE's @allhosts group config file '%s':" % filename)
+        log.debug(" - adding master instance; IP '%s'" % self.app.cloud_interface.get_self_private_ip())
+        ahl.append(self.app.cloud_interface.get_self_private_ip())
+        # Add worker instances, excluding the one being removed
+        for inst in self.app.manager.worker_instances:
+            if inst.get_private_ip() != to_remove:
+                log.debug( " - adding instance with IP '%s' (instance state: '%s')" % (inst.get_private_ip(), inst.worker_status))
+                ahl.append(inst.private_ip)
+            else:
+                log.debug( " - instance with IP '%s' marked for removal so not adding it (instance state: '%s')" % (inst.get_private_ip(), inst.worker_status))
+            
         # For comparisson purposes, make sure all elements are lower case
         for i in range(len(ahl)):
             ahl[i] = ahl[i].lower()
-        # At this point we have a clean list of instances
-        log.debug( 'ahl: %s' % ahl )
-        log.debug( "to_add: '%s'" % to_add )
-        log.debug( "to_remove: '%s'" % to_remove )
-        
-        if to_add is not None:
-            log.debug( "Adding instance IP '%s' to SGE's group config file %s" % ( to_add, filename ) )
-            ahl.append(to_add)
-        if to_remove is not None and to_remove in ahl:
-            log.debug( "Removing instance IP '%s' from SGE's group config file %s" % ( to_remove, filename ) )
-            ahl.remove(to_remove)
-        elif to_remove is not None:
-            log.debug( "Instance's IP '%s' not matched in allhosts list: %s" % ( to_remove, ahl ) )
-        
+    
         # Now reasemble and save to file 'filename'
         if len(ahl) > 0:
             new_allhosts = 'group_name @allhosts \n'+'hostlist ' + ' \\\n\t '.join(ahl) + ' \\\n'
         else:
             new_allhosts = 'group_name @allhosts \nhostlist NONE\n'
-        with open(filename, 'w') as f:
-            f.write(new_allhosts)
-        log.debug("new_allhosts: %s" % new_allhosts)
+        f = open( filename, 'w' )
+        f.write( new_allhosts )
+        f.close()
+        log.debug("new_allhosts:\n%s" % new_allhosts)
         log.debug("New SGE @allhosts file written successfully to %s." % filename)
     
     def remove_sge_host( self, inst ):

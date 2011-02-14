@@ -21,6 +21,7 @@ cm_cluster_config.yaml
 snaps.yaml
 paster.log
 __init__.py.oUs
+persistent_data.yaml
 
 # Project files
 *.kpf
