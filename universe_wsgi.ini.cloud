@@ -405,6 +405,14 @@ ucsc_table_direct_archaea1 = local:///
 ucsc_table_direct_test1 = local:///
 upload1 = local:///
 
+
+# -- Advanced proxy features
+
+# The same download handling can be done by nginx using X-Accel-Redirect.  This
+# should be set to the path defined in the nginx config as an internal redirect
+# with access to Galaxy's data files (see documentation linked above).
+nginx_x_accel_redirect_base = /_x_accel_redirect
+
 # ---- Galaxy Message Queue -------------------------------------------------
 
 # Galaxy uses AMQ protocol to receive messages from external sources like 
