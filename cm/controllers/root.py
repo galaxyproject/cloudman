@@ -5,11 +5,6 @@ from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
 import cm.util.paths as paths
-# from cm.services.apps.postgres import PostgresService
-# from cm.services.apps.sge import SGEService
-# from cm.services.apps.galaxy import GalaxyService
-# from cm.services.data.volume import Volume
-# from cm.services.data.filesystem import Filesystem
 
 log = logging.getLogger( 'cloudman' )
 
@@ -26,7 +21,7 @@ class CM( BaseController ):
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
-            return trans.fill_template( 'index.mako', 
+            return trans.fill_template( 'index.mako',
                                         cluster = cluster,
                                         permanent_storage_size = permanent_storage_size,
                                         initial_cluster_type = initial_cluster_type,
@@ -44,24 +39,24 @@ class CM( BaseController ):
             except Exception, e:
                 log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
         return None
-    
+
     @expose
     def combined(self, trans):
         return trans.fill_template('cm_combined.mako')
-    
+
     @expose
     def instance_feed(self, trans):
         return trans.fill_template('instance_feed.mako', instances = self.app.manager.worker_instances)
-    
+
     @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return to_json_string(dict_feed)
-    
+
     @expose
     def minibar(self, trans):
         return trans.fill_template('mini_control.mako')
-    
+
     @expose
     def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None):
         if self.app.manager.initial_cluster_type is None:
@@ -75,7 +70,7 @@ class CM( BaseController ):
         else:
             return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
         return "Cluster configuration set."
-    
+
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
         if delete_snap:
@@ -93,11 +88,11 @@ class CM( BaseController ):
             log.error("You must provide valid value type: %s" % ex)
             return "TypeError exception. Check the log."
         return self.instance_state_json(trans)
-    
+
     @expose
     def power( self, trans, number_nodes=0, pss=None ):
         if self.app.manager.get_cluster_status() == 'OFF': # Cluster is OFF, initiate start procedure
-            try: 
+            try:
                 # If value of permanent_storage_size was supplied (i.e., this cluster is being
                 # started for the first time), store the pss value in the app
                 if pss:
@@ -114,11 +109,11 @@ class CM( BaseController ):
         else: # Cluster is ON, initiate shutdown procedure
             self.app.shutdown()
         return "ACK"
-    
+
     @expose
     def detailed_shutdown(self, trans, galaxy = True, sge = True, postgres = True, filesystems = True, volumes = True, instances = True):
         self.app.shutdown(sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes, sd_instances=instances, sd_volumes_delete=volumes)
-    
+
     @expose
     def kill_all(self, trans, terminate_master_instance=False, delete_cluster=False):
         if delete_cluster:
@@ -128,19 +123,19 @@ class CM( BaseController ):
             return self.instance_state_json(trans)
         self.app.shutdown(delete_cluster=delete_cluster)
         return self.instance_state_json(trans)
-    
+
     @expose
     def reboot(self, trans):
         return to_json_string({'rebooting':self.app.manager.reboot()})
-    
+
     @expose
     def cleanup(self, trans):
         self.app.manager.shutdown()
-    
+
     @expose
     def hard_clean( self, trans ):
         self.app.manager.clean()
-    
+
     @expose
     def add_instances( self, trans, number_nodes, instance_type = ''):
         try:
@@ -149,14 +144,14 @@ class CM( BaseController ):
             log.error("You must provide valid value.  %s" % e)
         self.app.manager.add_instances( number_nodes, instance_type)
         return self.instance_state_json(trans)
-    
+
     @expose
     def remove_instance( self, trans, instance_id = ''):
         if instance_id == '':
             return
         self.app.manager.remove_instance( instance_id)
         return self.instance_state_json(trans)
-    
+
     @expose
     def remove_instances( self, trans, number_nodes, force_termination ):
         try:
@@ -166,15 +161,15 @@ class CM( BaseController ):
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
         return self.instance_state_json(trans)
-    
+
     @expose
     def log( self, trans, l_log = 0):
         trans.response.set_content_type( "text" )
         return "\n".join(self.app.logger.logmessages)
-    
+
     @expose
     def galaxy_log( self, trans):
-        # We might want to do some cleanup of the log here to display 
+        # We might want to do some cleanup of the log here to display
         # only relevant information, but for now, send the whole thing.
         trans.response.set_content_type( "text" )
         if os.path.exists('/mnt/galaxyTools/galaxy-central/paster.log'):
@@ -190,7 +185,7 @@ class CM( BaseController ):
         return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
                                 'log_update_data' : self.log_json(trans, l_log, no_json=True)})
 
-    
+
     @expose
     def log_json(self, trans, l_log = 0, no_json = False):
         if no_json:
@@ -199,14 +194,30 @@ class CM( BaseController ):
         else:
             return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
-    
+
     @expose
     def manage_galaxy(self, trans, to_be_started=True):
-        if to_be_started == "False":
-            return self.app.manager.manage_galaxy(to_be_started=False)
+        svcs = self.app.manager.get_services('Galaxy')
+        if svcs:
+            if to_be_started == "False":
+                for s in svcs:
+                    s.remove()
+                return "Galaxy Stopped."
+            else:
+                for s in svcs:
+                    s.start()
+                return "Galaxy started."
         else:
-            return self.app.manager.manage_galaxy(to_be_started=True)
-    
+            return "No Galaxy Service Configured"
+
+    @expose
+    def restart_galaxy(self, trans):
+        svcs = self.app.manager.get_services('Galaxy')
+        for service in svcs:
+            service.remove()
+        for service in svcs:
+            service.start()
+
     @expose
     def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central"):
         log.debug("Updating Galaxy... Using repository %s" % repository)
@@ -222,7 +233,7 @@ class CM( BaseController ):
         for service in svcs:
             service.start()
         log.debug("Done updating Galaxy")
-    
+
     @expose
     def add_galaxy_admin_users(self, trans, admin_users=None):
         log.info('Received following list of admin users: %s' % admin_users)
@@ -247,21 +258,21 @@ class CM( BaseController ):
         else:
             log.error("No admin users provided: %s" % admin_users)
             return "No admin users provided: %s" % admin_users
-    
+
     @expose
     def manage_sge(self, trans, to_be_started=True):
         if to_be_started == "False":
             return self.app.manager.manage_sge(to_be_started=False)
         else:
             return self.app.manager.manage_sge(to_be_started=True)
-    
+
     @expose
     def manage_postgres(self, trans, to_be_started=True):
         if to_be_started == "False":
             return self.app.manager.manage_postgres(to_be_started=False)
         else:
             return self.app.manager.manage_postgres(to_be_started=True)
-    
+
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
         if self.app.manager.get_services('Autoscale'):
@@ -274,7 +285,7 @@ class CM( BaseController ):
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services('Autoscale'):
-            
+
             return to_json_string({'running' : True,
                                     'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
                                     'as_max' : self.app.manager.get_services('Autoscale')[0].as_max,
@@ -284,8 +295,8 @@ class CM( BaseController ):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-    
-    @expose 
+
+    @expose
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
         if self.app.manager.get_services('Autoscale'):
             if self.check_as_vals(as_min_adj, as_max_adj):
@@ -302,7 +313,7 @@ class CM( BaseController ):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-            
+
     def check_as_vals(self, as_min, as_max):
         """ Check if limits for autoscaling are acceptable."""
         if as_min is not None and as_min.isdigit() and int(as_min)>=0 and int(as_min)<20 and \
@@ -310,7 +321,7 @@ class CM( BaseController ):
            return True
         else:
            return False
-        
+
     @expose
     def admin(self, trans):
         return """
@@ -319,6 +330,7 @@ class CM( BaseController ):
                 <li><strong>Service Control</strong></li>
                 <li><a href='manage_galaxy'>Start Galaxy</a></li>
                 <li><a href='manage_galaxy?to_be_started=False'>Stop Galaxy</a></li>
+                <li><a href='restart_galaxy'>Restart Galaxy (full stop/start)</a></li>
                 <form action="update_galaxy" method="get">
                     <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository">
                     <input type="submit" value="Update Galaxy">
@@ -328,13 +340,10 @@ class CM( BaseController ):
                     <input type="submit" value="Add admin users">
                 </form>
                 <li><a href="/cloud/root/reboot">Reboot master</a></li>
-                
                 <li><a href='manage_postgres'>Start Postgres</a></li>
                 <li><a href='manage_postgres?to_be_started=False'>Start Postgres</a></li>
-                
                 <li><a href='manage_sge'>Start SGE</a></li>
                 <li><a href='manage_sge?to_be_started=False'>Stop SGE</a></li>
-                
                 <li><strong>Emergency Tools -use with care.</strong></li>
                 <li><a href='recover_monitor'>Recover monitor.</a></li>
                 <li><a href='recover_monitor?force=True'>Recover monitor *with Force*.</a></li>
@@ -345,11 +354,11 @@ class CM( BaseController ):
                 <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all.</a></li>
             </ul>
                 """
-    
+
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
-    
+
     @expose
     def recover_monitor(self, trans, force='False'):
         if self.app.manager.console_monitor and force == 'False':
@@ -359,20 +368,20 @@ class CM( BaseController ):
                 return "The instance has a new monitor now."
             else:
                 return "There was an error.  Can't create a new monitor."
-    
+
     @expose
     def instance_state_json(self, trans, no_json=False):
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
             dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_ip() )
-        else: 
+        else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
         ss_status = self.app.manager.snapshot_status()
         ret_dict = {'instance_state':self.app.manager.get_instance_state(),
                                 'cluster_status':self.app.manager.get_cluster_status(),
                                 'dns':dns,
-                                'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())), 
+                                'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
                                                     'available' : str(self.app.manager.get_num_available_workers()),
                                                     'requested' : str(len(self.app.manager.worker_instances))},
                                 'disk_usage':{'used':str(self.app.manager.disk_used),
@@ -391,11 +400,11 @@ class CM( BaseController ):
             return ret_dict
         else:
             return to_json_string(ret_dict)
-    
+
     @expose
     def update_users_CM(self, trans):
         return to_json_string({'updated':self.app.manager.update_users_CM()})
-    
+
     @expose
     def masthead( self, trans ):
         brand = trans.app.config.get( "brand", "" )
@@ -407,4 +416,4 @@ class CM( BaseController ):
         blog_url = trans.app.config.get( "blog_url", "http://g2.trac.bx.psu.edu/blog"   )
         screencasts_url = trans.app.config.get( "screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts" )
         return trans.fill_template( "masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url,bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url )
-    
+
