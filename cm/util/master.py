@@ -394,7 +394,7 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
             return True
-        self.shutdown(sd_instances=False)
+        self.shutdown(sd_filesystems=False, sd_instances=False)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
             ec2_conn.reboot_instances([self.app.cloud_interface.get_instance_id()])

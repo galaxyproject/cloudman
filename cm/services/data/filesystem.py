@@ -181,7 +181,7 @@ class Volume(object):
         """
         if self.status() == volume_status.ATTACHED or self.status() == volume_status.IN_USE:
             try:
-                volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), force=True )
+                volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id())
             except EC2ResponseError, e:
                 log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                 return False
@@ -192,9 +192,16 @@ class Volume(object):
                     log.debug("Volume '%s' successfully detached from instance '%s'." % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
                     self.volume = None
                     break
+                if counter == 28:
+                    try:
+                        volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), force=True)
+                    except EC2ResponseError, e:
+                        log.error("Second attempt at detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
+                        return False
                 if counter == 29:
                     log.debug("Volume '%s' FAILED to detach from instance '%s'" % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
-                time.sleep(5)
+                    return False
+                time.sleep(6)
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes( [self.volume_id] )
                 volumestatus = volumes[0].status
         else:
