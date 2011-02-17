@@ -17,6 +17,7 @@ class PostgresService( ApplicationService ):
         self.reqs = {'Filesystem': 'galaxyData'}
         
     def start(self):
+        self.state = service_states.STARTING
         self.manage_postgres(True)
 
     def remove(self):

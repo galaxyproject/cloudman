@@ -130,8 +130,8 @@ class GalaxyService( ApplicationService ):
         elif self.state==service_states.SHUTTING_DOWN or \
              self.state==service_states.SHUT_DOWN or \
              self.state==service_states.UNSTARTED or \
-             self.state==service_states.WAITING_FOR_USER_ACTION or \
-             self.state==service_states.STARTING:
+             self.state==service_states.WAITING_FOR_USER_ACTION:
+             # self.state==service_states.STARTING:
             pass
         else:
             log.error("\tGalaxy daemon not running.")
