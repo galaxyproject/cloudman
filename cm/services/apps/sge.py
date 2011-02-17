@@ -16,6 +16,7 @@ class SGEService( ApplicationService ):
         self.hosts = []
     
     def start(self):
+        self.state = service_states.STARTING
         if self.unpack_sge():
             self.configure_sge()
         else:
@@ -117,6 +118,8 @@ class SGEService( ApplicationService ):
             with open( "/etc/bash.bashrc", 'a' ) as f:
                 f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
                 f.write( "\n. $SGE_ROOT/default/common/settings.sh\n" )
+            return True
+        return False
     
     def add_sge_host( self, inst ):
         # TODO: Should check to ensure SGE_ROOT mounted on worker
@@ -224,7 +227,7 @@ class SGEService( ApplicationService ):
         # For comparisson purposes, make sure all elements are lower case
         for i in range(len(ahl)):
             ahl[i] = ahl[i].lower()
-    
+        
         # Now reasemble and save to file 'filename'
         if len(ahl) > 0:
             new_allhosts = 'group_name @allhosts \n'+'hostlist ' + ' \\\n\t '.join(ahl) + ' \\\n'

@@ -185,7 +185,6 @@ class CM( BaseController ):
         return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
                                 'log_update_data' : self.log_json(trans, l_log, no_json=True)})
 
-
     @expose
     def log_json(self, trans, l_log = 0, no_json = False):
         if no_json:
@@ -194,22 +193,7 @@ class CM( BaseController ):
         else:
             return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
-
-    @expose
-    def manage_galaxy(self, trans, to_be_started=True):
-        svcs = self.app.manager.get_services('Galaxy')
-        if svcs:
-            if to_be_started == "False":
-                for s in svcs:
-                    s.remove()
-                return "Galaxy Stopped."
-            else:
-                for s in svcs:
-                    s.start()
-                return "Galaxy started."
-        else:
-            return "No Galaxy Service Configured"
-
+    
     @expose
     def restart_galaxy(self, trans):
         svcs = self.app.manager.get_services('Galaxy')
@@ -233,7 +217,7 @@ class CM( BaseController ):
         for service in svcs:
             service.start()
         log.debug("Done updating Galaxy")
-
+    
     @expose
     def add_galaxy_admin_users(self, trans, admin_users=None):
         log.info('Received following list of admin users: %s' % admin_users)
@@ -258,21 +242,23 @@ class CM( BaseController ):
         else:
             log.error("No admin users provided: %s" % admin_users)
             return "No admin users provided: %s" % admin_users
-
+    
     @expose
-    def manage_sge(self, trans, to_be_started=True):
-        if to_be_started == "False":
-            return self.app.manager.manage_sge(to_be_started=False)
+    def manage_service(self, trans, service_name, to_be_started=True):
+        svcs = self.app.manager.get_services(service_name)
+        if svcs:
+            log.debug("Managing services: %s" % svcs)
+            if to_be_started == "False":
+                for s in svcs:
+                    s.remove()
+                return "%s stopped" % service_name
+            else:
+                for s in svcs:
+                    s.start()
+                return "%s started" % service_name
         else:
-            return self.app.manager.manage_sge(to_be_started=True)
-
-    @expose
-    def manage_postgres(self, trans, to_be_started=True):
-        if to_be_started == "False":
-            return self.app.manager.manage_postgres(to_be_started=False)
-        else:
-            return self.app.manager.manage_postgres(to_be_started=True)
-
+            return "No '%s' service configured" % service_name
+    
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
         if self.app.manager.get_services('Autoscale'):
@@ -295,7 +281,7 @@ class CM( BaseController ):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-
+    
     @expose
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
         if self.app.manager.get_services('Autoscale'):
@@ -313,7 +299,7 @@ class CM( BaseController ):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-
+    
     def check_as_vals(self, as_min, as_max):
         """ Check if limits for autoscaling are acceptable."""
         if as_min is not None and as_min.isdigit() and int(as_min)>=0 and int(as_min)<20 and \
@@ -321,37 +307,34 @@ class CM( BaseController ):
            return True
         else:
            return False
-
+    
     @expose
     def admin(self, trans):
         return """
+            <h2>This admin panel is only a convenient way to control cluster services.</h2>
             <ul>
-                <li>This admin panel is only a very temporary way to control galaxy services.  Use with caution.</li>
-                <li><strong>Service Control</strong></li>
-                <li><a href='manage_galaxy'>Start Galaxy</a></li>
-                <li><a href='manage_galaxy?to_be_started=False'>Stop Galaxy</a></li>
-                <li><a href='restart_galaxy'>Restart Galaxy (full stop/start)</a></li>
+                <strong>Service Control</strong>
+                <li><a href='manage_service?service_name=Galaxy' target="_blank">Start Galaxy</a></li>
+                <li><a href='manage_service?service_name=Galaxy&to_be_started=False' target="_blank">Stop Galaxy</a> | <a href="/cloud/root/galaxy_log">Galaxy Log</a></li>
+                <li><a href='restart_galaxy' target="_blank">Restart Galaxy (full stop/start)</a></li>
+                <li><a href='manage_service?service_name=Postgres' target="_blank">Start Postgres</a></li>
+                <li><a href='manage_service?service_name=Postgres&to_be_started=False' target="_blank">Stop Postgres</a></li>
+                <li><a href='manage_service?service_name=SGE' target="_blank">Start SGE</a></li>
+                <li><a href='manage_service?service_name=SGE&to_be_started=False' target="_blank">Stop SGE</a></li>
+                <li><a href="/cloud/root/reboot">Reboot master instance</a></li>
                 <form action="update_galaxy" method="get">
-                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository">
+                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository" size="45">
                     <input type="submit" value="Update Galaxy">
                 </form>
                 <form action="add_galaxy_admin_users" method="get">
-                    <input type="text" value="CSV list of emails" name="admin_users">
+                    <input type="text" value="CSV list of emails to be added as admins" name="admin_users" size="45">
                     <input type="submit" value="Add admin users">
                 </form>
-                <li><a href="/cloud/root/reboot">Reboot master</a></li>
-                <li><a href='manage_postgres'>Start Postgres</a></li>
-                <li><a href='manage_postgres?to_be_started=False'>Start Postgres</a></li>
-                <li><a href='manage_sge'>Start SGE</a></li>
-                <li><a href='manage_sge?to_be_started=False'>Stop SGE</a></li>
-                <li><strong>Emergency Tools -use with care.</strong></li>
-                <li><a href='recover_monitor'>Recover monitor.</a></li>
-                <li><a href='recover_monitor?force=True'>Recover monitor *with Force*.</a></li>
-                <li><a href='add_instances?number_nodes=1'>Add one instance</a></li>
-                <li><a href='remove_instances?number_nodes=1'>Remove one instance</a></li>
-                <li><a href='remove_instances?number_nodes=1&force=True'>Remove one instance *with Force*.</a></li>
+                <strong>Emergency Tools - use with care</strong>
+                <li><a href='recover_monitor'>Recover monitor</a></li>
+                <li><a href='recover_monitor?force=True'>Recover monitor *with Force*</a></li>
                 <li><a href='cleanup'>Cleanup - shutdown all services/instances, keep volumes</a></li>
-                <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all.</a></li>
+                <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all</a></li>
             </ul>
                 """
 
