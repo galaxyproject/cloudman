@@ -1002,6 +1002,13 @@ class ConsoleMonitor( object ):
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud') and os.path.exists(os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud')):
             log.debug("Saving tool_data_table_conf.xml.cloud file to cluster bucket '%s' as '%s'" % (self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud'))
+        # Create an empty file whose name is the name of this cluster (useful as a reference)
+        cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
+        with open(cn_file, 'w'):
+            pass
+        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], cn_file) and os.path.exists(cn_file):
+            log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
+            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
     
     def __monitor( self ):
         timer = dt.datetime.utcnow()
