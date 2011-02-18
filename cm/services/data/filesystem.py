@@ -187,7 +187,7 @@ class Volume(object):
                 return False
                 
             for counter in range(30):
-                log.debug( "Volume '%s' status '%s'" % ( self.volume_id, volumestatus ))
+                log.debug("Volume '%s' status '%s' (attempt %s/30)" % (self.volume_id, volumestatus, counter))
                 if volumestatus == 'available':
                     log.debug("Volume '%s' successfully detached from instance '%s'." % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
                     self.volume = None
