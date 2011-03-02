@@ -94,19 +94,20 @@ class Volume(object):
                 self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
-                self.volume.add_tag('clusterName', self.app.ud['cluster_name'])
-                if filesystem:
-                    self.volume.add_tag('filesystem', filesystem)
-                # Mark a volume as 'static' if created from a snapshot
-                # Note that if a volume is marked as 'static', it is assumed it can be deleted
-                # upon cluster termination! This will need some attention once data volumes can 
-                # be snapshotted.
-                if self.from_snapshot_id is not None:
-                    self.static = True
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
         else:
             log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" % (self.status(), self.volume_id))
+        
+        # Add tags to newly created volumes (do this outside the inital if/else
+        # to ensure the tags get assigned even if using an existing volume vs. 
+        # creating a new one)
+        try:
+            self.volume.add_tag('clusterName', self.app.ud['cluster_name'])
+            if filesystem:
+                self.volume.add_tag('filesystem', filesystem)
+        except EC2ResponseError, e:
+            log.error("Error adding tags to volume: %s" % e)        
     
     def delete(self):
         try:
@@ -139,7 +140,7 @@ class Volume(object):
                 ctn = 0
                 attempts = 30
                 while ctn < attempts:
-                    log.debug("Attach check %s, volume status: %s" % ( ctn, volumestatus ))
+                    log.debug("Attaching volume '%s'; status: %s (check %s/%s)" % (self.volume_id, volumestatus, ctn, attempts))
                     if volumestatus == 'attached':
                         log.debug("Volume '%s' attached to instance '%s' as device '%s'" % (  self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device()))
                         break
@@ -187,7 +188,7 @@ class Volume(object):
                 return False
                 
             for counter in range(30):
-                log.debug("Volume '%s' status '%s' (attempt %s/30)" % (self.volume_id, volumestatus, counter))
+                log.debug("Detaching volume '%s'; status '%s' (check %s/30)" % (self.volume_id, volumestatus, counter))
                 if volumestatus == 'available':
                     log.debug("Volume '%s' successfully detached from instance '%s'." % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
                     self.volume = None
@@ -220,7 +221,7 @@ class Volume(object):
                 self.snapshot_status = snapshot.status
                 time.sleep(6)
                 snapshot.update()
-            log.info("Creation of a snapshot for the volume '%s' completed: '%s'" % (self.volume_id, snapshot))
+            log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'" % (self.volume_id, snapshot.id))
             self.snapshot_progress = None # Reset because of the UI
             self.snapshot_status = None # Reset because of the UI
             return str(snapshot.id)
@@ -260,6 +261,12 @@ class Filesystem(DataService):
             self.state = service_states.STARTING
             for vol in self.volumes:
                 vol.create(self.name)
+                # Mark a volume as 'static' if created from a snapshot
+                # Note that if a volume is marked as 'static', it is assumed it 
+                # can be deleted upon cluster termination!
+                if self.name != 'galaxyData' and vol.from_snapshot_id is not None:
+                    log.debug("Marked volume '%s' from file system '%s' as 'static'" % (vol.volume_id, self.name))
+                    vol.static = True
                 if vol.attach():
                     self.mount(vol)
                 self.status()
@@ -278,11 +285,10 @@ class Filesystem(DataService):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
         self.unmount()
-        log.debug("Unmounted %s" % self.get_full_name())
         for vol in self.volumes:
-            log.debug("Detaching %s" % self.get_full_name())
+            log.debug("Detaching volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
             if vol.detach():
-                log.debug("Detached %s" % self.get_full_name())
+                log.debug("Detached volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
                 if vol.static and self.name != 'galaxyData':
                     log.debug("Deleting %s" % self.get_full_name())
                     vol.delete()
@@ -335,6 +341,16 @@ class Filesystem(DataService):
         else:
             log.debug("Tried to grow '%s' but grow flag is None" % self.get_full_name())
             return False
+    
+    def snapshot(self, snap_description=None):
+        self.__remove()
+        snap_ids = []
+        # Create a snapshot of the detached volumes
+        for vol in self.volumes:
+            snap_ids.append(vol.snapshot(snap_description=snap_description))
+        # After the snapshot is done, add the file system back as a cluster service
+        self.add()
+        return snap_ids
     
     def mount(self, volume, mount_point=None):
         """ Mount file system at provided mount point. If present in /etc/exports, 
@@ -407,7 +423,7 @@ class Filesystem(DataService):
             log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
             return False
         self.status()
-        if self.state == service_states.RUNNING:
+        if self.state == service_states.RUNNING or self.state == service_states.SHUTTING_DOWN:
             for counter in range(10):
                 if run('/bin/umount -f %s' % self.mount_point, "Error unmounting file system '%s'" % self.mount_point, "Successfully unmounted file system '%s'" % self.mount_point):
                     break
@@ -418,6 +434,7 @@ class Filesystem(DataService):
                 time.sleep(3)
             return True
         else:
+            log.debug("Did not unmount file system '%s' because it is not in state 'running' or 'shutting-down'" % self.get_full_name())
             return False
     
     def check_and_update_volume(self, device):
@@ -436,7 +453,7 @@ class Filesystem(DataService):
                     if not att_vol.tags.has_key('filesystem'):
                         att_vol.add_tag('filesystem', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml) in cluster's bucket
-                    self.app.manager.console_monitor.create_cluster_config_file()
+                    self.app.manager.console_monitor.store_cluster_config()
         else:
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system '%s' (vols=%s)" \
                 % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))

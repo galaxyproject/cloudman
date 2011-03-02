@@ -103,6 +103,99 @@ def _get_bucket(s3_conn, bucket_name):
 			time.sleep(2)
     return b
 
+def make_bucket_public(s3_conn, bucket_name, recursive=False):
+    b = None
+    if bucket_exists(s3_conn, bucket_name):
+        b = _get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            b.make_public(recursive=recursive)
+            log.debug("Bucket '%s' made public" % bucket_name)
+            return True
+        except S3ResponseError, e:
+            log.error("Could not make bucket '%s' public: %s" % (bucket_name, e))
+    return False
+
+def make_key_public(s3_conn, bucket_name, key_name):
+    b = None
+    if bucket_exists(s3_conn, bucket_name):
+        b = _get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            k = Key(b, key_name)
+            if k.exists():
+                k.make_public()
+                log.debug("Key '%s' made public" % key_name)
+                return True
+        except S3ResponseError, e:
+            log.error("Could not make key '%s' public: %s" % (key_name, e))
+    return False
+
+def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recursive=False):
+    """
+    Boto wrapper that provides a quick way to add a canonical
+    user grant to a bucket. 
+    
+    :type permission: string
+    :param permission: The permission being granted. Should be one of:
+                       (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
+    
+    :type user_id: list of strings
+    :param cannonical_ids: A list of strings with canonical user ids associated 
+                        with the AWS account your are granting the permission to.
+    
+    :type recursive: boolean
+    :param recursive: A boolean value to controls whether the command
+                      will apply the grant to all keys within the bucket
+                      or not.
+    """
+    b = None
+    if bucket_exists(s3_conn, bucket_name):
+        b = _get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            for c_id in cannonical_ids:
+                log.debug("Adding '%s' permission for bucket '%s' for users '%s'" % (permission, bucket_name, c_id))
+                b.add_user_grant(permission, c_id, recursive)
+            return True
+        except S3ResponseError, e:
+            log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
+    return False
+
+def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_ids):
+    """
+    Boto wrapper that provides a quick way to add a canonical
+    user grant to a key. 
+
+    :type permission: string
+    :param permission: Name of the bucket where the key resides
+    
+    :type permission: string
+    :param permission: Name of the key to add the permission to
+    
+    :type permission: string
+    :param permission: The permission being granted. Should be one of:
+                       (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
+    
+    :type user_id: list of strings
+    :param cannonical_ids: A list of strings with canonical user ids associated 
+                        with the AWS account your are granting the permission to.
+    """
+    b = None
+    if bucket_exists(s3_conn, bucket_name):
+        b = _get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            k = Key(b, key_name)
+            if k.exists():
+                for c_id in cannonical_ids:
+                    log.debug("Adding '%s' permission for key '%s' for user '%s'" % (permission, key_name, c_id))
+                    k.add_user_grant(permission, c_id)
+                return True
+        except S3ResponseError, e:
+            log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
+    return False
+
 def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     """Check if remote_filename exists in bucket bucket_name.
     :rtype: bool
@@ -114,9 +207,12 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
         b = _get_bucket(s3_conn, bucket_name)
         
     if b is not None:
-		k = Key(b, remote_filename)
-		if k.exists():
-		    return True
+        try:
+    		k = Key(b, remote_filename)
+    		if k.exists():
+    		    return True
+    	except S3ResponseError:
+    	    log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
     return False
 
 def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
@@ -160,14 +256,14 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
         log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
         return False
 
-def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename):
+def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename, preserve_acl=True):
     b = s3_conn.get_bucket(src_bucket_name)
     if b:
         try:
             log.debug("Establishing handle with key object '%s'" % orig_filename)
             k = Key(b, orig_filename)
             log.debug("Copying file '%s/%s' to file '%s/%s'" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename))
-            k.copy(dest_bucket_name, copy_filename, preserve_acl=True)
+            k.copy(dest_bucket_name, copy_filename, preserve_acl=preserve_acl)
             return True
         except S3ResponseError, e: 
             log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
