@@ -293,29 +293,26 @@ vertical-align: top;
 			<p>Retrieving your shared cluster instances...</p>
 			<div class="spinner">&nbsp;</div>
 		</div>
-		<h3><a href="#">Share-a-cluster</a></h3>
+		<h3><a href="#">Share-an-instance</a></h3>
 		<div><form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
 	        <div class="form-row">
-	            <p><b>This form allows you to share this cluster, at its current state, 
-				with others.</b> You can make the cluster public or share it with specific 
+	            <p><b>This form allows you to share this cluster instance, at its current state, 
+				with others.</b> You can make the instance public or share it with specific 
 				users by providing their account information below.<br/>
-				You may also share the cluster with your self by specifying your own 
-				credentials, which will have the effect of saving the cluster at 
+				You may also share the instance with yourself by specifying your own 
+				credentials, which will have the effect of saving the instance at 
 				its current state.</p>
-				<p><b>While setting up a cluster to be shared, all currently running 
+				<p><b>While setting up an instance to be shared, all currently running 
 				cluster services will be stopped.</b> Then, a snapshot of your data 
-				volume will be created as well as a folder in your cluster's bucket
-				(under 'shared/[current date and time]) that will contain
+				volume and a folder in your cluster's bucket will be created
+				(under 'shared/[current date and time]); this folder will contain
 				your cluster's current configuration. The created snapshot 
-				and the folder will be given read permissions to the users
+				and the folder will be given READ permissions to the users
 				you choose (or make it public). This will enable those users to instantiate
-				their own instances of the given cluster. This implies that you will 
+				their own instances of the given cluster instance. This implies that you will 
 				only be paying for the created snapshot while users deriving a cluster from 
 				yours will incur costs for running the actual cluster. After the sharing 
 				process is complete, services on your cluster will automatically resume.</p>
-				<p>If you ever decide to <b>stop sharing</b> this cluster, you should manually 
-				delete the created snapshot from the AWS console and delete the 
-				corresponding folder in your cluster's bucket.</p>
 				<div class="form-row">
 					<div id="public_private">
 						<input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">Public</input>
@@ -339,7 +336,7 @@ vertical-align: top;
 							</div>
 						</div>
 					</div>
-					<div class="form-row"><input type="submit" value="Share-a-cluster"/></div>
+					<div class="form-row"><input type="submit" value="Share-an-instance"/></div>
 				</div>
 	        </div>
 	    </form></div>
@@ -368,8 +365,8 @@ vertical-align: top;
 		</div>
 		<div id='extra_startup_options'>
 			<div class="form-row">
-				<p><input type="radio" name="startup_opt" value="Shared_cluster">Share-a-cluster</p>
-				<input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">Shared cluster bucket name
+				<p><input type="radio" name="startup_opt" value="Shared_cluster">Share-an-instance</p>
+				<input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">Shared instance bucket path
 				<span id="d_pss_vtag"></span>
 			</div>
 
