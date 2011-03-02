@@ -11,10 +11,11 @@ log = logging.getLogger( 'cloudman' )
 
 class EC2Interface(CloudInterface):
     
-    def __init__(self, aws_access_key, aws_secret_key):
+    def __init__(self, aws_access_key, aws_secret_key, app=None):
         super(EC2Interface, self).__init__()
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
+        self.app = app
     
     def get_ami( self ):
         if self.ami is None:
@@ -61,6 +62,10 @@ class EC2Interface(CloudInterface):
     
     def get_zone( self ):
         if self.zone is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get instance zone, but TESTFLAG is set. Returning 'us-east-1a'")
+                self.zone = 'us-east-1a'
+                return self.zone
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance zone, attempt %s' % i)
@@ -147,6 +152,11 @@ class EC2Interface(CloudInterface):
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
+                log.debug( 'Establishing boto EC2 connection' )
+                if self.app.TESTFLAG is True:
+                    log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. Returning default EC2 connection.")
+                    self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
+                    return self.ec2_conn
                 # In order to get a connection for the correct region, get instance zone and go from there
                 zone = self.get_zone()[:-1] # truncate zone and be left with region name
                 tmp_conn = EC2Connection(self.aws_access_key, self.aws_secret_key) # get conn in default region

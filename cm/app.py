@@ -38,7 +38,7 @@ class UniverseApplication( object ):
         log.debug( "Initializing app" )
         self.manager = None
         # DBTODO make this flexible for other cloud interfaces.
-        self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'])
+        self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self)
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         if self.ud.has_key('bucket_cluster'):

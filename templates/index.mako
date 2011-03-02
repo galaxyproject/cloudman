@@ -96,7 +96,8 @@ vertical-align: top;
     </div>
     <table cellpadding="0" cellspacing="10">
 			%if cluster_name:
-			    <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span></td></tr>
+			    <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span>&nbsp;
+				<span><a id="share_a_cluster">&nbsp;</a></span></td></tr>
 			%endif
 	    <tr><td><h4>Disk status: </h4></td><td>
 	        <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol'>&nbsp;</span>
@@ -151,20 +152,23 @@ vertical-align: top;
 	</form>
 </div>
 
+## Overlay that prevents any future clicking, see CSS
 <div id="snapshotoverlay" style="display:none"></div>
+<div id="no_click_clear_overlay" style="display:none"></div>
 <div id="snapshot_status_box" class="box">
-	<h2>Expand Disk Space In Progress</h2>
+	<h2>Volume Manipulation In Progress</h2>
 	<div class="form-row">
-		<p>Your data volume is in progress. All of the cluster services have been
-		stopped for the time being and will resume automatically upon completion
-		of the process.<br/>This message should go away after the process completes
-		but if it does not, try refreshing the page then.</p>
+		<p>Creating a snapshot of the cluster's data volume is in progress. All 
+		of the cluster services have been stopped for the time being and will resume 
+		automatically upon completion of the process.<br/>This message should go 
+		away after the process completes but if it does not, try refreshing the 
+		page then.</p>
 	</div>
 	<div class="form-row">
-	    Snapshot progress: <span id="snapshot_progress">None</span>
+	    Snapshot status: <span id="snapshot_status" style="font-style: italic;">configuring</span>
+		<span id="snapshot_progress">&nbsp;</span>
 	</div>
 </div>
-
 <div id="reboot_overlay" style="display:none"></div>
 <div id="reboot_status_box" class="box">
 	<h2>Reboot In Progress</h2>
@@ -173,8 +177,6 @@ vertical-align: top;
 		However, if it does not after approximately 5 minutes, reload it manually.</p>
 	</div>
 </div>
-
-
 <div style="clear: both;"></div>
 <div class="overlay" id="overlay" style="display:none"></div>
 <div class="box" id="power_off">
@@ -182,7 +184,11 @@ vertical-align: top;
     <h1>EC2 Cluster Configuration</h1>
     <form id="power_cluster_off_form" class="generic_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
         <div class="form-row">
-            <label>Are you sure you want to power the cluster off?</label><p></p>
+            <label>Are you sure you want to power the cluster off?</label>
+			<p>This action will shut down all services on the cluster and terminate
+			any worker nodes (instances) associated with this cluster. By default, 
+			the master instance will be left alive and should be terminated 
+			manually (using the AWS console).</p>
 			<label>Automatically terminate master instance?</label>
 			<input type="checkbox" name="terminate_master_instance" id="terminate_master_instance"> If checked, this master instance will automatically terminate after all services have been shut down.
 			<p></p><label>Also delete this cluster?</label>
@@ -191,7 +197,6 @@ vertical-align: top;
         </div>
     </form>
 </div>
-
 <div style="clear: both;"></div>
 ## Autoscaling link
 ##Autoscaling is <span id='autoscaling_status'>N/A</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">N/A</a>?
@@ -280,7 +285,75 @@ vertical-align: top;
         </div>
     </form>
 </div>
-
+<div class="box" id="share_a_cluster_overlay">
+	<a class="boxclose"></a>
+	<div id="sharing_accordion">
+		<h3><a href="#">Currently shared instances</a></h3>
+		<div id='shared_instances_list'>
+			<p>Retrieving your shared cluster instances...</p>
+			<div class="spinner">&nbsp;</div>
+		</div>
+		<h3><a href="#">Share-a-cluster</a></h3>
+		<div><form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
+	        <div class="form-row">
+	            <p><b>This form allows you to share this cluster, at its current state, 
+				with others.</b> You can make the cluster public or share it with specific 
+				users by providing their account information below.<br/>
+				You may also share the cluster with your self by specifying your own 
+				credentials, which will have the effect of saving the cluster at 
+				its current state.</p>
+				<p><b>While setting up a cluster to be shared, all currently running 
+				cluster services will be stopped.</b> Then, a snapshot of your data 
+				volume will be created as well as a folder in your cluster's bucket
+				(under 'shared/[current date and time]) that will contain
+				your cluster's current configuration. The created snapshot 
+				and the folder will be given read permissions to the users
+				you choose (or make it public). This will enable those users to instantiate
+				their own instances of the given cluster. This implies that you will 
+				only be paying for the created snapshot while users deriving a cluster from 
+				yours will incur costs for running the actual cluster. After the sharing 
+				process is complete, services on your cluster will automatically resume.</p>
+				<p>If you ever decide to <b>stop sharing</b> this cluster, you should manually 
+				delete the created snapshot from the AWS console and delete the 
+				corresponding folder in your cluster's bucket.</p>
+				<div class="form-row">
+					<div id="public_private">
+						<input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">Public</input>
+						<input type="radio" id="shared_visibility" name="visibility" value="shared">Shared</input>
+					</div>
+					<div id="user_permissions" style="display: none;">
+						<div id="add_user">
+							<h4>Specific user permissions:</h4>
+							<p><strong>Both fields must be provided for each of the users.</strong><br/>
+							These numbers can be obtained from the AWS Security 
+							Credentials page: the account number is at the top right
+							of page while the canonical user ID can is at the bottom,
+							under Account Identifiers section.</p>
+							<div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS account numbers:</span>
+								<input type="text" id="user_ids" name="user_ids" size="40" value="" />
+								<span class="share_cluster_help_text">CSV numbers with no dashes</span>
+							</div>
+							<div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
+								<input type="text" id="cannonical_ids" name="cannonical_ids" size="40" value="" />
+								<span class="share_cluster_help_text">CSV HEX numbers</span>
+							</div>
+						</div>
+					</div>
+					<div class="form-row"><input type="submit" value="Share-a-cluster"/></div>
+				</div>
+	        </div>
+	    </form></div>
+	</div>
+</div>
+<div class="box" id="del_scf_popup">
+	<h2>Delete shared cluster instance confirmation</h2>
+	<div>Are you sure you want to delete shared cluster instance under 
+	<i><span id="scf_txt">&nbsp;</span></i>
+	and the corresponding snapshot ID <i><span id="scf_snap">&nbsp;</span></i>?<br/>
+	<p>This action cannot be undone.</p></div>
+	<p><span class="action-button" id="del_scf_conf">Delete this instance</span>&nbsp;
+	<span class="action-button" id="del_scf_cancel">Do not delete</span></p>
+</div>
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
@@ -294,6 +367,12 @@ vertical-align: top;
 			<input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
 		</div>
 		<div id='extra_startup_options'>
+			<div class="form-row">
+				<p><input type="radio" name="startup_opt" value="Shared_cluster">Share-a-cluster</p>
+				<input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">Shared cluster bucket name
+				<span id="d_pss_vtag"></span>
+			</div>
+
 			<div class="form-row">
 				<p><input type="radio" name="startup_opt" value="Data">Data volume and SGE only. Specify initial storage size (in Gigabytes)</p>
 				<input style="margin-left:20px"  type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
@@ -311,7 +390,6 @@ vertical-align: top;
 		</form>
 	</div>
 </div>
-
 <div id="log_container">
     <div id="status_svcs" style="display:none;">
         <ul><li class='fs_det_clicker'><div class='status_nodata'>&nbsp;</div>Filesystems</li>
@@ -344,6 +422,12 @@ var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
 var as_max = 0; //max number of instances autoscaling should maintain
+$(function() {
+	$( "#sharing_accordion" ).accordion({
+		autoHeight: false,
+		navigation: true,
+	});
+});
 </script>
 
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
@@ -409,10 +493,13 @@ function update_ui(data){
 		$('#snap-status').text(data.snapshot.status);
 		// DBTODO write generic services display
 		$('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+		// Show volume manipulating options only after data volumes are ready
 		if (data.data_status !== 'green'){
 		    $('#expand_vol').hide();
+			$('#share_a_cluster').hide();
 		}else{
 		    $('#expand_vol').show();
+			$('#share_a_cluster').show();
 		}
 		$('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
         // $('#status_svcs').html(
@@ -429,8 +516,9 @@ function update_ui(data){
         $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUT_DOWN"){
-            $('#main_text').html("<h4>Important:</h4><p>This cluster has terminated.  Please terminate the master instance from the AWS console.</p>");
+            $('#main_text').html("<div id='main_text_important'><h4>Important:</h4><p>This cluster has terminated. If not done automatically, please terminate the master instance from the AWS console.</p></div>");
             $('.action-button').addClass('ab_disabled');
+			$('#snapshotoverlay').show(); // Overlay that prevents any future clicking
             // Cluster has shut down.  There is nothing else to update after disabling inputs.
             return true;
         }
@@ -457,13 +545,16 @@ function update_ui(data){
 			}
 		}
 		if (data.snapshot.status !== "None"){
-		    $('#snapshotoverlay').show();
+			if(!$('#snapshotoverlay').is(':visible')) {
+				$('#snapshotoverlay').show();
+			}
 		    $('#snapshot_status_box').show();
-		    if (data.snapshot.progress === "None"){
-		        $('#snapshot_progress').text(data.snapshot.status);
-		    }else{
-		        $('#snapshot_progress').text(data.snapshot.progress);		        
-		    }
+			$('#snapshot_status').text(data.snapshot.status);
+		    if (data.snapshot.progress !== "None"){
+		        $('#snapshot_progress').html("; progress: <i>"+data.snapshot.progress+"</i>");
+			} else {
+				$('#snapshot_progress').html("");
+			}
 		}else{
 		    $('#snapshot_status_box').hide();
 		    $('#snapshotoverlay').hide();
@@ -518,10 +609,57 @@ function reboot_update(){
     });
 }
 
+function show_confirm(scf, snap_id){
+	$('#del_scf_popup').show();
+	$('#scf_txt').text(scf);
+	$('#scf_snap').text(snap_id);
+	$('#del_scf_conf').click(function(){
+		$.get("${h.url_for(controller='root',action='delete_shared_instance')}", 
+			{'shared_instance_folder': scf, 'snap_id': snap_id},
+			function(){
+				$('#del_scf_popup').hide();
+				get_shared_instances();
+			});
+	});
+	$('#del_scf_cancel').click(function(){
+		$('#del_scf_popup').hide();
+	});
+}
+function get_shared_instances(){
+	$.getJSON("${h.url_for(controller='root',action='get_shared_instances')}",
+		{},
+		function(data){
+			if(data){
+				if (data.shared_instances.length > 0) {
+					instance_list = "<p>These are the bucket names you can share "+
+					"with others so they can create and instantiate their instances "+
+					"of your shared cluster. Also, for reference, corresponding "+
+					"snapshot ID's are provided and you have an option to delete a "+
+					"given shared instance. </p><ul>";
+					for (i=0; i<(data.shared_instances).length; i++){
+						instance_list += "<li>"+data.shared_instances[i].visibility+": "+data.shared_instances[i].bucket+
+							" ("+data.shared_instances[i].snap+
+							") <a onclick='show_confirm(escape(\""+data.shared_instances[i].bucket+"\"), escape(\""+data.shared_instances[i].snap+"\"));' class='del_scf'>&nbsp;</a></li>";
+					}
+					instance_list += "</ul>";
+					$('#shared_instances_list').html(instance_list);
+				} else {
+					$('#shared_instances_list').html("You have no shared cluster instances.");
+				}
+			}
+		});
+}
 
 $(document).ready(function() {
 	var initial_cluster_type = '${initial_cluster_type}';
 	var permanent_storage_size = ${permanent_storage_size};
+	
+	$('#shared_visibility').click(function() {
+		$('#user_permissions').show();
+		$('#user_ids').val("");
+		$('#cannonical_ids').val("");
+	});
+	$('#public_visibility').click(function() {$('#user_permissions').hide();});
 	
     $('#stop-button').click(function(){
         if ($(this).hasClass('ab_disabled')){
@@ -553,6 +691,15 @@ $(document).ready(function() {
 				$('#popupoverlay').show();
 				$('#cluster_scale_down_popup').show();
 	        }
+		}
+    });
+    $('#share_a_cluster').click(function(){
+        if ($(this).hasClass('ab_disabled')){
+			return;
+		}else{
+    		$('#overlay').show();
+    		$('#share_a_cluster_overlay').show();
+			get_shared_instances();
 		}
     });
     $('#expand_vol').click(function(){
@@ -625,6 +772,22 @@ $(document).ready(function() {
         }
     });
 
+	$('#share_a_cluster_form').ajaxForm({
+		type: 'POST',
+		dataType: 'json',
+		beforeSubmit: function(data){
+            hidebox();
+			$('#snapshotoverlay').show();
+			$('#snapshot_status_box').show();
+        },
+        success: function(data) {
+			$('#snapshot_status_box').hide();
+		    $('#overlay').show();
+    		$('#share_a_cluster_overlay').show();
+			get_shared_instances();
+        }
+	});
+
     $('#initial_volume_config_form').ajaxForm( {
         type: 'POST',
         dataType: 'json',
@@ -642,8 +805,9 @@ $(document).ready(function() {
         dataType: 'json',
         beforeSubmit: function(data){
             cluster_status = "OFF";
-            $('#main_text').html("<h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p>");
+            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p></div>");
             hidebox();
+			$('#no_click_clear_overlay').show(); // Overlay that prevents any future clicking
         },
         success: function( data ) {
             update_ui(data);

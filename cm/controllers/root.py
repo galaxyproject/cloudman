@@ -58,18 +58,23 @@ class CM( BaseController ):
         return trans.fill_template('mini_control.mako')
 
     @expose
-    def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None):
+    def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None, shared_bucket=None):
         if self.app.manager.initial_cluster_type is None:
             pss = None
-            if startup_opt == "Galaxy" or startup_opt == "Data":
+            if startup_opt == "Galaxy" or startup_opt == "Data" or startup_opt == "SGE":
                 if g_pss is not None and g_pss.isdigit():
                     pss = int(g_pss)
                 elif d_pss is not None and d_pss.isdigit():
                     pss = int(d_pss)
-            self.app.manager.init_cluster(startup_opt, pss)
+                self.app.manager.init_cluster(startup_opt, pss)
+            elif startup_opt == "Shared_cluster":
+                if shared_bucket is not None:
+                    self.app.manager.init_shared_cluster(shared_bucket)
+                else:
+                    return "Must provide shared bucket name; cluster configuration not set."
         else:
             return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
-        return "Cluster configuration set."
+        return "Cluster configuration '%s' received and processed." % startup_opt
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
@@ -309,6 +314,42 @@ class CM( BaseController ):
            return False
     
     @expose
+    def share_a_cluster(self, trans, visibility, user_ids="", cannonical_ids=""):
+        if visibility == 'shared' and user_ids != "" and cannonical_ids != "":
+            # Check provided values
+            try:
+                u_ids = [x.strip() for x in user_ids.split(',')]
+                c_ids = [x.strip() for x in cannonical_ids.split(',')]
+                if len(u_ids) != len(c_ids):
+                    log.error("User account ID fields must contain the same number of entries.")
+                    return self.instance_state_json(trans)
+                for u in u_ids:
+                    if not u.isdigit():
+                        log.error("User IDs must be integers only, not '%s'" % u)
+                        return self.instance_state_json(trans)
+            except Exception:
+                log.error("Error processing values - user IDs: '%s', canonnical IDs: '%s'" % \
+                    (user_ids, cannonical_ids))
+                return self.instance_state_json(trans)
+        elif visibility == 'public':
+            u_ids = c_ids = None
+        else:
+            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', canonnical IDs: '%s'" % \
+                (visibility, u_ids, c_ids))
+            return self.instance_state_json(trans)
+        self.app.manager.share_a_cluster(u_ids, c_ids)
+        return self.instance_state_json(trans, no_json=True)
+    
+    @expose
+    def get_shared_instances(self, trans):
+        return to_json_string({'shared_instances': self.app.manager.get_shared_instances()})
+    
+    @expose
+    def delete_shared_instance(self, trans, shared_instance_folder=None, snap_id=None):
+        shared_instance_folder = '/'.join((shared_instance_folder.split('/')[1:]))
+        return self.app.manager.delete_shared_instance(shared_instance_folder, snap_id)
+    
+    @expose
     def admin(self, trans):
         return """
             <h2>This admin panel is only a convenient way to control cluster services.</h2>
@@ -331,17 +372,22 @@ class CM( BaseController ):
                     <input type="submit" value="Add admin users">
                 </form>
                 <strong>Emergency Tools - use with care</strong>
+                <li><a href='get_user_data'>Show current user data</a></li>
                 <li><a href='recover_monitor'>Recover monitor</a></li>
                 <li><a href='recover_monitor?force=True'>Recover monitor *with Force*</a></li>
                 <li><a href='cleanup'>Cleanup - shutdown all services/instances, keep volumes</a></li>
                 <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all</a></li>
             </ul>
                 """
-
+    
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
-
+    
+    @expose
+    def get_user_data(self, trans):
+        return self.app.ud
+    
     @expose
     def recover_monitor(self, trans, force='False'):
         if self.app.manager.console_monitor and force == 'False':
@@ -360,25 +406,25 @@ class CM( BaseController ):
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
-        ss_status = self.app.manager.snapshot_status()
+        snap_status = self.app.manager.snapshot_status()
         ret_dict = {'instance_state':self.app.manager.get_instance_state(),
-                                'cluster_status':self.app.manager.get_cluster_status(),
-                                'dns':dns,
-                                'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
-                                                    'available' : str(self.app.manager.get_num_available_workers()),
-                                                    'requested' : str(len(self.app.manager.worker_instances))},
-                                'disk_usage':{'used':str(self.app.manager.disk_used),
-                                                'total':str(self.app.manager.disk_total),
-                                                'pct':str(self.app.manager.disk_pct)},
-                                'data_status':self.app.manager.get_data_status(),
-                                'app_status':self.app.manager.get_app_status(),
-                                'all_fs' : self.app.manager.all_fs_status_array(),
-                                'snapshot' : {'progress' : str(ss_status[1]),
-                                              'status' : str(ss_status[0])},
-                                'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
-                                                'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
-                                                'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
-                               }
+                    'cluster_status':self.app.manager.get_cluster_status(),
+                    'dns':dns,
+                    'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
+                                        'available' : str(self.app.manager.get_num_available_workers()),
+                                        'requested' : str(len(self.app.manager.worker_instances))},
+                    'disk_usage':{'used':str(self.app.manager.disk_used),
+                                    'total':str(self.app.manager.disk_total),
+                                    'pct':str(self.app.manager.disk_pct)},
+                    'data_status':self.app.manager.get_data_status(),
+                    'app_status':self.app.manager.get_app_status(),
+                    'all_fs' : self.app.manager.all_fs_status_array(),
+                    'snapshot' : {'status' : str(snap_status[0]),
+                                  'progress' : str(snap_status[1])},
+                    'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
+                                    'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
+                                    'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
+                    }
         if no_json:
             return ret_dict
         else:

@@ -1,28 +1,12 @@
 access_key: <your AWS access key>
-bucket_name: cm-<hash>
+boot_script_name: [cm_boot.py]
+boot_script_path: [/tmp/cm]
+bucket_cluster: cm-<hash>
+bucket_default: [cloudman]
 cloudman_home: /mnt/cm
 cluster_name: <your Galaxy CloudMan cluster name>
-password: <your Galaxy CloudMan web console password>
-secret_key: <your AWS secret key>
+[master_ip: <*exists only if worker*; master internal IP address>]
+[password: <your Galaxy CloudMan web console password>]
 role:<master or worker>
-master_ip: <*exists only if worker*; master internal IP address>
-testflag: False
-services:
-    - service: Galaxy
-	- service: Postgres
-static_filesystems:
-    - filesystem: galaxyIndices
-      snap_id: snap-a20bc8ca
-      size: 40
-    - filesystem: galaxyTools
-      snap_id: snap-506d233b
-      size: 1
-data_filesystems:
-    galaxyData:
-    - vol_id: vol-asdffs23
-      size: 10
-    - vol_id: vol-dsf3410
-      size: 100
-    bioLinux:
-    - vol_id: vol-blinx23
-      size: 2
+secret_key: <your AWS secret key>
+[testflag: False]
