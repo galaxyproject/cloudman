@@ -70,16 +70,16 @@ class PostgresService( ApplicationService ):
                     log.debug( "PostgreSQL started OK (log available at /tmp/pgSQL.log).")
                     log.debug( "Creating role for 'galaxy' user in PostgreSQL..." )
                     cont = misc.run('%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxy LOGIN CREATEDB\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating role for 'galaxy' user", "Successfully created role for 'galaxy' user" )
-                # Create role and permissons for galaxyftp user
+                # Create database for Galaxy, as galaxy user
+                if cont:
+                    log.debug( "Creating PostgreSQL database as 'galaxy' user..." )
+                    cont = misc.run('%s - galaxy -c "%s/createdb -p %s galaxy"' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating 'galaxy' database", "Successfully created 'galaxy' database")
+                # Now create role and permissons for galaxyftp user on the created 'galaxy' database
                 if cont: 
                     log.debug( "Creating role for 'galaxyftp' user in PostgreSQL..." )
                     cont = misc.run('%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxyftp LOGIN PASSWORD \'fu5yOj2sn\'\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating role for 'galaxyftp' user", "Successfully created role for 'galaxyftp' user" )
                     if cont:
                         cont = misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
-                # Create database for Galaxy, as galaxy user
-                if cont:
-                    log.debug( "Creating PostgreSQL database as 'galaxy' user..." )
-                    cont = misc.run('%s - galaxy -c "%s/createdb -p %s galaxy"' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating 'galaxy' database", "Successfully created 'galaxy' database")
                 else:
                     log.error("Setting up Postgres did not go smoothly.")
                     self.state = service_states.ERROR
