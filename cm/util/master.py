@@ -46,7 +46,8 @@ cluster_status = Bunch(
 
 class ConsoleManager( object ):
     def __init__( self, app ):
-        log.debug( "Initializing console manager." )
+        self.startup_time = dt.datetime.utcnow()
+        log.debug( "Initializing console manager - cluster start time: %s" % self.startup_time)
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
         self.root_pub_key = None
@@ -57,7 +58,6 @@ class ConsoleManager( object ):
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
-        self.startup_time = dt.datetime.utcnow()
         self.manager_started = False
         self.cluster_sharing_in_progress = False
         
@@ -418,7 +418,7 @@ class ConsoleManager( object ):
             self.delete_cluster()
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
-        log.info( "Cluster shut down. If not done automatically, manually terminate the master instance (and any remaining instances associated with this cluster) from the AWS console." )
+        log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, manually terminate the master instance (and any remaining instances associated with this cluster) from the AWS console." % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
     
     def reboot(self):
         if self.app.TESTFLAG is True:

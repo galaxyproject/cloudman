@@ -134,6 +134,10 @@ len_file_path = /mnt/galaxyIndices/galaxy/chrom
 # Galaxy.
 datatypes_config_file = datatypes_conf.xml
 
+# FTP server
+ftp_upload_dir = /mnt/galaxyData/tmp/ftp
+ftp_upload_site = localhost
+
 # -- Mail and notification
 
 # Galaxy sends mail for various things: Subscribing users to the mailing list

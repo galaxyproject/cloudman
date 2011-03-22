@@ -804,7 +804,7 @@ $(document).ready(function() {
             cluster_status = "OFF";
             $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p></div>");
             hidebox();
-			$('#no_click_clear_overlay').show(); // Overlay that prevents any future clicking
+			$('#snapshotoverlay').show(); // Overlay that prevents any future clicking
         },
         success: function( data ) {
             update_ui(data);
