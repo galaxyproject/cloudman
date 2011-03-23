@@ -18,3 +18,6 @@ P_GALAXY_HOME = "/mnt/galaxyTools/galaxy-central"
 P_GALAXY_DATA = "/mnt/galaxyData"
 P_GALAXY_TOOLS = "/mnt/galaxyTools"
 P_GALAXY_INDICES = "/mnt/galaxyIndices"
+
+# Configs
+C_PSQL_PORT = "5840"

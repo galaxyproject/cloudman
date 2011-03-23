@@ -13,7 +13,7 @@ class PostgresService( ApplicationService ):
     def __init__(self, app):
         super(PostgresService, self).__init__(app)
         self.svc_type = "Postgres"
-        self.psql_port = "5840"
+        self.psql_port = paths.C_PSQL_PORT
         self.reqs = {'Filesystem': 'galaxyData'}
         
     def start(self):
@@ -59,7 +59,7 @@ class PostgresService( ApplicationService ):
                     log.debug( "Initializing PostgreSQL database for Galaxy..." )
                     cont = misc.run( '%s - postgres -c "%s/initdb -D %s"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir), "Error initializing Galaxy database", "Successfully initialized Galaxy database")
                     if cont:
-                        misc.replace_string('%s/postgresql.conf' % psql_data_dir, '#port = 5432', 'port = 5840')
+                        misc.replace_string('%s/postgresql.conf' % psql_data_dir, '#port = 5432', 'port = %s' % self.psql_port)
                         os.chown('%s/postgresql.conf' % psql_data_dir, pwd.getpwnam( "postgres" )[2], grp.getgrnam( "postgres" )[2] )
                 # Start PostgreSQL server so a role for Galaxy user can be created
                 if cont:
@@ -78,8 +78,6 @@ class PostgresService( ApplicationService ):
                 if cont: 
                     log.debug( "Creating role for 'galaxyftp' user in PostgreSQL..." )
                     cont = misc.run('%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxyftp LOGIN PASSWORD \'fu5yOj2sn\'\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating role for 'galaxyftp' user", "Successfully created role for 'galaxyftp' user" )
-                    if cont:
-                        cont = misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
                 else:
                     log.error("Setting up Postgres did not go smoothly.")
                     self.state = service_states.ERROR
