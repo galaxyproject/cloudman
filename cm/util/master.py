@@ -196,7 +196,7 @@ class ConsoleManager( object ):
         if as_svc:
             self.app.manager.services.remove(as_svc[0])
         else:
-            log.debug("Cannot stop autoscaling because autoscaling is not on.")
+            log.debug("Not stopping autoscaling because it is not on.")
     
     def adjust_autoscaling(self, as_min, as_max):
         as_svc = self.get_services('Autoscale')
@@ -700,9 +700,9 @@ class ConsoleManager( object ):
             log.error("Tried to initialize a cluster but received unknown configuration: '%s'" % cluster_type)
     
     def init_shared_cluster(self, shared_cluster_config):
-        # if self.app.TESTFLAG is True:
-        #     log.debug("Attempted to initialize a shared cluster from bucket '%s', but TESTFLAG is set." % shared_cluster_config)
-        #     return
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to initialize a shared cluster from bucket '%s', but TESTFLAG is set." % shared_cluster_config)
+            return
         log.debug("Initializing a shared cluster from '%s'" % shared_cluster_config)
         s3_conn = self.app.cloud_interface.get_s3_connection()
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -714,20 +714,20 @@ class ConsoleManager( object ):
             log.error("Error while parsing provided shared cluster's bucket '%s': %s" % (shared_cluster_config, e))
             return False
         # Check shared cluster's bucket exists
-        if not misc.bucket_exists(s3_conn, bucket_name):
-            log.error("Shared cluster's bucket '%s' does not exits or is not accessible!" % bucket_name)
+        if not misc.bucket_exists(s3_conn, bucket_name, validate=False):
+            log.error("Shared cluster's bucket '%s' does not exist or is not accessible!" % bucket_name)
             return False
         # Create the new cluster's bucket
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
         # Copy contents of the shared cluster's bucket to current cluster's bucket
-        try:
-            source_bucket = s3_conn.lookup(bucket_name)
-            key_list = source_bucket.list(prefix=cluster_config_prefix)
+        fl = "shared_instance_file_list.txt"
+        if misc.get_file_from_bucket(s3_conn, bucket_name, os.path.join(cluster_config_prefix, fl), fl, validate=False):
+            key_list = misc.load_yaml_file(fl)
             for key in key_list:
-                misc.copy_file_in_bucket(s3_conn, bucket_name, self.app.ud['bucket_cluster'], key.name, (key.name).split('/')[-1], preserve_acl=False)
-        except S3ResponseError, e:
-            log.error("Problem copying shared cluster configuration files: %s" % e)
+                misc.copy_file_in_bucket(s3_conn, bucket_name, self.app.ud['bucket_cluster'], key, key.split('/')[-1], preserve_acl=False, validate=False)
+        else:
+            log.error("Problem copying shared cluster configuration files. Cannot continue with shared cluster initialization.")
             return False
         # Create a volume from shared cluster's data snap and set current cluster's data volume
         shared_cluster_pd_file = 'shared_p_d.yaml'
@@ -779,7 +779,7 @@ class ConsoleManager( object ):
                          give read permissions to the bucket and snapshot
         """
         if self.app.TESTFLAG is True:
-            log.debug( "Attempted to share-a-cluster, but TESTFLAG is set.")
+            log.debug( "Attempted to share-an-instance, but TESTFLAG is set.")
             return {}
         # TODO: recover services if the process fails midway
         log.info("Setting up the cluster for sharing")
@@ -815,7 +815,6 @@ class ConsoleManager( object ):
         # Remove references to cluster's own data volumes
         sud = misc.load_yaml_file(conf_file_name)
         if sud.has_key('data_filesystems'):
-            log.debug("deleting")
             del sud['data_filesystems']
             misc.dump_yaml_to_file(sud, conf_file_name)
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(shared_names_root, 'persistent_data.yaml'), conf_file_name)
@@ -839,12 +838,19 @@ class ConsoleManager( object ):
             return False
         # Copy current cluster's configuration files into the shared folder
         for conf_file in conf_files:
-            misc.copy_file_in_bucket(s3_conn, 
-                                     self.app.ud['bucket_cluster'],
-                                     self.app.ud['bucket_cluster'], 
-                                     conf_file, os.path.join(shared_names_root, conf_file), 
-                                     preserve_acl=False)
-            copied_key_names.append(os.path.join(shared_names_root, conf_file))
+            if 'clusterName' not in conf_file: # Skip original cluster name file
+                misc.copy_file_in_bucket(s3_conn, 
+                                         self.app.ud['bucket_cluster'],
+                                         self.app.ud['bucket_cluster'], 
+                                         conf_file, os.path.join(shared_names_root, conf_file), 
+                                         preserve_acl=False)
+                copied_key_names.append(os.path.join(shared_names_root, conf_file))
+        # Save the list of files contained in the shared bucket so derivative 
+        # instances can know what to get with minimim permissions
+        fl = "shared_instance_file_list.txt"
+        misc.dump_yaml_to_file(copied_key_names, fl)
+        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(shared_names_root, fl), fl)
+        copied_key_names.append(os.path.join(shared_names_root, fl)) # Add it to the list so it's permissions get set
         
         # Adjust permissions on the new keys and the created snapshots
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -859,17 +865,30 @@ class ConsoleManager( object ):
                 log.error("Error modifying snapshot '%s' attribute: %s" % (snap_id, e))
         err = False
         if cannonical_ids:
+            # In order to list the keys associated with a shared instance, a user
+            # must be given READ permissions on the cluster's bucket as a whole.
+            # This allows a given user to list the contents of a bucket but not
+            # access any of the keys other than the ones granted the permission 
+            # next (i.e., keys required to bootstrap the shared instance)
+            # misc.add_bucket_user_grant(s3_conn, self.app.ud['bucket_cluster'], 'READ', cannonical_ids, recursive=False)
+            # Grant READ permissions for the keys required to bootstrap the shared instance
             for k_name in copied_key_names:
                 if not misc.add_key_user_grant(s3_conn, self.app.ud['bucket_cluster'], k_name, 'READ', cannonical_ids):
+                    log.error("Error adding READ permission for key '%s'" % k_name)
                     err = True
-        else:
+        else: # If no cannonical_ids are provided, means to set the permissions to public-read
+            # See above, but in order to access keys, the bucket root must be given read permissions
+            # FIXME: this method sets the bucket's grant to public-read and 
+            # removes any individual user's grants - something share-in-instance
+            # depends on down the line if the publicly shared instance is deleted
+            # misc.make_bucket_public(s3_conn, self.app.ud['bucket_cluster'])
             for k_name in copied_key_names:
                 if not misc.make_key_public(s3_conn, self.app.ud['bucket_cluster'], k_name):
+                    log.error("Error making key '%s' public" % k_name)
                     err = True
         if err:
             # TODO: Handle this with more user input?
-            log.error("Error modifying bucket '%s' visibility!" % self.app.ud['bucket_cluster'])
-            return False
+            log.error("Error modifying permissions for keys in bucket '%s'" % self.app.ud['bucket_cluster'])
         
         # Resume all services
         for svc_type in ['Postgres', 'Galaxy']:
@@ -884,32 +903,35 @@ class ConsoleManager( object ):
         lst = []
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            source_bucket = s3_conn.lookup(self.app.ud['bucket_cluster'])
-            # Get a list of shared 'folders' containing clusters' configuration
-            folder_list = source_bucket.list(prefix='shared/', delimiter='/')
-            for folder in folder_list:
-                # Get snapshot assoc. with the current shared cluster
-                tmp_pd = 'tmp_pd.yaml'
-                if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
-                    tmp_ud = misc.load_yaml_file(tmp_pd)
-                    if tmp_ud.has_key('shared_data_snaps'):
-                        snap_id = tmp_ud['shared_data_snaps']
-                    else:
+            b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            if b:
+                # Get a list of shared 'folders' containing clusters' configuration
+                folder_list = b.list(prefix='shared/', delimiter='/')
+                for folder in folder_list:
+                    # Get snapshot assoc. with the current shared cluster
+                    tmp_pd = 'tmp_pd.yaml'
+                    if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
+                        tmp_ud = misc.load_yaml_file(tmp_pd)
+                        if tmp_ud.has_key('shared_data_snaps') and len(tmp_ud['shared_data_snaps'])==1:
+                            # Currently, only single data snapshot can be associated a shared instance to pull it out of the list
+                            snap_id = tmp_ud['shared_data_snaps'][0]
+                        else:
+                            snap_id = "Missing-ERROR"
+                        try:
+                            os.remove(tmp_pd)
+                        except OSError:
+                            pass # Best effort temp file cleanup
+                    else: 
                         snap_id = "Missing-ERROR"
-                    try:
-                        os.remove(tmp_pd)
-                    except OSError:
-                        pass # Best effort temp file cleanup
-                else: 
-                    snap_id = "Missing-ERROR"
-                # Get permission on the persistent_data file and assume all the entire cluster shares those permissions...
-                k = source_bucket.get_key(os.path.join(folder.name, 'persistent_data.yaml'))
-                acl = k.get_acl()
-                if 'AllUsers' in str(acl):
-                    visibility = 'Public'
-                else:
-                    visibility = 'Shared'
-                lst.append({"bucket": os.path.join(self.app.ud['bucket_cluster'], folder.name), "snap": snap_id, "visibility": visibility})
+                    # Get permission on the persistent_data file and assume all the entire cluster shares those permissions...
+                    k = b.get_key(os.path.join(folder.name, 'persistent_data.yaml'))
+                    if k is not None:
+                        acl = k.get_acl()
+                        if 'AllUsers' in str(acl):
+                            visibility = 'Public'
+                        else:
+                            visibility = 'Shared'
+                        lst.append({"bucket": os.path.join(self.app.ud['bucket_cluster'], folder.name), "snap": snap_id, "visibility": visibility})
         except S3ResponseError, e:
             log.error("Problem retrieving references to shared instances: %s" % e)
         return lst 
@@ -927,25 +949,34 @@ class ConsoleManager( object ):
         :type snap_id: str
         :param snap_id: Snapshot ID to be deleted (e.g., snap-04c01768)
         """
-        err = False # Mark if encountered error but try to delete as much as possible
+        log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
+        ok = True # Mark if encountered error but try to delete as much as possible
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            source_bucket = s3_conn.lookup(self.app.ud['bucket_cluster'])
-            key_list = source_bucket.list(prefix=shared_instance_folder)
+            # Revoke READ grant for users associated with the instance
+            # being deleted but do so only if the given users do not have 
+            # access to any other shared instances.
+            # users_whose_grant_to_remove = misc.get_users_with_grant_on_only_this_folder(s3_conn, self.app.ud['bucket_cluster'], shared_instance_folder)
+            # if len(users_whose_grant_to_remove) > 0:
+            #     misc.adjust_bucket_ACL(s3_conn, self.app.ud['bucket_cluster'], users_whose_grant_to_remove)
+            # Remove keys and folder associated with the given shared instance
+            b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            key_list = b.list(prefix=shared_instance_folder)
             for key in key_list:
                 log.debug("As part of shared cluster instance deletion, deleting key '%s' from bucket '%s'" % (key.name, self.app.ud['bucket_cluster']))
                 key.delete()
         except S3ResponseError, e:
             log.error("Problem deleting keys in '%s': %s" % (shared_instance_folder, e))
-            err = True
+            ok = False
+        # Delete the data snapshot associated with the shared instance being deleted
         try:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
             ec2_conn.delete_snapshot(snap_id)
             log.debug("As part of shared cluster instance deletion, deleted snapshot '%s'" % snap_id)
         except EC2ResponseError, e:
-            log.error("Problem deleting snapshot '%s': %s" % (snap_id, e))
-            err = True
-        return err
+            log.error("As part of shared cluster instance deletion, problem deleting snapshot '%s': %s" % (snap_id, e))
+            ok = False
+        return ok
     
     def stop_worker_instances( self ):
         log.info( "Stopping all '%s' worker instance(s)" % len(self.worker_instances) )

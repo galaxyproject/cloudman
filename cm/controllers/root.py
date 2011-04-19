@@ -323,9 +323,10 @@ class CM( BaseController ):
                 if len(u_ids) != len(c_ids):
                     log.error("User account ID fields must contain the same number of entries.")
                     return self.instance_state_json(trans)
-                for u in u_ids:
-                    if not u.isdigit():
-                        log.error("User IDs must be integers only, not '%s'" % u)
+                for i, u in enumerate(u_ids):
+                    u_ids[i] = u.replace('-', '') # Try to remove any dashes, which is the way the number is displayed on AWS
+                    if not u_ids[i].isdigit():
+                        log.error("User IDs must be integers only, not '%s'" % u_ids[i])
                         return self.instance_state_json(trans)
             except Exception:
                 log.error("Error processing values - user IDs: '%s', canonnical IDs: '%s'" % \

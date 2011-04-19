@@ -115,6 +115,7 @@ file_path = /mnt/galaxyData/files
 
 # Temporary files are stored in this directory.
 new_file_path = /mnt/galaxyData/tmp
+job_working_directory = /mnt/galaxyData/tmp/job_working_directory
 
 # Tool config file, defines what tools are available in Galaxy.
 tool_config_file = tool_conf.xml

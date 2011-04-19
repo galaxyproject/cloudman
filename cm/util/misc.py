@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import logging, time, yaml
 from boto.s3.key import Key
+from boto.s3.acl import ACL
 from boto.exception import S3ResponseError, EC2ResponseError
 import subprocess
 import threading
@@ -65,11 +66,11 @@ def formatDelta(delta):
     else:
         return '%sm %ss' % (m, s)
 
-def bucket_exists(s3_conn, bucket_name):
+def bucket_exists(s3_conn, bucket_name, validate=True):
     if bucket_name is not None:
         try:
             b = None
-            b = s3_conn.lookup(bucket_name)
+            b = s3_conn.lookup(bucket_name, validate=validate)
             if b is not None:
                 # log.debug("Checking if bucket '%s' exists... it does." % bucket_name)
                 return True
@@ -91,22 +92,22 @@ def create_bucket(s3_conn, bucket_name):
         return False
     return True
 
-def _get_bucket(s3_conn, bucket_name):
+def get_bucket(s3_conn, bucket_name, validate=True):
     """Get handle to bucket"""
     b = None
-    for i in range(0, 5):
-		try:
-			b = s3_conn.get_bucket( bucket_name )
-			break
-		except S3ResponseError: 
-			log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
-			time.sleep(2)
+    if bucket_exists(s3_conn, bucket_name, validate):
+        for i in range(0, 5):
+    		try:
+    			b = s3_conn.get_bucket(bucket_name, validate=validate)
+    			break
+    		except S3ResponseError: 
+    			log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
+    			time.sleep(2)
     return b
 
 def make_bucket_public(s3_conn, bucket_name, recursive=False):
     b = None
-    if bucket_exists(s3_conn, bucket_name):
-        b = _get_bucket(s3_conn, bucket_name)
+    b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
             b.make_public(recursive=recursive)
@@ -118,8 +119,7 @@ def make_bucket_public(s3_conn, bucket_name, recursive=False):
 
 def make_key_public(s3_conn, bucket_name, key_name):
     b = None
-    if bucket_exists(s3_conn, bucket_name):
-        b = _get_bucket(s3_conn, bucket_name)
+    b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
             k = Key(b, key_name)
@@ -150,8 +150,7 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
                       or not.
     """
     b = None
-    if bucket_exists(s3_conn, bucket_name):
-        b = _get_bucket(s3_conn, bucket_name)
+    b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
             for c_id in cannonical_ids:
@@ -166,7 +165,7 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
     """
     Boto wrapper that provides a quick way to add a canonical
     user grant to a key. 
-
+    
     :type permission: string
     :param permission: Name of the bucket where the key resides
     
@@ -182,8 +181,7 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
                         with the AWS account your are granting the permission to.
     """
     b = None
-    if bucket_exists(s3_conn, bucket_name):
-        b = _get_bucket(s3_conn, bucket_name)
+    b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
             k = Key(b, key_name)
@@ -196,6 +194,163 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
             log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
     return False
 
+def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_power_users=True):
+    """
+    Retrieve a list of users that are associated with a key in a folder (i.e., prefix) 
+    in the provided bucket and have READ grant. Note that this method assumes all 
+    of the keys in the given folder have the same ACL and the method thus looks 
+    only at the very first key in the folder. Also, any users
+    
+    :type s3_conn: boto.s3.connection.S3Connection
+    :param s3_conn: Established boto connection to S3 that has access to bucket_name
+    
+    :type bucket_name: string
+    :param bucket_name: Name of the bucket in which the given folder/prefix is 
+                        stored
+    
+    :type folder_name: string
+    :param folder_name: Allows limit the listing of keys in the given bucket to a 
+                   particular prefix. This has the effect of iterating through 
+                   'folders' within a bucket. For example, if you call the method 
+                   with folder_name='/foo/' then the iterator will only cycle
+                   through the keys that begin with the string '/foo/'.
+                   A valid example would be 'shared/2011-03-31--19-43/'
+    
+    :type exclude_power_users: boolean
+    :param exclude_power_users: If True, folder users with FULL_CONTROL grant 
+                   are not included in the folder user list
+    """
+    users=[] # Current list of users retrieved from folder's ACL
+    key_list = None
+    key_acl = None
+    b = None
+    b = get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            key_list = b.get_all_keys(prefix=folder_name, delimiter='/')
+            # for k in key_list:
+            #     print k.name#, k.get_acl().acl.grants[0].type
+            if len(key_list) > 0:
+                key = key_list[0] # Just get one key assuming all keys will have the same ACL
+                key_acl = key.get_acl()
+            if key_acl:
+                power_users = []
+                for grant in key_acl.acl.grants:
+                    # log.debug("folder_name: %s, %s, %s, %s, %s." % (folder_name, key.name, grant.type, grant.display_name, grant.permission))
+                    if grant.permission == 'FULL_CONTROL':
+                        power_users.append(grant.display_name)
+                    if grant.type == 'Group' and 'Group' not in users:
+                        # Group grants (i.e., public) are simply listed as Group under grant.type so catch that
+                        users.append(u'Group')
+                    elif grant.permission == 'READ' and grant.type != 'Group' and grant.display_name not in users:
+                        users.append(grant.display_name)
+                # Users w/ FULL_CONTROL are optionally not included in the folder user list
+                if exclude_power_users:
+                    for pu in power_users:
+                        if pu in users:
+                            users.remove(pu)
+        except S3ResponseError, e:
+            log.error("Error getting list of folder '%s' users for bucket '%s': %s" % (folder_name, bucket_name, e))
+    # log.debug("List of users for folder '%s' in bucket '%s': %s" % (folder_name, bucket_name, users))
+    return users
+
+def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
+    """
+    This method is used when dealing with bucket permissions of shared instances. 
+    The method's intent is to isolate the set of users that have (READ) grant on 
+    a given folder and no other (shared) folder within the given bucket.
+    Obtained results can then be used to set the permissions on the bucket root.
+    
+    See also: get_list_of_bucket_folder_users
+    
+    :type s3_conn: boto.s3.connection.S3Connection
+    :param s3_conn: Established boto connection to S3 that has access to bucket_name
+    
+    :type bucket_name: string
+    :param bucket_name: Name of the bucket in which the given folder is stored
+    
+    :type folder_name: string
+    :param folder_name: Name of the (shared) folder whose grants will be examined
+                        and compared to other (shared) folders in the same bucket.
+                        A valid example would be 'shared/2011-03-31--19-43/'
+    """
+    users_with_grant = [] # List of users with grant on given folder and no other (shared) folder in bucket
+    other_users = [] # List of users on other (shared) folders in given bucket
+    folder_users = get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name)
+    # log.debug("List of users on to-be-deleted shared folder '%s': %s" % (folder_name, folder_users))
+    b = None
+    b = get_bucket(s3_conn, bucket_name)
+    if b is not None:
+        try:
+            # Get list of shared folders in given bucket
+            folder_list = b.get_all_keys(prefix='shared/', delimiter='/')
+            # Inspect each shared folder's user grants and create a list of all users
+            # with grants on those folders
+            for f in folder_list:
+                if f.name != folder_name:
+                    fu = get_list_of_bucket_folder_users(s3_conn, bucket_name, f.name)
+                    for u in fu:
+                        if u not in other_users:
+                            other_users.append(u)
+            # log.debug("List of users on other shared folders: %s" % other_users)
+            # Find list of users in that have grants only on 'folder_name' and no
+            # other shared folder in the given bucket
+            for u in folder_users:
+                if u not in other_users:
+                    users_with_grant.append(u)
+        except S3ResponseError, e:
+            log.error("Error isolating list of folder '%s' users for bucket '%s': %s" % (folder_name, bucket_name, e))
+    log.debug("List of users whose bucket grant is to be removed because shared folder '%s' is being deleted: %s" \
+        % (folder_name, users_with_grant))
+    return users_with_grant
+
+def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
+    """
+    Adjust the ACL on given bucket and remove grants for all the mentioned users.
+    
+    :type s3_conn: boto.s3.connection.S3Connection
+    :param s3_conn: Established boto connection to S3 that has access to bucket_name
+    
+    :type bucket_name: string
+    :param bucket_name: Name of the bucket for which to adjust the ACL
+    
+    :type users_whose_grant_to_remove: list
+    :param users_whose_grant_to_remove: List of user names (as defined in bucket's
+                initial ACL, e.g., ['afgane', 'cloud']) whose grant is to be revoked.
+    """
+    bucket = get_bucket(s3_conn, bucket_name)
+    if bucket:
+        try:
+            grants_to_keep = []
+            # log.debug("All grants on bucket '%s' are following" % bucket_name)
+            # Compose list of grants on the bucket that are to be kept, i.e., siphon 
+            # through the list of grants for bucket's users and the list of users
+            # whose grant to remove and create a list of bucket grants to keep
+            for g in bucket.get_acl().acl.grants:
+                # log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
+                # Public (i.e., group) permissions are kept under 'type' field so check that first
+                if g.type == 'Group' and 'Group' in users_whose_grant_to_remove:
+                    pass
+                elif g.display_name not in users_whose_grant_to_remove:
+                    grants_to_keep.append(g)
+            # Manipulate bucket's ACL now
+            bucket_policy = bucket.get_acl() # Object for bucket's current policy (which holds the ACL)
+            acl = ACL() # Object for bucket's to-be ACL
+            # Add all of the exiting (i.e., grants_to_keep) grants to the new ACL object
+            for gtk in grants_to_keep:
+                acl.add_grant(gtk)
+            # Update the policy and set bucket's ACL
+            bucket_policy.acl = acl
+            bucket.set_acl(bucket_policy)
+            # log.debug("List of kept grants for bucket '%s'" % bucket_name)
+            # for g in bucket_policy.acl.grants:
+            #     log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
+            log.debug("Removed grants on bucket '%s' for these users: %s" % (bucket_name, users_whose_grant_to_remove))
+            return True
+        except S3ResponseError, e:
+            log.error("Error adjusting ACL for bucket '%s': %s" % (bucket_name, e))
+    return False
+
 def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     """Check if remote_filename exists in bucket bucket_name.
     :rtype: bool
@@ -203,9 +358,7 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
              False otherwise
     """
     b = None
-    if bucket_exists(s3_conn, bucket_name):
-        b = _get_bucket(s3_conn, bucket_name)
-        
+    b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
     		k = Key(b, remote_filename)
@@ -215,12 +368,12 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     	    log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
     return False
 
-def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
-    if bucket_exists(conn, bucket_name):
-        b = conn.get_bucket( bucket_name )
-        k = Key( b, remote_filename )
+def get_file_from_bucket( conn, bucket_name, remote_filename, local_file, validate=True ):
+    if bucket_exists(conn, bucket_name, validate):
+        b = get_bucket(conn, bucket_name, validate)
+        k = Key(b, remote_filename)
         try:
-            k.get_contents_to_filename( local_file )
+            k.get_contents_to_filename(local_file)
             log.info( "Retrieved file '%s' from bucket '%s' to '%s'." \
                          % (remote_filename, bucket_name, local_file))
         except S3ResponseError, e:
@@ -233,14 +386,7 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file ):
 
 def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
     b = None
-    for i in range(0, 5):
-		try:
-			b = conn.get_bucket( bucket_name )
-			break
-		except S3ResponseError, e: 
-			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
-			time.sleep(2)
-	    	
+    b = get_bucket(conn, bucket_name)
     if b is not None:
 		k = Key( b, remote_filename )
 		try:
@@ -256,8 +402,8 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
         log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
         return False
 
-def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename, preserve_acl=True):
-    b = s3_conn.get_bucket(src_bucket_name)
+def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename, preserve_acl=True, validate=True):
+    b = get_bucket(s3_conn, src_bucket_name, validate)
     if b:
         try:
             log.debug("Establishing handle with key object '%s'" % orig_filename)
@@ -269,22 +415,31 @@ def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filenam
             log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
     return False
 
-def delete_file_from_bucket( conn, bucket_name, remote_filename ):
-	b = conn.get_bucket( bucket_name )
-	k = Key( b, remote_filename )
-	log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
-	k.delete()
+def delete_file_from_bucket(conn, bucket_name, remote_filename):
+    b = None
+    b = get_bucket(conn, bucket_name)
+    if b is not None:
+        try:
+            k = Key( b, remote_filename )
+            log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
+            k.delete()
+            return True
+    	except S3ResponseError, e:
+    	    log.error("Error deleting key '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
+    return False
 
 def delete_bucket(conn, bucket_name):
     """Delete given bucket. This method will iterate through all the keys in
     the given bucket first and delete them. Finally, the bucket will be deleted."""
     try:
-        b = conn.get_bucket(bucket_name)
-        keys = b.get_all_keys()
-        for key in keys:
-            key.delete()
-        b.delete()
-        log.info("Successfully deleted cluster bucket '%s'" % bucket_name)
+        b = None
+        b = get_bucket(conn, bucket_name)
+        if b is not None:
+            keys = b.get_all_keys()
+            for key in keys:
+                key.delete()
+            b.delete()
+            log.info("Successfully deleted cluster bucket '%s'" % bucket_name)
     except S3ResponseError, e:
         log.error("Error deleting bucket '%s': %s" % (bucket_name, e))
     return True
@@ -295,14 +450,7 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     """
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
     b = None
-    for i in range(0, 5):
-		try:
-			b = conn.get_bucket( bucket_name )
-			break
-		except S3ResponseError: 
-			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
-			time.sleep(2)
-
+    b = get_bucket(conn, bucket_name)
     if b is not None:
         k = b.get_key(remote_filename)
         if k and metadata_key:
@@ -318,14 +466,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     log.debug("Setting metadata '%s' for file '%s' in bucket '%s'" % (metadata_key, remote_filename, bucket_name))
 
     b = None
-    for i in range(0, 5):
-		try:
-			b = conn.get_bucket( bucket_name )
-			break
-		except S3ResponseError, e: 
-			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
-			time.sleep(2)
-
+    b = get_bucket(conn, bucket_name)
     if b is not None:
         k = b.get_key(remote_filename)
         if k and metadata_key:

@@ -72,9 +72,13 @@ class GalaxyService( ApplicationService ):
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' )
                 shutil.copy('%s/tool_data_table_conf.xml.cloud' % self.galaxy_home, '%s/tool_data_table_conf.xml' % self.galaxy_home)
                 os.chown( self.galaxy_home + '/tool_data_table_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                # Make sure the temporary job_working_directory exists on user data volume (defined in universe_wsgi.ini.cloud)
+                if not os.path.exists('%s/tmp/job_working_directory' % paths.P_GALAXY_DATA):
+                    os.makedirs('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
+                os.chown('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                 # Setup environemnt for the FTP server and start it
-                if not os.path.exists('%s/tmp/ftp' % self.galaxy_home):
-                    os.makedirs('%s/tmp/ftp' % self.galaxy_home)
+                if not os.path.exists('%s/tmp/ftp' % paths.P_GALAXY_DATA):
+                    os.makedirs('%s/tmp/ftp' % paths.P_GALAXY_DATA)
                 misc.run('/etc/init.d/proftpd start', 'Failed to start FTP server', "Started FTP server")
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE DATA TABLES
                 if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):

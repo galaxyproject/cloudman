@@ -189,7 +189,7 @@ vertical-align: top;
 			any worker nodes (instances) associated with this cluster. By default, 
 			the master instance will be left alive and should be terminated 
 			manually (using the AWS console).</p>
-			<label>Automatically terminate master instance?</label>
+			<label>Automatically terminate the master instance?</label>
 			<input type="checkbox" name="terminate_master_instance" id="terminate_master_instance"> If checked, this master instance will automatically terminate after all services have been shut down.
 			<p></p><label>Also delete this cluster?</label>
 			<input type="checkbox" name="delete_cluster" id="delete_cluster"> If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
@@ -322,13 +322,11 @@ vertical-align: top;
 						<div id="add_user">
 							<h4>Specific user permissions:</h4>
 							<p><strong>Both fields must be provided for each of the users.</strong><br/>
-							These numbers can be obtained from the AWS Security 
-							Credentials page: the account number is at the top right
-							of page while the canonical user ID can is at the bottom,
-							under Account Identifiers section.</p>
+							These numbers can be obtained from the bottom of the 
+							AWS Security Credentials page, under <i>Account Identifiers</i> section.</p>
 							<div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS account numbers:</span>
 								<input type="text" id="user_ids" name="user_ids" size="40" value="" />
-								<span class="share_cluster_help_text">CSV numbers with no dashes</span>
+								<span class="share_cluster_help_text">CSV numbers</span>
 							</div>
 							<div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
 								<input type="text" id="cannonical_ids" name="cannonical_ids" size="40" value="" />
@@ -346,7 +344,7 @@ vertical-align: top;
 	<h2>Delete shared cluster instance confirmation</h2>
 	<div>Are you sure you want to delete shared cluster instance under 
 	<i><span id="scf_txt">&nbsp;</span></i>
-	and the corresponding snapshot ID <i><span id="scf_snap">&nbsp;</span></i>?<br/>
+	and the corresponding snapshot with ID <i><span id="scf_snap">&nbsp;</span></i>?<br/>
 	<p>This action cannot be undone.</p></div>
 	<p><span class="action-button" id="del_scf_conf">Delete this instance</span>&nbsp;
 	<span class="action-button" id="del_scf_cancel">Do not delete</span></p>
@@ -610,6 +608,7 @@ function show_confirm(scf, snap_id){
 	$('#del_scf_popup').show();
 	$('#scf_txt').text(scf);
 	$('#scf_snap').text(snap_id);
+	// FIXME: Need to have an individual element ID for each of the shared instances
 	$('#del_scf_conf').click(function(){
 		$.get("${h.url_for(controller='root',action='delete_shared_instance')}", 
 			{'shared_instance_folder': scf, 'snap_id': snap_id},
@@ -627,21 +626,30 @@ function get_shared_instances(){
 		{},
 		function(data){
 			if(data){
-				if (data.shared_instances.length > 0) {
-					instance_list = "<p>These are the bucket names you can share "+
+				var shared_list = $('#shared_instances_list').html(
+					"<p>These are the bucket names you can share "+
 					"with others so they can create and instantiate their instances "+
 					"of your shared cluster. Also, for reference, corresponding "+
 					"snapshot ID's are provided and you have an option to delete a "+
-					"given shared instance. </p><ul>";
-					for (i=0; i<(data.shared_instances).length; i++){
-						instance_list += "<li>"+data.shared_instances[i].visibility+": "+data.shared_instances[i].bucket+
-							" ("+data.shared_instances[i].snap+
-							") <a onclick='show_confirm(escape(\""+data.shared_instances[i].bucket+"\"), escape(\""+data.shared_instances[i].snap+"\"));' class='del_scf'>&nbsp;</a></li>";
+					"given shared instance. </p>");
+				var ul = $("<ul/>");
+				if (data.shared_instances.length > 0) {
+					for (n=0; n<(data.shared_instances).length; n++) {
+						var fn = function(i) {
+							var li = $("<li/>").text(data.shared_instances[i].visibility+": " + data.shared_instances[i].bucket +
+								" (" + data.shared_instances[i].snap + ")");
+						
+							anchor = $("<a>&nbsp;</a>").click(function () {
+								show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
+							}).addClass("del_scf");
+							li.append(anchor);
+							ul.append(li);
+						};
+						fn(n);
 					}
-					instance_list += "</ul>";
-					$('#shared_instances_list').html(instance_list);
+					shared_list.append(ul);
 				} else {
-					$('#shared_instances_list').html("You have no shared cluster instances.");
+					shared_list.text("You have no shared cluster instances.");
 				}
 			}
 		});
