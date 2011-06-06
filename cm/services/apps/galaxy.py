@@ -149,6 +149,8 @@ class GalaxyService( ApplicationService ):
             if self.state == service_states.RUNNING:
                 log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
                 misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
+            # Force cluster configuration state update on status change
+            self.app.manager.console_monitor.store_cluster_config()
     
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
