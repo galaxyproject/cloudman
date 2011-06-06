@@ -321,6 +321,21 @@ class ConsoleManager( object ):
         else:
             return "nodata"
     
+    def get_srvc_status(self, srvc):
+        if srvc in ['Galaxy', 'SGE', 'Postgres', 'Filesystem']:
+            svcarr = [s for s in self.services if s.svc_type == srvc]
+            if len(svcarr) > 0:
+                return srvc[0].state
+            else:
+                return "'%s' is not running" % srvc
+        return "Service '%s' not recognized." % srvc
+    
+    def get_all_services_status(self):
+        status_dict = {}
+        for srvc in self.services:
+            status_dict[srvc.name] = srvc.state
+        return status_dict
+    
     def get_permanent_storage_size( self ):
         pss = 0
         fs_arr = [s for s in self.services if s.svc_type=='Filesystem' and s.name=='galaxyData']

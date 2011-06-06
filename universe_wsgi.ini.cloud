@@ -68,7 +68,7 @@ paste.app_factory = galaxy.web.buildapp:app_factory
 # If not running behind a proxy server, you may want to enable gzip compression
 # to decrease the size of data transferred over the network.  If using a proxy
 # server, please enable gzip compression there instead.
-filter-with = gzip
+# filter-with = gzip
 
 # If running behind a proxy server and Galaxy is served from a subdirectory,
 # enable the proxy-prefix filter and set the prefix in the

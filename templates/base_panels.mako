@@ -6,7 +6,7 @@ from routes import url_for
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 ## Default title
-<%def name="title()">Galaxy Cloud</%def>
+<%def name="title()">Galaxy Cloudman</%def>
 
 ## Default stylesheets
 <%def name="stylesheets()">
@@ -35,10 +35,14 @@ from routes import url_for
   <table width="100%" cellspacing="0" border="0">
     <tr valign="middle">
       <td width="26px">
-        <a target="_blank" href="http://usegalaxy.org/cloud">
+        <a href="${h.url_for(controller='root', action='index')}">
         <img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}"></a>
       </td>
-      <td align="left" valign="middle"><div class="pageTitle">Galaxy Cloudman</div></td>
+      <td align="left" valign="middle">
+        <div class="pageTitle">
+            <a href="${h.url_for(controller='root', action='index')}">Galaxy Cloudman</a>
+        </div>
+      </td>
       <td align="right" valign="middle">
       %if CM_url:
         <span id='cm_update_message'>
@@ -49,9 +53,10 @@ from routes import url_for
         </span>
          <span style='display:none' id="update_reboot_now"><a href="#">Restart cluster now?</a></span>&nbsp;&nbsp;&nbsp;
       %endif
-		  Info: <a href="mailto:galaxy-bugs@bx.psu.edu">report bugs</a>
-        | <a target="_blank" href="http://usegalaxy.org/cloud">wiki</a>                  
-        | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">screencast</a>
+	    <a href="${h.url_for(controller='root', action='admin')}">Admin</a>
+		| <a href="mailto:galaxy-bugs@bx.psu.edu">Report bugs</a>
+        | <a target="_blank" href="http://usegalaxy.org/cloud">Wiki</a>                  
+        | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">Screencast</a>
         &nbsp;
       </td>
     </tr>

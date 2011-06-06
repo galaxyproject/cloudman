@@ -1,4 +1,7 @@
-import logging, os, re
+import logging
+import os
+import re
+import subprocess
 
 from cm.util.json import to_json_string
 from cm.framework import expose
@@ -171,20 +174,60 @@ class CM( BaseController ):
     def log( self, trans, l_log = 0):
         trans.response.set_content_type( "text" )
         return "\n".join(self.app.logger.logmessages)
-
+    
+    def tail(self, file_name, num_lines):
+        """ Read num_lines from file_name starting at the end (using UNIX tail cmd)
+        """
+        ps = subprocess.Popen("tail -n %s %s" % (num_lines, file_name), shell=True, stdout=subprocess.PIPE)
+        return str(ps.communicate()[0])
+    
     @expose
-    def galaxy_log( self, trans):
-        # We might want to do some cleanup of the log here to display
-        # only relevant information, but for now, send the whole thing.
-        trans.response.set_content_type( "text" )
-        if os.path.exists('/mnt/galaxyTools/galaxy-central/paster.log'):
-            f = open('/mnt/galaxyTools/galaxy-central/paster.log', 'rt')
-            log = f.read()
-            f.close()
-            return log
+    def service_log(self, trans, service_name, show=None, num_lines=None, **kwargs):
+        # Choose log file path based on service name
+        log = "No '%s' log available." % service_name
+        if service_name == 'Galaxy':
+            log_file = os.path.join(paths.P_GALAXY_HOME, 'paster.log')
+        elif service_name == 'Postgres':
+            log_file = '/tmp/pgSQL.log'
+        elif service_name == 'SGE':
+            # For SGE, we can get either the service log file or the queue conf file
+            q = kwargs.get('q', None)
+            if q:
+                log_file = os.path.join(paths.P_SGE_ROOT, 'all.q.conf')
+            else:
+                log_file = os.path.join(paths.P_SGE_ROOT, 'sge.log')
+        # Set log length
+        if num_lines:
+            if show == 'more':
+                num_lines = int(num_lines) + 100
+            elif show == 'less':
+                num_lines = int(num_lines) - 100
         else:
-            return "No galaxy log available."
-
+            num_lines = 200 # By default, read the most recent 200 lines of the log
+        # Get the log file content
+        if os.path.exists(log_file):
+            if show == 'all':
+                with open(log_file) as f:
+                    log = f.read()
+            else:
+                log = self.tail(log_file, num_lines=num_lines)
+        trans.response.set_content_type( "text" )
+        return trans.fill_template("srvc_log.mako", 
+                                   service_name=service_name,
+                                   log=log, 
+                                   num_lines=num_lines, 
+                                   full=(show=='all'), 
+                                   log_file=log_file)
+    
+    @expose
+    def get_srvc_status(self, trans, srvc):
+        return to_json_string({'srvc': srvc,
+                               'status': self.app.manager.get_srvc_status(srvc)})
+    
+    @expose
+    def get_all_services_status(self, trans):
+        return to_json_string(self.app.manager.get_all_services_status())
+    
     @expose
     def full_update(self, trans, l_log = 0):
         return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
@@ -200,13 +243,16 @@ class CM( BaseController ):
                                 'log_cursor' : len(self.app.logger.logmessages)})
     
     @expose
-    def restart_galaxy(self, trans):
-        svcs = self.app.manager.get_services('Galaxy')
-        for service in svcs:
-            service.remove()
-        for service in svcs:
-            service.start()
-
+    def restart_service(self, trans, service_name):
+        svcs = self.app.manager.get_services(service_name)
+        if svcs:
+            for service in svcs:
+                service.remove()
+            for service in svcs:
+                service.start()
+        else:
+            return "No '%s' service configured." % service_name
+    
     @expose
     def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central"):
         log.debug("Updating Galaxy... Using repository %s" % repository)
@@ -262,7 +308,7 @@ class CM( BaseController ):
                     s.start()
                 return "%s started" % service_name
         else:
-            return "No '%s' service configured" % service_name
+            return "No '%s' service configured." % service_name
     
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
@@ -352,35 +398,7 @@ class CM( BaseController ):
     
     @expose
     def admin(self, trans):
-        return """
-            <h2>This admin panel is only a convenient way to control cluster services.</h2>
-            <ul>
-                <strong>Service Control</strong>
-                <li><a href='manage_service?service_name=Galaxy' target="_blank">Start Galaxy</a></li>
-                <li><a href='manage_service?service_name=Galaxy&to_be_started=False' target="_blank">Stop Galaxy</a> | <a href="/cloud/root/galaxy_log">Galaxy Log</a></li>
-                <li><a href='restart_galaxy' target="_blank">Restart Galaxy (full stop/start)</a></li>
-                <li><a href='manage_service?service_name=Postgres' target="_blank">Start Postgres</a></li>
-                <li><a href='manage_service?service_name=Postgres&to_be_started=False' target="_blank">Stop Postgres</a></li>
-                <li><a href='manage_service?service_name=SGE' target="_blank">Start SGE</a></li>
-                <li><a href='manage_service?service_name=SGE&to_be_started=False' target="_blank">Stop SGE</a></li>
-                <li><a href="/cloud/root/reboot">Reboot master instance</a></li>
-                <form action="update_galaxy" method="get">
-                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository" size="45">
-                    <input type="submit" value="Update Galaxy">
-                </form>
-                <form action="add_galaxy_admin_users" method="get">
-                    <input type="text" value="CSV list of emails to be added as admins" name="admin_users" size="45">
-                    <input type="submit" value="Add admin users">
-                </form>
-                <strong>Emergency Tools - use with care</strong>
-                <li><a href='get_user_data'>Show current user data</a></li>
-                <li><a href='recover_monitor'>Recover monitor</a></li>
-                <li><a href='recover_monitor?force=True'>Recover monitor *with Force*</a></li>
-                <li><a href='cleanup'>Cleanup - shutdown all services/instances, keep volumes</a></li>
-                <li><a href='kill_all'>Kill all - shutdown everything, disconnect/delete all</a></li>
-            </ul>
-                """
-    
+        return trans.fill_template('admin.mako')
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
