@@ -1319,20 +1319,24 @@ class ConsoleMonitor( object ):
         # Save/update the current Galaxy cluster configuration to cluster's bucket
         cc_file_name = self.create_cluster_config_file()
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
-        # If not existent, save current Galaxy universe_wsgi.ini to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud') and os.path.exists('%s/universe_wsgi.ini' % paths.P_GALAXY_HOME):
-            log.debug("Saving current Galaxy configuration file (universe_wsgi.ini.cloud) to cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', '%s/universe_wsgi.ini' % paths.P_GALAXY_HOME)
-        # If not existent, save current Galaxy tool_conf.xml to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud') and os.path.exists('%s/tool_conf.xml' % paths.P_GALAXY_HOME):
-            log.debug("Saving current Galaxy tool configuration file (tool_conf.xml.conf) to cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', '%s/tool_conf.xml' % paths.P_GALAXY_HOME)
+        # Ensure Galaxy config files are stored in the cluster's bucket, 
+        # but only after Galaxy has been configured and is running (this ensures
+        # that the cconfiguration files get loaded from proper S3 bucket rather
+        # than potentially being owerwritten by files that might exist on the snap)
+        try:
+            galaxy_svc = self.app.manager.get_services('Galaxy')[0]
+            if galaxy_svc.running():
+                for f_name in ['universe_wsgi.ini', 'tool_conf.xml', 'tool_data_table_conf.xml']:
+                    if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name)):
+                        log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
+                        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
+        except:
+            pass
         # If not existent, save current boot script cm_boot.py to cluster's bucket
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
             log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
-        # If not existent, save CloudMan source to cluster's bucket
-        # TODO: Save file's metadata (i.e., revision) to copied file for versioning
+        # If not existent, save CloudMan source to cluster's bucket, including file's metadata
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
@@ -1342,13 +1346,9 @@ class ConsoleMonitor( object ):
                 misc.set_file_metadata(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', 'revision', rev)
             except Exception, e:
                 log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
-        # If not existent, save tool_data_table_conf.xml to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud') and os.path.exists(os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud')):
-            log.debug("Saving tool_data_table_conf.xml.cloud file to cluster bucket '%s' as '%s'" % (self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud'))
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', os.path.join(paths.P_GALAXY_HOME, 'tool_data_table_conf.xml.cloud'))
+        # Create an empty file whose name is the name of this cluster (useful as a reference)
         cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
-            # Create an empty file whose name is the name of this cluster (useful as a reference)
             with open(cn_file, 'w'):
                 pass
             if os.path.exists(cn_file):
