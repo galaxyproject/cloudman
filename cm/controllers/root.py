@@ -192,10 +192,21 @@ class CM( BaseController ):
         elif service_name == 'SGE':
             # For SGE, we can get either the service log file or the queue conf file
             q = kwargs.get('q', None)
-            if q:
+            if q == 'conf':
                 log_file = os.path.join(paths.P_SGE_ROOT, 'all.q.conf')
+            elif q == 'qstat':
+                log_file = os.path.join('/tmp', 'qstat.out')
+                # Save qstat output into a file so it can be read in the same way as log files
+                try:
+                    cmd = ('%s - galaxy -c "export SGE_ROOT=%s;\
+                        . %s/default/common/settings.sh; \
+                        %s/bin/lx24-amd64/qstat -f > %s"' 
+                        % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT, log_file))
+                    subprocess.call(cmd, shell=True)
+                except OSError:
+                    pass
             else:
-                log_file = os.path.join(paths.P_SGE_ROOT, 'sge.log')
+                log_file = os.path.join(paths.P_SGE_CELL, 'messages')
         # Set log length
         if num_lines:
             if show == 'more':

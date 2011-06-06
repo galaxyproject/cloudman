@@ -4,13 +4,13 @@
         <h2>Galaxy Cloudman Admin Console</h2>
         <div id="main_text">
             This admin panel is a convenient way to gain insight into the status
-            of individual Cloudman services as well as to control those services.
-            Services should not be manipulated unless absolutely necessary.
+            of individual Cloudman services as well as to control those services.<br/>
+            <b>Services should not be manipulated unless absolutely necessary.
             Please keep in mind that the actions performed by these service-control
             'buttons' are basic in that they assume things will operate as expected.
             In other words, minimal special case handling for recovering services
             exists. Also note that clicking on a service action button will
-            initiate the action; there is no additional confirmation required.
+            initiate the action; there is no additional confirmation required.</b>
         </div>
         <h3>Galaxy controls</h3>
         <div class="help_text">
@@ -86,18 +86,19 @@
                 <td>PostgreSQL</td>
                 <td><span id="postgres_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Postgres">Log</a></td>
-                <td><a href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres" target="_blank">Start</a></td>
-                <td><a href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
             </tr>
             <tr>
                 <td>SGE</td>
                 <td><span id="sge_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE">Log</a></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=true">Q conf</a></td>
-                <td><a href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE" target="_blank">Start</a></td>
-                <td><a href="${h.url_for(controller='root',action='restart_service')}?service_name=SGE" target="_blank">Restart</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=SGE" target="_blank">Restart</a></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
         </table>
         <h3>System controls</h3>
@@ -105,9 +106,9 @@
             Use these controls to administer Cloudman itself as well as the underlying system.
         </div>
         <ul class='services_list'>
-            <li><a href='get_user_data'>Show current user data</a></li>
+            <li><a href="${h.url_for(controller='root',action='get_user_data')}">Show current user data</a></li>
             <li>
-                <a href="${h.url_for(controller='root',action='reboot')}">Reboot master instance</a>
+                <a class='action' href="${h.url_for(controller='root',action='reboot')}">Reboot master instance</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -119,7 +120,7 @@
                 </span>
             </li>
             <li>
-                <a href="${h.url_for(controller='root',action='recover_monitor')}">Recover monitor</a>
+                <a class='action' href="${h.url_for(controller='root',action='recover_monitor')}">Recover monitor</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -131,7 +132,7 @@
                 </span>
             </li>
             <li>
-                <a href="${h.url_for(controller='root',action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
+                <a class='action' href="${h.url_for(controller='root',action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -141,6 +142,10 @@
                 </span>
             </li>
         </ul>
+
+		<div class="box" style="height: 90px; text-align: center;">
+			<h2>Action initiated.</h2>
+		</div>
 
     <script type="text/javascript">
         function update(repeat_update){
@@ -175,10 +180,15 @@
         }
         function handle_clicks() {
             $(".action").click(function(event) {
-              event.preventDefault();
-              alert(event.type + ' prevented');
+				event.preventDefault();
+				var url = $(this).attr('href');
+				$.get(url);
+				popup();
             });
         }
+		function popup() {
+			$(".box").fadeIn("slow").delay(400).fadeOut("slow");
+		}
         $(document).ready(function() {
             // Toggle help info boxes
             $(".help_info span").click(function () {
