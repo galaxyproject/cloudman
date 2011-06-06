@@ -1,4 +1,4 @@
-import config, logging, logging.config
+import config, logging, logging.config, sys
 from cm.util import misc
 
 from cm.clouds.ec2 import EC2Interface
@@ -21,6 +21,7 @@ class CMLogHandler(logging.Handler):
 class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
     def __init__( self, **kwargs ):
+        print "Python version: ", sys.version_info[:2]
         self.ud = misc.load_yaml_file("userData.yaml")
         # Setup logging
         self.logger = CMLogHandler(self)

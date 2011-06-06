@@ -17,6 +17,7 @@
             Use these controls to administer functionality of Galaxy.
         </div>
         <ul class='services_list'>
+            <li>Current Galaxy admins: <span id="galaxy_admins">N/A</span></li>
             <li>Add Galaxy admin users:
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
@@ -28,10 +29,11 @@
                     </div>
                 </span>
                 <form action="add_galaxy_admin_users" method="get">
-                    <input type="text" value="CSV list of emails to be added as admins" name="admin_users" size="45">
+                    <input type="text" value="CSV list of emails to be added as admins" class="form_el" name="admin_users" size="45">
                     <input type="submit" value="Add admin users">
                 </form>
             </li>
+            <li>Current Galaxy revision: <span id="galaxy_rev">N/A</span></li>
             <li>Update Galaxy from a provided repository:
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
@@ -59,7 +61,7 @@
                     </div>
                 </span>
                 <form action="update_galaxy" method="get">
-                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" name="repository" size="45">
+                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" class="form_el" name="repository" size="45">
                     <input type="submit" value="Update Galaxy">
                 </form>
             </li>
@@ -152,6 +154,15 @@
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
                 function(data){
                     if (data){
+                        if (data.galaxy_rev != 'N/A') {
+                            var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/"
+                            + data.galaxy_rev.split(':')[1] + "' target='_blank'>"
+                            + data.galaxy_rev + '</a>';
+                        } else {
+                            var rev_html = "N/A";
+                        }
+                        $('#galaxy_admins').html(data.galaxy_admins);
+                        $('#galaxy_rev').html(rev_html);
                         $('#galaxy_status').html(data.Galaxy);
                         $('#postgres_status').html(data.Postgres);
                         $('#sge_status').html(data.SGE);
@@ -206,6 +217,10 @@
             update();
             // Handle control click events
             handle_clicks();
+            // Make clearing form fields easier by auto selecting the content
+            $('.form_el').focus(function() {
+                this.select();
+            });
         });
     </script>
 </%def>

@@ -334,7 +334,28 @@ class ConsoleManager( object ):
         status_dict = {}
         for srvc in self.services:
             status_dict[srvc.svc_type] = srvc.state
+        status_dict['galaxy_rev'] = self.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.get_galaxy_admins()
         return status_dict
+    
+    def get_galaxy_rev(self):
+        cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, paths.P_GALAXY_HOME)
+        try:
+            rev = commands.getoutput(cmd).strip()
+        except:
+            rev = 'N/A'
+        return rev 
+        
+    def get_galaxy_admins(self):
+        admins = ''
+        try:
+            config_file = open(os.path.join(paths.P_GALAXY_HOME, 'universe_wsgi.ini'), 'r').readlines()
+            for line in config_file:
+                if 'admin_users' in line:
+                    admins = line.split('=')[1].strip()
+        except IOError:
+            pass
+        return admins
     
     def get_permanent_storage_size( self ):
         pss = 0
