@@ -333,7 +333,7 @@ class ConsoleManager( object ):
     def get_all_services_status(self):
         status_dict = {}
         for srvc in self.services:
-            status_dict[srvc.name] = srvc.state
+            status_dict[srvc.svc_type] = srvc.state
         return status_dict
     
     def get_permanent_storage_size( self ):
