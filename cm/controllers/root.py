@@ -134,7 +134,8 @@ class CM( BaseController ):
 
     @expose
     def reboot(self, trans):
-        return to_json_string({'rebooting':self.app.manager.reboot()})
+        r = 'initiated' if self.app.manager.reboot() else 'failed'
+        return "Reboot %s." % r
 
     @expose
     def cleanup(self, trans):
@@ -263,28 +264,36 @@ class CM( BaseController ):
                 service.remove()
             for service in svcs:
                 service.start()
+            return "%s service restarted." % service_name
         else:
-            return "No '%s' service configured." % service_name
+            return "Cannot find %s service." % service_name
     
     @expose
     def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central"):
         log.debug("Updating Galaxy... Using repository %s" % repository)
         svcs = self.app.manager.get_services('Galaxy')
-        for service in svcs:
-            service.remove()
-        cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
-        retval = os.system(cmd)
-        log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
-        cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, paths.P_GALAXY_HOME)
-        retval = os.system(cmd)
-        log.debug("Galaxy DB update cmd '%s'; return value %s" % (cmd, retval))
-        for service in svcs:
-            service.start()
-        log.debug("Done updating Galaxy")
+        if svcs:
+            for service in svcs:
+                service.remove()
+            cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
+            retval = os.system(cmd)
+            log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
+            cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, paths.P_GALAXY_HOME)
+            retval = os.system(cmd)
+            log.debug("Galaxy DB update cmd '%s'; return value %s" % (cmd, retval))
+            for service in svcs:
+                service.start()
+            comment = "Done updating Galaxy."
+            log.debug(comment)
+            return comment
+        else:
+            comment = "Galaxy service does not seem to be configured."
+            log.warning(comment)
+            return comment
     
     @expose
     def add_galaxy_admin_users(self, trans, admin_users=None):
-        log.info('Received following list of admin users: %s' % admin_users)
+        log.info("Received following list of admin users: '%s'" % admin_users)
         if admin_users is not None:
             admins_list = admin_users.split(',')
             # Test if provided values are in email format and remove non-email formatted ones
@@ -301,11 +310,13 @@ class CM( BaseController ):
                 svcs[0].restart()
                 return "Galaxy admins added: %s" % admins_list
             else:
-                log.error("Either no admins provided (%s) or Galaxy service not found" % admins_list)
-                return "Either no admins provided (%s) or Galaxy service not found" % admins_list
+                comment = "Either no acceptable admin values provided (%s) or Galaxy service not found." % admins_list
+                log.warning(comment)
+                return comment
         else:
-            log.error("No admin users provided: %s" % admin_users)
-            return "No admin users provided: %s" % admin_users
+            comment = "No admin users provided: '%s'" % admin_users
+            log.warning(comment)
+            return comment
     
     @expose
     def manage_service(self, trans, service_name, to_be_started=True):
@@ -321,7 +332,7 @@ class CM( BaseController ):
                     s.start()
                 return "%s started" % service_name
         else:
-            return "No '%s' service configured." % service_name
+            return "Cannot find %s service." % service_name
     
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
@@ -425,12 +436,12 @@ class CM( BaseController ):
     @expose
     def recover_monitor(self, trans, force='False'):
         if self.app.manager.console_monitor and force == 'False':
-            return 'Force is unset or set to false, and there is an existing monitor.  Try with more force.  (force=True)'
+            return 'There is an existing monitor and force is not used. Try with more force.'
         else:
             if self.app.manager.recover_monitor(force=force):
                 return "The instance has a new monitor now."
             else:
-                return "There was an error.  Can't create a new monitor."
+                return "There was an error. Can't create a new monitor."
     
     def get_galaxy_dns(self):
         """ Check if Galaxy is running and the the web UI is accessible. Return 

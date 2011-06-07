@@ -1,7 +1,10 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
     <div class="body" style="max-width: 720px; margin: 0 auto;">
-        <h2>Galaxy Cloudman Admin Console</h2>
+		<div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
+			<span id="msg" class="info_msg_box_content" style="display: none"></span>
+		</div>        
+		<h2>Galaxy Cloudman Admin Console</h2>
         <div id="main_text">
             This admin panel is a convenient way to gain insight into the status
             of individual Cloudman services as well as to control those services.<br/>
@@ -29,7 +32,7 @@
                         users. Note that this action implies restarting Galaxy. 
                     </div>
                 </span>
-                <form action="add_galaxy_admin_users" method="get">
+                <form class="generic_form" action="${h.url_for(controller='root', action='add_galaxy_admin_users')}" method="post">
                     <input type="text" value="CSV list of emails to be added as admins" class="form_el" name="admin_users" size="45">
                     <input type="submit" value="Add admin users">
                 </form>
@@ -61,7 +64,7 @@
                         </ol>
                     </div>
                 </span>
-                <form action="update_galaxy" method="get">
+                <form class="generic_form" action="${h.url_for(controller='root', action='update_galaxy')}" method="post">
                     <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" class="form_el" name="repository" size="45">
                     <input type="submit" value="Update Galaxy">
                 </form>
@@ -160,12 +163,14 @@
 		</div>
 		
 	## Javascript
+	<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script type="text/javascript">
         function update(repeat_update){
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
                 function(data){
                     if (data){
                         if (data.galaxy_rev != 'N/A') {
+							// This will always point to galaxy-central but better than nothing?
                             var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/"
                             + data.galaxy_rev.split(':')[1] + "' target='_blank'>"
                             + data.galaxy_rev + '</a>';
@@ -207,13 +212,34 @@
             window.setTimeout(function(){update(true)}, 5000);
         }
         function handle_clicks() {
-            $(".action").click(function(event) {
+            // Handle action links
+			$(".action").click(function(event) {
+				$('#msg').hide();
 				event.preventDefault();
 				var url = $(this).attr('href');
-				$.get(url);
+				$.get(url, function(data) {
+					$('#msg').html(data).fadeIn();
+					clear_msg();
+				});
 				popup();
             });
+			// Handle forms
+			$('.generic_form').ajaxForm({
+		        type: 'POST',
+		        dataType: 'json',
+				beforeSubmit: function() {
+					$('#msg').hide();
+					popup();
+				},
+		        complete: function(data) {
+		            update();
+					$('#msg').html(data.responseText).fadeIn();
+					clear_msg();
+		        }
+		    });
+			// Display overlays
 			$('#show_user_data').click(function(event) {
+				$('#msg').hide();
 				event.preventDefault();
 				var url = $(this).attr('href');
 				$.get(url, function(user_data) {
@@ -227,6 +253,11 @@
         }
 		function popup() {
 			$("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
+		}
+		function clear_msg() {
+			// Clear message box 1 minute after the call to this method
+			// FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
+            window.setTimeout(function(){$('#msg').hide();}, 60000);
 		}
         $(document).ready(function() {
             // Toggle help info boxes

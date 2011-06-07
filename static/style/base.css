@@ -202,6 +202,18 @@ div.form-row-input > input{max-width:300px;}
     border: 1px solid black;
     font-size: smaller;
 }
+.info_msg_box {
+    text-align: center;
+}
+.info_msg_box_content {
+    background-color: #FFF1A8;
+    display: inline;
+    font-weight: 400;
+    padding: 2px 5px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    -khtml-border-radius: 3px;
+}
 .help_text {
     color: #9D9E9E;
     margin-top: -10px;
