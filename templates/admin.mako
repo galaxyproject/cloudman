@@ -110,7 +110,7 @@
         </div>
         <ul class='services_list'>
 			<li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
-            <li><a href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
+            <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
             <li>
                 <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
                 <span class="help_info">
@@ -147,10 +147,19 @@
             </li>
         </ul>
 
-		<div class="box" style="height: 90px; text-align: center;">
+		## Overlays
+		<div class="box" id="action_initiated" style="height: 90px; text-align: center;">
 			<h2>Action initiated.</h2>
 		</div>
-
+		<div class="box" id="user_data">
+			<a class="boxclose"></a>
+			<h2>User data</h2>
+			<pre>
+				<div style="font-size: 10px" id="user_data_content"></div>
+			</pre>
+		</div>
+		
+	## Javascript
     <script type="text/javascript">
         function update(repeat_update){
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
@@ -204,9 +213,20 @@
 				$.get(url);
 				popup();
             });
+			$('#show_user_data').click(function(event) {
+				event.preventDefault();
+				var url = $(this).attr('href');
+				$.get(url, function(user_data) {
+					// Pretty-print JSON user data and display in an overlay box
+					var ud_obj = JSON.parse(user_data)
+					var ud_str = JSON.stringify(ud_obj, null, 2);
+					$('#user_data_content').html(ud_str);
+					$('#user_data').fadeIn('fast');
+				});
+			});
         }
 		function popup() {
-			$(".box").fadeIn("slow").delay(400).fadeOut("slow");
+			$("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
 		}
         $(document).ready(function() {
             // Toggle help info boxes
@@ -229,6 +249,10 @@
             $('.form_el').focus(function() {
                 this.select();
             });
+			// Add event to enable closing of an overlay box
+			$('.boxclose').click(function(){
+		        $('.box').hide();
+		    });
         });
     </script>
 </%def>
