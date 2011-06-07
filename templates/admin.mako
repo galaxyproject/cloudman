@@ -109,9 +109,10 @@
             Use these controls to administer Cloudman itself as well as the underlying system.
         </div>
         <ul class='services_list'>
-            <li><a href="${h.url_for(controller='root',action='get_user_data')}">Show current user data</a></li>
+			<li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
+            <li><a href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
             <li>
-                <a class='action' href="${h.url_for(controller='root',action='reboot')}">Reboot master instance</a>
+                <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -123,7 +124,7 @@
                 </span>
             </li>
             <li>
-                <a class='action' href="${h.url_for(controller='root',action='recover_monitor')}">Recover monitor</a>
+                <a class='action' href="${h.url_for(controller='root', action='recover_monitor')}">Recover monitor</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -135,7 +136,7 @@
                 </span>
             </li>
             <li>
-                <a class='action' href="${h.url_for(controller='root',action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
+                <a class='action' href="${h.url_for(controller='root', action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">

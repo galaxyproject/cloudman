@@ -411,7 +411,9 @@ class CM( BaseController ):
     
     @expose
     def admin(self, trans):
-        return trans.fill_template('admin.mako')
+        return trans.fill_template('admin.mako', 
+                                   ip=self.app.cloud_interface.get_self_public_ip(),
+                                   key_pair_name=self.app.cloud_interface.get_key_pair_name())
     @expose
     def cluster_status( self, trans ):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)

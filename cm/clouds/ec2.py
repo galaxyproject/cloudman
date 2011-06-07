@@ -97,6 +97,10 @@ class EC2Interface(CloudInterface):
     
     def get_key_pair_name( self ):
         if self.key_pair_name is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning 'local_keypair'")
+                self.key_pair_name = 'local_keypair'
+                return self.key_pair_name
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public keys (i.e., key pairs), attempt %s' % i)
@@ -127,6 +131,10 @@ class EC2Interface(CloudInterface):
     
     def get_self_public_ip( self ):
         if self.self_public_ip is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
+                self.self_public_ip = '127.0.0.1'
+                return self.self_public_ip
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public hostname, attempt %s' % i)
