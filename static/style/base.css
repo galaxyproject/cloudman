@@ -157,7 +157,10 @@ div.form-row-input > input{max-width:300px;}
     -webkit-box-shadow: 0 1px 5px #333;
     z-index:101;
 }
-
+.code {
+    font: 100% 'courier', 'helvetica', sans-serif;
+    padding: 5px 0;
+}
 .share_cluster_help_text {
 	color: #CCC;
 	float: right;
