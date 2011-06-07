@@ -420,7 +420,7 @@ class CM( BaseController ):
     
     @expose
     def get_user_data(self, trans):
-        return self.app.ud
+        return to_json_string(self.app.ud)
     
     @expose
     def recover_monitor(self, trans, force='False'):
