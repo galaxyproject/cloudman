@@ -459,7 +459,7 @@ class ConsoleManager( object ):
     def reboot(self):
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
-            return True
+            return False
         self.shutdown(sd_filesystems=False, sd_instances=False)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
