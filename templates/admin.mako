@@ -17,6 +17,7 @@
             Use these controls to administer functionality of Galaxy.
         </div>
         <ul class='services_list'>
+			<li><span id='galaxy_dns'>&nbsp;</span></li>
             <li>Current Galaxy admins: <span id="galaxy_admins">N/A</span></li>
             <li>Add Galaxy admin users:
                 <span class="help_info">
@@ -161,6 +162,12 @@
                         } else {
                             var rev_html = "N/A";
                         }
+						if (data.galaxy_dns == '#') {
+							var galaxy_dns = "Galaxy is currently inaccessible"
+						} else {
+							var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>"
+						}
+						$('#galaxy_dns').html(galaxy_dns);
                         $('#galaxy_admins').html(data.galaxy_admins);
                         $('#galaxy_rev').html(rev_html);
                         $('#galaxy_status').html(data.Galaxy);

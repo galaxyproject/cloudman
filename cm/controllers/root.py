@@ -237,7 +237,9 @@ class CM( BaseController ):
     
     @expose
     def get_all_services_status(self, trans):
-        return to_json_string(self.app.manager.get_all_services_status())
+        status_dict = self.app.manager.get_all_services_status()
+        status_dict['galaxy_dns'] = self.get_galaxy_dns()
+        return to_json_string(status_dict)
     
     @expose
     def full_update(self, trans, l_log = 0):
@@ -427,15 +429,21 @@ class CM( BaseController ):
                 return "The instance has a new monitor now."
             else:
                 return "There was an error.  Can't create a new monitor."
-
-    @expose
-    def instance_state_json(self, trans, no_json=False):
+    
+    def get_galaxy_dns(self):
+        """ Check if Galaxy is running and the the web UI is accessible. Return 
+        DNS address if so, `#` otherwise. """
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
             dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_ip() )
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
+        return dns
+    
+    @expose
+    def instance_state_json(self, trans, no_json=False):
+        dns = self.get_galaxy_dns()
         snap_status = self.app.manager.snapshot_status()
         ret_dict = {'instance_state':self.app.manager.get_instance_state(),
                     'cluster_status':self.app.manager.get_cluster_status(),
