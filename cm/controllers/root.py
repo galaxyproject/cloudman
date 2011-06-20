@@ -223,13 +223,26 @@ class CM( BaseController ):
                     log = f.read()
             else:
                 log = self.tail(log_file, num_lines=num_lines)
-        trans.response.set_content_type( "text" )
+        # Convert the log file contents to unicode for proper display
+        log = self.to_unicode(log)
+        trans.response.set_content_type("text")
         return trans.fill_template("srvc_log.mako", 
                                    service_name=service_name,
                                    log=log, 
                                    num_lines=num_lines, 
                                    full=(show=='all'), 
                                    log_file=log_file)
+    
+    def to_unicode(self, a_string):
+        """ 
+        Convert a string to unicode in utf-8 format; if string is already unicode,
+        does nothing because string's encoding cannot be determined by introspection.
+        """
+        a_string_type = type ( a_string )
+        if a_string_type is str:
+           return unicode( a_string, 'utf-8' )
+        elif a_string_type is unicode:
+           return a_string
     
     @expose
     def get_srvc_status(self, trans, srvc):
@@ -269,15 +282,20 @@ class CM( BaseController ):
             return "Cannot find %s service." % service_name
     
     @expose
-    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central"):
-        log.debug("Updating Galaxy... Using repository %s" % repository)
+    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central", db_only=False):
+        if db_only == 'True':
+            db_only = True
+            log.debug("Updating Galaxy database...")
+        else:
+            log.debug("Updating Galaxy... Using repository %s" % repository)
         svcs = self.app.manager.get_services('Galaxy')
         if svcs:
             for service in svcs:
                 service.remove()
-            cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
-            retval = os.system(cmd)
-            log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
+            if not db_only:
+                cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
+                retval = os.system(cmd)
+                log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
             cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, paths.P_GALAXY_HOME)
             retval = os.system(cmd)
             log.debug("Galaxy DB update cmd '%s'; return value %s" % (cmd, retval))

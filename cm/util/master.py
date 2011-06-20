@@ -340,19 +340,22 @@ class ConsoleManager( object ):
     
     def get_galaxy_rev(self):
         cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, paths.P_GALAXY_HOME)
-        try:
-            rev = commands.getoutput(cmd).strip()
-        except:
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = process.communicate()
+        if out[1] != '':
             rev = 'N/A'
+        else:
+            rev = out[0].strip()
         return rev 
         
     def get_galaxy_admins(self):
-        admins = ''
+        admins = 'None'
         try:
             config_file = open(os.path.join(paths.P_GALAXY_HOME, 'universe_wsgi.ini'), 'r').readlines()
             for line in config_file:
                 if 'admin_users' in line:
                     admins = line.split('=')[1].strip()
+                    break
         except IOError:
             pass
         return admins
