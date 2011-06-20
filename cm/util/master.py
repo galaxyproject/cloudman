@@ -1042,8 +1042,11 @@ class ConsoleManager( object ):
         default_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_default'], self.app.config.cloudman_source_file_name, 'revision')
         log.debug("Revision number for user's CloudMan: '%s'; revision number for default CloudMan: '%s'" % (user_CM_rev, default_CM_rev))
         if user_CM_rev and default_CM_rev:
-            if default_CM_rev > user_CM_rev:
-                return {'default_CM_rev': default_CM_rev, 'user_CM_rev':user_CM_rev}
+            try:
+                if int(default_CM_rev) > int(user_CM_rev):
+                    return {'default_CM_rev': default_CM_rev, 'user_CM_rev':user_CM_rev}
+            except Exception:
+                pass
         return {}
     
     def update_users_CM(self):
