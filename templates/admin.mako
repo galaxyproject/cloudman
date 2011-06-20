@@ -1,10 +1,10 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
     <div class="body" style="max-width: 720px; margin: 0 auto;">
-		<div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
-			<span id="msg" class="info_msg_box_content" style="display: none"></span>
-		</div>        
-		<h2>Galaxy Cloudman Admin Console</h2>
+        <div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
+            <span id="msg" class="info_msg_box_content" style="display: none"></span>
+        </div>        
+        <h2>Galaxy Cloudman Admin Console</h2>
         <div id="main_text">
             This admin panel is a convenient way to gain insight into the status
             of individual Cloudman services as well as to control those services.<br/>
@@ -20,9 +20,9 @@
             Use these controls to administer functionality of Galaxy.
         </div>
         <ul class='services_list'>
-			<li><span id='galaxy_dns'>&nbsp;</span></li>
+            <li><span id='galaxy_dns'>Galaxy is currently inaccessible</span></li>
             <li>Current Galaxy admins: <span id="galaxy_admins">N/A</span></li>
-            <li>Add Galaxy admin users:
+            <li>Add Galaxy admin users
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -37,8 +37,8 @@
                     <input type="submit" value="Add admin users">
                 </form>
             </li>
-            <li>Current Galaxy revision: <span id="galaxy_rev">N/A</span></li>
-            <li>Update Galaxy from a provided repository:
+            <li>Running Galaxy at revision: <span id="galaxy_rev">N/A</span></li>
+            <li>Update Galaxy from a provided repository
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
@@ -87,6 +87,7 @@
                 <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy&to_be_started=False" target='_blank'>Stop</a></td>
                 <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy" target="_blank">Start</a></td>
                 <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Galaxy" target="_blank">Restart</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='update_galaxy')}?db_only=True" target='_blank'>Update DB</a></td>
             </tr>
             <tr>
                 <td>PostgreSQL</td>
@@ -106,13 +107,18 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
+            <tr>
+                <td>File systems</td>
+                <td><span id="filesystem_status">&nbsp;</span></td>
+                <td>No logs</td>
+            </tr>
         </table>
         <h3>System controls</h3>
         <div class="help_text">
             Use these controls to administer Cloudman itself as well as the underlying system.
         </div>
         <ul class='services_list'>
-			<li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
+            <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
             <li>
                 <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
@@ -150,44 +156,46 @@
             </li>
         </ul>
 
-		## Overlays
-		<div class="box" id="action_initiated" style="height: 90px; text-align: center;">
-			<h2>Action initiated.</h2>
-		</div>
-		<div class="box" id="user_data">
-			<a class="boxclose"></a>
-			<h2>User data</h2>
-			<pre>
-				<div style="font-size: 10px" id="user_data_content"></div>
-			</pre>
-		</div>
-		
-	## Javascript
-	<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
+        ## Overlays
+        <div class="box" id="action_initiated" style="height: 90px; text-align: center;">
+            <h2>Action initiated.</h2>
+        </div>
+        <div class="box" id="user_data">
+            <a class="boxclose"></a>
+            <h2>User data</h2>
+            <pre>
+                <div style="font-size: 10px" id="user_data_content"></div>
+            </pre>
+        </div>
+
+    ## Javascript
+    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script type="text/javascript">
         function update(repeat_update){
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
                 function(data){
                     if (data){
                         if (data.galaxy_rev != 'N/A') {
-							// This will always point to galaxy-central but better than nothing?
+                            // This will always point to galaxy-central but better than nothing?
                             var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/"
                             + data.galaxy_rev.split(':')[1] + "' target='_blank'>"
                             + data.galaxy_rev + '</a>';
                         } else {
                             var rev_html = "N/A";
                         }
-						if (data.galaxy_dns == '#') {
-							var galaxy_dns = "Galaxy is currently inaccessible"
-						} else {
-							var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>"
-						}
-						$('#galaxy_dns').html(galaxy_dns);
+                        if (data.galaxy_dns == '#') {
+                            var galaxy_dns = "Galaxy is currently inaccessible"
+                        } else {
+                            var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>"
+                        }
+                        $('#galaxy_dns').html(galaxy_dns);
                         $('#galaxy_admins').html(data.galaxy_admins);
                         $('#galaxy_rev').html(rev_html);
                         $('#galaxy_status').html(data.Galaxy);
                         $('#postgres_status').html(data.Postgres);
                         $('#sge_status').html(data.SGE);
+                        $('#filesystem_status').html(data.Filesystem);
+                        // Set color for services - `Running` is green, anything else is red
                         if (data.Galaxy == 'Running') {
                             $('#galaxy_status').css("color", "green");
                         }
@@ -206,6 +214,12 @@
                         else {
                             $('#sge_status').css("color", "red");
                         }
+                        if (data.Filesystem == 'Running') {
+                            $('#filesystem_status').css("color", "green");
+                        }
+                        else {
+                            $('#filesystem_status').css("color", "red");
+                        }
                     }
             });
             // Update service status every 5 seconds
@@ -213,52 +227,52 @@
         }
         function handle_clicks() {
             // Handle action links
-			$(".action").click(function(event) {
-				$('#msg').hide();
-				event.preventDefault();
-				var url = $(this).attr('href');
-				$.get(url, function(data) {
-					$('#msg').html(data).fadeIn();
-					clear_msg();
-				});
-				popup();
+            $(".action").click(function(event) {
+                $('#msg').hide();
+                event.preventDefault();
+                var url = $(this).attr('href');
+                $.get(url, function(data) {
+                    $('#msg').html(data).fadeIn();
+                    clear_msg();
+                });
+                popup();
             });
-			// Handle forms
-			$('.generic_form').ajaxForm({
-		        type: 'POST',
-		        dataType: 'json',
-				beforeSubmit: function() {
-					$('#msg').hide();
-					popup();
-				},
-		        complete: function(data) {
-		            update();
-					$('#msg').html(data.responseText).fadeIn();
-					clear_msg();
-		        }
-		    });
-			// Display overlays
-			$('#show_user_data').click(function(event) {
-				$('#msg').hide();
-				event.preventDefault();
-				var url = $(this).attr('href');
-				$.get(url, function(user_data) {
-					// Pretty-print JSON user data and display in an overlay box
-					var ud_obj = JSON.parse(user_data)
-					var ud_str = JSON.stringify(ud_obj, null, 2);
-					$('#user_data_content').html(ud_str);
-					$('#user_data').fadeIn('fast');
-				});
-			});
+            // Handle forms
+            $('.generic_form').ajaxForm({
+                type: 'POST',
+                dataType: 'json',
+                beforeSubmit: function() {
+                    $('#msg').hide();
+                    popup();
+                },
+                complete: function(data) {
+                    update();
+                    $('#msg').html(data.responseText).fadeIn();
+                    clear_msg();
+                }
+            });
+            // Display overlays
+            $('#show_user_data').click(function(event) {
+                $('#msg').hide();
+                event.preventDefault();
+                var url = $(this).attr('href');
+                $.get(url, function(user_data) {
+                    // Pretty-print JSON user data and display in an overlay box
+                    var ud_obj = JSON.parse(user_data)
+                    var ud_str = JSON.stringify(ud_obj, null, 2);
+                    $('#user_data_content').html(ud_str);
+                    $('#user_data').fadeIn('fast');
+                });
+            });
         }
-		function popup() {
-			$("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
-		}
-		function clear_msg() {
-			// Clear message box 1 minute after the call to this method
-			// FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
+        function popup() {
+            $("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
+        }
+        function clear_msg() {
+            // Clear message box 1 minute after the call to this method
+            // FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
             window.setTimeout(function(){$('#msg').hide();}, 60000);
-		}
+        }
         $(document).ready(function() {
             // Toggle help info boxes
             $(".help_info span").click(function () {
@@ -280,10 +294,10 @@
             $('.form_el').focus(function() {
                 this.select();
             });
-			// Add event to enable closing of an overlay box
-			$('.boxclose').click(function(){
-		        $('.box').hide();
-		    });
+            // Add event to enable closing of an overlay box
+            $('.boxclose').click(function(){
+                $('.box').hide();
+            });
         });
     </script>
 </%def>

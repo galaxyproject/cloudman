@@ -3,8 +3,8 @@
     <div id='msg_warning'>
         %if not full:
             Only up to the most recent ${num_lines} lines of the file (${log_file})
-			are shown. 
-			<a href="?service_name=${service_name}&show=all">Show all</a>
+            are shown. 
+            <a href="?service_name=${service_name}&show=all">Show all</a>
             %if num_lines > 100:
                 | <a href="?service_name=${service_name}&show=less&num_lines=${num_lines}">Show less</a>
             %endif
