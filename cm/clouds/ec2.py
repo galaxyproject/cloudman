@@ -33,6 +33,10 @@ class EC2Interface(CloudInterface):
     
     def get_type( self ):
         if self.instance_type is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get instance type, but TESTFLAG is set. Returning 'something.good'")
+                self.instance_type = 'something.good'
+                return self.instance_type
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance type, attempt %s' % i)
