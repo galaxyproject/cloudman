@@ -29,6 +29,7 @@ class CM( BaseController ):
                                         permanent_storage_size = permanent_storage_size,
                                         initial_cluster_type = initial_cluster_type,
                                         cluster_name = cluster_name,
+                                        master_instance_type = self.app.cloud_interface.get_type(),
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
                                         CM_url=CM_url)
     def get_CM_url(self, trans):
