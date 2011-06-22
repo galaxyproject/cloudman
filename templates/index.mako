@@ -871,9 +871,9 @@ $(document).ready(function() {
     
     // FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
     var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+    autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     var autoscaling_max_bound_adj = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+    autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     $('#as_min_adj').change(function(){
         autoscaling_max_bound_adj.validations[0].params.minimum = $('#as_min_adj').val();
     });
