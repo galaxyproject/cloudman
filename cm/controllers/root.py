@@ -209,6 +209,8 @@ class CM( BaseController ):
                     pass
             else:
                 log_file = os.path.join(paths.P_SGE_CELL, 'messages')
+        elif service_name == 'CloudMan':
+                log_file = "paster.log"
         # Set log length
         if num_lines:
             if show == 'more':
