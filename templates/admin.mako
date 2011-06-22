@@ -120,6 +120,7 @@
         <ul class='services_list'>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
+            <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
             <li>
                 <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
                 <span class="help_info">
