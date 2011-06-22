@@ -858,9 +858,9 @@ $(document).ready(function() {
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
     
     var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 20, onlyInteger: true } );
+    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     
     $('#as_min').change(function(){
         autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
