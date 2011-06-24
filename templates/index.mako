@@ -190,7 +190,7 @@ vertical-align: top;
             the master instance will be left alive and should be terminated 
             manually (using the AWS console).</p>
             <label>Automatically terminate the master instance?</label>
-            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance"> If checked, this master instance will automatically terminate after all services have been shut down.
+            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked> If checked, this master instance will automatically terminate after all services have been shut down.
             <p></p><label>Also delete this cluster?</label>
             <input type="checkbox" name="delete_cluster" id="delete_cluster"> If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
             <div class="form-row"><input type="submit" value="Yes, power off"></div>
