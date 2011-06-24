@@ -98,10 +98,10 @@ vertical-align: top;
     <table cellpadding="0" cellspacing="10">
             %if cluster_name:
                 <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span>&nbsp;
-                <span><a id="share_a_cluster">&nbsp;</a></span></td></tr>
+                <span><a id="share_a_cluster" title="Share-an-instance">&nbsp;</a></span></td></tr>
             %endif
         <tr><td><h4>Disk status: </h4></td><td>
-            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol'>&nbsp;</span>
+            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' title="Expand disk size">&nbsp;</span>
             ##<span id="snap-status"></span><span id="snap-progress"></span>
         </td></tr>
         <tr><td><h4>Worker status: </h4></td><td>
@@ -885,6 +885,10 @@ $(document).ready(function() {
     if (initial_cluster_type === 'None') {
         toggleVolDialog();
     }
+    // Add tooltips
+    $('#share_a_cluster').tipsy({gravity: 'w', fade: true});
+    $('#expand_vol').tipsy({gravity: 'w', fade: true});
+    // Initiate the update calls
     update(true);
 });
 
