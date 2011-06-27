@@ -123,86 +123,98 @@ class SGEService( ApplicationService ):
     
     def add_sge_host( self, inst ):
         # TODO: Should check to ensure SGE_ROOT mounted on worker
-        proc = subprocess.Popen( "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -shgrp @allhosts" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE )
-        allhosts_out = proc.communicate()[0]
+        time.sleep(10) # Wait in hope that SGE processed last host addition
         inst_ip = inst.get_private_ip()
         error = False
         if not inst_ip:
-            log.error( "Instance '%s' IP not retrieved! Not adding instance to SGE exec host pool." % inst.id )
+            log.error( "Instance '%s' IP not retrieved! Cannot add instance to SGE." % inst.id )
             return False
-        if inst_ip not in allhosts_out:
-            log.info( "Adding instance %s to SGE Execution Host list" % inst.id )
-            time.sleep(10) # Wait in hope that SGE processed last host addition
-            stderr = None
-            stdout = None
-            proc = subprocess.Popen( 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -ah %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst_ip), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE )
-            std = proc.communicate()
-            if std[0]:
-                stdout = std[0]
-            if std[1]:
-                stderr = std[1]
-            log.debug( "stdout: %s" % stdout )
-            log.debug( "stderr: %s" % stderr )
-            # TODO: Should be looking at return code and use stdout/err just for info about the process progress...
-            # It seems that SGE prints everything to stderr
-            if stderr is None or 'already exists' in stderr or 'added to administrative host list' in stderr:
-                log.debug( "Successfully added instance '%s' (w/ private IP: %s) as administrative host." % (inst.id, inst.private_ip ))
-            else:
-                error = True
-                log.debug( "Encountered problems adding instance '%s' as administrative host: %s" % ( inst.id, stderr ) )
-            # if ret_code == 0:
-            #     log.debug( "Successfully added instance '%s' as administrative host." % inst.id )
-            # else:
-            #     error = True
-            #     log.error( "Failed to add instance '%s' as administrative host." % inst.id )
-            
-            # Create temp dir to hold all worker host configuration files
+        log.debug("Adding instance '%s' w/ private IP '%s' to SGE." % (inst.id, inst_ip))
+        
+        #== Add instance as SGE administrative host
+        log.info("Adding instance '%s' as SGE administrative host." % inst.id)
+        stderr = stdout = None
+        cmd = 'export SGE_ROOT=%s;. $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -ah %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst_ip)
+        log.debug("Add SGE admin host cmd: '%s'" % cmd)
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.wait() == 0:
+            log.debug("Successfully added instance '%s' w/ private IP '%s' as administrative host." % (inst.id, inst_ip))
+        else:
+            error = True
+            log.error("Process encountered problems adding instance '%s' as administrative host. Process returned code %s" % (inst.id, proc.returncode))
+            stdout, stderr = proc.communicate()
+            log.debug("Adding instance '%s' SGE administrative host stdout (private IP: '%s'): '%s'" % (inst.id, inst.private_ip, stdout))
+            log.debug("Adding instance '%s' SGE administrative host stderr (private IP: '%s'): '%s'" % (inst.id, inst.private_ip, stderr))
+        
+        #== Add instance as SGE execution host
+        # Check if host is already in the exec host list
+        cmd = "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -sel" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT)
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        if inst_ip in stdout:
+            log.debug("Instance '%s' already in SGE execution host list" % inst.id)
+        else:
+            log.info("Adding instance '%s' to SGE execution host list." % inst.id)
+            # Create a dir to hold all of workers host configuration files
             host_conf_dir = "%s/host_confs" % paths.P_SGE_ROOT
-            if not os.path.exists( host_conf_dir ):
-                subprocess.call( 'mkdir -p %s' % host_conf_dir, shell=True )
-                os.chown( host_conf_dir, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2] )
-            host_conf = host_conf_dir + '/' + str( inst.id )
-            f = open( host_conf, 'w' )
-            print >> f, templates.SGE_HOST_CONF_TEMPLATE % ( inst_ip )
-            f.close()
-            os.chown( host_conf, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2] )
-            log.debug( "Created SGE host configuration template as file '%s'." % host_conf )
+            if not os.path.exists(host_conf_dir):
+                subprocess.call('mkdir -p %s' % host_conf_dir, shell=True)
+                os.chown(host_conf_dir, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2])
+            host_conf_file = os.path.join(host_conf_dir, str(inst.id))
+            with open(host_conf_file, 'w') as f:
+                print >> f, templates.SGE_HOST_CONF_TEMPLATE % (inst_ip)
+            os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
+            log.debug("Created SGE host configuration template as file '%s'." % host_conf_file)
             # Add worker instance as execution host to SGE
-            proc = subprocess.Popen( 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Ae %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, host_conf), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE )
-            stderr = None
-            stdout = None
-            std = proc.communicate()
-            if std[0]:
-                stdout = std[0]
-            if std[1]:
-                stderr = std[1]
-            log.debug( "Adding SGE execution host stdout (instance: '%s', private IP: '%s'): %s" % (inst.id, inst.private_ip, stdout))
-            log.debug( "Adding SGE execution host stderr (instance: '%s', private IP: '%s'): %s" % (inst.id, inst.private_ip, stderr))
-            # TODO: Should be looking at return code and use stdout/err just for info about the process progress...
-            if stderr is None or 'added' in stderr:
-                log.debug( "Successfully added instance '%s' as execution host." % inst.id )
-            elif 'already exists' in stderr:
-                log.debug( "Instance '%s' already exists in exechost list: %s" % ( inst.id, stderr ) )
+            cmd = 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Ae %s' \
+                % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, host_conf_file)
+            log.debug("Add SGE exec host cmd: '%s'" % cmd)
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if proc.wait() == 0:
+                log.debug("Successfully added instance '%s' w/ private IP '%s' as execution host." % (inst.id, inst_ip))
             else:
                 error = True
-                log.debug( "Encountered problems adding instance '%s' as execution host: %s" % ( inst.id, stderr ) )
-            
-            # Check if given instance's hostname is in @allhosts list and add it if it's not
+                log.error("Process encountered problems adding instance '%s' as execution host. Process returned code %s" % (inst.id, proc.returncode))
+                stderr = stdout = None
+                stdout, stderr = proc.communicate()
+                log.debug("Adding instance '%s' SGE execution host stdout (private IP: '%s'): '%s'" % (inst.id, inst.private_ip, stdout))
+                log.debug("Adding instance '%s' SGE execution host stderr (private IP: '%s'): '%s'" % (inst.id, inst.private_ip, stderr))
+        
+        #== Add given instance's hostname to @allhosts
+        # Check if instance is already in allhosts file and do not recreate the 
+        # file if so.
+        # Additional documentation: allhosts file can be generated by Cloudman
+        # each time an instance is added or removed. The file is generetd based
+        # on the Instance object Cloudman keeps track of and, as a resul, it
+        # includes all of the instances listed. So, some instances, although they
+        # have yet to go through the addition process, might have had their IPs
+        # already included in the allhosts file. This approach ensures consistency
+        # between SGE and Cloudman and has been working much better than trying
+        # to sync the two via other methods.
+        proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -shgrp @allhosts" \
+            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE)
+        allhosts_out = proc.communicate()[0]
+        if inst_ip not in allhosts_out:
             now = datetime.datetime.utcnow()
             ah_file = '/tmp/ah_add_' + now.strftime("%H_%M_%S")
             self.write_allhosts_file( filename=ah_file, to_add = inst_ip)
-            misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file),"Problems updating @allhosts aimed at adding '%s'" % inst.id, "Successfully updated @allhosts to add '%s'" % inst.id)
-            
-            # On instance reboot, SGE might have already been configured for given instance and this
-            # process will fail although instance may register fine with SGE...
-            if error is False:
-                log.info( "Successfully added instance '%s' to SGE" % inst.id )
+            if not misc.run('export SGE_ROOT=%s;. $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Mhgrp %s' \
+                % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), \
+                "Problems updating @allhosts aimed at adding '%s'" % inst.id, \
+                "Successfully updated @allhosts to add '%s' with IP '%s'" % (inst.id, inst_ip)):
+                error = True
         else:
-            log.info( "Instance '%s' already in SGE's @allhosts" % inst.id )
+            log.info("Instance '%s' IP is already in SGE's @allhosts" % inst.id)
+        
+        # On instance reboot, SGE might have already been configured for a given
+        # instance and this method will fail along the way although the instance
+        # will still operate within SGE so don't explicitly state it was added.
+        if error is False:
+            log.info("Successfully added instance '%s' to SGE" % inst.id)
         
         return True
     
-    def stop_sge( self ):
+    def stop_sge(self):
         log.info( "Stopping SGE." )
         for inst in self.app.manager.worker_instances:
             self.remove_sge_host( inst )
