@@ -312,6 +312,11 @@ allow_user_creation = True
 # Allow administrators to delete accounts.
 #allow_user_deletion = False
 
+# Allow users to remove their datasets from disk immediately (otherwise,
+# datasets will be removed after a time period specified by an administrator in
+# the cleanup scripts run via cron)
+allow_user_dataset_purge = True
+
 # By default, users' data will be public, but setting this to True will cause
 # it to be private.  Does not affect existing users and data, only ones created
 # after this option is set.  Users may still change their default back to
@@ -330,7 +335,13 @@ enable_tracks = True
 enable_pages = True
 
 # Enable the (experimental! beta!) Web API.  Documentation forthcoming.
-#enable_api = False
+enable_api = True
+
+# Enable tool tags (associating tools with tags).  This has its own option
+# since its implementation has a few performance implications on startup for
+# large servers.
+enable_tool_tags = True
+
 
 # -- Job Execution
 
@@ -397,6 +408,13 @@ tool_dependency_dir = /mnt/galaxyTools/tools
 #pbs_stage_path = 
 #pbs_dataset_server = 
 
+# -- Advanced proxy features
+
+# The same download handling can be done by nginx using X-Accel-Redirect.  This
+# should be set to the path defined in the nginx config as an internal redirect
+# with access to Galaxy's data files (see documentation linked above).
+nginx_x_accel_redirect_base = /_x_accel_redirect
+
 # ---- Tool Job Runners -----------------------------------------------------
 
 # Individual per-tool job runner overrides.  If not listed here, a tool will
@@ -412,14 +430,6 @@ ucsc_table_direct1 = local:///
 ucsc_table_direct_archaea1 = local:///
 ucsc_table_direct_test1 = local:///
 upload1 = local:///
-
-
-# -- Advanced proxy features
-
-# The same download handling can be done by nginx using X-Accel-Redirect.  This
-# should be set to the path defined in the nginx config as an internal redirect
-# with access to Galaxy's data files (see documentation linked above).
-nginx_x_accel_redirect_base = /_x_accel_redirect
 
 # ---- Galaxy Message Queue -------------------------------------------------
 
