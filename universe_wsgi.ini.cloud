@@ -102,10 +102,10 @@ database_engine_option_max_overflow = 50
 # If large database query results are causing memory or response time issues in
 # the Galaxy process, leave the result on the server instead.  This option is
 # only available for PostgreSQL and is highly recommended.
-database_engine_option_server_side_cursors = False
+database_engine_option_server_side_cursors = True
 
 # Create only one connection to the database per thread, to reduce the
-# connection overhead.  Recommended when not using SQLite:
+# connection overhead. Recommended when not using SQLite:
 database_engine_option_strategy = threadlocal
 
 # -- Files and directories

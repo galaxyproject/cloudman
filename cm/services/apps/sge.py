@@ -100,24 +100,31 @@ class SGEService( ApplicationService ):
         SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
         with open( SGE_config_file, 'w' ) as f:
             print >> f, templates.SGE_INSTALL_TEMPLATE % ( self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_self_private_ip(), exec_nodes )
-        os.chown( SGE_config_file, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2] )
-        log.debug( "Created SGE install template as file '%s'" % SGE_config_file )
-        log.debug( "Setting up SGE." )
-        if misc.run( 'cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
+        os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
+        log.debug("Created SGE install template as file '%s'" % SGE_config_file)
+        # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
+        # Ubuntu 11.04 the location and name of the library have changed
+        if not os.path.exists('/lib64/libc.so.6'):
+            if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
+                os.symlink('/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
+            else:
+                log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+        log.debug("Setting up SGE.")
+        if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.info("Successfully setup SGE; configuring SGE")
             SGE_allq_file = '%s/all.q.conf' % paths.P_SGE_ROOT
             with open( SGE_allq_file, 'w' ) as f:
                 print >> f, templates.ALL_Q_TEMPLATE
-            os.chown( SGE_allq_file, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2] )
-            log.debug( "Created SGE all.q template as file '%s'" % SGE_allq_file )
-            misc.run ( 'cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (paths.P_SGE_ROOT, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
+            os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
+            log.debug("Created SGE all.q template as file '%s'" % SGE_allq_file)
+            misc.run('cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (paths.P_SGE_ROOT, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
             # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
             misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
             misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
             log.debug("Configuring users' SGE profiles" )
-            with open( "/etc/bash.bashrc", 'a' ) as f:
-                f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
-                f.write( "\n. $SGE_ROOT/default/common/settings.sh\n" )
+            with open("/etc/bash.bashrc", 'a') as f:
+                f.write("\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT)
+                f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
             return True
         return False
     

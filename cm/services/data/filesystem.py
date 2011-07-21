@@ -376,8 +376,9 @@ class Filesystem(DataService):
                 # TODO: Do something if the device is not available in given time period
                 for i in range(10):
                     if os.path.exists(volume.get_device()):
-                        break
+                        log.debug("Path '%s' checked and exists." % volume.get_device())
                     else:
+                        log.debug("Path '%s' does not yet exists." % volume.get_device())
                         time.sleep(4)
                 if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
                     # FIXME: Assume if a file system cannot be mounted that it's because there is not a file system on the device so create one
