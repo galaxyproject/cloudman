@@ -16,7 +16,7 @@ from cm.services.apps.postgres import PostgresService
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, BotoServerError, S3ResponseError
 
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 #Master States
 master_states = Bunch( 
@@ -44,12 +44,12 @@ cluster_status = Bunch(
  )
 
 
-class ConsoleManager( object ):
-    def __init__( self, app ):
+class ConsoleManager(object):
+    def __init__(self, app):
         self.startup_time = dt.datetime.utcnow()
         log.debug( "Initializing console manager - cluster start time: %s" % self.startup_time)
         self.app = app
-        self.console_monitor = ConsoleMonitor( self.app )
+        self.console_monitor = ConsoleMonitor(self.app)
         self.root_pub_key = None
         self.cluster_status = cluster_status.OFF
         self.master_state = master_states.INITIAL_STARTUP
@@ -59,10 +59,50 @@ class ConsoleManager( object ):
         self.disk_used = "0"
         self.disk_pct = "0%"
         self.manager_started = False
-        self.cluster_sharing_in_progress = False
+        self.cluster_manipulation_in_progress = False
         
         self.initial_cluster_type = None
         self.services = []        
+    
+    def _stop_app_level_services(self):
+        """ Convenience function that suspends SGE jobs and removes Galaxy & 
+        Postgres services, thus allowing system level operations to be performed."""
+        # Suspend all SGE jobs
+        log.debug("Suspending SGE queue all.q")
+        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q' \
+            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
+        # Stop application-level services managed via CloudMan
+        # If additional service are to be added as things CloudMan can handle,
+        # the should be added to do for-loop list (in order in which they are
+        # to be removed)
+        if self.initial_cluster_type == 'Galaxy':
+            for svc_type in ['Galaxy', 'Postgres']:
+                try:
+                    svc = self.get_services(svc_type)
+                    if svc:
+                        svc[0].remove()
+                except IndexError, e:
+                    log.error("Tried removing app level service '%s' but failed: %s" \
+                        % (svc_type, e))
+    
+    def _start_app_level_services(self):
+        # Resume application-level services managed via CloudMan
+        # If additional service are to be added as things CloudMan can handle,
+        # the should be added to do for-loop list (in order in which they are
+        # to be added)
+        for svc_type in ['Postgres', 'Galaxy']:
+            try:
+                svc = self.get_services(svc_type)
+                if svc:
+                    svc[0].add()
+            except IndexError, e:
+                log.error("Tried adding app level service '%s' but failed: %s" \
+                    % (svc_type, e))
+        log.debug("Unsuspending SGE queue all.q")
+        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' \
+            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
+            "Error unsuspending SGE jobs", \
+            "Successfully unsuspended all SGE jobs")
     
     def recover_monitor(self, force='False'):
         if self.console_monitor:
@@ -96,7 +136,7 @@ class ConsoleManager( object ):
             # No volume is being snapshoted; check if waiting to 'grow' one
             if fs.grow:
                 return ("configuring", None)
-        if self.cluster_sharing_in_progress:
+        if self.cluster_manipulation_in_progress:
             return ("configuring", None)
         return (None, None)
     
@@ -347,7 +387,7 @@ class ConsoleManager( object ):
         else:
             rev = out[0].strip()
         return rev 
-        
+    
     def get_galaxy_admins(self):
         admins = 'None'
         try:
@@ -427,7 +467,7 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
-        log.debug("List of services before shutdown: %s" % self.services)
+        log.debug("List of services before shutdown:", [s.get_full_name() for s in self.services])
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
@@ -713,7 +753,7 @@ class ConsoleManager( object ):
                     else:
                         fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % snap['filesystem'])
-                    self.app.manager.services.append(fs)
+                    self.services.append(fs)
             # User data - add a new file system for user data of size 'pss'                    
             fs_name = 'galaxyData'
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
@@ -822,15 +862,8 @@ class ConsoleManager( object ):
             return {}
         # TODO: recover services if the process fails midway
         log.info("Setting up the cluster for sharing")
-        self.cluster_sharing_in_progress = True
-        # Suspend all SGE jobs
-        log.debug("Suspending SGE queue all.q")
-        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
-        # Stop Galaxy and Postgres services
-        for svc_type in ['Galaxy', 'Postgres']:
-            svc = self.app.manager.get_services(svc_type)[0]
-            svc.remove()
+        self.cluster_manipulation_in_progress = True
+        self._stop_app_level_services()
         
         # Initiate snapshot of the galaxyData file system
         snap_ids=[]
@@ -929,13 +962,8 @@ class ConsoleManager( object ):
             # TODO: Handle this with more user input?
             log.error("Error modifying permissions for keys in bucket '%s'" % self.app.ud['bucket_cluster'])
         
-        # Resume all services
-        for svc_type in ['Postgres', 'Galaxy']:
-            svc = self.app.manager.get_services(svc_type)[0]
-            svc.add()
-        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error unsuspending SGE jobs", "Successfully unsuspended all SGE jobs")
-        self.cluster_sharing_in_progress = False
+        self._start_app_level_services()
+        self.cluster_manipulation_in_progress = False
         return True
     
     def get_shared_instances(self):
@@ -1016,6 +1044,66 @@ class ConsoleManager( object ):
             log.error("As part of shared cluster instance deletion, problem deleting snapshot '%s': %s" % (snap_id, e))
             ok = False
         return ok
+    
+    def update_file_system(self, file_system_name):
+        """ This method is used to update the underlying EBS volume/snapshot
+        that is used to hold the provided file system. This is useful when
+        changes have been made to the underlying file system and those changes
+        wish to be preserved beyond the runtime of the current instance. After
+        calling this method, terminating and starting the cluster instance over
+        will preserve any changes made to the file system (provided the snapshot
+        created via this method has not been deleted).
+        The method performs the following steps:
+        1. Suspend all application-level services
+        2. Unmount and detach the volume associated with the file system
+        3. Create a snapshot of the volume
+        4. Delete references to the original file system's EBS volume
+        5. Add a new reference to the created snapshot, which gets picked up
+           by the monitor and a new volume is created and file system mounted
+        6. Unsuspend services
+        """
+        if self.app.TESTFLAG is True:
+            log.debug( "Attempted to update file system '%s', but TESTFLAG is set." % file_system_name)
+            return None
+        log.info("Initiating file system '%s' update." % file_system_name)
+        self.cluster_manipulation_in_progress = True
+        self._stop_app_level_services()
+        
+        # Initiate snapshot of the specified file system
+        snap_ids=[]
+        svcs = self.app.manager.get_services('Filesystem')
+        found_fs_name = False # Flag to ensure provided fs name was actually found
+        for svc in svcs:
+            if svc.name == file_system_name:
+                found_fs_name = True
+                # Create a snapshot of the given volume/file system
+                snap_ids = svc.snapshot(snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s" \
+                    % (file_system_name, self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
+                # Remove the old volume by removing the entire service
+                if len(snap_ids) > 0:
+                    log.debug("Removing file system '%s' service as part of the file system update" \
+                        % file_system_name)
+                    svc.remove()
+                    self.services.remove(svc)
+                    log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
+                    fs = Filesystem(self.app, file_system_name)
+                    for snap_id in snap_ids:
+                        fs.add_volume(from_snapshot_id=snap_id)
+                    self.services.append(fs)
+                    # Monitor will pick up the new service and start it up but 
+                    # need to wait until that happens before can add rest of 
+                    # the services
+                    while fs.state != service_states.RUNNING:
+                        log.debug("Service '%s' not quite ready: '%s'" % (fs.get_full_name(), fs.state))
+                        time.sleep(6)
+        if found_fs_name:
+            self._start_app_level_services()
+            self.cluster_manipulation_in_progress = False
+            log.info("File system '%s' update complete" % file_system_name)
+            return True
+        else:
+            log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
+            return False
     
     def stop_worker_instances( self ):
         log.info( "Stopping all '%s' worker instance(s)" % len(self.worker_instances) )
@@ -1267,13 +1355,7 @@ class ConsoleMonitor( object ):
     def expand_user_data_volume(self):
         # TODO: recover services if process fails midway
         log.info("Initiating user data volume resizing")
-        # If there are worker nodes, suspend all jobs, then stop Galaxy and Postgres
-        if self.app.manager.get_num_available_workers() > 0:
-            log.debug("Suspending SGE queue all.q")
-            misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
-        for svc_type in ['Galaxy', 'Postgres']:
-            svc = self.app.manager.get_services(svc_type)[0]
-            svc.remove()
+        self.app.manager._stop_app_level_services()
                 
         # Grow galaxyData filesystem
         svcs = self.app.manager.get_services('Filesystem')
@@ -1281,15 +1363,9 @@ class ConsoleMonitor( object ):
             if svc.name == 'galaxyData':
                 log.debug("Expanding '%s'" % svc.get_full_name())
                 svc.expand()
-                
-        # Resume all services
-        for svc_type in ['Postgres', 'Galaxy']:
-            svc = self.app.manager.get_services(svc_type)[0]
-            svc.add()
-        if self.app.manager.get_num_available_workers() > 0:
-            return misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error unsuspending SGE jobs", "Successfully unsuspended all SGE jobs")
-        else:
-            return True
+        
+        self.app.manager._start_app_level_services()
+        return True
     
     def create_cluster_config_file(self, file_name=None, addl_data=None):
         """ Take the current cluster service configuration and create a file 
@@ -1329,6 +1405,8 @@ class ConsoleMonitor( object ):
             if dvd: cc['data_filesystems'] = dvd
             cc_file_name = file_name if file_name else 'cm_cluster_config.yaml'
             misc.dump_yaml_to_file(cc, cc_file_name)
+            # Reload the user data object in case anything has changed
+            self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
         except Exception, e:
             log.error("Problem creating cluster configuration file: '%s'" % e)
         return cc_file_name
@@ -1412,9 +1490,20 @@ class ConsoleMonitor( object ):
                     svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state=='Running' else s.state)
                 log.debug(svcs_state)
             # Check and add any new services
+            added_srvcs = False # Flag to indicate if cluster conf was changed
             for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
+                added_srvcs = True
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 service.add()
+            # Store cluster conf after all services have been added.
+            # NOTE: this flag relies on the assumption service additions are
+            # sequential (i.e., monitor waits for the service add call to complete).
+            # If any of the services are to be added via separate threads, a
+            # system-wide flag should probably be maintained for that particular
+            # service that would indicate the configuration of the service is
+            # complete. This could probably be done by monitoring
+            # the service state flag that is already maintained?
+            if added_srvcs:
                 self.store_cluster_config()
             # Check and grow file system
             svcs = self.app.manager.get_services('Filesystem')
