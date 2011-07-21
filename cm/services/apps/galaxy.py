@@ -7,10 +7,10 @@ from cm.util import paths
 from cm.util import misc
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 
-class GalaxyService( ApplicationService ):
+class GalaxyService(ApplicationService):
     
     def __init__(self, app):
         super(GalaxyService, self).__init__(app)
@@ -23,13 +23,13 @@ class GalaxyService( ApplicationService ):
                      'Filesystem': 'galaxyTools'}
     
     def start(self):
-        # self.state = service_states.STARTING
         self.manage_galaxy(True)
         self.status()
     
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
         self.state = service_states.SHUTTING_DOWN
+        self.last_state_change_time = datetime.utcnow()
         self.manage_galaxy(False)
     
     def restart(self):
@@ -38,7 +38,7 @@ class GalaxyService( ApplicationService ):
         self.status()
         self.start()
     
-    def manage_galaxy( self, to_be_started=True ):
+    def manage_galaxy(self, to_be_started=True):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
             return
@@ -53,6 +53,7 @@ class GalaxyService( ApplicationService ):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
                     log.debug("ls /mnt/: %s" % os.listdir('/mnt/'))
                     self.state = service_states.ERROR
+                    self.last_state_change_time = datetime.utcnow()
                     return False
                 # Retrieve config files from a persistent data repository (i.e., S3)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' ):
@@ -114,12 +115,14 @@ class GalaxyService( ApplicationService ):
                 self.add_galaxy_admin_users()
                 if not misc.run('%s - galaxy -c "export SGE_ROOT=%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, paths.P_SGE_ROOT), "Error invoking Galaxy", "Successfully initiated Galaxy start."):
                     self.state = service_states.ERROR
+                    self.last_state_change_time = datetime.utcnow()
             else:
                 log.debug("Galaxy already running.")
         else:
             log.info( "Shutting down Galaxy..." )
             if misc.run('%s - galaxy -c "sh $GALAXY_HOME/run.sh --stop-daemon"' % paths.P_SU, "Error stopping Galaxy", "Successfully stopped Galaxy."):
                 self.state = service_states.SHUT_DOWN
+                self.last_state_change_time = datetime.utcnow()
                 subprocess.call( 'mv $GALAXY_HOME/paster.log $GALAXY_HOME/paster.log.%s' % datetime.utcnow().strftime('%H_%M'), shell=True )
     
     def status(self):
@@ -142,10 +145,20 @@ class GalaxyService( ApplicationService ):
              # self.state==service_states.STARTING:
             pass
         else:
-            log.error("\tGalaxy daemon not running.")
-            self.state = service_states.ERROR
+            if self.state == service_states.STARTING and \
+                (datetime.utcnow() - self.last_state_change_time).seconds < 60:
+                # Give Galaxy a minutes to start; otherwise, because
+                # the monitor is running as a separate thread, it often happens
+                # that the .pid file is not yet created after the Galaxy process
+                # has been started so the monitor thread erroneously reports
+                # as if starting the Galaxy proces has failed.
+                pass
+            else:
+                log.error("\tGalaxy daemon not running.")
+                self.state = service_states.ERROR
         if old_state != self.state:
             log.info("Galaxy service state changed from '%s' to '%s'" % (old_state, self.state))
+            self.last_state_change_time = datetime.utcnow()
             if self.state == service_states.RUNNING:
                 log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
                 misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )

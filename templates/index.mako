@@ -128,7 +128,7 @@ vertical-align: top;
     <form id="expand_user_data_volume" name="expand_user_data_volume" class="generic_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
         <div class="form-row">
         Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
-        <b>WILL BE SHUT DOWN</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
+        <b>WILL BE STOPPED</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
         jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
         <p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account. 
         If you decide to leave the snapshot for reference, you may also provide a brief note that will later be visible in
@@ -137,14 +137,14 @@ vertical-align: top;
         <div class="form-row">
             <label>New Disk Size (max 1000GB):</label>
             <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="10">
+                <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
             </div>
             <label>Note (optional):</label>
             <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="40"><br/>
+                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="50"><br/>
             </div>
-            <label>or delete created snapshot after filesystem resizing?</label>
-            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will be deleted
+            <label>or delete the created snapshot after filesystem resizing?</label>
+            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will not be kept
             <div class="form-row">
                 <input type="submit" value="Create Data Volume"/>
             </div>
@@ -479,6 +479,7 @@ function update_ui(data){
         $('#du-total').text(data.disk_usage.total);
         $('#du-used').text(data.disk_usage.used);
         $('#du-pct').text(data.disk_usage.pct);
+        $('#new_vol_size').val("Must be larger than " + data.disk_usage.total);
         if (parseInt(data.disk_usage.pct) > 80){
             $('#storage_warning').show();
         }else{

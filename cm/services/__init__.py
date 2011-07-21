@@ -1,5 +1,6 @@
 """Services Package"""
 from cm.util.bunch import Bunch
+import datetime as dt
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -21,6 +22,7 @@ class Service( object):
     def __init__( self, app, service_type=None ):
         self.app = app
         self.state = service_states.UNSTARTED
+        self.last_state_change_time = dt.datetime.utcnow()
         self.svc_type = "BaseService"
         self.reqs = {}
 
@@ -28,9 +30,10 @@ class Service( object):
         if self.state != service_states.RUNNING:
             log.debug("Trying to add service '%s'" % self.svc_type)
             self.state = service_states.STARTING
+            self.last_state_change_time = dt.datetime.utcnow()
             flag = True # indicate if current service prerequisites are satisfied
             for svc_type, svc_name in self.reqs.iteritems():
-                log.debug("Checking service prerequisite '%s:%s' for service '%s'" % (svc_type, svc_name, self.svc_type))
+                log.debug("'%s' service checking its prerequisite '%s:%s'" % (self.svc_type, svc_type, svc_name))
                 for svc in self.app.manager.services:
                     # log.debug("Checking service %s state." % svc.svc_type)
                     if svc_type==svc.svc_type:
@@ -43,7 +46,7 @@ class Service( object):
                             if not svc.running():
                                 flag = False
             if flag:
-                log.info("Starting service '%s'" % self.svc_type)
+                log.info("Prerequisites OK; starting service '%s'" % self.svc_type)
                 self.start()
             else:
                 log.info("Cannot start service '%s' because prerequisites are not yet satisfied." % self.svc_type)

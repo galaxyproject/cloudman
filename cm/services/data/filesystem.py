@@ -30,7 +30,7 @@ class Volume(object):
         self.static = static # Indicates if a volume is created from a snapshot AND can be deleted upon cluster termination
         self.snapshot_progress = None
         self.snapshot_status = None
-        
+    
     def update(self, vol):
         """ Update reference to the 'self' to point to argument 'vol' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
@@ -211,9 +211,13 @@ class Volume(object):
         return True
     
     def snapshot(self, snap_description=None):
-        log.info("Initiating creation of a snapshot for the volume '%s')" % self.volume_id)
+        log.info("Initiating creation of a snapshot for the volume '%s'" % self.volume_id)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
-        snapshot = ec2_conn.create_snapshot(self.volume_id, description="galaxyData: %s" % snap_description)
+        try:
+            snapshot = ec2_conn.create_snapshot(self.volume_id, description=snap_description)
+        except Exception, ex:
+            log.error("Error creating a snapshot from volume '%s': %s" % (self.volume_id, ex))
+            raise
         if snapshot: 
             while snapshot.status != 'completed':
                 log.debug("Snapshot '%s' progress: '%s'; status: '%s'" % (snapshot.id, snapshot.progress, snapshot.status))
@@ -227,7 +231,7 @@ class Volume(object):
             return str(snapshot.id)
         else:
             log.error("Could not create snapshot from volume '%s'" % self.volume_id)
-            return False
+            return None
     
     def get_from_snap_id(self):
         self.status()
@@ -281,7 +285,7 @@ class Filesystem(DataService):
         r_thread = threading.Thread( target=self.__remove() )
         r_thread.start()
     
-    def __remove(self):
+    def __remove(self, delete_vols=True):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
         self.unmount()
@@ -289,7 +293,7 @@ class Filesystem(DataService):
             log.debug("Detaching volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
             if vol.detach():
                 log.debug("Detached volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
-                if vol.static and self.name != 'galaxyData':
+                if vol.static and self.name != 'galaxyData' and delete_vols:
                     log.debug("Deleting %s" % self.get_full_name())
                     vol.delete()
             log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
@@ -343,7 +347,7 @@ class Filesystem(DataService):
             return False
     
     def snapshot(self, snap_description=None):
-        self.__remove()
+        self.__remove(delete_vols=False)
         snap_ids = []
         # Create a snapshot of the detached volumes
         for vol in self.volumes:
