@@ -1,7 +1,8 @@
-import commands, os, time, shutil, threading
+import commands, os, time, shutil, threading, pwd, grp, re
 
 from cm.services.data import DataService
 from cm.util.misc import run
+from cm.util import paths
 from cm.services import service_states
 from boto.exception import EC2ResponseError
 from cm.util.bunch import Bunch
@@ -19,11 +20,12 @@ volume_status = Bunch(
 )
 
 class Volume(object):
-    def __init__(self, app, vol_id=None, device=None, size=0, from_snapshot_id=None, static=False):
+    def __init__(self, app, vol_id=None, device=None, attach_device=None, size=0, from_snapshot_id=None, static=False):
         self.app = app
         self.volume = None # boto instance object representing the current volume
         self.volume_id = vol_id
-        self.device = device
+        self.device = device # Device ID visible by the operating system
+        self.attach_device = attach_device # Device ID visible/reported by cloud provider as the device attach point
         self.size = size
         self.from_snapshot_id = from_snapshot_id
         self.device = None
@@ -72,19 +74,60 @@ class Volume(object):
             # Connection failed
             return volume_status.NONE
     
+    def get_attach_device(self, offset=0):
+        # Need to ensure both of the variables are in sync
+        if offset or (not self.device or not self.attach_device):
+            if not self._set_devices(offset):
+                return None
+        return self.attach_device
+    
     def get_device(self, offset=0):
-        """ Offset forces creation of a new device ID"""
-        if self.device is None or offset != 0:
-            # Get list of Galaxy-specific devices already attached to 
-            # the instance and set current volume as the next one in line
-            # TODO: make device root an app config option vs. hard coding here
-            dev_list = commands.getstatusoutput('ls /dev/sdg*')
-            if dev_list[0]==0:
-                self.device = '/dev/sdg%s' % str(max([int(d[8:]) for d in dev_list[1].split()])+1+offset)
-            else:
-                log.debug("No devices found attached to /dev/sdg#, defaulting current volume device to /dev/sdg1")
-                self.device = '/dev/sdg1'
+        # Need to ensure both of the variables are in sync
+        if offset or (not self.device or not self.attach_device):
+            if not self._set_devices(offset):
+                return None
         return self.device
+    
+    def _set_devices(self, offset=0):
+        """ Use this method to figure out which as device this volume should get
+        attached and how is it visible to the system once attached.
+        Offset forces creation of a new device ID"""
+        # Get list of Galaxy-specific devices already attached to 
+        # the instance and set current volume as the next one in line
+        # TODO: make device root an app config option vs. hard coding here
+        
+        # As of Ubuntu 11.04 (kernel 2.6.38), EBS volumes attached to /dev/sd*
+        # get attached as device /dev/xvd*. So, look at the current version
+        # of kernel running and set volume's device accordingly
+        kernel_out = commands.getstatusoutput('uname -r')
+        if kernel_out[0] == 0:
+            # Extract significant kernel version numbers and test against
+            # lowest kernel version that changes device mappings
+            if map(int, kernel_out[1].split('-')[0].split('.')) >= [2, 6, 38]:
+                mount_base = '/dev/xvdg'
+            else:
+                mount_base = '/dev/sdg'
+        else:
+            log.error("Could not discover kernel version required for to obtain volume's device.")
+            return False
+        attach_base = '/dev/sdg'
+        # In case the system was rebooted and the volume is already attached, match
+        # the device ID with the attach device ID
+        # If offset is set, force creation of new IDs
+        if self.attach_device and offset == 0:
+            self.device = re.sub(attach_base, mount_base, self.attach_device)
+            return True
+        dev_list = commands.getstatusoutput('ls %s*' % mount_base)
+        if dev_list[0] == 0:
+            device_number = str(max([int(d[8:]) for d in dev_list[1].split()])+1+offset)
+            self.device = '%s%s' % (mount_base, device_number)
+            self.attach_device = '%s%s' % (attach_base, device_number)
+        else:
+            log.debug("No devices found attached to %s#, defaulting current volume device to %s1 and attach device to %s1" % (mount_base, mount_base, attach_base))
+            self.device = '%s1' % mount_base
+            self.attach_device = '%s1' % attach_base
+        log.debug("Running on kernel version %s; set volume device as '%s' and attach device as '%s'" % (kernel_out[1], self.device, self.attach_device))
+        return True
     
     def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
@@ -118,12 +161,16 @@ class Volume(object):
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
     
-    def do_attach(self):
+    def do_attach(self, attach_device):
         try:
-            log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device() ))
-            volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume( self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_device() )
+            if attach_device is not None:
+                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
+                volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
+            else:
+                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
+                return False
         except EC2ResponseError, e:
-            log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % ( self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device(), e ))
+            log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device, e))
             return False
         return volumestatus
     
@@ -134,28 +181,28 @@ class Volume(object):
         """
         for counter in range( 30 ):
             if self.status() == volume_status.AVAILABLE:
-                self.get_device() # Ensure device ID is assigned to current volume
-                volumestatus = self.do_attach()
+                attach_device = self.get_attach_device() # Ensure device ID is assigned to current volume
+                volumestatus = self.do_attach(attach_device)
                 # Wait until the volume is 'attached'
                 ctn = 0
                 attempts = 30
                 while ctn < attempts:
                     log.debug("Attaching volume '%s'; status: %s (check %s/%s)" % (self.volume_id, volumestatus, ctn, attempts))
                     if volumestatus == 'attached':
-                        log.debug("Volume '%s' attached to instance '%s' as device '%s'" % (  self.volume_id,  self.app.cloud_interface.get_instance_id(), self.get_device()))
+                        log.debug("Volume '%s' attached to instance '%s' as device '%s'" % (self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_attach_device()))
                         break
                     if ctn == attempts-1:
-                        log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'." % (self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_device()))
+                        log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'." % (self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_attach_device()))
                         if attempts < 90:
                             log.debug("Will try another device")
                             attempts += 30 # Increment attempts for another try
                             if self.detach():
-                                self.get_device(offset=attempts/30-1) # Offset device num by number of attempts
-                                volumestatus = self.do_attach()
+                                attach_device = self.get_attach_device(offset=attempts/30-1) # Offset device num by number of attempts
+                                volumestatus = self.do_attach(attach_device)
                         else:
                             log.debug("Will not try again. Aborting attaching of volume")
                             return False
-                    volumes = (self.app.cloud_interface.get_ec2_connection()).get_all_volumes( [self.volume_id] )
+                    volumes = (self.app.cloud_interface.get_ec2_connection()).get_all_volumes([self.volume_id])
                     volumestatus = volumes[0].attachment_state()
                     time.sleep(2)
                     ctn += 1
@@ -163,8 +210,8 @@ class Volume(object):
             elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
                 # Check if the volume is already attached to current instance (can happen following a reboot/crash)
                 if self.volume.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
-                    self.device = self.volume.attach_data.device
-                    log.debug("Tried to attach a volume but the volume '%s' is already attached (as device %s)" % (self.volume_id, self.device))
+                    self.attach_device = self.volume.attach_data.device
+                    log.debug("Tried to attach a volume but the volume '%s' is already attached (as device %s)" % (self.volume_id, self.get_attach_device()))
                     return True
             elif self.volume_id is None:
                 log.error("Wanted to attach a volume but missing volume ID; cannot attach")
@@ -371,7 +418,7 @@ class Filesystem(DataService):
                         return False
                 else:
                     os.mkdir( self.mount_point )
-            
+                
                 # Potentially wait for the device to actually become available in the system
                 # TODO: Do something if the device is not available in given time period
                 for i in range(10):
@@ -386,12 +433,14 @@ class Filesystem(DataService):
                         if run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
                             try:
                                 if self.name == 'galaxyData':
-                                    if not os.path.exists('/mnt/galaxyData/files'):
-                                        os.mkdir('/mnt/galaxyData/files')
-                                    if not os.path.exists('/mnt/galaxyData/tmp'):
-                                        os.mkdir('/mnt/galaxyData/tmp')
-                                    if not os.path.exists('/mnt/galaxyData/upload_store'):
-                                        os.mkdir('/mnt/galaxyData/upload_store')
+                                    # Make root of the data file system that's 
+                                    # shared over NFS be owned by ubuntu user
+                                    os.chown(paths.P_GALAXY_DATA, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+                                    # Add Galaxy-required files
+                                    for sd in ['files', 'tmp', 'upload_store']:
+                                        path = os.path.join(paths.P_GALAXY_DATA, sd)
+                                        if not os.path.exists(path):
+                                            os.mkdir(path)
                             except OSError, e:
                                 log.debug("Tried making a galaxyData sub-dir but failed: %s" % e)
                     else:
@@ -442,6 +491,11 @@ class Filesystem(DataService):
             log.debug("Did not unmount file system '%s' because it is not in state 'running' or 'shutting-down'" % self.get_full_name())
             return False
     
+    def _get_attach_device_from_device(self, device):
+        for vol in self.volumes:
+            if device == vol.device:
+                return vol.attach_device
+    
     def check_and_update_volume(self, device):
         f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
         vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
@@ -483,7 +537,7 @@ class Filesystem(DataService):
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
                     # Check volume
-                    self.check_and_update_volume(device)
+                    self.check_and_update_volume(self._get_attach_device_from_device(device))
                     # Check mount point
                     if mnt_path == self.mount_point:
                         self.state = service_states.RUNNING
