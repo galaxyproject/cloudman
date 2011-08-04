@@ -189,6 +189,13 @@ class ConsoleManager( object ):
             log.debug("Attempted to start SGE, but TESTFLAG is set.  Returning retcode %s" % fakeretcode)
             return fakeretcode
         log.info( "Configuring SGE..." )
+        # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
+        # Ubuntu 11.04 the location and name of the library have changed
+        if not os.path.exists('/lib64/libc.so.6'):
+            if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
+                os.symlink('/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
+            else:
+                log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
         log.debug( "Configuring users' SGE profiles..." )
         f = open( "/etc/bash.bashrc", 'a' )
         f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
