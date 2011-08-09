@@ -119,7 +119,7 @@ class Volume(object):
             return True
         dev_list = commands.getstatusoutput('ls %s*' % mount_base)
         if dev_list[0] == 0:
-            device_number = str(max([int(d[8:]) for d in dev_list[1].split()])+1+offset)
+            device_number = str(max([int(d[len(mount_base):]) for d in dev_list[1].split()])+1+offset)
             self.device = '%s%s' % (mount_base, device_number)
             self.attach_device = '%s%s' % (attach_base, device_number)
         else:
@@ -322,7 +322,7 @@ class Filesystem(DataService):
                     self.mount(vol)
                 self.status()
         except Exception, e:
-            log.error("Error adding service '%s-%s': %s" % (self.svc_type, self.name, e))
+            log.error("Error adding filesystem service '%s-%s': %s" % (self.svc_type, self.name, e))
             self.status()
     
     def remove(self):
@@ -424,6 +424,7 @@ class Filesystem(DataService):
                 for i in range(10):
                     if os.path.exists(volume.get_device()):
                         log.debug("Path '%s' checked and exists." % volume.get_device())
+                        break
                     else:
                         log.debug("Path '%s' does not yet exists." % volume.get_device())
                         time.sleep(4)
