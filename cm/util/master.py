@@ -467,7 +467,7 @@ class ConsoleManager(object):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
-        log.debug("List of services before shutdown:", [s.get_full_name() for s in self.services])
+        log.debug("List of services before shutdown: %s" % [s.get_full_name() for s in self.services])
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
