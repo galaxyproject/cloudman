@@ -140,7 +140,9 @@
                             mounted on the system unter /mnt/[file system name]).
                             Note that depending on the amount of changes made to 
                             the underlying file system, this process may take a
-                            long time.
+                            long time. Also note that the user data file system cannot
+                            be persistent through this method (it makes no logical
+                            sense - use Share-an-instance functionality instead).
                         </div>
                     </span>
                     <span id='update_fs_status' style='color: #5CBBFF'>&nbsp;</span>
