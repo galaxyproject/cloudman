@@ -431,27 +431,30 @@ class Filesystem(DataService):
                 if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
                     # FIXME: Assume if a file system cannot be mounted that it's because there is not a file system on the device so create one
                     if run('/sbin/mkfs.xfs %s' % volume.get_device(), "Failed to create filesystem on device '%s'" % volume.get_device(), "Created filesystem on device '%s'" % volume.get_device()):
-                        if run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
-                            try:
-                                if self.name == 'galaxyData':
-                                    # Add Galaxy-required files
-                                    for sd in ['files', 'tmp', 'upload_store']:
-                                        path = os.path.join(paths.P_GALAXY_DATA, sd)
-                                        if not os.path.exists(path):
-                                            os.mkdir(path)
-                            except OSError, e:
-                                log.debug("Tried making a galaxyData sub-dir but failed: %s" % e)
-                    else:
-                        log.error("Failed to mount device '%s' to mount point '%s'" % (volume.get_device(), self.mount_point))
-                        return False
+                        if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
+                            log.error("Failed to mount device '%s' to mount point '%s'" % (volume.get_device(), self.mount_point))
+                            return False
+                try:
+                    # Default owner of all mounted file systems to `galaxy` user
+                    os.chown(self.mount_point, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                    # Add Galaxy- and CloudBioLinux-required files under the 'data' dir
+                    if self.name == 'galaxyData':
+                        for sd in ['files', 'tmp', 'upload_store', 'export']:
+                            path = os.path.join(paths.P_GALAXY_DATA, sd)
+                            if not os.path.exists(path):
+                                os.mkdir(path)
+                            # Make 'export' dir that's shared over NFS be
+                            # owned by `ubuntu` user so it's accesible 
+                            # for use to the rest of the cluster
+                            if sd == 'export':
+                                os.chown(path, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+                            else:
+                                os.chown(path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                except OSError, e:
+                    log.debug("Tried making galaxyData sub-dirs but failed: %s" % e)
                 # if self.name == 'galaxyIndices':
                 #     run("ln -s %s /mnt/biodata" % self.mount_point, "Failed to create a symlink for galaxyIndices to biodata", "Successfully  created a symlink for galaxyIndices to biodata")
-                run('/bin/chown -R galaxy:galaxy %s' % self.mount_point, "Failed to change owner of '%s' to 'galaxy:galaxy'" % self.mount_point, "Changed owner of '%s' to 'galaxy'" % self.mount_point)
-                # Make root of the data file system that's shared over NFS be
-                # owned by ubuntu user so it's accesible for use to the rest
-                # of the cluster
-                if self.name == 'galaxyData':
-                    os.chown(paths.P_GALAXY_DATA, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+                # run('/bin/chown -R galaxy:galaxy %s' % self.mount_point, "Failed to change owner of '%s' to 'galaxy:galaxy'" % self.mount_point, "Changed owner of '%s' to 'galaxy'" % self.mount_point)
                 try:
                     mp = self.mount_point.replace('/', '\/') # Escape slashes for sed
                     if run("/bin/sed 's/^#%s/%s/' /etc/exports > /tmp/exports.tmp" % (mp, mp), "Error removing '%s' from '/etc/exports'" % self.mount_point, "Successfully edited '%s' in '/etc/exports' for NFS." % self.mount_point):
