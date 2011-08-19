@@ -966,6 +966,10 @@ class ConsoleManager(object):
     
     def get_shared_instances(self):
         lst = []
+        if self.app.TESTFLAG is True:
+            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap": 'snap-743ddw12', "visibility": 'Shared'})
+            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap": 'snap-gf69348h', "visibility": 'Public'})
+            return lst
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
@@ -1014,6 +1018,9 @@ class ConsoleManager(object):
         :type snap_id: str
         :param snap_id: Snapshot ID to be deleted (e.g., snap-04c01768)
         """
+        if self.app.TESTFLAG is True:
+            log.debug("Tried deleting shared instance for folder '%s' and snap '%s' but TESTFLAG is set." % (shared_instance_folder, snap_id))
+            return True
         log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
         ok = True # Mark if encountered error but try to delete as much as possible
         try:

@@ -628,27 +628,36 @@ function get_shared_instances(){
         function(data){
             if(data){
                 var shared_list = $('#shared_instances_list').html(
-                    "<p>These are the bucket names you can share "+
-                    "with others so they can create and instantiate their instances "+
-                    "of your shared cluster. Also, for reference, corresponding "+
-                    "snapshot ID's are provided and you have an option to delete a "+
-                    "given shared instance. </p>");
-                var ul = $("<ul/>");
+                    "<p>These are the share string IDs that you can share " +
+                    "with others so they can create and instantiate their instances " +
+                    "of your shared cluster. Also, for reference, corresponding " +
+                    "snapshot ID's are provided and you have an option to delete a " +
+                    "given shared instance. <b>Note</b> that once deleted, any derived instances " +
+                    "that have been created and used will cease to be able to be started.</p>");
+                var table = $("<table/>");
                 if (data.shared_instances.length > 0) {
+                    table.addClass("shared_instances_table");
+                    tr = $('<tr/>');
+                    tr.append($('<th/>').text("Visibility"));
+                    tr.append($('<th/>').text("Share string ID"));
+                    tr.append($('<th/>').text("Snapshot ID"));
+                    tr.append($('<th/>').text("Delete?"));
+                    table.append(tr);
                     for (n=0; n<(data.shared_instances).length; n++) {
                         var fn = function(i) {
-                            var li = $("<li/>").text(data.shared_instances[i].visibility+": " + data.shared_instances[i].bucket +
-                                " (" + data.shared_instances[i].snap + ")");
-                        
+                            var tr = $("<tr/>");
+                            tr.append($('<td/>').text(data.shared_instances[i].visibility));
+                            tr.append($('<td/>').text(data.shared_instances[i].bucket));
+                            tr.append($('<td/>').text(data.shared_instances[i].snap));
                             anchor = $("<a>&nbsp;</a>").click(function () {
                                 show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
                             }).addClass("del_scf");
-                            li.append(anchor);
-                            ul.append(li);
+                            tr.append($('<td/>').html(anchor));
+                            table.append(tr);
                         };
                         fn(n);
                     }
-                    shared_list.append(ul);
+                    shared_list.append(table);
                 } else {
                     shared_list.text("You have no shared cluster instances.");
                 }

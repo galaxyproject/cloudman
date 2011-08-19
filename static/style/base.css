@@ -798,6 +798,13 @@ div.report-row label
   background-image: url(info_small.png);
 }
 
+.shared_instances_table {
+    width: 100%;
+}
+.shared_instances_table th {
+    text-align: left;
+}
+
 table.colored
 {
   border-top: solid #d8b365 1px;
