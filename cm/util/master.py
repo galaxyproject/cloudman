@@ -212,10 +212,8 @@ class ConsoleManager(object):
         not work for filesystems composed of multiple volumes. """
         try:
             for vol in attached_volumes:
-                if vol.tags.has_key('clusterName') and \
-                   vol.tags['clusterName']==self.app.ud['cluster_name'] and \
-                   vol.tags.has_key('filesystem') and \
-                   vol.tags['filesystem']==filesystem_name:
+                if self.app.cloud_interface.get_tag(vol, 'cluster_name') == self.app.ud['cluster_name'] and \
+                   self.app.cloud_interface.get_tag(vol, 'filesystem') == filesystem_name:
                     log.debug("Identified attached volume '%s' as filesystem '%s'" % (vol.id, filesystem_name))
                     return vol
         except EC2ResponseError, e:
@@ -667,8 +665,8 @@ class ConsoleManager(object):
             time.sleep(3) # Rarely, instances take a bit to register, so wait a few seconds (although this is a very poor 'solution')
             if reservation:
                 for instance in reservation.instances:
-                    instance.add_tag("clusterName", self.app.ud['cluster_name'])
-                    instance.add_tag("role", worker_ud['role'])
+                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                    self.app.cloud_interface.add_tag(instance, 'role', worker_ud['role'])
                     i = Instance( self.app, inst=instance, m_state=instance.state )
                     self.worker_instances.append( i )
         except BotoServerError, e:
@@ -704,8 +702,8 @@ class ConsoleManager(object):
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
                     i = Instance(self.app, inst=instance, m_state=instance.state)
-                    instance.add_tag("clusterName", self.app.ud['cluster_name'])
-                    instance.add_tag("role", 'worker') # Default to 'worker' role tag
+                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                    self.app.cloud_interface.add_tag(instance, 'role', 'worker') # Default to 'worker' role tag
                     self.worker_instances.append(i)
                 else:
                     log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." % (instance_id, instance.state))
@@ -1323,8 +1321,8 @@ class ConsoleMonitor( object ):
                 i_id = self.app.cloud_interface.get_instance_id()
                 ec2_conn = self.app.cloud_interface.get_ec2_connection()
                 ir = ec2_conn.get_all_instances([i_id])
-                ir[0].instances[0].add_tag('role', self.app.ud['role'])
-                ir[0].instances[0].add_tag('clusterName', self.app.ud['cluster_name'])
+                self.app.cloud_interface.add_tag(ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
+                self.app.cloud_interface.add_tag(ir[0].instances[0], 'role', self.app.ud['role'])
             except EC2ResponseError, e:
                 log.debug("Error setting 'role' tag: %s" % e)
         self.monitor_thread.start()

@@ -210,3 +210,22 @@ class EC2Interface(CloudInterface):
                 log.error(e)
         return self.s3_conn
     
+    def add_tag(self, resource, key, value):
+        """ Add tag as key value pair to the `resource` object. The `resource`
+        object must be an instance of a cloud object and support tagging.
+        """
+        try:
+            log.debug("Adding tag '%s:%s' to resource '%s'" % (key, value, resource.id if resource.id else resource))
+            resource.add_tag(key, value)
+        except EC2ResponseError, e:
+            log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
+    
+    def get_tag(self, resource, key):
+        """ Get tag on `resource` cloud object. Return None if tag does not exist.
+        """
+        try:
+            log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
+            return resource.tags.get(key, None)
+        except EC2ResponseError, e:
+            log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
+            return None
