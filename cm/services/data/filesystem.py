@@ -146,9 +146,9 @@ class Volume(object):
         # to ensure the tags get assigned even if using an existing volume vs. 
         # creating a new one)
         try:
-            self.volume.add_tag('clusterName', self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(self.volume, 'clusterName', self.app.ud['cluster_name'])
             if filesystem:
-                self.volume.add_tag('filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
         except EC2ResponseError, e:
             log.error("Error adding tags to volume: %s" % e)        
     
@@ -513,10 +513,10 @@ class Filesystem(DataService):
                         % ([vol.volume_id for vol in self.volumes], att_vol.id, device, self.name))
                     vol.update(att_vol)
                     # If the new volume does not have tags (clusterName & filesystem), add those
-                    if not att_vol.tags.has_key('clusterName'):
-                        att_vol.add_tag('clusterName', self.app.ud['cluster_name'])
-                    if not att_vol.tags.has_key('filesystem'):
-                        att_vol.add_tag('filesystem', self.name)
+                    if not self.app.cloud_interface.get_tag(att_vol, 'clusterName'):
+                        self.app.cloud_interface.add_tag(att_vol, 'clusterName', self.app.ud['cluster_name'])
+                    if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
+                        self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml) in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()
         else:
