@@ -1318,6 +1318,7 @@ class ConsoleMonitor( object ):
             self.conn.setup()
         self.sleeper = misc.Sleeper()
         self.running = True
+        self.prs_saved = False # A flag to indicate if 'post run script' has been updated in the cluster bucket
         self.monitor_thread = threading.Thread( target=self.__monitor )
     
     def start( self ):
@@ -1431,7 +1432,7 @@ class ConsoleMonitor( object ):
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
         # Ensure Galaxy config files are stored in the cluster's bucket, 
         # but only after Galaxy has been configured and is running (this ensures
-        # that the cconfiguration files get loaded from proper S3 bucket rather
+        # that the configuration files get loaded from proper S3 bucket rather
         # than potentially being owerwritten by files that might exist on the snap)
         try:
             galaxy_svc = self.app.manager.get_services('Galaxy')[0]
@@ -1446,6 +1447,19 @@ class ConsoleMonitor( object ):
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
             log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
+        # At start, save/update current post start script to cluster's bucket
+        if not self.prs_saved:
+            # Also see cm_boot.sh because the name and the path of the post start
+            # script must match what's used below!
+            prs_filename = 'post_start_script'
+            prs_file = os.path.join(self.app.ud['cloudman_home'], prs_filename)
+            if os.path.exists(prs_file):
+                log.debug("Saving current instance post start script (%s) to cluster bucket '%s' as '%s'" \
+                    % (prs_file, self.app.ud['bucket_cluster'], prs_filename))
+                if misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], prs_filename, prs_file):
+                    self.prs_saved = True
+            else:
+                log.debug("Instance post start script (%s) does not exist?" % prs_file)
         # If not existent, save CloudMan source to cluster's bucket, including file's metadata
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))

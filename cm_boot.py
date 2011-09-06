@@ -18,6 +18,7 @@ USER_DATA_FILE = 'userData.yaml'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'
+PRS_FILENAME = 'post_start_script' # Post start script file name - script name in cluster bucket must matchi this!
 SERVICE_ROOT = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
 DEFAULT_BUCKET_NAME = 'cloudman'
 
@@ -101,23 +102,22 @@ def _get_cm(ud):
     # Test for existence of user's bucket and download appropriate CM instance
     if ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
-            s3_conn = S3Connection( ud['access_key'], ud['secret_key'] )
+            s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+            b = None
             if ud.has_key('bucket_cluster'):
                 b = s3_conn.lookup(ud['bucket_cluster'])
-            else:
-                b = None
             if b is not None: # Try to retrieve user's instance of CM
-                log.info("User's bucket '%s' found." % b.name)
+                log.info("Cluster bucket '%s' found." % b.name)
                 if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
                     _write_cm_revision_to_file(s3_conn, b.name)
                     return True
             # Retrieve default instance of CM
-            log.info("Could not retrieve CloudMan from user's bucket; using default CloudMan (%s) from bucket '%s'" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
+            log.info("Could not retrieve CloudMan from cluster bucket; using default CloudMan (%s) from bucket '%s'" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
             if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
                 _write_cm_revision_to_file(s3_conn, DEFAULT_BUCKET_NAME)
                 return True
     # Default to public repo and wget
-    log.error("Could not retrieve CloudMan from user's bucket")
+    log.error("Could not retrieve CloudMan from cluster bucket.")
     url = os.path.join(SERVICE_ROOT, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
     log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
     # This assumes the default repository/bucket is readable to anyone w/o authentication
@@ -141,12 +141,12 @@ def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
     b = None
     for i in range(0, 5):
-		try:
-			b = conn.get_bucket( bucket_name )
-			break
-		except S3ResponseError: 
-			log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
-			time.sleep(2)
+        try:
+            b = conn.get_bucket( bucket_name )
+            break
+        except S3ResponseError: 
+            log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
+            time.sleep(2)
     if b is not None:
         k = b.get_key(remote_filename)
         if k and metadata_key:
@@ -165,6 +165,28 @@ def _start_cm():
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
     _run('cd %s; sh run.sh --daemon' % CM_HOME)
 
+def _post_start_hook(ud):
+    log.info("<<Checking for post start script>>")
+    local_prs_file = os.path.join(CM_HOME, PRS_FILENAME)
+    # Check user data first to allow owerwriting of a potentially existing script
+    if ud.has_key('post_start_script_url'):
+        # This assumes the provided URL is readable to anyone w/o authentication
+        _run('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url']))
+    else:
+        s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+        b = None
+        if ud.has_key('bucket_cluster'):
+            b = s3_conn.lookup(ud['bucket_cluster'])
+        if b is not None: # Try to retrieve an existing cluster instance of post run script
+            log.info("Cluster bucket '%s' found; getting post start script '%s'" % (b.name, PRS_FILENAME))
+            _get_file_from_bucket(s3_conn, b.name, PRS_FILENAME, local_prs_file)
+    if os.path.exists(local_prs_file):
+        os.chmod(local_prs_file, 0755) # Ensure the script is executable
+        return _run('cd %s;./%s' % (CM_HOME, PRS_FILENAME))
+    else:
+        log.debug("Post start script does not exist; continuing.")
+        return True
+
 def main():
     # _run('easy_install -U boto') # Update boto
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
@@ -175,6 +197,7 @@ def main():
         if _get_cm(ud):
             _unpack_cm()
             _start_cm()
+        _post_start_hook(ud)
     log.info("---> %s done <---" % sys.argv[0])
 
 if __name__ == "__main__":
