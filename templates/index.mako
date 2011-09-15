@@ -354,27 +354,40 @@ vertical-align: top;
 <div class="box" id="volume_config">
     <h2>Initial Cluster Configuration</h2>
     <div class="form-row">
-        <p>Welcome to Galaxy Cloudman. This application will allow you to manage this cluster and the services provided within. To get started, choose the type of cluster you'd like to work with and specify the size of your persistent data storage, if any.</p>
+        <p>Welcome to CloudMan. This application will allow you to manage this cluster and
+        the services provided within. To get started, choose the type of cluster you'd like to work
+        with and provide the associated value, if any.</p>
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
-            <p><input type="radio" name="startup_opt" value="Galaxy" checked='true'>Start a full Galaxy Cluster. Specify initial storage size (in Gigabytes)</p>
+            <p><input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true'>
+                <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
+                Specify the initial storage size (in Gigabytes):
+            </p>
             <input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
         </div>
         <div id='extra_startup_options'>
             <div class="form-row">
-                <p><input type="radio" name="startup_opt" value="Shared_cluster">Share-an-instance</p>
-                <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">Shared instance bucket path
-                <span id="d_pss_vtag"></span>
+                <p><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster">
+                    <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
+                    Specify the provided cluster share-string (for example,
+                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+                </p>
+                <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
+                    Cluster share-string
             </div>
 
             <div class="form-row">
-                <p><input type="radio" name="startup_opt" value="Data">Data volume and SGE only. Specify initial storage size (in Gigabytes)</p>
+                <p><input id="data-cluster" type="radio" name="startup_opt" value="Data">
+                    <b>Data Cluster</b>: a persistent data volume and SGE. 
+                    Specify the initial storage size (in Gigabytes):
+                </p>
                 <input style="margin-left:20px"  type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
             </div>
             
             <div class="form-row">
-                <p><input type="radio" name="startup_opt" value="SGE">SGE Only. No persistent storage created.</p>
+                <p><input type="radio" name="startup_opt" value="SGE">
+                <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
             </div>
         </div>
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
@@ -898,6 +911,18 @@ $(document).ready(function() {
     // Add tooltips
     $('#share_a_cluster').tipsy({gravity: 'w', fade: true});
     $('#expand_vol').tipsy({gravity: 'w', fade: true});
+    
+    // Enable onclick events for the option in the initial cluster configuration box
+    $('#g_pss').focus(function() {
+        $('#galaxy-cluster').attr('checked', 'checked');
+    });
+    $('#shared_bucket').focus(function() {
+        $('#share-cluster').attr('checked', 'checked');
+    });
+    $('#d_pss').focus(function() {
+        $('#data-cluster').attr('checked', 'checked');
+    });
+    
     // Initiate the update calls
     update(true);
 });
