@@ -1,5 +1,7 @@
 import urllib, socket
 from cm.clouds import CloudInterface
+from cm.util import misc
+from cm.util import paths
 
 from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
@@ -11,11 +13,19 @@ log = logging.getLogger( 'cloudman' )
 
 class EC2Interface(CloudInterface):
     
-    def __init__(self, aws_access_key, aws_secret_key, app=None):
+    def __init__(self, app=None):
         super(EC2Interface, self).__init__()
-        self.aws_access_key = aws_access_key
-        self.aws_secret_key = aws_secret_key
         self.app = app
+        self.user_data = None
+        self.aws_access_key = None
+        self.aws_secret_key = None
+    
+    def get_user_data(self, force=False):
+        if self.user_data is None or force:
+            self.user_data = misc.load_yaml_file(paths.USER_DATA_FILE)
+            self.aws_access_key = self.user_data.get('access_key', None)
+            self.aws_secret_key = self.user_data.get('secret_key', None)
+        return self.user_data
     
     def get_ami( self ):
         if self.ami is None:
@@ -164,7 +174,7 @@ class EC2Interface(CloudInterface):
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
-                log.debug( 'Establishing boto EC2 connection' )
+                log.debug('Establishing boto EC2 connection')
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. Returning default EC2 connection.")
                     self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)

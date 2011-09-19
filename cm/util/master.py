@@ -836,7 +836,7 @@ class ConsoleManager(object):
                 log.error("Loaded configuration from the shared cluster does not have a reference to a shared data snapshot. Cannot continue.")
                 return False
         # Reload user data and start the cluster as normally would
-        self.app.ud = misc.load_yaml_file("userData.yaml")
+        self.app.ud = self.app.cloud_interface.get_user_data(force=True)
         if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
             pd = misc.load_yaml_file('pd.yaml')
             self.app.ud = misc.merge_yaml_objects(self.app.ud, pd)

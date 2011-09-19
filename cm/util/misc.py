@@ -36,22 +36,22 @@ def merge_yaml_objects(user, default):
     return user
 
 def shellVars2Dict(filename):
-	'''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
-	f = None
-	try:
-		f = open(filename, 'r')
-	except IOError:
-		return { }
-	lines = f.readlines()
-	result = { }
+    '''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
+    f = None
+    try:
+        f = open(filename, 'r')
+    except IOError:
+        return { }
+    lines = f.readlines()
+    result = { }
 
-	for line in lines:
-		parts = line.strip().partition('=')
-		key = parts[0].strip()
-		val = parts[2].strip()
-		if key:
-			result[key] = val
-	return result
+    for line in lines:
+        parts = line.strip().partition('=')
+        key = parts[0].strip()
+        val = parts[2].strip()
+        if key:
+            result[key] = val
+    return result
 
 def formatDelta(delta):
     d = delta.days
@@ -97,12 +97,12 @@ def get_bucket(s3_conn, bucket_name, validate=True):
     b = None
     if bucket_exists(s3_conn, bucket_name, validate):
         for i in range(0, 5):
-    		try:
-    			b = s3_conn.get_bucket(bucket_name, validate=validate)
-    			break
-    		except S3ResponseError: 
-    			log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
-    			time.sleep(2)
+            try:
+                b = s3_conn.get_bucket(bucket_name, validate=validate)
+                break
+            except S3ResponseError: 
+                log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
+                time.sleep(2)
     return b
 
 def make_bucket_public(s3_conn, bucket_name, recursive=False):
@@ -361,11 +361,11 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     b = get_bucket(s3_conn, bucket_name)
     if b is not None:
         try:
-    		k = Key(b, remote_filename)
-    		if k.exists():
-    		    return True
-    	except S3ResponseError:
-    	    log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
+            k = Key(b, remote_filename)
+            if k.exists():
+                return True
+        except S3ResponseError:
+            log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
     return False
 
 def get_file_from_bucket( conn, bucket_name, remote_filename, local_file, validate=True ):
@@ -388,16 +388,16 @@ def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
     b = None
     b = get_bucket(conn, bucket_name)
     if b is not None:
-		k = Key( b, remote_filename )
-		try:
-		    k.set_contents_from_filename( local_file )
-		    log.info( "Saved file '%s' to bucket '%s'" % ( remote_filename, bucket_name ) )
-		    # Store some metadata (key-value pairs) about the contents of the file being uploaded
-		    k.set_metadata('date_uploaded', dt.datetime.utcnow())
-		except S3ResponseError, e:
-		     log.error( "Failed to save file local file '%s' to bucket '%s' as file '%s': %s" % ( local_file, bucket_name, remote_filename, e ) )
-		     return False
-		return True
+        k = Key( b, remote_filename )
+        try:
+            k.set_contents_from_filename( local_file )
+            log.info( "Saved file '%s' to bucket '%s'" % ( remote_filename, bucket_name ) )
+            # Store some metadata (key-value pairs) about the contents of the file being uploaded
+            k.set_metadata('date_uploaded', dt.datetime.utcnow())
+        except S3ResponseError, e:
+             log.error( "Failed to save file local file '%s' to bucket '%s' as file '%s': %s" % ( local_file, bucket_name, remote_filename, e ) )
+             return False
+        return True
     else:
         log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
         return False
@@ -424,8 +424,8 @@ def delete_file_from_bucket(conn, bucket_name, remote_filename):
             log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
             k.delete()
             return True
-    	except S3ResponseError, e:
-    	    log.error("Error deleting key '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
+        except S3ResponseError, e:
+            log.error("Error deleting key '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
     return False
 
 def delete_bucket(conn, bucket_name):
