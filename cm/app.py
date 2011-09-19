@@ -1,5 +1,6 @@
 import config, logging, logging.config, sys
 from cm.util import misc
+from cm.util import paths
 
 from cm.clouds.ec2 import EC2Interface
 
@@ -22,7 +23,9 @@ class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
     def __init__( self, **kwargs ):
         print "Python version: ", sys.version_info[:2]
-        self.ud = misc.load_yaml_file("userData.yaml")
+        # Load user data into a local field through a cloud interface
+        self.cloud_interface = EC2Interface(app=self)
+        self.ud = self.cloud_interface.get_user_data()
         # Setup logging
         self.logger = CMLogHandler(self)
         if self.ud.has_key("testflag"):
@@ -32,14 +35,12 @@ class UniverseApplication( object ):
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
         log.addHandler(self.logger)
-        # Read user data, config file, and check for errors
+        # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()
         config.configure_logging( self.config )
         log.debug( "Initializing app" )
         self.manager = None
-        # DBTODO make this flexible for other cloud interfaces.
-        self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self)
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         if self.ud.has_key('bucket_cluster'):
@@ -57,7 +58,7 @@ class UniverseApplication( object ):
                 self.manager = worker.ConsoleManager(self)
             self.manager.console_monitor.start()
         else:
-            log.error("************ No ROLE in userData.yaml - this is a fatal error. ************")
+            log.error("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
                 
     def shutdown(self, delete_cluster=False):
         if self.manager:

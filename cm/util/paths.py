@@ -21,3 +21,4 @@ P_GALAXY_INDICES = "/mnt/galaxyIndices"
 
 # Configs
 C_PSQL_PORT = "5840"
+USER_DATA_FILE = "userData.yaml"

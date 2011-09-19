@@ -15,7 +15,7 @@ log = logging.getLogger( 'cloudman' )
 
 import cm.framework
 from cm.util import misc
-from cm.util.misc import shellVars2Dict
+from cm.util import paths
 from cm.app import UniverseApplication
 
 def add_controllers( webapp, app ):
@@ -61,12 +61,11 @@ def app_factory( global_conf, **kwargs ):
     return webapp
 
 def cm_authfunc(environ, username, password):
-    ud = misc.load_yaml_file("userData.yaml")
+    ud = misc.load_yaml_file(paths.USER_DATA_FILE)
     if ud.has_key('password'):
         if password == ud['password']:
             return True
-    else:
-        return False
+    return False
 
 def wrap_in_middleware( app, global_conf, **local_conf ):
     """Based on the configuration wrap `app` in a set of common and useful middleware."""
@@ -134,14 +133,13 @@ def wrap_in_middleware( app, global_conf, **local_conf ):
     app = XForwardedHostMiddleware( app )
     log.debug( "Enabling 'x-forwarded-host' middleware" )
     # Paste digest authentication
-    ud = misc.load_yaml_file("userData.yaml")
+    ud = misc.load_yaml_file(paths.USER_DATA_FILE)
     if ud.has_key('password'):
         if ud['password'] != '':
             from paste.auth.basic import AuthBasicHandler
             app = AuthBasicHandler(app, 'CM Administration', cm_authfunc)
     return app
 
-    
 def wrap_in_static( app, global_conf, **local_conf ):
     from paste.urlmap import URLMap
     from cm.framework.middleware.static import CacheableStaticURLParser as Static
@@ -163,7 +161,7 @@ def wrap_in_static( app, global_conf, **local_conf ):
     urlmap["/favicon.ico"] = Static( conf.get( "static_favicon_dir" ), cache_time )
     # URL mapper becomes the root webapp
     return urlmap
-    
+
 def build_template_error_formatters():
     """
     Build a list of template error formatters for WebError. When an error
@@ -178,5 +176,6 @@ def build_template_error_formatters():
             return mako.exceptions.html_error_template().render( full=False, css=False )
         if isinstance( exc_value, AttributeError ) and exc_value.args[0].startswith( "'Undefined' object has no attribute" ):
             return mako.exceptions.html_error_template().render( full=False, css=False )
+    
     formatters.append( mako_html_data )
     return formatters
