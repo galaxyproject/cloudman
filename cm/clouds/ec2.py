@@ -101,7 +101,7 @@ class EC2Interface(CloudInterface):
                     fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/security-groups')
                     self.security_groups = []
                     for line in fp.readlines():
-                        self.security_groups.append(line.strip())
+                        self.security_groups.append(urllib.unquote_plus(line.strip()))
                     fp.close()
                     if self.security_groups:
                         break
