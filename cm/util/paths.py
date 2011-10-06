@@ -1,3 +1,4 @@
+import os
 
 # Commands
 P_MKDIR = "/bin/mkdir"
@@ -8,6 +9,7 @@ P_MV = "/bin/mv"
 P_LN = "/bin/ln"
 
 # Paths
+P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
 P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
@@ -22,3 +24,4 @@ P_GALAXY_INDICES = "/mnt/galaxyIndices"
 # Configs
 C_PSQL_PORT = "5840"
 USER_DATA_FILE = "userData.yaml"
+IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')

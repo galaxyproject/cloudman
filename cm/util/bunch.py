@@ -25,3 +25,16 @@ class Bunch( object ):
 
     def __setitem__(self, k, v):
         self.__dict__.__setitem__(k, v)
+
+class BunchToo:
+    """ A Bunch that allows keys of an existing dict to be recalled as object 
+    fields. For example:
+    d = {'a':1, 'b':{'foo':2}}
+    b = Bunch(d)
+    print b.b.foo # Get 2
+    """
+    def __init__(self, d):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                v = Bunch(v)
+            self.__dict__[k] = v

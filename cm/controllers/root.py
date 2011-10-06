@@ -7,6 +7,7 @@ from cm.util.json import to_json_string
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
+from cm.util.bunch import BunchToo
 import cm.util.paths as paths
 
 log = logging.getLogger( 'cloudman' )
@@ -31,6 +32,7 @@ class CM(BaseController):
                                         cluster_name = cluster_name,
                                         master_instance_type = self.app.cloud_interface.get_type(),
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
+                                        image_config_support = BunchToo(self.app.config.ic),
                                         CM_url=CM_url)
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()

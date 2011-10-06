@@ -144,7 +144,7 @@ div.form-row-input > input{max-width:300px;}
 .box{
     position:fixed;
     display:none;
-    top: 45px;
+    top: 35px;
     width: 700px;
     background-color:#fff;
     color:#7F7F7F;
@@ -1133,4 +1133,7 @@ div.volume_expand_popup{
     display: inline-block;
     border: solid #aaaaaa 1px;
     clear:both;
+}
+p.disabled {
+    color: #CDCDCD;
 }

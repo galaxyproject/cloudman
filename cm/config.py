@@ -2,6 +2,8 @@
 import sys, os, logging, logging.config, ConfigParser
 # from optparse import OptionParser
 from cm.util import string_as_bool
+from cm.util import misc
+from cm.util import paths
 
 log = logging.getLogger( 'cloudman' )
 
@@ -38,6 +40,17 @@ class Configuration( object ):
         global_conf_parser = ConfigParser.ConfigParser()
         if global_conf and "__file__" in global_conf:
             global_conf_parser.read(global_conf['__file__'])
+        # Load supported image configuration from a file on the image.
+        # This is a dict containing a list of configurations supported by
+        # the by system/image. Primarily, this contains a list
+        # of apps (available under key 'apps'). This config file allows CloudMan
+        # to integrate native and custom support for additional applications.
+        # The dict contains default values for backward combatibility.
+        self.ic = {'apps': ['cloudman', 'galaxy']} 
+        if os.path.exists(paths.IMAGE_CONF_SUPPORT_FILE):
+            self.ic = misc.load_yaml_file(paths.IMAGE_CONF_SUPPORT_FILE)
+        # Logger is not configured yet so print
+        print "Image configuration suuports: %s" % self.ic
     def get( self, key, default ):
         return self.config_dict.get( key, default )
     def check( self ):
