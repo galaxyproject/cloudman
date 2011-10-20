@@ -75,7 +75,7 @@ class CM(BaseController):
                 self.app.manager.init_cluster(startup_opt, pss)
             elif startup_opt == "Shared_cluster":
                 if shared_bucket is not None:
-                    self.app.manager.init_shared_cluster(shared_bucket)
+                    self.app.manager.init_shared_cluster(shared_bucket.strip())
                 else:
                     return "Must provide shared bucket name; cluster configuration not set."
         else:
