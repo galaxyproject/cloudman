@@ -197,7 +197,7 @@ def main():
         if _get_cm(ud):
             _unpack_cm()
             _start_cm()
-        _post_start_hook(ud)
+        # _post_start_hook(ud) # Execution of this script is moved into CloudMan, at the end of config
     log.info("---> %s done <---" % sys.argv[0])
 
 if __name__ == "__main__":

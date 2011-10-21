@@ -9,6 +9,7 @@ from cm.util import misc, comm
 from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
+from cm.services.apps.pss import PSS
 from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.postgres import PostgresService
@@ -147,8 +148,9 @@ class ConsoleManager(object):
         log.debug("ud at manager start: %s" % self.app.ud)
         if self.app.TESTFLAG is True:
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
-            return None
+            return False
         self.app.manager.services.append(SGEService(self.app))
+        self.app.manager.services.append(PSS(self.app))
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
