@@ -61,6 +61,10 @@ class EC2Interface(CloudInterface):
     
     def get_instance_id( self ):
         if self.instance_id is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get instance ID, but TESTFLAG is set. Returning 'id-LOCAL'")
+                self.instance_id = 'id-LOCAL'
+                return self.instance_id
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance id, attempt %s' % i)

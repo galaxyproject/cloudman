@@ -186,13 +186,18 @@ vertical-align: top;
         <div class="form-row">
             <label>Are you sure you want to power the cluster off?</label>
             <p>This action will shut down all services on the cluster and terminate
-            any worker nodes (instances) associated with this cluster. By default, 
-            the master instance will be left alive and should be terminated 
-            manually (using the AWS console).</p>
+            any worker nodes (instances) associated with this cluster. Unless you
+            choose to have the cluster deleted, all of your data will be preserved
+            beyond the life of this instance. Next time you wish to start this same
+            cluster, simply use the same user data (i.e., cluster name and AWS account)
+            and CloudMan will reactivate your cluster with your data.</p>
             <label>Automatically terminate the master instance?</label>
-            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked> If checked, this master instance will automatically terminate after all services have been shut down.
+            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
+            If checked, this master instance will automatically terminate after all services have been shut down.
+            If not checked, you should maually terminate this instance after all services have been shut down.
             <p></p><label>Also delete this cluster?</label>
-            <input type="checkbox" name="delete_cluster" id="delete_cluster"> If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
+            <input type="checkbox" name="delete_cluster" id="delete_cluster">
+            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
             <div class="form-row"><input type="submit" value="Yes, power off"></div>
         </div>
     </form>
@@ -690,6 +695,13 @@ function get_shared_instances(){
         });
 }
 
+function show_log_container_body() {
+    // Show the containter box for CloudMan log on the main page
+    $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
+    $('#log_container_header').addClass('clicked');
+    $('#log_container_body').slideDown('fast');
+}
+
 $(document).ready(function() {
     var initial_cluster_type = '${initial_cluster_type}';
     var permanent_storage_size = ${permanent_storage_size};
@@ -772,9 +784,7 @@ $(document).ready(function() {
     $('#log_container_body').hide();
     $('#log_container_header').click(function() {
         if ($('#log_container_body').is(":hidden")){
-            $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
-            $('#log_container_header').addClass('clicked');
-            $('#log_container_body').slideDown('fast');
+            show_log_container_body();
         } else {
             $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
             $('#log_container_body').slideUp('fast', function(){
@@ -845,8 +855,13 @@ $(document).ready(function() {
         dataType: 'json',
         beforeSubmit: function(data){
             cluster_status = "OFF";
-            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p></div>");
+            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then, if not done automatically, terminate the master instance from the AWS console.</p></div>");
             hidebox();
+            show_log_container_body();
+            update_log();
+            $('#log_container_body').animate({
+                scrollTop: $("#log_container_body").attr("scrollHeight") + 100
+            }, 1000);
             $('#no_click_clear_overlay').show(); // Overlay that prevents any future clicking
         },
         success: function( data ) {
