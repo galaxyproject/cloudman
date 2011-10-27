@@ -8,6 +8,7 @@ import threading
 import datetime as dt
 from tempfile import mkstemp
 from shutil import move
+import os
 from os import remove, close
 
 
@@ -367,6 +368,26 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
         except S3ResponseError:
             log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
     return False
+
+def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local_filename):
+    """ Check if the file in bucket has been modified before the local file.
+    :rtype: bool
+    :return: True of file in bucket is older than the local file or an error 
+             while checking the time occurs. False otherwise.
+    """
+    bucket = get_bucket(s3_conn, bucket_name)
+    key = bucket.get_key(remote_filename)
+    try:
+        # Time format must be matched the time provided by boto field .last_modified
+        k_ts = dt.datetime.strptime(key.last_modified, "%a, %d %b %Y %H:%M:%S GMT")
+    except Exception, e:
+        log.warning("Could not get last modified timestamp for key '%s': %s" % (remote_filename, e))
+        return True
+    try:
+        return k_ts < dt.datetime.fromtimestamp(os.path.getmtime(local_filename))
+    except Exception, e:
+        log.warning("Trouble comparing local (%s) and remote (%s) file modified times: %s" % (local_filename, remote_filename, e))
+        return True
 
 def get_file_from_bucket( conn, bucket_name, remote_filename, local_file, validate=True ):
     if bucket_exists(conn, bucket_name, validate):
