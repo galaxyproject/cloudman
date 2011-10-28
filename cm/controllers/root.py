@@ -40,7 +40,7 @@ class CM(BaseController):
             try:
                 CM_url = trans.app.config.get("CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
-                CM_url += changesets['default_CM_rev'] + changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
+                CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
             except Exception, e:
                 log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
