@@ -150,7 +150,11 @@ class ConsoleManager(object):
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return False
         self.app.manager.services.append(SGEService(self.app))
-        self.app.manager.services.append(PSS(self.app))
+        # Add PSS service only if post_start_script was provided as part of user data
+        if 'post_start_script' in self.app.ud:
+            self.app.manager.services.append(PSS(self.app))
+        else:
+            log.debug("'post_start_script' key was not provided as part of user data; not adding PSS service")
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
@@ -843,6 +847,8 @@ class ConsoleManager(object):
             pd = misc.load_yaml_file('pd.yaml')
             self.app.ud = misc.merge_yaml_objects(self.app.ud, pd)
         self.add_preconfigured_services()
+        # In case post_start_script was provided in the shared cluster, run the service again
+        self.app.manager.services.append(PSS(self.app))
     
     def share_a_cluster(self, user_ids=None, cannonical_ids=None):
         """
@@ -1462,7 +1468,7 @@ class ConsoleMonitor( object ):
                 if misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], prs_filename, prs_file):
                     self.prs_saved = True
             else:
-                log.debug("Instance post start script (%s) does not exist?" % prs_file)
+                log.debug("No instance post start script (%s)" % prs_file)
         # If not existent, save CloudMan source to cluster's bucket, including file's metadata
         if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
