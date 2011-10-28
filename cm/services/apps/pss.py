@@ -24,6 +24,7 @@ class PSS(ApplicationService):
     
     def start(self):
         """ Wait until all other services are running before starting this one."""
+        log.debug("Starting %s service" % self.svc_type)
         log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
         self.state = service_states.STARTING
         # If there is a service other than self that is not running, return. 
