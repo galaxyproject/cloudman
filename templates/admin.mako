@@ -149,6 +149,20 @@
                 </li>
             %endif
             <li>
+                <a class='action' href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
+                <span class="help_info">
+                    <span class="help_link">What will this do?</span>
+                    <div class="help_content" style="display: none">
+                        Each cluster has its own configuration. The state of
+                        this cofiguration is saved as 'persistent_data.yaml'
+                        file in the cluster's bucket. Saving of this file
+                        happens automatically on cluster configuration change.
+                        This link allows you to force the update of the cluster
+                        configuration and capture its current state.
+                    </div>
+                </span>
+            </li>
+            <li>
                 <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
