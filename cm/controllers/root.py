@@ -180,6 +180,10 @@ class CM(BaseController):
         return self.instance_state_json(trans)
     
     @expose
+    def store_cluster_config(self, trans):
+        self.app.manager.console_monitor.store_cluster_config()
+    
+    @expose
     def log(self, trans, l_log=0):
         trans.response.set_content_type( "text" )
         return "\n".join(self.app.logger.logmessages)
