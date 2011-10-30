@@ -1,10 +1,10 @@
 import sys
 
 msg = """ERROR: Your Python version is: %s
-Galaxy is currently supported on Python 2.4, 2.5 and 2.6.  To run Galaxy,
-please download and install a supported version from python.org.  If a
+Galaxy is currently supported on Python 2.4, 2.5, 2.6, and 2.7. To run CloudMan,
+please download and install a supported version from python.org. If a
 supported version is installed but is not your default, getgalaxy.org
-contains instructions on how to force Galaxy to use a different version.""" % sys.version[:3]
+contains instructions on how to force the application to use a different version.""" % sys.version[:3]
 
 def check_python():
     try:
