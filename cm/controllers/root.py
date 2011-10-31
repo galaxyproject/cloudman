@@ -98,6 +98,9 @@ class CM(BaseController):
         except TypeError, ex:
             log.error("You must provide valid value type: %s" % ex)
             return "TypeError exception. Check the log."
+        except Exception, g_ex:
+            log.error("Unknown Exception: %s" % g_ex)
+            return "Unknown exception. Check the log for details."
         return self.instance_state_json(trans)
     
     @expose
