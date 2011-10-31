@@ -135,7 +135,7 @@ vertical-align: top;
         the snapshot's description.</p>
         </div>
         <div class="form-row">
-            <label>New Disk Size (max 1000GB):</label>
+            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 1000GB):</label>
             <div id="permanent_storage_size" class="form-row-input">
                 <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
             </div>
@@ -507,9 +507,12 @@ function update_ui(data){
         $('#status-available').text( data.instance_status.available );
         $('#status-total').text( data.instance_status.requested );
         $('#du-total').text(data.disk_usage.total);
+        $('#du-inc').text(data.disk_usage.total.slice(0,-1));
         $('#du-used').text(data.disk_usage.used);
         $('#du-pct').text(data.disk_usage.pct);
-        $('#new_vol_size').val("Must be larger than " + data.disk_usage.total);
+        if($('#new_vol_size').val() == '0'){
+            $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
+        }
         if (parseInt(data.disk_usage.pct) > 80){
             $('#storage_warning').show();
         }else{
