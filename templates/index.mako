@@ -366,22 +366,23 @@ vertical-align: top;
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
             ## Allow Galaxy-cluster only if the underlying image/system supports it
-            ##% if 'galaxy' in image_config_support.apps:
+            % if 'galaxy' in image_config_support.apps:
                 <p><input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true'>
                     <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
                     Specify the initial storage size (in Gigabytes):
                 </p>
-            ##% else:
-            ##    <p class='disabled'>
-            ##        <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" disabled='true'>
-            ##        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets,
-            ##        SGE job manager, and a data volume. <u>NOTE</u>: The current machine image
-            ##        does not support this cluster type option; click on 'Show more startup options'
-            ##        so see the available cluster configuration options.
-            ##        <br/>Specify the initial storage size (in Gigabytes):
-            ##    </p>
-            ##% endif 
-            <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+            % else:
+                <p class='disabled'>
+                    <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" disabled='true'>
+                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets,
+                    SGE job manager, and a data volume. <u>NOTE</u>: The current machine image
+                    does not support this cluster type option; click on 'Show more startup options'
+                    so see the available cluster configuration options.
+                    <br/>Specify the initial storage size (in Gigabytes):
+                </p>
+                <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+            % endif             
         </div>
         <div id='extra_startup_options'>
             <div class="form-row">
@@ -855,7 +856,7 @@ $(document).ready(function() {
         dataType: 'json',
         beforeSubmit: function(data){
             cluster_status = "OFF";
-            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then, if not done automatically, terminate the master instance from the AWS console.</p></div>");
+            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then, if not done automatically, terminate the master instance from the AWS console. All of the buttons on the console have been disabled at this point.</p></div>");
             hidebox();
             show_log_container_body();
             update_log();
