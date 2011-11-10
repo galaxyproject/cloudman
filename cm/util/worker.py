@@ -197,7 +197,7 @@ class ConsoleManager( object ):
             else:
                 log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
         log.debug( "Configuring users' SGE profiles..." )
-        f = open( "/etc/bash.bashrc", 'a' )
+        f = open(paths.LOGIN_SHELL_SCRIPT, 'a')
         f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
         f.write( "\n. $SGE_ROOT/default/common/settings.sh\n" )
         f.close()

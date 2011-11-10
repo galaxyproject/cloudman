@@ -38,7 +38,7 @@ class SGEService( ApplicationService ):
         self.remove()
         if self.state == service_states.SHUT_DOWN:
             misc.run('rm -rf %s/*' % paths.SGE_ROOT, "Error cleaning SGE_ROOT (%s)" % paths.SGE_ROOT, "Successfully cleaned SGE_ROOT")
-            with open('/etc/bash.bashrc', 'r') as f:
+            with open(paths.LOGIN_SHELL_SCRIPT, 'r') as f:
                 lines = f.readlines()
             d1 = d2 = -1
             for i, l in enumerate(lines):
@@ -51,7 +51,7 @@ class SGEService( ApplicationService ):
             if d2 != -1:
                 del lines[d2]
             if d1!=-1 or d2!=-1:
-                with open('/etc/bash.bashrc', 'w') as f:
+                with open(paths.LOGIN_SHELL_SCRIPT, 'w') as f:
                     f.writelines(lines)
     
     def unpack_sge( self ):
@@ -123,7 +123,7 @@ class SGEService( ApplicationService ):
             misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
             misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
             log.debug("Configuring users' SGE profiles" )
-            with open("/etc/bash.bashrc", 'a') as f:
+            with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
                 f.write("\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT)
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
             return True
