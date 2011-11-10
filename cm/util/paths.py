@@ -12,6 +12,7 @@ P_LN = "/bin/ln"
 # Configs
 C_PSQL_PORT = "5840"
 USER_DATA_FILE = "userData.yaml"
+LOGIN_SHELL_SCRIPT = "/etc/profile"
 
 # Paths
 P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
