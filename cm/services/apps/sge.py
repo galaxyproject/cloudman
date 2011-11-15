@@ -107,9 +107,13 @@ class SGEService( ApplicationService ):
         if not os.path.exists('/lib64/libc.so.6'):
             if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
                 os.symlink('/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
+            # Ubuntu 11.10 support
+            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.13.so"):
+                os.symlink("/lib/x86_64-linux-gnu/libc-2.13.so", "/lib64/libc.so.6")
             else:
                 log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
         log.debug("Setting up SGE.")
+        self._fix_util_arch()
         if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.info("Successfully setup SGE; configuring SGE")
             SGE_allq_file = '%s/all.q.conf' % paths.P_SGE_ROOT
@@ -118,17 +122,24 @@ class SGEService( ApplicationService ):
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             log.debug("Created SGE all.q template as file '%s'" % SGE_allq_file)
             misc.run('cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (paths.P_SGE_ROOT, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
-            # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
-            misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
-            misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
-            misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
             log.debug("Configuring users' SGE profiles" )
             with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
                 f.write("\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT)
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
             return True
         return False
-    
+
+    def _fix_util_arch(self):
+        # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
+        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
+        # Support 3.0 kernel in Ubuntu 11.10
+        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "   2.[46].*)",
+                                                             "   [23].[460].*)")
+        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "      2.6.*)",
+                                                             "      [23].[60].*)")
+        misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
+        misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
+ 
     def add_sge_host( self, inst ):
         # TODO: Should check to ensure SGE_ROOT mounted on worker
         time.sleep(10) # Wait in hope that SGE processed last host addition

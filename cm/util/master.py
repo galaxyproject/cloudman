@@ -150,11 +150,11 @@ class ConsoleManager(object):
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return False
         self.app.manager.services.append(SGEService(self.app))
-        # Add PSS service only if post_start_script was provided as part of user data
-        if 'post_start_script' in self.app.ud:
+        # Add PSS service only if post_start_script_url key was provided as part of user data
+        if 'post_start_script_url' in self.app.ud:
             self.app.manager.services.append(PSS(self.app))
         else:
-            log.debug("'post_start_script' key was not provided as part of user data; not adding PSS service")
+            log.debug("'post_start_script_url' key was not provided as part of user data; not adding PSS service")
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
