@@ -139,7 +139,12 @@ class SGEService( ApplicationService ):
                                                              "      [23].[60].*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
         misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
- 
+        # Ensure lines starting with 127.0.1. are not included in /etc/hosts 
+        # because SGE fails to install if that's the case. This line is added
+        # to /etc/hosts by cloud-init
+        # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
+        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
+
     def add_sge_host( self, inst ):
         # TODO: Should check to ensure SGE_ROOT mounted on worker
         time.sleep(10) # Wait in hope that SGE processed last host addition
