@@ -208,7 +208,7 @@ class EC2Interface(CloudInterface):
         return self.ec2_conn
     
     def get_s3_connection( self ):
-        log.debug( 'Getting boto S3 connection' )
+        # log.debug( 'Getting boto S3 connection' )
         if self.s3_conn == None:
             log.debug("No S3 Connection, creating a new one.")
             try:

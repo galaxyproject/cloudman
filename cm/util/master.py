@@ -150,11 +150,9 @@ class ConsoleManager(object):
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return False
         self.app.manager.services.append(SGEService(self.app))
-        # Add PSS service only if post_start_script_url key was provided as part of user data
-        if 'post_start_script_url' in self.app.ud:
-            self.app.manager.services.append(PSS(self.app))
-        else:
-            log.debug("'post_start_script_url' key was not provided as part of user data; not adding PSS service")
+        # Add PSS service - this will run only after the cluster type has been
+        # selected and all of the services are in state RUNNING
+        self.app.manager.services.append(PSS(self.app))
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
@@ -1520,9 +1518,9 @@ class ConsoleMonitor( object ):
             # Check and add any new services
             added_srvcs = False # Flag to indicate if cluster conf was changed
             for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
-                added_srvcs = True
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
-                service.add()
+                if service.add():
+                    added_srvcs = True
             # Store cluster conf after all services have been added.
             # NOTE: this flag relies on the assumption service additions are
             # sequential (i.e., monitor waits for the service add call to complete).
