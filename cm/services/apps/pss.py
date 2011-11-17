@@ -21,19 +21,28 @@ class PSS(ApplicationService):
         super(PSS, self).__init__(app)
         self.svc_type = "post_start_script"
         self.pss_filename = 'post_start_script' # name of the default script to run
+        self.already_ran = False # True if the service has already been run
+    
+    def add(self):
+        if not self.already_ran and self.app.manager.initial_cluster_type is not None:
+            log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
+            self.state = service_states.STARTING
+            # If there is a service other than self that is not running, return. 
+            # Otherwise, start this service.
+            for srvc in self.app.manager.services:
+                if srvc != self and not srvc.running():
+                    log.debug("%s not running (%s), %s service prerequisites not met afterall, not starting the service yet" % (srvc.get_full_name(), srvc.state, self.svc_type))
+                    self.state = service_states.UNSTARTED # Reset state so it gets picked up by monitor again
+                    return False
+            self.start()
+            return True
+        else:
+            log.debug("Not adding {0} svc; it already ran ({1}) or cluster was not yet initialized ({2})".format(self.svc_type, self.already_ran, self.app.manager.initial_cluster_type))
+            return False
     
     def start(self):
         """ Wait until all other services are running before starting this one."""
         log.debug("Starting %s service" % self.svc_type)
-        log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
-        self.state = service_states.STARTING
-        # If there is a service other than self that is not running, return. 
-        # Otherwise, start this service.
-        for srvc in self.app.manager.services:
-            if srvc != self and not srvc.running():
-                log.debug("%s not running (%s), %s service prerequisites not met afterall, not starting the service yet" % (srvc.get_full_name(), srvc.state, self.svc_type))
-                self.state = service_states.UNSTARTED # Reset state so it gets picked up by monitor again
-                return
         # All other services OK, start this one now
         self.state = service_states.RUNNING
         log.debug("%s service prerequisites OK (i.e., all other services running), checking if %s was provided..." % (self.svc_type, self.pss_filename))
@@ -62,8 +71,9 @@ class PSS(ApplicationService):
             log.debug("%s does not exist or could not be downloaded; continuing without running it." % self.svc_type)
         self.state = service_states.SHUT_DOWN
         log.debug("%s service done and marked as '%s'" % (self.svc_type, self.state))
-        # Remove service upon completion (bc. it's not a service that need to run more than once)
+        # Remove service upon completion (bc. it's not a service that needs to run more than once)
         self.remove()
+        self.already_ran = True
     
     def remove(self):
         if self.state == service_states.SHUT_DOWN:

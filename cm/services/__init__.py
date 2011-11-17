@@ -48,8 +48,10 @@ class Service( object):
             if flag:
                 log.info("Prerequisites OK; starting service '%s'" % self.svc_type)
                 self.start()
+                return True
             else:
                 log.info("Cannot start service '%s' because prerequisites are not yet satisfied." % self.svc_type)
+                return False
     
     def running(self):
         return self.state == service_states.RUNNING
