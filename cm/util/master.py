@@ -1434,7 +1434,8 @@ class ConsoleMonitor( object ):
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's bucket
-        cc_file_name = self.create_cluster_config_file()
+        clust_customizations = {'galaxy_home': paths.P_GALAXY_HOME}
+        cc_file_name = self.create_cluster_config_file(addl_data=clust_customizations)
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
         # Ensure Galaxy config files are stored in the cluster's bucket, 
         # but only after Galaxy has been configured and is running (this ensures
