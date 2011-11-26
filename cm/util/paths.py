@@ -22,6 +22,7 @@ P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR  = "/mnt/galaxyData/pgsql/data"
 P_PG_HOME = "/usr/lib/postgresql/8.4/bin"
 try:
+    default_galaxy_home = "/mnt/galaxyTools/galaxy-central"
     # See if custom galaxy_home was specified as part of user data
     P_GALAXY_HOME = misc.load_yaml_file(USER_DATA_FILE).get('galaxy_home', None)
     # See if custom galaxy_home has been set on earlier invocations of the cluster
@@ -31,9 +32,13 @@ try:
         downloaded_pd_file = 'pd.yaml'
         if os.path.exists(downloaded_pd_file):
             P_GALAXY_HOME = misc.load_yaml_file(downloaded_pd_file).get('galaxy_home', \
-                "/mnt/galaxyTools/galaxy-central")
+                default_galaxy_home)
+        else:
+            print "'{0}' not found at paths.py load!".format(downloaded_pd_file)
+            P_GALAXY_HOME = default_galaxy_home
+    print "Set paths.P_GALAXY_HOME as '{0}'".format(P_GALAXY_HOME)
 except Exception, e:
-    P_GALAXY_HOME = "/mnt/galaxyTools/galaxy-central"
+    P_GALAXY_HOME = default_galaxy_home
     print "(paths.py) Issue checking for custom galaxy_home in user data: {0}".format(e)
 
 P_GALAXY_DATA = "/mnt/galaxyData"
