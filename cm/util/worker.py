@@ -194,8 +194,16 @@ class ConsoleManager( object ):
         if not os.path.exists('/lib64/libc.so.6'):
             if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
                 os.symlink('/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
+            # Ubuntu 11.10 support
+            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.13.so"):
+                os.symlink("/lib/x86_64-linux-gnu/libc-2.13.so", "/lib64/libc.so.6")
             else:
                 log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+        # Ensure lines starting with 127.0.1. are not included in /etc/hosts 
+        # because SGE fails to install if that's the case. This line is added
+        # to /etc/hosts by cloud-init
+        # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
+        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")        
         log.debug( "Configuring users' SGE profiles..." )
         f = open(paths.LOGIN_SHELL_SCRIPT, 'a')
         f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
