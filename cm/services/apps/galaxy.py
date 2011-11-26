@@ -15,6 +15,7 @@ class GalaxyService(ApplicationService):
     def __init__(self, app):
         super(GalaxyService, self).__init__(app)
         self.galaxy_home = paths.P_GALAXY_HOME
+        log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         self.svc_type = "Galaxy"
         self.configured = False # Indicates if the environment for running Galaxy has been configured
         self.reqs = {'Postgres': None,

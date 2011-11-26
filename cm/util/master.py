@@ -501,11 +501,17 @@ class ConsoleManager(object):
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, manually terminate the master instance (and any remaining instances associated with this cluster) from the AWS console." % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
     
-    def reboot(self):
+    def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
             return False
         self.shutdown(sd_filesystems=False, sd_instances=False)
+        if soft:
+            if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'],\
+                self.app.ud['boot_script_name']))):
+                return True
+            else:
+                log.error("Trouble restarting CloudMan softly; rebooting instance now.")
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
             ec2_conn.reboot_instances([self.app.cloud_interface.get_instance_id()])
@@ -828,6 +834,7 @@ class ConsoleManager(object):
                     del scpd['shared_data_snaps']
                     # Update new cluster's persistent_data.yaml
                     cc_file_name = 'cm_cluster_config.yaml'
+                    log.debug("Dumping scpd to file {0} (which will become persistent_data.yaml): {1}".format(cc_file_name, scpd))
                     misc.dump_yaml_to_file(scpd, cc_file_name)
                     misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
                 except EC2ResponseError, e:
@@ -839,14 +846,17 @@ class ConsoleManager(object):
             else:
                 log.error("Loaded configuration from the shared cluster does not have a reference to a shared data snapshot. Cannot continue.")
                 return False
+        # TODO: Reboot the instance so CloudMan source downloaded from the shared
+        # instance is used
+        # log.info("Rebooting the cluster so shared instance source can be reloaded.")
+        # self.reboot(soft=True)
         # Reload user data and start the cluster as normally would
         self.app.ud = self.app.cloud_interface.get_user_data(force=True)
         if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
             pd = misc.load_yaml_file('pd.yaml')
             self.app.ud = misc.merge_yaml_objects(self.app.ud, pd)
+        reload(paths) # Must reload because paths.py might have changes in it
         self.add_preconfigured_services()
-        # In case post_start_script was provided in the shared cluster, run the service again
-        self.app.manager.services.append(PSS(self.app))
     
     def share_a_cluster(self, user_ids=None, cannonical_ids=None):
         """
@@ -886,8 +896,8 @@ class ConsoleManager(object):
         # including the freshly generated snap IDs
         # snap_ids = ['snap-04c01768'] # For testing only
         conf_file_name = 'cm_shared_cluster_conf.yaml'
-        snaps = {'shared_data_snaps': snap_ids}
-        self.console_monitor.create_cluster_config_file(conf_file_name, addl_data=snaps)
+        addl_data = {'shared_data_snaps': snap_ids, 'galaxy_home': paths.P_GALAXY_HOME}
+        self.console_monitor.create_cluster_config_file(conf_file_name, addl_data=addl_data)
         # Remove references to cluster's own data volumes
         sud = misc.load_yaml_file(conf_file_name)
         if sud.has_key('data_filesystems'):

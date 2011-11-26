@@ -35,6 +35,10 @@ log.addHandler( console )
 log.addHandler( log_file )
 log.setLevel( logging.DEBUG )
 
+def usage():
+    print "Usage: python {0} [restart]".format(sys.argv[0])
+    sys.exit(1)
+
 def _run(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
@@ -160,10 +164,27 @@ def _unpack_cm():
     tar.extractall(CM_HOME) # Extract contents of downloaded file to CM_HOME
 
 def _start_cm():
-    log.debug("Copying user data file to '%s'" % os.path.join(CM_HOME, USER_DATA_FILE))
+    log.debug("Copying user data file from '%s' to '%s'" % \
+        (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE)))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
     _run('cd %s; sh run.sh --daemon' % CM_HOME)
+
+def _stop_cm(clean=False):
+    log.info("<< Stopping CloudMan from %s >>" % CM_HOME)
+    _run('cd %s; sh run.sh --stop-daemon' % CM_HOME)
+    if clean:
+        _run('rm -rf {0}'.format(CM_HOME))
+
+def _start(ud):
+    if _get_cm(ud):
+        _unpack_cm()
+        _start_cm()
+
+def _restart_cm(ud, clean=False):
+    log.info("<< Restarting CloudMan >>")
+    _stop_cm(clean=clean)
+    _start(ud)
 
 def _post_start_hook(ud):
     log.info("<<Checking for post start script>>")
@@ -191,14 +212,18 @@ def main():
     # _run('easy_install -U boto') # Update boto
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
-    
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'restart':
+            _restart_cm(ud, clean=True)
+            sys.exit(0)
+        else:
+            usage()
     if not ud.has_key('no_start'):
         _start_nginx()
-        if _get_cm(ud):
-            _unpack_cm()
-            _start_cm()
+        _start(ud)
         # _post_start_hook(ud) # Execution of this script is moved into CloudMan, at the end of config
     log.info("---> %s done <---" % sys.argv[0])
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
