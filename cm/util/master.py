@@ -210,18 +210,16 @@ class ConsoleManager(object):
     
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
         """ Iterate through the list of (attached) volumes and check if any
-        one of them matches the current cluster name and filesystem (as stored
+        one of them match the current cluster name and filesystem (as stored
         in volume tags). Returns a matching volume or None.
         Note that this method returns the first matching volume and will thus 
         not work for filesystems composed of multiple volumes. """
-        try:
-            for vol in attached_volumes:
-                if self.app.cloud_interface.get_tag(vol, 'cluster_name') == self.app.ud['cluster_name'] and \
-                   self.app.cloud_interface.get_tag(vol, 'filesystem') == filesystem_name:
-                    log.debug("Identified attached volume '%s' as filesystem '%s'" % (vol.id, filesystem_name))
-                    return vol
-        except EC2ResponseError, e:
-            log.debug("Error checking attached volume '%s' tags: %s" % (vol.id, e))
+        for vol in attached_volumes:
+            log.debug("Checking if vol '{0}' is file system '{1}'".format(vol.id, filesystem_name))
+            if self.app.cloud_interface.get_tag(vol, 'clusterName') == self.app.ud['cluster_name'] and \
+               self.app.cloud_interface.get_tag(vol, 'filesystem') == filesystem_name:
+                log.debug("Identified attached volume '%s' as filesystem '%s'" % (vol.id, filesystem_name))
+                return vol
         return None
     
     def start_autoscaling(self, as_min, as_max, instance_type):
