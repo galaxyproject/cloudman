@@ -382,12 +382,12 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
             # Time format must be matched the time provided by boto field .last_modified
             k_ts = dt.datetime.strptime(key.last_modified, "%a, %d %b %Y %H:%M:%S GMT")
         except Exception, e:
-            log.warning("Could not get last modified timestamp for key '%s': %s" % (remote_filename, e))
+            log.debug("Could not get last modified timestamp for key '%s': %s" % (remote_filename, e))
             return True
         try:
             return k_ts < dt.datetime.fromtimestamp(os.path.getmtime(local_filename))
         except Exception, e:
-            log.warning("Trouble comparing local (%s) and remote (%s) file modified times: %s" % (local_filename, remote_filename, e))
+            log.debug("Trouble comparing local (%s) and remote (%s) file modified times: %s" % (local_filename, remote_filename, e))
             return True
     else:
         log.debug("Checking age of file in bucket (%s) against local file (%s) but file in bucket is None; updating file in bucket." \
