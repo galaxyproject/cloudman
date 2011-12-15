@@ -4,11 +4,12 @@ Requires:
     PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
-
+# euca local file
 import logging, sys, os, subprocess, yaml, tarfile, shutil, time
+from urlparse import urlparse
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
-from boto.exception import S3ResponseError
+from boto.exception import S3ResponseError,BotoServerError
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
@@ -19,7 +20,7 @@ CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'
 PRS_FILENAME = 'post_start_script' # Post start script file name - script name in cluster bucket must matchi this!
-SERVICE_ROOT = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
+S3_URL = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
 DEFAULT_BUCKET_NAME = 'cloudman'
 
 # Logging setup
@@ -56,6 +57,40 @@ def _make_dir(path):
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
+
+def _get_s3_conn(ud):
+    access_key = ud['access_key']
+    secret_key = ud['secret_key']
+    log.debug('Establishing boto S3 connection')
+    if ud.has_key('s3_url'): # override the S3 host to e.g. Eucalyptus
+        url = urlparse(ud['s3_url'])
+        host = url.hostname
+        port = url.port
+        path = url.path
+        if url.scheme == 'https':
+            is_secure = True
+        else:
+            is_secure = False
+        try:
+            s3_conn = S3Connection(
+                aws_access_key_id = access_key,
+                aws_secret_access_key = secret_key,
+                is_secure = is_secure,
+                port = port,
+                host = host,
+                path = path,
+            )
+            log.debug('Got boto S3 connection to %s' % ud['s3_url'])
+        except Exception, e:
+            log.error("Exception getting S3 connection: %s" % e)
+    else: # default to Amazon connection
+        try:
+            s3_conn = S3Connection(access_key, secret_key)
+            log.debug('Got boto S3 connection.')
+        except BotoServerError, e:
+            log.error("Exception getting S3 connection: %s" % e)
+    return s3_conn
+
 
 def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename):
     try:
@@ -102,7 +137,7 @@ def _get_cm(ud):
     # Test for existence of user's bucket and download appropriate CM instance
     if ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
-            s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+            s3_conn = _get_s3_conn(ud)
             b = None
             if ud.has_key('bucket_cluster'):
                 b = s3_conn.lookup(ud['bucket_cluster'])
@@ -118,7 +153,10 @@ def _get_cm(ud):
                 return True
     # Default to public repo and wget
     log.error("Could not retrieve CloudMan from cluster bucket.")
-    url = os.path.join(SERVICE_ROOT, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
+    s3_url = S3_URL
+    if ud.has_key('s3_url'):
+        s3_url = ud['s3_url']
+    url = os.path.join(s3_url, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
     log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
     # This assumes the default repository/bucket is readable to anyone w/o authentication
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
@@ -173,7 +211,7 @@ def _post_start_hook(ud):
         # This assumes the provided URL is readable to anyone w/o authentication
         _run('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url']))
     else:
-        s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+        s3_conn = _get_s3_conn(ud)
         b = None
         if ud.has_key('bucket_cluster'):
             b = s3_conn.lookup(ud['bucket_cluster'])
