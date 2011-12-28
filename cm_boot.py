@@ -7,7 +7,7 @@ Requires:
 # euca local file
 import logging, sys, os, subprocess, yaml, tarfile, shutil, time
 from urlparse import urlparse
-from boto.s3.connection import S3Connection
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat, SubdomainCallingFormat
 from boto.s3.key import Key
 from boto.exception import S3ResponseError,BotoServerError
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
@@ -67,6 +67,9 @@ def _get_s3_conn(ud):
         host = url.hostname
         port = url.port
         path = url.path
+        calling_format=SubdomainCallingFormat()
+        if host.find('amazon') == -1:  # assume that non-amazon won't use <bucket>.<hostname> format
+            calling_format=OrdinaryCallingFormat()
         if url.scheme == 'https':
             is_secure = True
         else:
@@ -79,6 +82,7 @@ def _get_s3_conn(ud):
                 port = port,
                 host = host,
                 path = path,
+                calling_format = calling_format,
             )
             log.debug('Got boto S3 connection to %s' % ud['s3_url'])
         except Exception, e:
@@ -135,30 +139,34 @@ def _get_cm(ud):
     _make_dir(CM_HOME)
     local_cm_file = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
     # Test for existence of user's bucket and download appropriate CM instance
+    s3_conn = None
     if ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3_conn(ud)
-            b = None
-            if ud.has_key('bucket_cluster'):
-                b = s3_conn.lookup(ud['bucket_cluster'])
-            if b is not None: # Try to retrieve user's instance of CM
-                log.info("Cluster bucket '%s' found." % b.name)
-                if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                    _write_cm_revision_to_file(s3_conn, b.name)
-                    return True
-            # Retrieve default instance of CM
-            log.info("Could not retrieve CloudMan from cluster bucket; using default CloudMan (%s) from bucket '%s'" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
-            if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, DEFAULT_BUCKET_NAME)
-                return True
-    # Default to public repo and wget
-    log.error("Could not retrieve CloudMan from cluster bucket.")
-    s3_url = S3_URL
+            
+    b = None
+    if ud.has_key('bucket_cluster'):
+        b = s3_conn.lookup(ud['bucket_cluster'])
+    if b is not None: # Try to retrieve user's instance of CM
+        log.info("Cluster bucket '%s' found." % b.name)
+        if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
+            _write_cm_revision_to_file(s3_conn, b.name)
+            log.info("Restored Cloudman from cluster_bucket %s" % (ud['cluster_bucket']))
+            return True
+    # Attempt to retrieve default instance of CM from local s3
+    if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
+        log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connectino" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
+        _write_cm_revision_to_file(s3_conn, DEFAULT_BUCKET_NAME)
+        return True
+    # try from local S3
     if ud.has_key('s3_url'):
-        s3_url = ud['s3_url']
-    url = os.path.join(s3_url, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
-    log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
-    # This assumes the default repository/bucket is readable to anyone w/o authentication
+        url = os.path.join(ud['s3_url'], DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
+        if _run('wget --output-document=%s %s' % (local_cm_file, url)):
+            log.info("Retrieved CloudMan (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
+            return True 
+    # Default to public repo and wget via URL
+    url = os.path.join(S3_URL, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
+    log.info("Attempting to retrieve from Amazon S3 from %s" % (url))
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
 
 def _write_cm_revision_to_file(s3_conn, bucket_name):
