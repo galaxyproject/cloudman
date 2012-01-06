@@ -2,7 +2,8 @@ import config, logging, logging.config, sys
 from cm.util import misc
 from cm.util import paths
 
-from cm.clouds.ec2 import EC2Interface
+# from cm.clouds.ec2 import EC2Interface
+from cm.clouds.eucalyptus import EucaInterface as EC2Interface
 
 log = logging.getLogger( 'cloudman' )
 logging.getLogger('boto').setLevel(logging.INFO)
