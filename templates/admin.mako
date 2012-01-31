@@ -4,10 +4,10 @@
         <div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
             <span id="msg" class="info_msg_box_content" style="display: none"></span>
         </div>        
-        <h2>Galaxy Cloudman Admin Console</h2>
+        <h2>CloudMan Admin Console</h2>
         <div id="main_text">
             This admin panel is a convenient way to gain insight into the status
-            of individual Cloudman services as well as to control those services.<br/>
+            of individual CloudMan services as well as to control those services.<br/>
             <b>Services should not be manipulated unless absolutely necessary.
             Please keep in mind that the actions performed by these service-control
             'buttons' are basic in that they assume things will operate as expected.
@@ -72,7 +72,7 @@
         </ul>
         <h3>Services controls</h3>
         <div class="help_text">
-            Use these controls to administer individual application services managed by Cloudman.
+            Use these controls to administer individual application services managed by CloudMan.
         </div>
         <table width="600px" style="margin:10px 0;">
             <tr style="text-align:left">
@@ -115,12 +115,29 @@
         </table>
         <h3>System controls</h3>
         <div class="help_text">
-            Use these controls to administer Cloudman itself as well as the underlying system.
+            Use these controls to administer CloudMan itself as well as the underlying system.
         </div>
         <ul class='services_list'>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
             <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
+            <li>Name of the cluster's bucket: ${bucket_cluster}
+                (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#" target="_blank">access via AWS console</a>)
+                <span class="help_info">
+                    <span class="help_link">Bucket info</span>
+                    <div class="help_content" style="display: none">
+                        Each CloudMan cluster has its configuration saved in a persistent
+                        data repository. This repository is read at cluster start and it
+                        holds all the data required to restart this same cluster. The
+                        repository is stored under your cloud account and is accessible
+                        only with your credentials. <br/>
+                        In the context of AWS, S3 acts as a persistent data repository where
+                        all the data is stored in an S3 bucket. The name of the bucket 
+                        provided here corresponds to the current cluster and is provided
+                        simply as a reference.
+                    </div>
+                </span>
+            </li>
             %if filesystems:
                 <li>Persist changes to file system:
                     %for fs in filesystems:
@@ -153,7 +170,7 @@
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        Each cluster has its own configuration. The state of
+                        Each CloudMan cluster has its own configuration. The state of
                         this cofiguration is saved as 'persistent_data.yaml'
                         file in the cluster's bucket. Saving of this file
                         happens automatically on cluster configuration change.
@@ -179,9 +196,9 @@
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        Try to (re)start Cloudman service monitor thread, which is 
+                        Try to (re)start CloudMan service monitor thread, which is 
                         responsible for monitoring the status of all of the other
-                        services. This should only be used if the Cloudman user
+                        services. This should only be used if the CloudMan user
                         interface becomes unresponsive or during debugging.
                     </div>
                 </span>
@@ -191,7 +208,7 @@
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        Start a new Cloudman service monitor thread regardless
+                        Start a new CloudMan service monitor thread regardless
                         of if one already exists.
                     </div>
                 </span>
