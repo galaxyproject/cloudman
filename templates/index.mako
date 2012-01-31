@@ -6,18 +6,20 @@ vertical-align: top;
 }
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
-    <h2>Galaxy Cloudman Console</h2>
+    <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
     <div id="main_text">
         %if initial_cluster_type is None:
-            Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud instance and the services 
-            provided within. If this is your first time running this cluster, you will need to select an initial data volume 
-            size. Once the data store is configured, default services will start and you will be able to add and remove additional
-            services as well as 'worker' nodes on which jobs are run.
+            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            This application allows you to manage this cloud cluster and the services provided within. 
+            If this is your first time running this cluster, you will need to select an initial data volume 
+            size. Once the data store is configured, default services will start and you will be able to add 
+            and remove additional services as well as 'worker' nodes on which jobs are run.
         %else:
-            Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy CloudMan. Your previous 
-            data store has been reconnected.  Once the cluster has initialized, use the controls below to add and remove 'worker' 
-            nodes for running jobs.
+            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            This application allows you to manage this instance cloud cluster and the services 
+            provided within. Your previous data store has been reconnected.  Once the cluster has initialized, 
+            use the controls below to manage services provided by the application.
         %endif
     </div>
     <div style="clear: both;"></div><br/>
@@ -411,7 +413,7 @@ vertical-align: top;
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Start Cluster" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Start CloudMan Cluster" id="start_cluster_submit_btn"/>
         </div>
         </form>
     </div>

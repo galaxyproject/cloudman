@@ -468,7 +468,8 @@ class CM(BaseController):
         return trans.fill_template('admin.mako', 
                                    ip=self.app.cloud_interface.get_self_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
-                                   filesystems=filesystems)
+                                   filesystems=filesystems,
+                                   bucket_cluster=self.app.ud['bucket_cluster'])
     
     @expose
     def cluster_status(self, trans):
