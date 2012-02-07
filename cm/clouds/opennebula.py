@@ -99,7 +99,7 @@ class ONInterface(CloudInterface):
         if self.ec2_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
+                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host)
                 self.ec2_conn.lookup = new.instancemethod(lookup, self.ec2_conn, self.ec2_conn.__class__)
                 self.ec2_conn.create_bucket = new.instancemethod(create_bucket, self.ec2_conn, self.ec2_conn.__class__)
 
@@ -122,7 +122,7 @@ class ONInterface(CloudInterface):
         if self.s3_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.s3_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host)
+                self.s3_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
                 self.s3_conn.lookup = new.instancemethod(lookup, self.s3_conn, self.s3_conn.__class__)
                 self.s3_conn.create_bucket = new.instancemethod(create_bucket, self.s3_conn, self.s3_conn.__class__)
  
