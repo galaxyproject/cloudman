@@ -290,9 +290,9 @@ NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
         v.add_tag = new.instancemethod(add_tag, v, v.__class__)
 
         return v
-    
 
-
+    def add_tag(self, key, value, *args, **kwargs):
+        self.tags[key] = value
         
 class Reservations(object):
     def __init__(self):
