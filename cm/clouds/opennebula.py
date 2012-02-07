@@ -99,7 +99,7 @@ class ONInterface(CloudInterface):
         if self.ec2_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host)
+                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
                 self.ec2_conn.lookup = new.instancemethod(lookup, self.ec2_conn, self.ec2_conn.__class__)
                 self.ec2_conn.create_bucket = new.instancemethod(create_bucket, self.ec2_conn, self.ec2_conn.__class__)
 
@@ -242,7 +242,9 @@ NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
                     r.instances.append(vm_instance)
                     reservations.append(r)
             except TypeError :
-                if vm_instance.name.strip() == "Galaxy_Main":
+                # TODO: don't hardcode the name of the master instance
+                #if vm_instance.name.strip() == "Galaxy_Main":
+                if vm_instance.name.strip() == "one-1592":
                     r = Reservations()
                     vm_instance.add_tag = new.instancemethod(add_tag, vm_instance, vm_instance.__class__)
                     vm_instance.update = new.instancemethod(update, vm_instance, vm_instance.__class__)
