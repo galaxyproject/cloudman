@@ -56,7 +56,7 @@ class UniverseApplication( object ):
         if self.ud['cloud_type'] == "ec2":
             self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self)
         elif self.ud['cloud_type'] == 'opennebula':
-            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
+            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'], on_proxy=self.ud['on_proxy'])
         elif self.ud['cloud_type'] == 'dummy':
             self.cloud_interface = DummyInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
 

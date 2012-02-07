@@ -19,7 +19,7 @@ log = logging.getLogger( 'cloudman' )
 
 class ONInterface(CloudInterface):
     
-    def __init__(self, aws_access_key, aws_secret_key, app=None, on_username=None, on_password=None, on_host=None):
+    def __init__(self, aws_access_key, aws_secret_key, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
         super(ONInterface, self).__init__()
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
@@ -27,6 +27,7 @@ class ONInterface(CloudInterface):
         self.on_username = on_username
         self.on_password = on_password
         self.on_host = on_host
+        self.on_proxy = on_proxy
         self.bridge = 72
 
     def _getIpAddress(self, ifname):
@@ -98,7 +99,7 @@ class ONInterface(CloudInterface):
         if self.ec2_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host)
+                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
                 self.ec2_conn.lookup = new.instancemethod(lookup, self.ec2_conn, self.ec2_conn.__class__)
                 self.ec2_conn.create_bucket = new.instancemethod(create_bucket, self.ec2_conn, self.ec2_conn.__class__)
 
@@ -194,7 +195,7 @@ NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
 # Emulate EC2 objects
 
     def get_all_instances(self, filters={}, *args, **kwargs):
-        client = Client("%s:%s" % (self.on_username, self.on_password), self.on_host)
+        client = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
         vmpool = VirtualMachinePool(client)
         vmpool.info(CONNECTED)
         reservations = []
