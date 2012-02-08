@@ -29,6 +29,7 @@ class ONInterface(CloudInterface):
         self.on_host = on_host
         self.on_proxy = on_proxy
         self.bridge = 72
+        self.tags = {}
 
     def _getIpAddress(self, ifname):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -62,7 +63,7 @@ class ONInterface(CloudInterface):
         # match with the current mac address and that VM ID 
         # is returned
         mac = self._getMacAddress('eth0')
-        log.debug(mac)
+        #log.debug(mac)
         vmpool = VirtualMachinePool(self.s3_conn)
         vmpool.info(CONNECTED)
         for vm in list(vmpool):
@@ -162,14 +163,39 @@ class ONInterface(CloudInterface):
         log.debug("Adding OpenNebula Worker nodes")
         
         # TODO: Remove public NIC? Save disk?
-        vmtemplatestring ="""
-NAME=\"%s\" MEMORY=1024 CPU=1 OS=[BOOT=\"hd\"] 
-GRAPHICS=[type=\"vnc\"] 
-DISK=[TYPE=\"disk\", SOURCE=\"/home/%s/images/%s\", TARGET=\"hda\", CLONE=\"yes\", SAVE=\"no\", READONLY=\"n\" ]
-NIC=[NETWORK=\"%s\", MODEL=\"virtio\"]
-NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
-""" % (vmname, username, diskimage, username)
+#        vmtemplatestring ="""
+#NAME=\"%s\" MEMORY=1024 CPU=1 OS=[BOOT=\"hd\"] 
+#GRAPHICS=[type=\"vnc\"] 
+#DISK=[TYPE=\"disk\", SOURCE=\"/home/%s/images/%s\", TARGET=\"hda\", CLONE=\"yes\", SAVE=\"no\", READONLY=\"n\" ]
+#NIC=[NETWORK=\"%s\", MODEL=\"virtio\"]
+#NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
+#""" % (vmname, username, diskimage, username)
 
+        vmtemplatestring = """
+CPU=1
+DISK=[
+  BUS=ide,
+  IMAGE_ID=316,
+  TARGET=hda ]
+GRAPHICS=[
+  TYPE=vnc ]
+MEMORY=8192
+NAME=Biolinux-100G-nioo
+NIC=[
+  MODEL=virtio,
+  NETWORK_FILTER_ID=62,
+  NETWORK_ID=0 ]
+NIC=[
+  MODEL=virtio,
+  NETWORK_ID=23 ]
+OS=[
+  ARCH=x86_64,
+  BOOT=hd ]
+RAW=[
+  TYPE=kvm ]
+TEMPLATE_ID=397
+VCPU=1
+"""
         r = Reservations()
         for i in range(min_count,max_count+1):
             new_vm_id = VirtualMachine.allocate(self.s3_conn, vmtemplatestring)
