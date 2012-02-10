@@ -84,12 +84,12 @@ class ONInterface(CloudInterface):
     def get_self_private_ip( self ):
         # TODO: Change this to the masters IP
         log.debug("Asking for private IP")
-        return self._getIpAddress('eth0')
+        return self._getIpAddress('eth1')
     
     def get_self_public_ip( self ):
         # TODO: Change this to the masters IP
         log.debug("Asking for public IP")
-        return self._getIpAddress('eth1')
+        return self._getIpAddress('eth0')
     
     def get_fqdn(self):
         # Return the hostname
