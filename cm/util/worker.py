@@ -161,6 +161,7 @@ class ConsoleManager( object ):
             return "TEST_WORKERHOSTCERT"
         log.info( "Retrieving worker host certificate..." )
         w_cert_file = '/tmp/wCert.txt'
+        print '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
         ret_code = subprocess.call( '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file), shell=True )
         if ret_code == 0:
             f = open( w_cert_file, 'r' )
@@ -218,7 +219,9 @@ class ConsoleManager( object ):
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
         
         log.info( "Setting up SGE..." )
+        print 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file)
         ret_code = subprocess.call( 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), shell=True )
+
         if ret_code == 0:
             self.sge_started = 1
             log.debug( "Successfully configured SGE." )
@@ -265,7 +268,27 @@ class ConsoleMonitor( object ):
                                                   self.app.cloud_interface.get_ami())
         self.conn.send(msg)
         log.debug( "Sending message '%s'" % msg )
-    
+
+        if self.app.ud['cloud_type'] == 'opennebula':
+            if not open('/etc/hostname').readline().startswith('worker'):
+
+                log.debug( "Configuring hostname..." )
+                f = open( "/etc/hostname", 'w' )
+                f.write( "worker-%s" % self.app.cloud_interface.get_instance_id() )
+                f.close()
+        
+                f = open( "/etc/hosts", 'w' )
+                f.write( "127.0.0.1\tlocalhost\n")
+                f.write( "%s\tubuntu\n" % (self.app.ud['master_ip']))
+                f.write( "%s\tworker-%s\n" % (self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_instance_id()))
+                f.close()
+                
+                # Restart complete node or only hostname process?
+                #ret_code = subprocess.call( "/etc/init.d/hostname restart", shell=True )
+                ret_code = subprocess.call( "sudo telinit 6", shell=True )
+
+
+
     def send_worker_hostcert(self):
         host_cert = self.app.manager.get_host_cert()
         if host_cert != None:
@@ -322,6 +345,9 @@ class ConsoleMonitor( object ):
                 self.last_state_change_time = dt.datetime.utcnow()
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
+        elif message.startswith("REBOOT"):
+            log.info("Received reboot command")
+            ret_code = subprocess.call( "sudo telinit 6", shell=True )
         else:
             log.debug("Unknown message '%s'" % message)
     
@@ -338,7 +364,16 @@ class ConsoleMonitor( object ):
                 #         log.info( "Stuck in state '%s' too long, reseting and trying again..." % self.app.manager.worker_status )
                 #         self.app.manager.worker_status = worker_states.INITIAL_STARTUP
                 #         self.last_state_change_time = dt.datetime.utcnow()
-                m = self.conn.recv()
+                try:
+                    m = self.conn.recv()
+                except IOError, e:
+                    if self.app.ud['cloud_type'] == 'opennebula':
+                        log.debug("Failed connecting master: %s" % e)
+                        log.debug("Trying to reboot the system")
+                        ret_code = subprocess.call( 'sudo telinit 6', shell=True )
+                    else:
+                        pass
+                    
                 while m is not None:
                     self.handle_message(m.body)
                     m = self.conn.recv()
