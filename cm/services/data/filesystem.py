@@ -164,13 +164,22 @@ class Volume(object):
     def do_attach(self, attach_device):
         try:
             if attach_device is not None:
-                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
-                volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
+                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" 
+                    % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
+                volumestatus = self.app.cloud_interface.get_ec2_connection() \
+                    .attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
             else:
-                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
+                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." 
+                    % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
                 return False
         except EC2ResponseError, e:
-            log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device, e))
+            for er in e.errors:
+                if er[0] == 'InvalidVolume.ZoneMismatch':
+                    log.error("Volume '{0}' is in the wrong zone for this instance. IT IS REQUIRED TO START A NEW INSTANCE IN ZONE '{1}'."\
+                        .format(self.volume_id, self.app.cloud_interface.get_zone()))
+                else:
+                    log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s (%s)" 
+                        % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device, er[0], er[1]))
             return False
         return volumestatus
     
@@ -349,11 +358,16 @@ class Filesystem(DataService):
     def clean(self):
         """ Remove filesystems and clean up as if they were never there. Useful for CloudMan restarts."""
         self.remove()
-        try:
-            if len(os.listdir(self.mount_point)) > 0:
-                shutil.rmtree(self.mount_point)
-        except OSError, e:
-            log.error("Trouble cleaning directory '%s': %s" % (self.mount_point, e))
+        # If the service was successfuly removed, remove the mount point
+        if self.state == service_states.SHUT_DOWN:
+            try:
+                if len(os.listdir(self.mount_point)) > 0:
+                    shutil.rmtree(self.mount_point)
+            except OSError, e:
+                log.error("Trouble cleaning directory '%s': %s" % (self.mount_point, e))
+        else:
+            log.warning("Wanted to clean file system {0} but the service is not in state '{1}'; it in state '{2}'") \
+                .format(self.name, service_states.SHUT_DOWN, self.state)
     
     def expand(self):
         if self.grow is not None:
