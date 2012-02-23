@@ -1,15 +1,6 @@
-data_filesystems:
-  galaxyData:
-  - size: 1
-    vol_id: !!python/unicode 'vol-5e3c4436'
+galaxy_home: /mnt/galaxyTools/galaxy-central
 services:
 - service: SGE
+- service: post_start_script
 - service: Postgres
 - service: Galaxy
-static_filesystems:
-- filesystem: galaxyIndices
-  size: 600
-  snap_id: snap-e1c7d08b
-- filesystem: galaxyTools
-  size: 2
-  snap_id: snap-ac293ac6

@@ -3,6 +3,9 @@ from cm.util import misc
 from cm.util import paths
 
 from cm.clouds.ec2 import EC2Interface
+from cm.clouds.opennebula import ONInterface
+from cm.clouds.dummy import DummyInterface
+
 
 log = logging.getLogger( 'cloudman' )
 logging.getLogger('boto').setLevel(logging.INFO)
@@ -34,6 +37,14 @@ class UniverseApplication( object ):
         else:
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
+
+        if self.ud.has_key("localflag"):
+            self.LOCALFLAG = bool(self.ud['localflag'])
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.LOCALFLAG = False
+            self.logger.setLevel(logging.INFO)
+            
         log.addHandler(self.logger)
         # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
@@ -41,6 +52,14 @@ class UniverseApplication( object ):
         config.configure_logging( self.config )
         log.debug( "Initializing app" )
         self.manager = None
+        # DBTODO make this flexible for other cloud interfaces.
+        if self.ud['cloud_type'] == "ec2":
+            self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self)
+        elif self.ud['cloud_type'] == 'opennebula':
+            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'], on_proxy=self.ud['on_proxy'])
+        elif self.ud['cloud_type'] == 'dummy':
+            self.cloud_interface = DummyInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
+
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         if self.ud.has_key('bucket_cluster'):
