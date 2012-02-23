@@ -595,7 +595,7 @@ class ConsoleManager(object):
         
             for idle_instance_dn in idle_instances_dn:
                  for w_instance in self.worker_instances:
-                     log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
+                     # log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
                      if w_instance.get_private_ip() is not None:
                          if w_instance.get_private_ip().lower().startswith( str(idle_instance_dn).lower() ) is True:
                             # log.debug( "Marking instance '%s' with FQDN '%s' as idle." % ( w_instance.id, idle_instance_dn ) )
@@ -663,10 +663,10 @@ class ConsoleManager(object):
         reservation = None
         if instance_type == '':
             instance_type = self.app.cloud_interface.get_type()
-        #log.debug( "Using following command: ec2_conn.run_instances( image_id='%s', min_count=1, max_count='%s', key_name='%s', security_groups=['%s'], user_data=[%s], instance_type='%s', placement='%s' )"
-        #       % ( self.app.cloud_interface.get_ami(), num_nodes, self.app.cloud_interface.get_key_pair_name(), ", ".join( self.app.cloud_interface.get_security_groups() ), worker_ud_str, instance_type, self.app.cloud_interface.get_zone() ) )
+        log.debug( "Using following command: ec2_conn.run_instances( image_id='%s', min_count=1, max_count='%s', key_name='%s', security_groups=['%s'], user_data=[%s], instance_type='%s', placement='%s' )"
+              % ( self.app.cloud_interface.get_ami(), num_nodes, self.app.cloud_interface.get_key_pair_name(), ", ".join( self.app.cloud_interface.get_security_groups() ), worker_ud_str, instance_type, self.app.cloud_interface.get_zone() ) )
         try:
-            log.debug( "Would be starting worker instance(s)..." )
+            # log.debug( "Would be starting worker instance(s)..." )
             reservation = ec2_conn.run_instances( image_id=self.app.cloud_interface.get_ami(),
                                                   min_count=1,
                                                   max_count=num_nodes,
@@ -769,7 +769,7 @@ class ConsoleManager(object):
                     self.services.append(fs)
                     
             #User data - add a new file system for user data of size 'pss'                    
-            if self.app.ud['cloud_type'] not in ['opennebula', 'dummy']:
+            if self.app.cloud_type not in ['opennebula', 'dummy']:
                 fs_name = 'galaxyData'
                 log.debug("Creating a new data filesystem: '%s'" % fs_name)
                 fs = Filesystem(self.app, fs_name)
@@ -1548,7 +1548,7 @@ class ConsoleMonitor( object ):
             # service that would indicate the configuration of the service is
             # complete. This could probably be done by monitoring
             # the service state flag that is already maintained?
-            if added_srvcs and self.app.ud['cloud_type'] != 'opennebula':
+            if added_srvcs and self.app.cloud_type != 'opennebula':
                 self.store_cluster_config()
             # Check and grow file system
             svcs = self.app.manager.get_services('Filesystem')
@@ -1556,7 +1556,7 @@ class ConsoleMonitor( object ):
                 if svc.name == 'galaxyData' and svc.grow is not None:
                      self.expand_user_data_volume()
                      # Opennebula has no storage like S3, so this is not working (yet)
-                     if self.app.ud['cloud_type'] != 'opennebula':
+                     if self.app.cloud_type != 'opennebula':
                          self.store_cluster_config()
             # Check status of worker instances
             for w_instance in self.app.manager.worker_instances:
@@ -1578,7 +1578,7 @@ class ConsoleMonitor( object ):
                     try:
                         ec2_conn = self.app.cloud_interface.get_ec2_connection()
                         log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
-                        if self.app.ud['cloud_type'] == 'opennebula':
+                        if self.app.cloud_type == 'opennebula':
                             self.app.manager.console_monitor.conn.send( 'REBOOT | %s' % w_instance.id, w_instance.id )
                             log.info( "\tMT: Sent REBOOT message to worker '%s'" % w_instance.id )
                         else:
@@ -1730,7 +1730,7 @@ class Instance( object ):
     def get_m_state( self ):
         if self.app.TESTFLAG is True:
             return "running"
-        if self.app.ud['cloud_type'] == 'opennebula':
+        if self.app.cloud_type == 'opennebula':
             reservation = self.app.cloud_interface.get_all_instances([self.id])
             if reservation and len(reservation[0].instances)==1:
                 instance = reservation[0].instances[0]
@@ -1739,7 +1739,7 @@ class Instance( object ):
         if self.inst:
             try:
                 self.inst.update()
-                state = self.inst.lcm_state
+                state = self.inst.state
                 if state != self.m_state:
                     self.m_state = state
                     self.last_m_state_change = dt.datetime.utcnow()
@@ -1750,11 +1750,11 @@ class Instance( object ):
 
     
     def send_status_check( self ):
-        log.debug("\tMT: Sending STATUS_CHECK message" )
+        # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
             return
         self.app.manager.console_monitor.conn.send( 'STATUS_CHECK', self.id )
-        log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
+        # log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
     
     def send_worker_restart( self ):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
@@ -1764,7 +1764,7 @@ class Instance( object ):
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
     
     def check_if_instance_alive( self ):
-        log.debug( "In '%s' state." % self.app.manager.master_state )
+        # log.debug( "In '%s' state." % self.app.manager.master_state )
         #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
         state = self.get_m_state()
         
@@ -1775,7 +1775,7 @@ class Instance( object ):
         elif state == 'pending': # Display pending instances status to console log
             log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
         else:
-            log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            # log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
             pass
         if self.app.TESTFLAG is True:
             return True
@@ -1793,11 +1793,11 @@ class Instance( object ):
         return True
     
     def get_private_ip( self ):
-        log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
+        # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
         return self.private_ip
     
     def send_master_pubkey( self ):
-#        log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
+        # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
         self.app.manager.console_monitor.conn.send( 'MASTER_PUBKEY | %s' % self.app.manager.get_root_public_key(), self.id )
         log.info("Sent master public key to worker instance '%s'." % self.id)
         log.debug( "\tMT: Message MASTER_PUBKEY %s sent to '%s'" % ( self.app.manager.get_root_public_key(), self.id ) )
@@ -1832,7 +1832,7 @@ class Instance( object ):
                 self.send_master_pubkey()
                 
                 # Add hostname to /etc/hosts (for SGE config)
-                if self.app.ud['cloud_type'] == 'opennebula':
+                if self.app.cloud_type == 'opennebula':
                     f = open( "/etc/hosts", 'a' )
                     f.write( "%s\tworker-%s\n" %  (self.private_ip, self.id))
                     f.close()

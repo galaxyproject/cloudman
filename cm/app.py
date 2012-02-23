@@ -26,8 +26,18 @@ class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
     def __init__( self, **kwargs ):
         print "Python version: ", sys.version_info[:2]
+        # Read config file and check for errors
+        self.config = config.Configuration( **kwargs )
+        self.config.check()
+        # Create an approprite cloud connection
+        self.cloud_type = self.config.get('cloud_type', 'ec2')
+        if self.cloud_type == "ec2":
+            self.cloud_interface = EC2Interface(app=self)
+        elif self.cloud_type == 'opennebula':
+            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'], on_proxy=self.ud['on_proxy'])
+        elif self.cloud_type == 'dummy':
+            self.cloud_interface = DummyInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
         # Load user data into a local field through a cloud interface
-        self.cloud_interface = EC2Interface(app=self)
         self.ud = self.cloud_interface.get_user_data()
         # Setup logging
         self.logger = CMLogHandler(self)
@@ -37,29 +47,19 @@ class UniverseApplication( object ):
         else:
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
-
+        
         if self.ud.has_key("localflag"):
             self.LOCALFLAG = bool(self.ud['localflag'])
             self.logger.setLevel(logging.DEBUG)
         else:
             self.LOCALFLAG = False
             self.logger.setLevel(logging.INFO)
-            
         log.addHandler(self.logger)
-        # Read config file and check for errors
-        self.config = config.Configuration( **kwargs )
-        self.config.check()
-        config.configure_logging( self.config )
+        config.configure_logging(self.config)
         log.debug( "Initializing app" )
+        log.debug("Running on '{0}' type of cloud.".format(self.cloud_type))
         self.manager = None
-        # DBTODO make this flexible for other cloud interfaces.
-        if self.ud['cloud_type'] == "ec2":
-            self.cloud_interface = EC2Interface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self)
-        elif self.ud['cloud_type'] == 'opennebula':
-            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'], on_proxy=self.ud['on_proxy'])
-        elif self.ud['cloud_type'] == 'dummy':
-            self.cloud_interface = DummyInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
-
+        
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         if self.ud.has_key('bucket_cluster'):
