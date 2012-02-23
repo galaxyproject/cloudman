@@ -146,13 +146,18 @@ class ConsoleManager(object):
         and start available cluster services (as provided in the cluster's 
         configuration and persistent data )"""
         log.debug("ud at manager start: %s" % self.app.ud)
-        if self.app.TESTFLAG is True:
+        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return False
         self.app.manager.services.append(SGEService(self.app))
+
+        if self.app.LOCALFLAG is True:
+            self.init_cluster(cluster_type='Galaxy')
+        
         # Add PSS service - this will run only after the cluster type has been
         # selected and all of the services are in state RUNNING
         self.app.manager.services.append(PSS(self.app))
+
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
@@ -162,7 +167,7 @@ class ConsoleManager(object):
     def add_preconfigured_services(self):
         """ Inspect cluster configuration and persistent data and add 
         available/preconfigured services. """
-        if self.app.TESTFLAG is True:
+        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to add preconfigured cluster services but the TESTFLAG is set.")
             return None
         try:
@@ -430,7 +435,7 @@ class ConsoleManager(object):
     def get_worker_instances( self ):
         instances = []
         if self.app.TESTFLAG is True:
-            # for i in range(5):
+            #for i in range(5):
             #     instance = Instance( self.app, inst=None, m_state="Pending" )
             #     instance.id = "WorkerInstance"
             #     instances.append(instance)
@@ -567,7 +572,7 @@ class ConsoleManager(object):
         self.master_state = new_state
     
     def get_idle_instances( self ):
-        # log.debug( "Looking for idle instances" )
+        #log.debug( "Looking for idle instances" )
         idle_instances = [] # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % paths.P_SGE_ROOT):
             proc = subprocess.Popen( "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qstat -f | grep all.q" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE )
@@ -590,7 +595,7 @@ class ConsoleManager(object):
         
             for idle_instance_dn in idle_instances_dn:
                  for w_instance in self.worker_instances:
-                     # log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
+                     log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
                      if w_instance.get_private_ip() is not None:
                          if w_instance.get_private_ip().lower().startswith( str(idle_instance_dn).lower() ) is True:
                             # log.debug( "Marking instance '%s' with FQDN '%s' as idle." % ( w_instance.id, idle_instance_dn ) )
@@ -658,10 +663,10 @@ class ConsoleManager(object):
         reservation = None
         if instance_type == '':
             instance_type = self.app.cloud_interface.get_type()
-        log.debug( "Using following command: ec2_conn.run_instances( image_id='%s', min_count=1, max_count='%s', key_name='%s', security_groups=['%s'], user_data=[%s], instance_type='%s', placement='%s' )"
-               % ( self.app.cloud_interface.get_ami(), num_nodes, self.app.cloud_interface.get_key_pair_name(), ", ".join( self.app.cloud_interface.get_security_groups() ), worker_ud_str, instance_type, self.app.cloud_interface.get_zone() ) )
+        #log.debug( "Using following command: ec2_conn.run_instances( image_id='%s', min_count=1, max_count='%s', key_name='%s', security_groups=['%s'], user_data=[%s], instance_type='%s', placement='%s' )"
+        #       % ( self.app.cloud_interface.get_ami(), num_nodes, self.app.cloud_interface.get_key_pair_name(), ", ".join( self.app.cloud_interface.get_security_groups() ), worker_ud_str, instance_type, self.app.cloud_interface.get_zone() ) )
         try:
-            # log.debug( "Would be starting worker instance(s)..." )
+            log.debug( "Would be starting worker instance(s)..." )
             reservation = ec2_conn.run_instances( image_id=self.app.cloud_interface.get_ami(),
                                                   min_count=1,
                                                   max_count=num_nodes,
@@ -676,6 +681,7 @@ class ConsoleManager(object):
                     self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.app.cloud_interface.add_tag(instance, 'role', worker_ud['role'])
                     i = Instance( self.app, inst=instance, m_state=instance.state )
+                    log.debug("Adding instance: %s" % instance)
                     self.worker_instances.append( i )
         except BotoServerError, e:
             log.error( "boto server error when starting an instance: %s" % str( e ) )
@@ -732,19 +738,20 @@ class ConsoleManager(object):
         :param pss: Persistent Storage Size associated with data volumes being 
             created for the given cluster
         """
-        if self.app.TESTFLAG is True:
+        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
             return
         self.app.manager.initial_cluster_type = cluster_type
         log.info("Initializing a '%s' cluster." % cluster_type)
         if cluster_type == 'Galaxy':
             # Add required services:
+            
             # Static data - get snapshot IDs from the default bucket and add respective file systems
             s3_conn = self.app.cloud_interface.get_s3_connection()
             snaps_file = 'cm_snaps.yaml'
             snaps = None
             if self.app.ud.has_key('static_filesystems'):
-                snaps = self.app.ud['static_filesystems']                
+                snaps = self.app.ud['static_filesystems']
             elif misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
                 snaps_file = misc.load_yaml_file(snaps_file)
                 snaps = snaps_file['static_filesystems']
@@ -755,18 +762,21 @@ class ConsoleManager(object):
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
-                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                         fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
                     else:
-                        fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
+                         fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % snap['filesystem'])
                     self.services.append(fs)
-            # User data - add a new file system for user data of size 'pss'                    
-            fs_name = 'galaxyData'
-            log.debug("Creating a new data filesystem: '%s'" % fs_name)
-            fs = Filesystem(self.app, fs_name)
-            fs.add_volume(size=pss)
-            self.services.append(fs)
-            # PostgreSQL
+                    
+            #User data - add a new file system for user data of size 'pss'                    
+            if self.app.ud['cloud_type'] not in ['opennebula', 'dummy']:
+                fs_name = 'galaxyData'
+                log.debug("Creating a new data filesystem: '%s'" % fs_name)
+                fs = Filesystem(self.app, fs_name)
+                fs.add_volume(size=pss)
+                self.services.append(fs)
+            
+            #PostgreSQL
             self.services.append(PostgresService(self.app))
             # Galaxy
             self.services.append(GalaxyService(self.app))
@@ -1538,14 +1548,16 @@ class ConsoleMonitor( object ):
             # service that would indicate the configuration of the service is
             # complete. This could probably be done by monitoring
             # the service state flag that is already maintained?
-            if added_srvcs:
+            if added_srvcs and self.app.ud['cloud_type'] != 'opennebula':
                 self.store_cluster_config()
             # Check and grow file system
             svcs = self.app.manager.get_services('Filesystem')
             for svc in svcs:
                 if svc.name == 'galaxyData' and svc.grow is not None:
                      self.expand_user_data_volume()
-                     self.store_cluster_config()
+                     # Opennebula has no storage like S3, so this is not working (yet)
+                     if self.app.ud['cloud_type'] != 'opennebula':
+                         self.store_cluster_config()
             # Check status of worker instances
             for w_instance in self.app.manager.worker_instances:
                 if w_instance.check_if_instance_alive() is False:
@@ -1566,7 +1578,11 @@ class ConsoleMonitor( object ):
                     try:
                         ec2_conn = self.app.cloud_interface.get_ec2_connection()
                         log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
-                        ec2_conn.reboot_instances([w_instance.id])
+                        if self.app.ud['cloud_type'] == 'opennebula':
+                            self.app.manager.console_monitor.conn.send( 'REBOOT | %s' % w_instance.id, w_instance.id )
+                            log.info( "\tMT: Sent REBOOT message to worker '%s'" % w_instance.id )
+                        else:
+                            ec2_conn.reboot_instances([w_instance.id])
                         w_instance.reboot_required = False
                     except EC2ResponseError, e:
                         log.debug("Error rebooting instance '%s': %s" % (w_instance.id, e))
@@ -1575,7 +1591,7 @@ class ConsoleMonitor( object ):
                 def do_match():
                     match = False
                     for inst in self.app.manager.worker_instances:
-                        if inst.id == m.properties['reply_to']:
+                        if str(inst.id) == str(m.properties['reply_to']):
                             match = True
                             inst.handle_message( m.body )
                     return match
@@ -1597,7 +1613,7 @@ class Instance( object ):
         self.private_ip = None
         if inst:
             try:
-                self.id = inst.id
+                self.id = str(inst.id)
             except EC2ResponseError, e:
                 log.error( "Error retrieving instance id: %s" % e )
         self.m_state = m_state
@@ -1714,23 +1730,31 @@ class Instance( object ):
     def get_m_state( self ):
         if self.app.TESTFLAG is True:
             return "running"
+        if self.app.ud['cloud_type'] == 'opennebula':
+            reservation = self.app.cloud_interface.get_all_instances([self.id])
+            if reservation and len(reservation[0].instances)==1:
+                instance = reservation[0].instances[0]
+                self.inst = instance
+            
         if self.inst:
             try:
                 self.inst.update()
-                state = self.inst.state
+                state = self.inst.lcm_state
                 if state != self.m_state:
                     self.m_state = state
                     self.last_m_state_change = dt.datetime.utcnow()
             except EC2ResponseError, e:
                 log.debug( "Error updating instance state: %s" % e )
+
         return self.m_state
+
     
     def send_status_check( self ):
-        # log.debug("\tMT: Sending STATUS_CHECK message" )
+        log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
             return
         self.app.manager.console_monitor.conn.send( 'STATUS_CHECK', self.id )
-        # log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
+        log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
     
     def send_worker_restart( self ):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
@@ -1740,8 +1764,8 @@ class Instance( object ):
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
     
     def check_if_instance_alive( self ):
-        # log.debug( "In '%s' state." % self.app.manager.master_state )
-        # log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
+        log.debug( "In '%s' state." % self.app.manager.master_state )
+        #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
         state = self.get_m_state()
         
         # Somtimes, an instance is terminated by Amazon prematurely so try to catch it 
@@ -1751,7 +1775,7 @@ class Instance( object ):
         elif state == 'pending': # Display pending instances status to console log
             log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
         else:
-            # log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
             pass
         if self.app.TESTFLAG is True:
             return True
@@ -1769,7 +1793,7 @@ class Instance( object ):
         return True
     
     def get_private_ip( self ):
-        #log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
+        log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
         return self.private_ip
     
     def send_master_pubkey( self ):
@@ -1803,8 +1827,18 @@ class Instance( object ):
                                                                                                       self.zone, 
                                                                                                       self.type, 
                                                                                                       self.ami))
+                
                 # Instance is alive and functional. Send master pubkey.
                 self.send_master_pubkey()
+                
+                # Add hostname to /etc/hosts (for SGE config)
+                if self.app.ud['cloud_type'] == 'opennebula':
+                    f = open( "/etc/hosts", 'a' )
+                    f.write( "%s\tworker-%s\n" %  (self.private_ip, self.id))
+                    f.close()
+        
+                
+                
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True #This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert( msg.split( " | " )[1] )
