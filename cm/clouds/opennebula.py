@@ -297,7 +297,7 @@ VCPU=1
             vmpool.info(CONNECTED)
             for vm_instance in vmpool:
                 if vm_instance.id == int(instances[0]):
-                    if vm_instance.lcm_state == 3:
+                    if vm_instance.state == 3:
                         log.debug("stop now!")
                         vm_instance.stop()
                         sleep(40)

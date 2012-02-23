@@ -38,3 +38,11 @@ static_images_dir  = static/images
 static_favicon_dir = static/favicon.ico
 static_scripts_dir = static/scripts
 static_style_dir   = static/style
+
+# Don't display server logs
+#use_translogger   = False
+
+# Set the type of cloud we're currently running on.
+# This should be set by a contextualization script at instance boot
+# Supported values include: ec2, opennebula, dummy
+cloud_type         = ec2

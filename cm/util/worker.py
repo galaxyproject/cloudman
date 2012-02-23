@@ -159,10 +159,10 @@ class ConsoleManager( object ):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to get host cert, but TESTFLAG is set.")
             return "TEST_WORKERHOSTCERT"
-        log.info( "Retrieving worker host certificate..." )
         w_cert_file = '/tmp/wCert.txt'
-        print '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
-        ret_code = subprocess.call( '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file), shell=True )
+        cmd = '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
+        log.info("Retrieving worker host certificate; cmd: {0}".format(cmd))
+        ret_code = subprocess.call(cmd, shell=True )
         if ret_code == 0:
             f = open( w_cert_file, 'r' )
             host_cert = f.readline()
@@ -218,10 +218,10 @@ class ConsoleManager( object ):
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
         
-        log.info( "Setting up SGE..." )
-        print 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file)
-        ret_code = subprocess.call( 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), shell=True )
-
+        cmd = 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file)
+        log.info("Setting up SGE; cmd: {0}".format(cmd))
+        ret_code = subprocess.call(cmd, shell=True )
+        
         if ret_code == 0:
             self.sge_started = 1
             log.debug( "Successfully configured SGE." )
@@ -269,7 +269,7 @@ class ConsoleMonitor( object ):
         self.conn.send(msg)
         log.debug( "Sending message '%s'" % msg )
 
-        if self.app.ud['cloud_type'] == 'opennebula':
+        if self.app.cloud_type == 'opennebula':
             if not open('/etc/hostname').readline().startswith('worker'):
 
                 log.debug( "Configuring hostname..." )
@@ -367,12 +367,12 @@ class ConsoleMonitor( object ):
                 try:
                     m = self.conn.recv()
                 except IOError, e:
-                    if self.app.ud['cloud_type'] == 'opennebula':
-                        log.debug("Failed connecting master: %s" % e)
+                    if self.app.cloud_type == 'opennebula':
+                        log.debug("Failed connecting to master: %s" % e)
                         log.debug("Trying to reboot the system")
                         ret_code = subprocess.call( 'sudo telinit 6', shell=True )
                     else:
-                        pass
+                        log.warning("IO trouble receiving msg: {0}".format(e))
                     
                 while m is not None:
                     self.handle_message(m.body)
