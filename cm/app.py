@@ -2,10 +2,7 @@ import config, logging, logging.config, sys
 from cm.util import misc
 from cm.util import paths
 
-from cm.clouds.ec2 import EC2Interface
-from cm.clouds.opennebula import ONInterface
-from cm.clouds.dummy import DummyInterface
-
+from cm.clouds.cloud_config import CloudConfig
 
 log = logging.getLogger( 'cloudman' )
 logging.getLogger('boto').setLevel(logging.INFO)
@@ -17,28 +14,25 @@ class CMLogHandler(logging.Handler):
         # self.formatter = logging.Formatter("[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
         self.setFormatter(self.formatter)
         self.logmessages = []
-
+    
     def emit(self, record):
         self.logmessages.append(self.formatter.format(record))
-
+    
 
 class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
     def __init__( self, **kwargs ):
         print "Python version: ", sys.version_info[:2]
+        cc = CloudConfig(app=self)
+        # Get the type of cloud currently running on
+        self.cloud_type = cc.get_cloud_type()
+        # Create an approprite cloud connection
+        self.cloud_interface = cc.get_cloud_interface(self.cloud_type)
+        # Load user data into a local field through a cloud interface
+        self.ud = self.cloud_interface.get_user_data()
         # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()
-        # Create an approprite cloud connection
-        self.cloud_type = self.config.get('cloud_type', 'ec2')
-        if self.cloud_type == "ec2":
-            self.cloud_interface = EC2Interface(app=self)
-        elif self.cloud_type == 'opennebula':
-            self.cloud_interface = ONInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'], on_proxy=self.ud['on_proxy'])
-        elif self.cloud_type == 'dummy':
-            self.cloud_interface = DummyInterface(aws_access_key=self.ud['access_key'], aws_secret_key=self.ud['secret_key'], app=self, on_username=self.ud['on_username'], on_password=self.ud['on_password'], on_host=self.ud['on_host'])
-        # Load user data into a local field through a cloud interface
-        self.ud = self.cloud_interface.get_user_data()
         # Setup logging
         self.logger = CMLogHandler(self)
         if self.ud.has_key("testflag"):
@@ -58,10 +52,10 @@ class UniverseApplication( object ):
         config.configure_logging(self.config)
         log.debug( "Initializing app" )
         log.debug("Running on '{0}' type of cloud.".format(self.cloud_type))
-        self.manager = None
         
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
+        self.manager = None
         if self.ud.has_key('bucket_cluster'):
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(), self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
@@ -82,3 +76,5 @@ class UniverseApplication( object ):
     def shutdown(self, delete_cluster=False):
         if self.manager:
             self.manager.shutdown(delete_cluster=delete_cluster)
+    
+    
