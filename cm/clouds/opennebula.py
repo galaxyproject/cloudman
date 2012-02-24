@@ -21,16 +21,20 @@ class ONInterface(CloudInterface):
     
     def __init__(self, aws_access_key, aws_secret_key, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
         super(ONInterface, self).__init__()
-        self.aws_access_key = aws_access_key
-        self.aws_secret_key = aws_secret_key
         self.app = app
-        self.on_username = on_username
-        self.on_password = on_password
-        self.on_host = on_host
-        self.on_proxy = on_proxy
         self.bridge = 72
         self.tags = {}
-
+    
+    def set_configuration(self):
+        if self.user_data is None:
+            self.get_user_data()
+        self.aws_access_key = self.user_data.get('aws_access_key', None)
+        self.aws_secret_key = self.user_data.get('aws_secret_key', None)
+        self.on_username = self.user_data.get('on_username', None)
+        self.on_password = self.user_data.get('on_password', None)
+        self.on_host = self.user_data.get('on_host', None)
+        self.on_proxy = self.user_data.get('on_proxy', None)
+    
     def _getIpAddress(self, ifname):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
