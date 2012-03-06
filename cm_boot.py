@@ -103,6 +103,13 @@ def _get_cm(ud):
     log.info("<< Downloading CloudMan >>")
     _make_dir(CM_HOME)
     local_cm_file = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
+    # See if a custom default bucket was provided and use it then
+    if 'bucket_default' in ud:
+        default_bucket_name = ud['bucket_default']
+        log.debug("Using user-provided default bucket: {0}".format(default_bucket_name))
+    else:
+        default_bucket_name = DEFAULT_BUCKET_NAME
+        log.debug("Using default bucket: {0}".format(default_bucket_name))
     # Test for existence of user's bucket and download appropriate CM instance
     if ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
@@ -116,14 +123,16 @@ def _get_cm(ud):
                     _write_cm_revision_to_file(s3_conn, b.name)
                     return True
             # Retrieve default instance of CM
-            log.info("Could not retrieve CloudMan from cluster bucket; using default CloudMan (%s) from bucket '%s'" % (CM_REMOTE_FILENAME, DEFAULT_BUCKET_NAME))
-            if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, DEFAULT_BUCKET_NAME)
+            log.info("Could not retrieve CloudMan from cluster bucket; using default CloudMan (%s) from bucket '%s'" \
+                % (CM_REMOTE_FILENAME, default_bucket_name))
+            if _get_file_from_bucket(s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
+                _write_cm_revision_to_file(s3_conn, default_bucket_name)
                 return True
     # Default to public repo and wget
     log.error("Could not retrieve CloudMan from cluster bucket.")
-    url = os.path.join(SERVICE_ROOT, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME)
-    log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" % (url, local_cm_file))
+    url = os.path.join(SERVICE_ROOT, default_bucket_name, CM_REMOTE_FILENAME)
+    log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" \
+        % (url, local_cm_file))
     # This assumes the default repository/bucket is readable to anyone w/o authentication
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
 
