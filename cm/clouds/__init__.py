@@ -3,14 +3,15 @@ from cm.util import paths
 
 class CloudInterface(object):
     # Global fields
+    ec2_conn = None
+    s3_conn = None
+    # Instance details
     ami = None
     instance_type = None
     instance_id = None
     zone = None
     security_groups = None
     key_pair_name = None
-    ec2_conn = None
-    s3_conn = None
     self_private_ip = None
     self_public_ip = None
     instance_type = None
@@ -50,4 +51,9 @@ class CloudInterface(object):
             self.get_user_data()
         self.aws_access_key = self.user_data.get('access_key', None)
         self.aws_secret_key = self.user_data.get('secret_key', None)
+    
+    def get_configuration(self):
+        """ Return a dict with all the class variables.
+        """
+        return vars(self)
     

@@ -50,7 +50,7 @@ class Configuration( object ):
         if os.path.exists(paths.IMAGE_CONF_SUPPORT_FILE):
             self.ic = misc.load_yaml_file(paths.IMAGE_CONF_SUPPORT_FILE)
         # Logger is not configured yet so print
-        print "Image configuration suuports: %s" % self.ic
+        print "Image configuration suports: %s" % self.ic
     def get( self, key, default ):
         return self.config_dict.get( key, default )
     def check( self ):

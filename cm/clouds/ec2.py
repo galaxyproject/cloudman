@@ -14,6 +14,7 @@ class EC2Interface(CloudInterface):
     def __init__(self, app=None):
         super(EC2Interface, self).__init__()
         self.app = app
+        self.set_configuration()
     
     def get_ami( self ):
         if self.ami is None:
