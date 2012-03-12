@@ -273,6 +273,7 @@ class CM(BaseController):
         snap_status = self.app.manager.snapshot_status()
         status_dict['snapshot'] = {'status' : str(snap_status[0]),
                                    'progress' : str(snap_status[1])}
+        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         return to_json_string(status_dict)
     
     @expose
@@ -459,13 +460,21 @@ class CM(BaseController):
         return self.app.manager.delete_shared_instance(shared_instance_folder, snap_id)
     
     @expose
+    def toggle_master_as_exec_host(self, trans):
+        if self.app.manager.toggle_master_as_exec_host() is True:
+            comment = "Master is an execution host."
+        else:
+            comment = "Master is not an execution host."
+        return comment
+    
+    @expose
     def admin(self, trans):
         # Get names of the file systems
         filesystems = []
         fss = self.app.manager.get_services('Filesystem')
         for fs in fss:
             filesystems.append(fs.name)
-        return trans.fill_template('admin.mako', 
+        return trans.fill_template('admin.mako',
                                    ip=self.app.cloud_interface.get_self_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,

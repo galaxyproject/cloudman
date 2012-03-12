@@ -61,6 +61,8 @@ class ConsoleManager(object):
         self.disk_pct = "0%"
         self.manager_started = False
         self.cluster_manipulation_in_progress = False
+        self.master_exec_host = True # If this is set to False, the master instance will not be an execution
+                                     # host in SGE and thus not be running any jobs
         
         self.initial_cluster_type = None
         self.services = []        
@@ -432,6 +434,38 @@ class ConsoleManager(object):
     def get_instance_state( self ):
         return self.master_state
     
+    def toggle_master_as_exec_host(self, force_removal=False):
+        """ By default, the master instance running all the services is also
+            an execution host and is used to run jobs. This method allows one
+            to toggle the master instance from being an execution host.
+            
+            :type force_removal: bool
+            :param force_removal: If True, go through the process of removing
+                                  the instance from being an execution host
+                                  irrespective of the instance's current state.
+            
+            :rtype: bool
+            :return: True if the master instance is set to be an execution host.
+                     False otherwise.
+        """
+        sge_svc = self.get_services('SGE')[0]
+        if sge_svc.state == service_states.RUNNING:
+            if self.master_exec_host is True or force_removal:
+                self.master_exec_host = False
+                if not sge_svc._remove_instance_from_exec_list(self.app.cloud_interface.get_instance_id(),
+                        self.app.cloud_interface.get_self_private_ip()):
+                    # If the removal was unseccessful, reset the flag
+                    self.master_exec_host = True
+            else:
+                self.master_exec_host = True
+                if not sge_svc._add_instance_as_exec_host(self.app.cloud_interface.get_instance_id(),
+                        self.app.cloud_interface.get_self_private_ip()):
+                    # If the removal was unseccessful, reset the flag
+                    self.master_exec_host = False
+        else:
+            log.warning("SGE not running thus cannot toggle master as exec host")
+        return self.master_exec_host
+    
     def get_worker_instances( self ):
         instances = []
         if self.app.TESTFLAG is True:
@@ -637,9 +671,9 @@ class ConsoleManager(object):
             if inst.id == instance_id:
                 sge_svc = self.get_services('SGE')[0]
                 # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
-                # if sge_svc.remove_sge_host(inst) is True:
+                # if sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip()) is True:
                 # Best-effort PATCH until above issue is handled
-                sge_svc.remove_sge_host(inst)
+                sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
                 inst.terminate()
                 if inst in self.worker_instances:
                     self.worker_instances.remove(inst)
@@ -1564,7 +1598,7 @@ class ConsoleMonitor( object ):
                     log.error( "Instance '%s' terminated prematurely. Removing from SGE and local instance list." % w_instance.id )
                     try:
                         sge_svc = self.app.manager.get_services('SGE')[0]
-                        sge_svc.remove_sge_host(w_instance)
+                        sge_svc.remove_sge_host(w_instance.get_id(), w_instance.get_private_ip())
                     except IndexError:
                         # SGE not available yet?
                         #log.error("Could not get a handle on SGE service")
@@ -1827,25 +1861,20 @@ class Instance( object ):
                                                                                                       self.zone, 
                                                                                                       self.type, 
                                                                                                       self.ami))
-                
                 # Instance is alive and functional. Send master pubkey.
                 self.send_master_pubkey()
-                
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type == 'opennebula':
                     f = open( "/etc/hosts", 'a' )
                     f.write( "%s\tworker-%s\n" %  (self.private_ip, self.id))
                     f.close()
-        
-                
-                
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True #This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert( msg.split( " | " )[1] )
                 log.debug( "Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" % self.id )
                 try:
                     sge_svc = self.app.manager.get_services('SGE')[0]
-                    if sge_svc.add_sge_host( self ):
+                    if sge_svc.add_sge_host(self.get_id(), self.get_private_ip()):
                         # Now send message to worker to start SGE  
                         self.send_start_sge()
                         log.info( "Waiting on worker instance '%s' to configure itself..." % self.id )

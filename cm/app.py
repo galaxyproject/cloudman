@@ -57,6 +57,7 @@ class UniverseApplication( object ):
         # This enables cluster configuration to be recovered on cluster re-instantiation
         self.manager = None
         if self.ud.has_key('bucket_cluster'):
+            log.debug("Getting pd.yaml")
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(), self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)

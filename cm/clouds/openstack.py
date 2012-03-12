@@ -67,7 +67,6 @@ class OSInterface(EC2Interface):
         return ec2_conn
     
     def get_s3_connection(self):
-        log.debug('Getting boto Swift connection')
         if self.s3_conn == None:
             log.debug("Establishing a boto Swift connection.")
             try:
@@ -90,12 +89,12 @@ class OSInterface(EC2Interface):
         return self.s3_conn
     
     def add_tag(self, resource, key, value):
-        log.debug("Tried adding tag {key}:{value} to resource {resource} but OpenStack does not support tags" \
-            .format(key=key, value=value, resource=resource))
+        log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not " \
+            "support tags".format(key=key, value=value, resource=resource))
         pass
     
     def get_tag(self, resource, key):
-        log.debug("Tried getting tag {key} from resource {resource} but OpenStack does not support tags" \
+        log.debug("Would get tag {key} from resource {resource} but OpenStack does not support tags" \
             .format(key=key, resource=resource))
         pass
     

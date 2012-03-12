@@ -9,6 +9,7 @@ class CloudInterface(object):
     ami = None
     instance_type = None
     instance_id = None
+    instance = None # boto object representation of the instance
     zone = None
     security_groups = None
     key_pair_name = None
