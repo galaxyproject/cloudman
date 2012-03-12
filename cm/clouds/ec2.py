@@ -67,6 +67,24 @@ class EC2Interface(CloudInterface):
                     pass
         return self.instance_id
     
+    def get_instance_object(self):
+        log.debug("Getting instance object: %s" % self.instance)
+        if self.instance is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get instance object, but TESTFLAG is set. Returning 'None'")
+                return self.instance
+            log.debug("Getting instance boto object")
+            i_id = self.get_instance_id()
+            ec2_conn = self.get_ec2_connection()
+            try:
+                ir = ec2_conn.get_all_instances([i_id])
+                self.instance = ir[0].instances[0]
+            except EC2ResponseError, e:
+                log.debug("Error getting instance object: {0}".format(e))
+            except Exception, e:
+                log.debug("Error retrieving instance object: {0}".format(e))
+        return self.instance
+    
     def get_zone( self ):
         if self.zone is None:
             if self.app.TESTFLAG is True:

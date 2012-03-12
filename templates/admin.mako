@@ -119,9 +119,7 @@
         </div>
         <ul class='services_list'>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
-            <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
-            <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
-            <li>Name of the cluster's bucket: ${bucket_cluster}
+            <li>Name of this cluster's bucket: ${bucket_cluster}
                 (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#" target="_blank">access via AWS console</a>)
                 <span class="help_info">
                     <span class="help_link">Bucket info</span>
@@ -135,6 +133,20 @@
                         all the data is stored in an S3 bucket. The name of the bucket 
                         provided here corresponds to the current cluster and is provided
                         simply as a reference.
+                    </div>
+                </span>
+            <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
+            <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
+            </li>
+            <li>
+                <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a> 
+                <span class="help_info">
+                    <span class="help_link">What will this do?</span>
+                    <div class="help_content" style="display: none">
+                        By default, the master instance running all the services is also configured to 
+                        execute jobs. You may toggle this functionality here. Note that if job execution
+                        on the master is disabled, at least one worker instance will be required to
+                        run any jobs.
                     </div>
                 </span>
             </li>
@@ -289,6 +301,11 @@
                         else {
                             $('#filesystem_status').css("color", "red");
                         }
+                        if (data.master_is_exec_host == true) {
+                            $('#master_is_exec_host').html("Switch master not to run jobs");
+                        } else {
+                            $('#master_is_exec_host').html("Switch master to run jobs");
+                        }
                     }
             });
             // Update service status every 5 seconds
@@ -366,6 +383,10 @@
             // Add event to enable closing of an overlay box
             $('.boxclose').click(function(){
                 $('.box').hide();
+            });
+            // Force an update of the field on click
+            $('#master_is_exec_host').click(function(){
+                update();
             });
         });
     </script>
