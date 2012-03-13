@@ -96,7 +96,8 @@ class SGEService( ApplicationService ):
         log.info( "Configuring SGE..." )
         # Add master as an execution host
         # Additional execution hosts will be added later, as they start
-        exec_nodes = self.app.cloud_interface.get_self_private_ip() 
+        exec_nodes = os.environ['HOSTNAME']
+        # exec_nodes = self.app.cloud_interface.get_self_private_ip() 
         SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
         with open( SGE_config_file, 'w' ) as f:
             print >> f, templates.SGE_INSTALL_TEMPLATE % ( self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_self_private_ip(), exec_nodes )
