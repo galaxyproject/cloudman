@@ -151,7 +151,7 @@ def _get_cm(ud):
         log.info("Cluster bucket '%s' found." % b.name)
         if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
             _write_cm_revision_to_file(s3_conn, b.name)
-            log.info("Restored Cloudman from cluster_bucket %s" % (ud['cluster_bucket']))
+            log.info("Restored Cloudman from bucket_cluster %s" % (ud['bucket_cluster']))
             return True
     # Attempt to retrieve default instance of CM from local s3
     if _get_file_from_bucket(s3_conn, DEFAULT_BUCKET_NAME, CM_REMOTE_FILENAME, local_cm_file):
