@@ -21,7 +21,7 @@ from routes import url_for
   <script type='text/javascript' src="/static/scripts/IE8.js"></script>
   <script type='text/javascript' src="/static/scripts/ie7-recalc.js"></script>
   <![endif]-->
-  <script type='text/javascript' src="${h.url_for('/static/scripts/jQuery-1.4.2.js')}"></script>
+  <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-1.7.1.min.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-ui-1.8.10.custom.min.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/livevalidation_standalone.compressed.js')}"></script>
 </%def>
