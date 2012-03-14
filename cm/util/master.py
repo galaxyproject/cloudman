@@ -1,5 +1,5 @@
 """Galaxy CM master manager"""
-import logging, logging.config, threading, os, time, subprocess, commands
+import sys,logging, logging.config, threading, os, time, subprocess, commands
 import shutil
 import datetime as dt
 
@@ -434,12 +434,16 @@ class ConsoleManager(object):
             #     instances.append(instance)
             return instances
         log.debug("Trying to discover any worker instances associated with this cluster...")
-        filters = {'tag:clusterName': self.app.ud['cluster_name'], 'tag:role': 'worker'}
+        # filters = {'tag:clusterName': self.app.ud['cluster_name'], 'tag:role': 'worker'}
         try:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            reservations = ec2_conn.get_all_instances(filters=filters)
+            # reservations = ec2_conn.get_all_instances(filters=filters)
+            reservations = ec2_conn.get_all_instances()
             for reservation in reservations:
-                if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
+                inst = reservation.instances[0]
+                if inst.state != 'terminated' and inst.state != 'shutting-down' and \
+                        self.app.cloud_interface.get_tag(inst,'role') == 'worker' and \
+                        self.app.cloud_interface.get_tag(inst,'clusterName') == self.app.ud['cluster_name']:
                     i = Instance(self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state, reboot_required=True)
                     instances.append(i)
                     log.info( "Instance '%s' found alive (will configure it later)." % reservation.instances[0].id)
@@ -454,8 +458,13 @@ class ConsoleManager(object):
             return volumes
         log.debug("Trying to discover any volumes attached to this instance...")
         try:
-            f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-            volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            # f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+            # volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            all_volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+            volumes = []
+            for v in all_volumes:
+                if v.attach_data and v.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
+                    volumes.append(v)
         except EC2ResponseError, e:
             log.debug( "Error checking for attached volumes: %s" % e )
         log.debug("Attached volumes: %s" % volumes)
@@ -522,13 +531,15 @@ class ConsoleManager(object):
     def delete_cluster(self):
         log.info("All services shut down; deleting this cluster.")
         # Delete any remaining volume(s) assoc. w/ given cluster
-        filters = {'tag:clusterName': self.app.ud['cluster_name']}
+        # filters = {'tag:clusterName': self.app.ud['cluster_name']}
         try:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            vols = ec2_conn.get_all_volumes(filters=filters)
+            # vols = ec2_conn.get_all_volumes(filters=filters)
+            vols = ec2_conn.get_all_volumes()
             for vol in vols:
-                log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
-                ec2_conn.delete_volume(vol.id)
+                if self.app.cloud_interface.get_tag(vol,'clusterName') == self.app.ud['cluster_name']:
+                    log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                    ec2_conn.delete_volume(vol.id)
         except EC2ResponseError, e:
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3
@@ -1430,21 +1441,23 @@ class ConsoleMonitor( object ):
         # Save/update the current Galaxy cluster configuration to cluster's bucket
         cc_file_name = self.create_cluster_config_file()
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
+        
         # Ensure Galaxy config files are stored in the cluster's bucket, 
         # but only after Galaxy has been configured and is running (this ensures
         # that the configuration files get loaded from proper S3 bucket rather
         # than potentially being owerwritten by files that might exist on the snap)
-        try:
-            galaxy_svc = self.app.manager.get_services('Galaxy')[0]
-            if galaxy_svc.running():
-                for f_name in ['universe_wsgi.ini', 'tool_conf.xml', 'tool_data_table_conf.xml']:
-                    if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name)):
-                        log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
-                        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
-        except:
-            pass
+        # try:
+        #    galaxy_svc = self.app.manager.get_services('Galaxy')[0]
+        #    if galaxy_svc.running():
+        #        for f_name in ['universe_wsgi.ini', 'tool_conf.xml', 'tool_data_table_conf.xml']:
+        #            if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name)):
+        #                log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
+        #                misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
+        #except:
+        #    pass
         # If not existent, save current boot script cm_boot.py to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
+        #if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
+        if 1: # eucalyptus seems to hang on returning saved file status if misc.file_exists_in_bucket() called first
             log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
         # At start, save/update current post start script to cluster's bucket
@@ -1461,7 +1474,8 @@ class ConsoleMonitor( object ):
             else:
                 log.debug("Instance post start script (%s) does not exist?" % prs_file)
         # If not existent, save CloudMan source to cluster's bucket, including file's metadata
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
+        # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
+        if 1: # eucalyptus seems to hang on returning saved file status if misc.file_exists_in_bucket() called first
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
             try:
@@ -1472,7 +1486,8 @@ class ConsoleMonitor( object ):
                 log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful as a reference)
         cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
+        # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
+        if 1: # eucalyptus seems to hang on returning saved file status if misc.file_exists_in_bucket() called first
             with open(cn_file, 'w'):
                 pass
             if os.path.exists(cn_file):
