@@ -12,6 +12,10 @@ from boto.exception import EC2ResponseError
 import logging
 log = logging.getLogger( 'cloudman' )
 
+class _DummyApp:
+    """to allow for checking TESTFLAG attribute if no app passed"""
+    def __init__(self):
+        self.TESTFLAG = False
 
 class EucaInterface(EC2Interface):
     """
@@ -20,10 +24,14 @@ class EucaInterface(EC2Interface):
         should be made to.    
     """        
     def __init__(self, app=None):
+        if not app:
+            app = _DummyApp()
         super(EucaInterface, self).__init__()
         self.app = app
         self.s3_url = None
         self.ec2_url = None
+        self.tags_not_supported = False
+        self.tags = {}
 
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
@@ -115,6 +123,7 @@ class EucaInterface(EC2Interface):
                         host = host,
                         path = path,
                         calling_format = calling_format,
+                        # debug = 2
                     )
                     log.debug('Got boto S3 connection to %s' % self.s3_url)
                 except Exception, e:
@@ -141,3 +150,34 @@ class EucaInterface(EC2Interface):
             self.s3_url = self.user_data.get('s3_url',None)
             self.ec2_url = self.user_data.get('ec2_url',None)
         return self.user_data
+
+    def add_tag(self, resource, key, value):
+        """ Add tag as key value pair to the `resource` object. The `resource`
+        object must be an instance of a cloud object and support tagging.
+        """
+        if not self.tags_not_supported:
+            try:
+                log.debug("Adding tag '%s:%s' to resource '%s'" % (key, value, resource.id if resource.id else resource))
+                resource.add_tag(key, value)
+            except EC2ResponseError, e:
+                log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
+                self.tags_not_supported = True
+        resource_tags = self.tags.get(resource.id, {})
+        resource_tags[key] = value
+        self.tags[resource.id] = resource_tags
+    
+    def get_tag(self, resource, key):
+        """ Get tag on `resource` cloud object. Return None if tag does not exist.
+        """
+        value = None
+        if not self.tags_not_supported:
+            try:
+                log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
+                value = resource.tags.get(key, None)
+            except EC2ResponseError, e:
+                log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
+                self.tags_not_supported = True
+        if not value:
+            resource_tags = self.tags.get(resource.id,{})
+            value = resource_tags.get(key)
+        return value    
