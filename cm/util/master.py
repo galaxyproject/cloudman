@@ -670,7 +670,7 @@ class ConsoleManager(object):
         else:
             log.info( "Did not terminate any instances." )
     
-    def remove_instance( self, instance_id='' ):
+    def remove_instance(self, instance_id=''):
         if instance_id == '':
             log.warning("Tried to remove an instance but did not receive instance ID")
             return False
@@ -685,7 +685,7 @@ class ConsoleManager(object):
                 inst.terminate()
                 # Remove the given instance from /etc/hosts files
                 log.debug("Removing instance {0} from /etc/hosts".format(inst.get_id()))
-                for line in fileinput.input('/tmp/hosts', inplace=1):
+                for line in fileinput.input('/etc/hosts', inplace=1):
                     line = line.strip()
                     # (print all lines except the one w/ instance IP back to the file)
                     if not inst.private_ip in line:
@@ -693,7 +693,7 @@ class ConsoleManager(object):
                 # Remove the Instance object from list of workers instancets tracked by the master
                 if inst in self.worker_instances:
                     self.worker_instances.remove(inst)
-        log.info( "Initiated requested termination of instance. Terminating '%s'." % instance_id )
+        log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
     
     def _compose_worker_user_data(self):
         """ Compose worker instance user data.
@@ -1735,58 +1735,60 @@ class Instance( object ):
         else:
             return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
         
-    def get_id( self ):
+    def get_id(self):
         if self.app.TESTFLAG is True:
-            log.debug( "Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID" )
+            log.debug("Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID")
             return "TestInstanceID"
         if self.inst and not self.id:
             try:
                 self.inst.update()
                 self.id = self.inst.id
             except EC2ResponseError, e:
-                log.error( "Error retrieving instance id: %s" % e )
+                log.error("Error retrieving instance id: %s" % e)
         return self.id
     
-    def terminate( self ):
+    def terminate(self):
         self.worker_status = "Stopping"
-        t_thread = threading.Thread( target=self.__terminate )
+        t_thread = threading.Thread(target=self.__terminate)
         t_thread.start()
     
-    def __terminate( self ):
+    def __terminate(self):
         log.info("Terminating instance {0}".format(self.id))
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         inst_terminated = False
         try:
             self.terminate_count += 1
-            ti = ec2_conn.terminate_instances([self.id])
-            if ti:
-                log.info("Instance {0} successfully terminated.".format(self.id))
-                inst_terminated = True
-                self._remove_instance()
+            ec2_conn.terminate_instances([self.id])
+            log.info("Instance {0} successfully terminated.".format(self.id))
+            inst_terminated = True
         except EC2ResponseError, e:
             if e.errors[0][0] == 'InstanceNotFound':
-                self._remove_instance()
                 inst_terminated = True
-            log.error("EC2 exception terminating instance '%s': %s" % ( self.id, e ) )
+            else:
+                log.error("EC2 exception terminating instance '%s': %s" % (self.id, e))
         except Exception, e:
-            log.error("Exception terminating instance '%s': %s" % ( self.id, e ) )
+            log.error("Exception terminating instance '%s': %s" % (self.id, e))
         if inst_terminated is False:
             log.error("Terminating instance '%s' did not go smoothly; instance state: '%s'" \
-                % ( self.id, self.m_state ) )
+                % (self.get_id(), self.get_m_state()))
+        else:
+            self._remove_instance()
     
     def _remove_instance(self, force=False):
         """ A convenience method to remove the current instance from the list
             of worker instances tracked by the master.
         """
-        log.info( "Successfully initiated termination of instance '%s'" % self.id )
         for i in range( 0, 30 ):
-            if self.get_m_state() == 'terminated' or force:
+            if self.get_m_state() == 'terminated' \
+                or self.check_if_instance_alive() is False \
+                or force:
                 try:
                     if self in self.app.manager.worker_instances:
                         self.app.manager.worker_instances.remove( self )
-                        log.info ( "Instance '%s' removed from internal instance list." % self.id )
-                except ValueError, ve:
-                    log.warning( "Instance '%s' no longer in instance list, global monitor probably picked it up and deleted it already: %s" % ( self.id, ve ) )
+                        log.info("Instance '%s' removed from internal instance list." % self.id)
+                except ValueError, e:
+                    log.warning("Instance '%s' no longer in instance list, the global monitor probably " \
+                        "picked it up and deleted it already: %s" % (self.id, e))
                 break
             else:
                 time.sleep( 4 )
@@ -1798,9 +1800,11 @@ class Instance( object ):
     
     def get_m_state( self ):
         if self.app.TESTFLAG is True:
+            log.debug("Getting m_state for instance {0} but TESTFLAG is set; returning 'running'"\
+                .format(self.get_id()))
             return "running"
         if self.app.cloud_type == 'opennebula':
-            reservation = self.app.cloud_interface.get_all_instances([self.id])
+            reservation = self.app.cloud_interface.get_all_instances([self.get_id()])
             if reservation and len(reservation[0].instances)==1:
                 instance = reservation[0].instances[0]
                 self.inst = instance
@@ -1812,7 +1816,7 @@ class Instance( object ):
                     self.m_state = state
                     self.last_m_state_change = dt.datetime.utcnow()
             except EC2ResponseError, e:
-                log.debug( "Error updating instance state: %s" % e )
+                log.debug("Error updating instance {0} state: {1}".format(self.get_id(), e))
         return self.m_state
     
     def send_status_check( self ):
@@ -1829,23 +1833,32 @@ class Instance( object ):
         self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_self_private_ip(), self.id )
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
     
-    def check_if_instance_alive( self ):
+    def check_if_instance_alive(self):
+        if self.app.TESTFLAG is True:
+            log.debug("Checking if instance {0} is alive but TESTFLAG is set; returning 'True'"\
+                .format(self.get_id()))
+            return True
         # log.debug( "In '%s' state." % self.app.manager.master_state )
         #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
+        # First, check if the instance even exists
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
+        if len(ec2_conn.get_all_instances([self.get_id()])) == 0:
+            log.debug("Instance {0} does not exist, thus it is not alive".format(self.get_id()))
+            return False
+        # Next, check on state and timeline
         state = self.get_m_state()
-        
         # Somtimes, an instance is terminated by Amazon prematurely so try to catch it 
         if state == 'terminated':
-            log.error( "Worker instance '%s' seems to have terminated prematurely." % self.id )
+            log.error("Worker instance '%s' seems to have terminated prematurely." % self.id)
             return False
         elif state == 'pending': # Display pending instances status to console log
-            log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            log.debug("Worker instance '%s' status: '%s' (time in this state: %s sec)" \
+                % (self.id, state, (dt.datetime.utcnow() - self.last_m_state_change).seconds))
         else:
-            # log.debug( "Worker instance '%s' status: '%s' (time in this state: %s sec)" % ( self.id, state, ( dt.datetime.utcnow() - self.last_m_state_change ).seconds ) )
+            log.debug("Worker instance '%s' status: '%s' (time in this state: %s sec)" \
+                % (self.id, state, (dt.datetime.utcnow() - self.last_m_state_change).seconds))
             pass
-        if self.app.TESTFLAG is True:
-            return True
-        # If an instance has been in state 'running' for a while we still have not heard from it, check on it 
+        # If an instance has been in state 'running' for a while we still have not heard from it, check on it
         # DBTODO Figure out something better for state management.
         if state == 'running' and \
             not self.is_alive and \
