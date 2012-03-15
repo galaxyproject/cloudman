@@ -45,7 +45,7 @@ vertical-align: top;
         <div class="form-row">
             <label>Number of nodes to start:</label>
             <div id="num_nodes" class="form-row-input">
-                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="0" size="10">
+                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="1" size="10">
                 <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
             </div>
             <br/>

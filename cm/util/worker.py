@@ -75,7 +75,8 @@ class ConsoleManager( object ):
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
         self.worker_status = worker_states.WAKE
-        self.worker_instances = [] # Needed because of UI and number of nodes value 
+        self.worker_instances = [] # Needed because of UI and number of nodes value
+        self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy') # Default to the most comprihensive type
         
         self.nfs_data = 0
         self.nfs_tools = 0
@@ -85,10 +86,9 @@ class ConsoleManager( object ):
         self.sge_started = 0
         
         self.load = 0
-        
+    
     def start( self ):
         self.mount_nfs( self.app.ud['master_ip'] )
-        # misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
     
     def shutdown( self, delete_cluster=None ):
         self.worker_status = worker_states.SHUTTING_DOWN
@@ -96,7 +96,7 @@ class ConsoleManager( object ):
         self.console_monitor.shutdown()
     
     def get_cluster_status( self ):
-		return "This is a worker node, cluster status not available."
+        return "This is a worker node, cluster status not available."
     
     def get_instance_state( self ):
         return self.worker_status    
@@ -115,24 +115,27 @@ class ConsoleManager( object ):
             return
         log.info( "Mounting NFS directories from master with IP address: %s..." % master_ip )
         
-        ret_code = self.mount_disk(master_ip, '/mnt/galaxyData')
-        if ret_code == 0:
-            self.nfs_data = 1
-        else:
-            self.nfs_data = -1
+        if self.cluster_type == 'Galaxy':
+            ret_code = self.mount_disk(master_ip, '/mnt/galaxyTools')
+            if ret_code == 0:
+                self.nfs_tools = 1
+            else:
+                self.nfs_tools = -1
+            
+            ret_code = self.mount_disk(master_ip, '/mnt/galaxyIndices')
+            if ret_code == 0:
+                self.nfs_indices = 1
+            else:
+                self.nfs_indices = -1
+            
+        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
+            ret_code = self.mount_disk(master_ip, '/mnt/galaxyData')
+            if ret_code == 0:
+                self.nfs_data = 1
+            else:
+                self.nfs_data = -1
         
-        ret_code = self.mount_disk(master_ip, '/mnt/galaxyTools')
-        if ret_code == 0:
-            self.nfs_tools = 1
-        else:
-            self.nfs_tools = -1
-        
-        ret_code = self.mount_disk(master_ip, '/mnt/galaxyIndices')
-        if ret_code == 0:
-            self.nfs_indices = 1
-        else:
-            self.nfs_indices = -1
-        
+        # Mount SGE regardless of cluster type
         ret_code = self.mount_disk(master_ip, '/opt/sge')
         if ret_code == 0:
             self.nfs_sge = 1
@@ -143,14 +146,16 @@ class ConsoleManager( object ):
     
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )
-        ret_code = subprocess.call( "umount -lf /mnt/galaxyData", shell=True )
-        log.debug( "Process unmounting '/mnt/galaxyData' returned code '%s'" % ret_code )
+        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
+            ret_code = subprocess.call( "umount -lf /mnt/galaxyData", shell=True )
+            log.debug( "Process unmounting '/mnt/galaxyData' returned code '%s'" % ret_code )
         
-        ret_code = subprocess.call( "umount -lf /mnt/galaxyTools", shell=True )
-        log.debug( "Process unmounting '/mnt/galaxyTools' returned code '%s'" % ret_code )
+        if self.cluster_type == 'Galaxy':
+            ret_code = subprocess.call( "umount -lf /mnt/galaxyTools", shell=True )
+            log.debug( "Process unmounting '/mnt/galaxyTools' returned code '%s'" % ret_code )
         
-        ret_code = subprocess.call( "umount -lf /mnt/galaxyIndices", shell=True )
-        log.debug( "Process unmounting '/mnt/galaxyIndices' returned code '%s'" % ret_code )
+            ret_code = subprocess.call( "umount -lf /mnt/galaxyIndices", shell=True )
+            log.debug( "Process unmounting '/mnt/galaxyIndices' returned code '%s'" % ret_code )
         
         ret_code = subprocess.call( "umount -lf %s" % paths.P_SGE_ROOT, shell=True )
         log.debug( "Process unmounting '%s' returned code '%s'" % (paths.P_SGE_ROOT, ret_code) )
@@ -261,22 +266,34 @@ class ConsoleMonitor( object ):
                 return msg.body
     
     def send_alive_message( self ):
-        msg = "ALIVE | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_self_private_ip(), 
-                                                  self.app.cloud_interface.get_self_public_ip(), 
-                                                  self.app.cloud_interface.get_zone(), 
-                                                  self.app.cloud_interface.get_type(), 
-                                                  self.app.cloud_interface.get_ami())
+        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_self_private_ip(), 
+                                                       self.app.cloud_interface.get_self_public_ip(), 
+                                                       self.app.cloud_interface.get_zone(), 
+                                                       self.app.cloud_interface.get_type(), 
+                                                       self.app.cloud_interface.get_ami(),
+                                                       self.app.cloud_interface.get_local_hostname())
         self.conn.send(msg)
         log.debug( "Sending message '%s'" % msg )
-
+        
+        if self.app.cloud_type == 'openstack':
+            log.debug("Adding master to /etc/hosts")
+            master_host_line = '{ip}\t{hostname}\n'.format(ip=self.app.ud.get('master_ip', None),
+                hostname=self.app.ud.get('master_hostname', None))
+            log.debug("master_host_line: {0}".format(master_host_line))
+            with open('/etc/hosts', 'r+') as f:
+                hosts = f.readlines()
+                if master_host_line not in hosts:
+                    f.write(master_host_line)
+            
+        
         if self.app.cloud_type == 'opennebula':
             if not open('/etc/hostname').readline().startswith('worker'):
-
+                
                 log.debug( "Configuring hostname..." )
                 f = open( "/etc/hostname", 'w' )
                 f.write( "worker-%s" % self.app.cloud_interface.get_instance_id() )
                 f.close()
-        
+                
                 f = open( "/etc/hosts", 'w' )
                 f.write( "127.0.0.1\tlocalhost\n")
                 f.write( "%s\tubuntu\n" % (self.app.ud['master_ip']))
@@ -286,9 +303,11 @@ class ConsoleMonitor( object ):
                 # Restart complete node or only hostname process?
                 #ret_code = subprocess.call( "/etc/init.d/hostname restart", shell=True )
                 ret_code = subprocess.call( "sudo telinit 6", shell=True )
-
-
-
+                if ret_code == 0:
+                    log.debug("Initiated reboot...")
+                else:
+                    log.debug("Problem iniating reboot!?")
+    
     def send_worker_hostcert(self):
         host_cert = self.app.manager.get_host_cert()
         if host_cert != None:
@@ -354,6 +373,12 @@ class ConsoleMonitor( object ):
     def __monitor( self ):
         self.app.manager.start()
         while self.running:
+            # In case queue connection was not established, try again (this will happen if
+            # RabbitMQ does not start in time for CloudMan)
+            if not self.conn.is_connected():
+                log.debug("Trying to setup AMQP connection; conn = '%s'" % self.conn)
+                self.conn.setup()
+                continue
             #Make this more robust, trying to reconnect to a lost queue, etc.
             #self.app.manager.introspect.check_all_worker_services()
             if self.conn:
@@ -370,7 +395,7 @@ class ConsoleMonitor( object ):
                     if self.app.cloud_type == 'opennebula':
                         log.debug("Failed connecting to master: %s" % e)
                         log.debug("Trying to reboot the system")
-                        ret_code = subprocess.call( 'sudo telinit 6', shell=True )
+                        subprocess.call( 'sudo telinit 6', shell=True )
                     else:
                         log.warning("IO trouble receiving msg: {0}".format(e))
                     

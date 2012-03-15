@@ -19,7 +19,7 @@ class CMMasterComm( object ):
         self.conn = None
         self.channel = None
         self.queue = 'master'
-
+    
     def is_connected(self):
         return self.conn != None
     
@@ -36,19 +36,19 @@ class CMMasterComm( object ):
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
-            
+    
     def shutdown(self):
         log.info("Comm Shutdown Invoked")
         if self.channel:
             self.channel.close()
         if self.conn:
             self.conn.close()
-
+    
     def send(self, message, to):
         # log.debug("S_COMM: Sending from %s to %s message %s" % ('master', to, message ))
         msg = amqp.Message(message, reply_to = 'master', content_type='text/plain')
         self.channel.basic_publish(msg, exchange=self.exchange, routing_key=to)
-
+    
     def recv( self ):
         if self.conn:
             msg = self.channel.basic_get(self.queue)
@@ -61,6 +61,7 @@ class CMMasterComm( object ):
                 return msg
             else:
                 return None
+    
 
 class CMWorkerComm( object ):
     def __init__(self, iid='WorkerInstance', host=DEFAULT_HOST):
@@ -73,7 +74,10 @@ class CMWorkerComm( object ):
         self.channel = None
         self.queue = 'worker_' + iid
         self.got_conn = False
-
+    
+    def is_connected(self):
+        return self.conn != None
+    
     def setup(self):
         try:
             self.conn = amqp.Connection(host = self.host, userid = self.user, password = self.password)
@@ -87,14 +91,14 @@ class CMWorkerComm( object ):
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
-            
+    
     def shutdown(self):
         log.info("Comm Shutdown Invoked")
         if self.channel:
             self.channel.close()
         if self.conn:
             self.conn.close()
-        
+    
     def send(self, message ):
         if self.conn:
             log.debug("S_COMM: Sending from %s to %s message %s" % (self.iid, 'master', message))
@@ -103,7 +107,7 @@ class CMWorkerComm( object ):
             self.channel.basic_publish(msg, exchange = self.exchange, routing_key = 'master')
         else:
             log.error("S_COMM FAILURE: Sending from %s to %s message %s" % (self.iid, 'master', message))
-
+    
     def recv( self ):
         if self.conn:
             msg = self.channel.basic_get(self.queue)
@@ -115,4 +119,4 @@ class CMWorkerComm( object ):
                 return None
         else:
             log.error("R_COMM FAILURE:  No connection available.")
-            
+    

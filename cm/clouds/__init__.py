@@ -1,6 +1,9 @@
 from cm.util import misc
 from cm.util import paths
 
+import logging
+log = logging.getLogger('cloudman')
+
 class CloudInterface(object):
     # Global fields
     ec2_conn = None
@@ -14,6 +17,7 @@ class CloudInterface(object):
     security_groups = None
     key_pair_name = None
     self_private_ip = None
+    local_hostname = None
     self_public_ip = None
     instance_type = None
     fqdn = None
@@ -57,4 +61,10 @@ class CloudInterface(object):
         """ Return a dict with all the class variables.
         """
         return vars(self)
+    
+    # Non-implemented methods
+    
+    def get_local_hostname(self):
+        log.warning("Unimplemented")
+        pass
     
