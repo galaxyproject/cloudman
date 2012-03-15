@@ -623,14 +623,14 @@ class ConsoleManager(object):
                 nodes_list.append( inst.split( '@' )[1].split( ' ' )[0] + ':' + inst.split( '/' )[1] ) # Get instance domain name and # of used processing slots, e.g., ['domU-12-31-38-00-48-D1.c:0'] 
             # if len( nodes_list ) > 0:
             #     log.debug( "Processed qstat output: %s" % nodes_list )
-        
+            
             for node in nodes_list:
                 # If number of used slots on given instance is 0, mark it as idle
                 if int( node.split( ':' )[1] ) == 0:
                     idle_instances_dn.append( node.split( ':' )[0] )
             # if len( idle_instances_dn ) > 0:
             #     log.debug( "Idle instances' DNs: %s" % idle_instances_dn )
-        
+            
             for idle_instance_dn in idle_instances_dn:
                  for w_instance in self.worker_instances:
                      # log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
@@ -643,8 +643,9 @@ class ConsoleManager(object):
     def remove_instances(self, num_nodes, force=False):
         # Decide which instance(s) to terminate, remove the from SGE and terminate
         idle_instances = self.get_idle_instances()
-        log.info( "Found '%s' idle instances; trying to remove '%s'" % ( len( idle_instances ), num_nodes ) )
+        log.info("Found %s idle instances; trying to remove %s." % (len(idle_instances), num_nodes))
         num_terminated = 0
+        # First look for idle instances that can be removed
         for i in range ( 0, num_nodes ):
             if len( idle_instances ) > 0:
                 for inst in idle_instances:
@@ -652,8 +653,10 @@ class ConsoleManager(object):
                         self.remove_instance(inst.id)
                         num_terminated += 1
             else:
-                log.info( "No idle instances found")
-        log.debug("Num to terminate: %s, num terminated: %s; force set to '%s'" % (num_nodes, num_terminated, force))
+                log.info("No idle instances found")
+        log.debug("Num to terminate: %s, num terminated: %s; force set to '%s'" \
+            % (num_nodes, num_terminated, force))
+        # If force is set, terminate requested number of instances regardless whether they are idle
         if force is True and num_terminated < num_nodes:
             force_kill_instances = num_nodes - num_terminated
             log.info( "Forcefully terminating '%s' instances" % force_kill_instances )
@@ -662,7 +665,8 @@ class ConsoleManager(object):
                     self.remove_instance(inst.id)
                     num_terminated += 1
         if num_terminated > 0:
-            log.info( "Initiated requested termination of instances. Terminating '%s' instances." % num_terminated )
+            log.info("Initiated requested termination of instances. Terminating '%s' instances." \
+                % num_terminated)
         else:
             log.info( "Did not terminate any instances." )
     
