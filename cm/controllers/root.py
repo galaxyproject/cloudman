@@ -175,8 +175,10 @@ class CM(BaseController):
     @expose
     def remove_instances(self, trans, number_nodes, force_termination):
         try:
-            number_nodes=int(number_nodes)
-            log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
+            number_nodes = int(number_nodes)
+            force_termination = True if force_termination == 'True' else False
+            log.debug("Num nodes requested to terminate: %s, force termination: %s" \
+                % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
