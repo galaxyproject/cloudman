@@ -144,8 +144,9 @@ class EC2Interface(CloudInterface):
         if self.self_private_ip is None:
             for i in range(0, 5):
                 try:
-                    log.debug('Gathering instance private hostname, attempt %s' % i)
-                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-hostname')
+                    log.debug('Gathering instance private IP, attempt %s' % i)
+                    # fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-hostname')
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
                     self.self_private_ip = fp.read()
                     fp.close()
                     if self.self_private_ip:
@@ -153,6 +154,20 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.self_private_ip
+    
+    def get_local_hostname(self):
+        if self.local_hostname is None:
+            for i in range(0, 5):
+                try:
+                    log.debug('Gathering instance local hostname, attempt %s' % i)
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-hostname')
+                    self.local_hostname = fp.read()
+                    fp.close()
+                    if self.local_hostname:
+                        break
+                except IOError:
+                    pass
+        return self.local_hostname
     
     def get_self_public_ip( self ):
         if self.self_public_ip is None:

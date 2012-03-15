@@ -22,7 +22,7 @@ class CloudConfig(object):
             part of user data and stored in paths.USER_DATA_FILE file
             under 'cloud_type' key.
         """
-        return misc.load_yaml_file(paths.USER_DATA_FILE).get('cloud_type', 'ec2')
+        return misc.load_yaml_file(paths.USER_DATA_FILE).get('cloud_type', 'ec2').lower()
     
     def get_cloud_interface(self, cloud_type=None):
         """ Return the approprtae cloud interface object based on the cloud_type

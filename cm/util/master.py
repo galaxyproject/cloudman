@@ -1,5 +1,5 @@
 """Galaxy CM master manager"""
-import logging, logging.config, threading, os, time, subprocess, commands
+import logging, logging.config, threading, os, time, subprocess, commands, fileinput
 import shutil
 import datetime as dt
 
@@ -55,15 +55,19 @@ class ConsoleManager(object):
         self.cluster_status = cluster_status.OFF
         self.master_state = master_states.INITIAL_STARTUP
         self.num_workers_requested = 0 # Number of worker nodes requested by user
-        self.worker_instances = self.get_worker_instances() # The actual number of worker nodes (note: this is a list of Instance objects)
+        # The actual number of worker nodes (note: this is a list of Instance objects)
+        # (beause get_worker_instances currenlty depends on tags, which is only
+        # supported by EC2, get the list of instances only for the case of EC2 cloud.
+        # This initialization is applicable only for restarting the cluster)
+        self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
         self.manager_started = False
         self.cluster_manipulation_in_progress = False
-        self.master_exec_host = True # If this is set to False, the master instance will not be an execution
-                                     # host in SGE and thus not be running any jobs
-        
+        # If this is set to False, the master instance will not be an execution
+        # host in SGE and thus not be running any jobs
+        self.master_exec_host = True
         self.initial_cluster_type = None
         self.services = []        
     
@@ -675,23 +679,35 @@ class ConsoleManager(object):
                 # Best-effort PATCH until above issue is handled
                 sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
                 inst.terminate()
+                # Remove the given instance from /etc/hosts files
+                log.debug("Removing instance {0} from /etc/hosts".format(inst.get_id()))
+                for line in fileinput.input('/tmp/hosts', inplace=1):
+                    line = line.strip()
+                    # (print all lines except the one w/ instance IP back to the file)
+                    if not inst.private_ip in line:
+                        print line
+                # Remove the Instance object from list of workers instancets tracked by the master
                 if inst in self.worker_instances:
                     self.worker_instances.remove(inst)
         log.info( "Initiated requested termination of instance. Terminating '%s'." % instance_id )
+    
+    def _compose_worker_user_data(self):
+        """ Compose worker instance user data.
+        """
+        worker_ud = {}
+        worker_ud['role'] = 'worker'
+        worker_ud['master_ip'] = self.app.cloud_interface.get_self_private_ip()
+        worker_ud['master_hostname'] = self.app.cloud_interface.get_local_hostname()
+        worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
+        # Merge the worker's user data with the master's user data
+        worker_ud = dict(self.app.ud.items() + worker_ud.items())
+        return worker_ud
     
     def add_instances( self, num_nodes, instance_type=''):
         num_nodes = int( num_nodes )
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         log.info( "Adding %s instance(s)..." % num_nodes )
-        # Compose worker instance user data 
-        worker_ud = {}
-        worker_ud['access_key'] = self.app.ud['access_key']
-        worker_ud['secret_key'] = self.app.ud['secret_key']
-        if self.app.ud.has_key('password'):
-            worker_ud['password'] = self.app.ud['password']
-        worker_ud['cluster_name'] = self.app.ud['cluster_name']
-        worker_ud['role'] = 'worker'
-        worker_ud['master_ip'] = self.app.cloud_interface.get_self_private_ip()
+        worker_ud = self._compose_worker_user_data()
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         #log.debug( "Worker user data: %s " % worker_ud )
         reservation = None
@@ -1645,6 +1661,7 @@ class Instance( object ):
         self.inst = inst
         self.id = None
         self.private_ip = None
+        self.local_hostname = None
         if inst:
             try:
                 self.id = str(inst.id)
@@ -1658,6 +1675,7 @@ class Instance( object ):
         self.num_cpus = 1
         self.time_rebooted = dt.datetime.utcnow()
         self.reboot_count = 0
+        self.terminate_count = 0
         self.last_comm = dt.datetime.utcnow()
         self.nfs_data = 0
         self.nfs_tools = 0
@@ -1731,30 +1749,43 @@ class Instance( object ):
         t_thread.start()
     
     def __terminate( self ):
-        log.info ( "Terminating instance '%s'" % self.id )
+        log.info("Terminating instance {0}".format(self.id))
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         inst_terminated = False
         try:
-            ti = ec2_conn.terminate_instances( [self.id] )
+            self.terminate_count += 1
+            ti = ec2_conn.terminate_instances([self.id])
             if ti:
-                log.info( "Successfully initiated termination of instance '%s'" % self.id )
-                for i in range( 0, 30 ):
-                    if self.get_m_state() == 'terminated':
-                        log.info ( "Instance '%s' successfully terminated." % self.id )
-                        inst_terminated = True
-                        try:
-                            if self in self.app.manager.worker_instances:
-                                self.app.manager.worker_instances.remove( self )
-                                log.info ( "Instance '%s' removed from internal instance list." % self.id )
-                        except ValueError, ve:
-                            log.warning( "Instance '%s' no longer in instance list, global monitor probably picked it up and deleted it already: %s" % ( self.id, ve ) )
-                        break
-                    else:
-                        time.sleep( 4 )
+                log.info("Instance {0} successfully terminated.".format(self.id))
+                inst_terminated = True
+                self._remove_instance()
+        except EC2ResponseError, e:
+            if e.errors[0][0] == 'InstanceNotFound':
+                self._remove_instance()
+                inst_terminated = True
+            log.error("EC2 exception terminating instance '%s': %s" % ( self.id, e ) )
         except Exception, e:
-            log.error( "Exception terminating instance '%s': %s" % ( self.id, e ) )
+            log.error("Exception terminating instance '%s': %s" % ( self.id, e ) )
         if inst_terminated is False:
-            log.error( "Terminating instance '%s' did not go smoothly; instance state: '%s'" % ( self.id, self.m_state ) )
+            log.error("Terminating instance '%s' did not go smoothly; instance state: '%s'" \
+                % ( self.id, self.m_state ) )
+    
+    def _remove_instance(self, force=False):
+        """ A convenience method to remove the current instance from the list
+            of worker instances tracked by the master.
+        """
+        log.info( "Successfully initiated termination of instance '%s'" % self.id )
+        for i in range( 0, 30 ):
+            if self.get_m_state() == 'terminated' or force:
+                try:
+                    if self in self.app.manager.worker_instances:
+                        self.app.manager.worker_instances.remove( self )
+                        log.info ( "Instance '%s' removed from internal instance list." % self.id )
+                except ValueError, ve:
+                    log.warning( "Instance '%s' no longer in instance list, global monitor probably picked it up and deleted it already: %s" % ( self.id, ve ) )
+                break
+            else:
+                time.sleep( 4 )
     
     def instance_can_be_terminated( self ):
         log.debug( "Checking if instance '%s' can be terminated" % self.id )
@@ -1769,7 +1800,6 @@ class Instance( object ):
             if reservation and len(reservation[0].instances)==1:
                 instance = reservation[0].instances[0]
                 self.inst = instance
-            
         if self.inst:
             try:
                 self.inst.update()
@@ -1779,9 +1809,7 @@ class Instance( object ):
                     self.last_m_state_change = dt.datetime.utcnow()
             except EC2ResponseError, e:
                 log.debug( "Error updating instance state: %s" % e )
-
         return self.m_state
-
     
     def send_status_check( self ):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
@@ -1815,14 +1843,26 @@ class Instance( object ):
             return True
         # If an instance has been in state 'running' for a while we still have not heard from it, check on it 
         # DBTODO Figure out something better for state management.
-        if state == 'running' and not self.is_alive and (dt.datetime.utcnow()-self.last_m_state_change).seconds>400 and (dt.datetime.utcnow()-self.time_rebooted).seconds>300:
+        if state == 'running' and \
+            not self.is_alive and \
+            (dt.datetime.utcnow()-self.last_m_state_change).seconds>400 and \
+            (dt.datetime.utcnow()-self.time_rebooted).seconds>300:
             if self.reboot_count < 4:
-                log.info( "Instance '%s' not responding, rebooting instance..." % self.inst.id )
-                self.inst.reboot()
-                self.reboot_count += 1
-                self.time_rebooted = dt.datetime.utcnow()
+                log.info( "Instance {0} not responding, rebooting instance (reboot #{1})..."\
+                    .format(self.inst.id, self.reboot_count+1))
+                try:
+                    self.inst.reboot()
+                    self.time_rebooted = dt.datetime.utcnow()
+                except EC2ResponseError, e:
+                    log.error("Trouble rebooting instance {0}: {1}".format(self.inst.id, e))
+                self.reboot_count += 1 # Increment irespective of success to allow for eventual termination
+            elif self.terminate_count > 4:
+                log.info("Tried terminating instance {0} 4 times but was unsucessful. Giving up."\
+                    .format(self.inst.id))
+                self._remove_instance(force=True)
             else:
-                log.info( "Instance '%s' not responding after %s reboots. Terminating instance..." % ( self.inst.id, self.reboot_count ) )
+                log.info( "Instance '%s' not responding after %s reboots. Terminating instance..." 
+                    % ( self.inst.id, self.reboot_count ) )
                 self.terminate()
         return True
     
@@ -1856,14 +1896,26 @@ class Instance( object ):
                 self.zone = msp[3]
                 self.type = msp[4]
                 self.ami = msp[5]
-                log.debug("INSTANCE_ALIVE private_dns:%s  public_dns:%s  zone:%s  type:%s  ami:%s" % (self.private_ip, 
-                                                                                                      self.public_ip, 
-                                                                                                      self.zone, 
-                                                                                                      self.type, 
-                                                                                                      self.ami))
+                self.local_hostname = msp[6]
+                log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s" \
+                    % (self.private_ip,
+                       self.public_ip, 
+                       self.zone, 
+                       self.type, 
+                       self.ami,
+                       self.local_hostname))
                 # Instance is alive and functional. Send master pubkey.
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
+                if self.app.cloud_type == 'openstack':
+                    worker_host_line = '{ip}\t{hostname}\n'.format(ip=self.private_ip, \
+                        hostname=self.local_hostname)
+                    log.debug("worker_host_line: {0}".format(worker_host_line))
+                    with open('/etc/hosts', 'r+') as f:
+                        hosts = f.readlines()
+                        if worker_host_line not in hosts:
+                            log.debug("Adding worker {0} to /etc/hosts".format(self.local_hostname))
+                            f.write(worker_host_line)
                 if self.app.cloud_type == 'opennebula':
                     f = open( "/etc/hosts", 'a' )
                     f.write( "%s\tworker-%s\n" %  (self.private_ip, self.id))
