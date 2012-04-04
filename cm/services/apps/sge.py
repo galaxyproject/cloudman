@@ -103,7 +103,7 @@ class SGEService( ApplicationService ):
         # exec_nodes = self.app.cloud_interface.get_self_private_ip() 
         SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
         with open( SGE_config_file, 'w' ) as f:
-            print >> f, templates.SGE_INSTALL_TEMPLATE % ( self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_self_private_ip(), exec_nodes )
+            print >> f, templates.SGE_INSTALL_TEMPLATE % ( hostname, hostname, exec_nodes )
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
         log.debug("Created SGE install template as file '%s'" % SGE_config_file)
         # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
