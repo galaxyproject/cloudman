@@ -101,11 +101,13 @@ class ConsoleManager( object ):
     def get_instance_state( self ):
         return self.worker_status    
     
-    def mount_disk(self, master_ip, path):
-        log.debug( "Mounting %s..." % path)
+    def mount_disk(self, master_ip, path, source_path=None):
+        if source_path is None:
+            source_path = path
+        log.debug( "Mounting %s:%s to %s..." % (master_ip, source_path, path))
         if not os.path.exists( path ):
             os.mkdir( path )
-        ret_code = subprocess.call( "mount %s:%s %s" % (master_ip, path, path), shell=True )
+        ret_code = subprocess.call( "mount %s:%s %s" % (master_ip, source_path, path), shell=True )
         log.debug( "Process mounting '%s' returned code '%s'" % (path, ret_code) )
         return ret_code
     
