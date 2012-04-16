@@ -4,6 +4,7 @@ import datetime as dt
 
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
+from cm.services.apps.pss import PSS
 
 log = logging.getLogger( 'cloudman' )
 
@@ -327,13 +328,24 @@ class ConsoleMonitor( object ):
         self.conn.send(msg_body)
     
     def send_node_shutting_down(self):
-        msg_body = "NODE_SHUTTING_DOWN | %s | %s" % (self.app.manager.worker_status, self.app.cloud_interface.get_instance_id())
+        msg_body = "NODE_SHUTTING_DOWN | %s | %s" \
+            % (self.app.manager.worker_status, self.app.cloud_interface.get_instance_id())
         log.debug( "Sending message '%s'" % msg_body )
         self.conn.send(msg_body)
     
     def send_node_status(self):
-        self.app.manager.load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
-        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s" % (self.app.manager.nfs_data, self.app.manager.nfs_tools, self.app.manager.nfs_indices, self.app.manager.nfs_sge, self.app.manager.get_cert, self.app.manager.sge_started, self.app.manager.load, self.app.manager.worker_status)
+        # Gett the system load in the following format:
+        # "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+        self.app.manager.load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()
+        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s" \
+            % (self.app.manager.nfs_data,
+               self.app.manager.nfs_tools,
+               self.app.manager.nfs_indices,
+               self.app.manager.nfs_sge,
+               self.app.manager.get_cert,
+               self.app.manager.sge_started,
+               self.app.manager.load,
+               self.app.manager.worker_status)
         log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
     
@@ -343,25 +355,28 @@ class ConsoleMonitor( object ):
             log.info("Master at %s requesting RESTART" % m_ip)
             self.app.ud['master_ip'] = m_ip
             self.app.manager.unmount_nfs()
-            self.app.manager.mount_nfs( self.app.ud['master_ip'] )
+            self.app.manager.mount_nfs(self.app.ud['master_ip'])
             self.send_alive_message()
         elif message.startswith("MASTER_PUBKEY"):
             m_key = message.split(' | ')[1]
-            log.info("Got master public key (%s). Saving root's public key..." % m_key )
+            log.info("Got master public key (%s). Saving root's public key..." % m_key)
             self.app.manager.save_authorized_key( m_key )
             self.send_worker_hostcert()
-            log.info( "WORKER_H_CERT message sent; changing state to '%s'" % worker_states.WAIT_FOR_SGE )
+            log.info("WORKER_H_CERT message sent; changing state to '%s'" % worker_states.WAIT_FOR_SGE)
             self.app.manager.worker_status = worker_states.WAIT_FOR_SGE
             self.last_state_change_time = dt.datetime.utcnow()
         elif message.startswith("START_SGE"):
             ret_code = self.app.manager.start_sge()
             if ret_code == 0:
-                log.info( "SGE daemon started successfully." )
+                log.info("SGE daemon started successfully.")
+                # Now that the instance is ready, run the PSS service directly
+                pss = PSS(self.app, instance_role='worker')
+                pss.start()
                 self.send_node_ready()
                 self.app.manager.worker_status = worker_states.READY
                 self.last_state_change_time = dt.datetime.utcnow()
             else:
-                log.error( "Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code )
+                log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
         elif message.startswith("STATUS_CHECK"):
