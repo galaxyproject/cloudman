@@ -610,17 +610,20 @@ class ConsoleManager(object):
         self.master_state = new_state
     
     def get_idle_instances( self ):
-        #log.debug( "Looking for idle instances" )
+        # log.debug( "Looking for idle instances" )
         idle_instances = [] # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % paths.P_SGE_ROOT):
-            proc = subprocess.Popen( "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qstat -f | grep all.q" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE )
+            proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
+                "%s/bin/lx24-amd64/qstat -f | grep all.q" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
+                shell=True, stdout=subprocess.PIPE)
             qstat_out = proc.communicate()[0]
             # log.debug( "qstat output: %s" % qstat_out )
             instances = qstat_out.splitlines()
             nodes_list = [] # list of nodes containing node's domain name and number of used processing slots
-            idle_instances_dn = [] # list of domain names of idle instances 
+            idle_instances_dn = [] # list of domain names of idle instances
             for inst in instances:
-                nodes_list.append( inst.split( '@' )[1].split( ' ' )[0] + ':' + inst.split( '/' )[1] ) # Get instance domain name and # of used processing slots, e.g., ['domU-12-31-38-00-48-D1.c:0'] 
+                # Get instance domain name and # of used processing slots: ['domU-12-31-38-00-48-D1.c:0']
+                nodes_list.append( inst.split( '@' )[1].split( ' ' )[0] + ':' + inst.split( '/' )[1] )
             # if len( nodes_list ) > 0:
             #     log.debug( "Processed qstat output: %s" % nodes_list )
             
@@ -633,10 +636,12 @@ class ConsoleManager(object):
             
             for idle_instance_dn in idle_instances_dn:
                  for w_instance in self.worker_instances:
-                     # log.debug( "Trying to match worker instance with private IP '%s' to idle instance '%s'" % ( w_instance.get_private_ip(), idle_instance_dn) )
-                     if w_instance.get_private_ip() is not None:
-                         if w_instance.get_private_ip().lower().startswith( str(idle_instance_dn).lower() ) is True:
-                            # log.debug( "Marking instance '%s' with FQDN '%s' as idle." % ( w_instance.id, idle_instance_dn ) )
+                     # log.debug("Trying to match worker instance with private IP '%s' to idle "
+                     #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
+                     if w_instance.get_local_hostname() is not None:
+                         if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
+                            # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
+                            #     % (w_instance.id, idle_instance_dn))
                             idle_instances.append( w_instance )
         return idle_instances
     
@@ -1720,7 +1725,7 @@ class Instance( object ):
             return [self.id, ld, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
         else:
             return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
-        
+    
     def get_id(self):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID")
@@ -1872,6 +1877,9 @@ class Instance( object ):
     def get_private_ip( self ):
         # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
         return self.private_ip
+    
+    def get_local_hostname(self):
+        return self.local_hostname
     
     def send_master_pubkey( self ):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
