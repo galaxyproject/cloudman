@@ -1606,7 +1606,8 @@ class ConsoleMonitor( object ):
             # Check status of worker instances
             for w_instance in self.app.manager.worker_instances:
                 if w_instance.check_if_instance_alive() is False:
-                    log.error( "Instance '%s' terminated prematurely. Removing from SGE and local instance list." % w_instance.id )
+                    log.error("Instance '%s' terminated prematurely. "
+                        "Removing from SGE and local instance list." % w_instance.id)
                     try:
                         sge_svc = self.app.manager.get_services('SGE')[0]
                         sge_svc.remove_sge_host(w_instance.get_id(), w_instance.get_private_ip())
@@ -1617,14 +1618,17 @@ class ConsoleMonitor( object ):
                     # Remove reference to given instance object 
                     if w_instance in self.app.manager.worker_instances:
                         self.app.manager.worker_instances.remove( w_instance )
-                elif w_instance.get_m_state() == 'running' and ( dt.datetime.utcnow() - w_instance.last_comm ).seconds > 15:
+                # If have not heard from an instance for a while, check on it
+                elif (dt.datetime.utcnow() - w_instance.last_comm).seconds > 20 and \
+                     w_instance.get_m_state() == 'running':
                     w_instance.send_status_check()
                 if w_instance.reboot_required:
                     try:
                         ec2_conn = self.app.cloud_interface.get_ec2_connection()
                         log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
                         if self.app.cloud_type == 'opennebula':
-                            self.app.manager.console_monitor.conn.send( 'REBOOT | %s' % w_instance.id, w_instance.id )
+                            self.app.manager.console_monitor.conn.send( 'REBOOT | %s' \
+                                % w_instance.id, w_instance.id )
                             log.info( "\tMT: Sent REBOOT message to worker '%s'" % w_instance.id )
                         else:
                             ec2_conn.reboot_instances([w_instance.id])
@@ -1642,11 +1646,14 @@ class ConsoleMonitor( object ):
                     return match
                 
                 if not do_match():
-                    log.debug( "No instance (%s) match found for message %s; will add instance now!" % ( m.properties['reply_to'], m.body ) )
+                    log.debug( "No instance (%s) match found for message %s; will add instance now!" \
+                        % ( m.properties['reply_to'], m.body ) )
                     if self.app.manager.add_live_instance(m.properties['reply_to']):
                         do_match()
                     else:
-                        log.warning("Potential error, got message from instance '%s' but not aware of this instance. Ignoring the instance." % m.properties['reply_to'])
+                        log.warning("Potential error, got message from instance '%s' "
+                            "but not aware of this instance. Ignoring the instance." \
+                            % m.properties['reply_to'])
                 m = self.conn.recv()
     
 
@@ -1808,6 +1815,7 @@ class Instance( object ):
                     self.last_m_state_change = dt.datetime.utcnow()
             except EC2ResponseError, e:
                 log.debug("Error updating instance {0} state: {1}".format(self.get_id(), e))
+                return 'error'
         return self.m_state
     
     def send_status_check( self ):
@@ -1831,13 +1839,14 @@ class Instance( object ):
             return True
         # log.debug( "In '%s' state." % self.app.manager.master_state )
         #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
-        # First, check if the instance even exists
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
-        if len(ec2_conn.get_all_instances([self.get_id()])) == 0:
-            log.debug("Instance {0} does not exist, thus it is not alive".format(self.get_id()))
-            return False
-        # Next, check on state and timeline
+        # Get current state of the instance
         state = self.get_m_state()
+        if state == 'error':
+            # Make sure the instance exists
+            if len(ec2_conn.get_all_instances([self.get_id()])) == 0:
+                log.debug("Instance {0} does not exist, thus it is not alive".format(self.get_id()))
+                return False
         # Somtimes, an instance is terminated by Amazon prematurely so try to catch it 
         if state == 'terminated':
             log.error("Worker instance '%s' seems to have terminated prematurely." % self.id)
