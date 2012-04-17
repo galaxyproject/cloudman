@@ -62,8 +62,8 @@ def app_factory( global_conf, **kwargs ):
 
 def cm_authfunc(environ, username, password):
     ud = misc.load_yaml_file(paths.USER_DATA_FILE)
-    if ud.has_key('password'):
-        if password == ud['password']:
+    if 'password' in ud:
+        if password == str(ud['password']):
             return True
     return False
 
