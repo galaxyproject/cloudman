@@ -105,10 +105,10 @@ def _get_s3connection(ud):
     if ud['s3_host'] is not None and ud['s3_port'] is not None and ud['s3_conn_path'] is not None:
         # If the use has specified an alternate s3 host, such as swift (for example),
         # then create an s3 connection using their user data
-        log.info("Connecting using custom s3")
+        log.info("Connecting to a custom Object Store")
         s3_conn = S3Connection(aws_access_key_id=ud['access_key'],
                 aws_secret_access_key=ud['secret_key'],
-                is_secure=False,
+                is_secure=ud['is_secure'],
                 host=ud['s3_host'],
                 port=ud['s3_port'],
                 calling_format=OrdinaryCallingFormat(),
