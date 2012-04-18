@@ -9,6 +9,8 @@ import logging, sys, os, subprocess, yaml, tarfile, shutil, time
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
+from boto.s3.connection import OrdinaryCallingFormat
+
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
@@ -99,6 +101,24 @@ def _start_nginx():
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
 
+def _get_s3connection(ud):
+    if ud['s3_host'] is not None and ud['s3_port'] is not None and ud['s3_conn_path'] is not None:
+        # If the use has specified an alternate s3 host, such as swift (for example),
+        # then create an s3 connection using their user data
+        log.info("Connecting using custom s3")
+        s3_conn = S3Connection(aws_access_key_id=ud['access_key'],
+                aws_secret_access_key=ud['secret_key'],
+                is_secure=False,
+                host=ud['s3_host'],
+                port=ud['s3_port'],
+                calling_format=OrdinaryCallingFormat(),
+                path=ud['s3_conn_path'])
+    else:
+        # Use the default Amazon s3 connection
+        log.info("Connecting to Amazon s3")
+        s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+    return s3_conn
+
 def _get_cm(ud):
     log.info("<< Downloading CloudMan >>")
     _make_dir(CM_HOME)
@@ -113,7 +133,7 @@ def _get_cm(ud):
     # Test for existence of user's bucket and download appropriate CM instance
     if ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
-            s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+            s3_conn = _get_s3connection(ud)
             b = None
             if ud.has_key('bucket_cluster'):
                 b = s3_conn.lookup(ud['bucket_cluster'])
@@ -203,7 +223,7 @@ def _post_start_hook(ud):
         # This assumes the provided URL is readable to anyone w/o authentication
         _run('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url']))
     else:
-        s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+        s3_conn = _get_s3connection(ud)
         b = None
         if ud.has_key('bucket_cluster'):
             b = s3_conn.lookup(ud['bucket_cluster'])
