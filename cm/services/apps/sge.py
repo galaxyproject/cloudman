@@ -116,13 +116,21 @@ class SGEService( ApplicationService ):
         self._fix_util_arch()
         if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.info("Successfully setup SGE; configuring SGE")
+            log.debug("Adding parallel environments")
+            pes = ['SMP_PE', 'MPI_PE']
+            for pe in pes:
+                pe_file_path = os.path.join('/tmp', pe)
+                with open(pe_file_path, 'w') as f:
+                    print >> f, getattr(templates, pe)
+                misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (paths.P_SGE_ROOT, pe_file_path))
+            log.debug("Creating queue 'all.q'")
             SGE_allq_file = '%s/all.q.conf' % paths.P_SGE_ROOT
             with open( SGE_allq_file, 'w' ) as f:
                 print >> f, templates.ALL_Q_TEMPLATE
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             log.debug("Created SGE all.q template as file '%s'" % SGE_allq_file)
             misc.run('cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (paths.P_SGE_ROOT, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
-            log.debug("Configuring users' SGE profiles" )
+            log.debug("Configuring users' SGE profiles")
             with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
                 f.write("\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT)
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
