@@ -75,7 +75,7 @@ min_cpu_interval      00:05:00
 processors            UNDEFINED
 qtype                 BATCH INTERACTIVE
 ckpt_list             NONE
-pe_list               make
+pe_list               make smp mpi
 rerun                 FALSE
 slots                 1
 tmpdir                /mnt/galaxyData/tmp
@@ -113,4 +113,30 @@ s_rss                 INFINITY
 h_rss                 INFINITY
 s_vmem                INFINITY
 h_vmem                INFINITY
+"""
+
+SMP_PE = """pe_name            smp
+slots              999
+user_lists         NONE
+xuser_lists        NONE
+start_proc_args    NONE
+stop_proc_args     NONE
+allocation_rule    $pe_slots
+control_slaves     TRUE
+job_is_first_task  FALSE
+urgency_slots      min
+accounting_summary FALSE
+"""
+
+MPI_PE = """pe_name           mpi
+slots             999
+user_lists        NONE
+xuser_lists       NONE
+start_proc_args   /opt/sge/mpi/startmpi.sh $pe_hostfile
+stop_proc_args    /opt/sge/mpi/stopmpi.sh
+allocation_rule   $round_robin
+control_slaves    FALSE
+job_is_first_task TRUE
+urgency_slots     min
+accounting_summary FALSE
 """
