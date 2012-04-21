@@ -111,6 +111,7 @@
                 <td>File systems</td>
                 <td><span id="filesystem_status">&nbsp;</span></td>
                 <td>No logs</td>
+                <td><a href="#" id="manage_FSs_link">Manage</a></td>
             </tr>
         </table>
         <h3>System controls</h3>
@@ -227,9 +228,13 @@
             </li>
         </ul>
 
-        ## Overlays
+        ## ****************************************************************************
+        ## ********************************* Overlays *********************************
+        ## ****************************************************************************
         ## Overlay that prevents any future clicking, see CSS
         <div id="snapshotoverlay" style="display:none"></div>
+        <div class="overlay" id="overlay" style="display:none"></div>
+        ## Indicate an action has been recorded
         <div class="box" id="action_initiated" style="height: 90px; text-align: center;">
             <h2>Action initiated.</h2>
         </div>
@@ -240,10 +245,58 @@
                 <div style="font-size: 10px" id="user_data_content"></div>
             </pre>
         </div>
+        ## Overlay for managing filesystems
+        <div class="box" id="add_fs_overlay">
+            <a class="boxclose"></a>
+            <div id="fs_accordion">
+                <h3><a href="#">Available file systems</a></h3>
+                <div id='available_fs_list'>
+                    ##<p>Retrieving the list of available file systems...</p>
+                    ##<div class="spinner">&nbsp;</div>
+                    <div class="warningmessage">Sorry but this functionality is not yet available.<br/>
+                        Adding file systems is though.
+                    </div>
+                </div>
+                <h3><a href="#">Add a new file system</a></h3>
+                <div><form id="add_fs_form" name="add_fs_form" action="${h.url_for(controller='root', action='add_fs')}" method="post">
+                    <div class="form-row">
+                        <p>This form allows you to add an additional data source
+                        and make it available as a local file system. Currently,
+                        adding public S3 buckets as a data source is the only supported
+                        functionality. Once added, the file system will be available
+                        on the underlying system under <span class="code">
+                        /mnt/[bucket_name]</span> path.</p>
+                        <div class="form-row">
+                            <div id="fs_bucket">
+                                Public bucket name:
+                                <input type="text" id="fs_bucket_name" name="bucket_name" value='1000genomes' size="50"/>
+                            </div>
+                        </div>
+                        <input type="submit" value="Add a file system"/>
+                    </div>
+                </form></div>
+            </div>
+        </div>
 
-    ## Javascript
+    ## ****************************************************************************
+    ## ******************************** Javascript ********************************
+    ## ****************************************************************************
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script type="text/javascript">
+        $(function() {
+            $( "#fs_accordion" ).accordion({
+                autoHeight: false,
+                collapsible: true,
+                active: 1, // Temporary only? - until the top fold is functional
+            });
+        });
+        
+        function hidebox(){
+            $('.box').hide();
+            $('.overlay').hide();
+            $('#overlay').hide();
+        }
+        
         function update(repeat_update){
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
                 function(data){
@@ -308,8 +361,10 @@
                         }
                     }
             });
-            // Update service status every 5 seconds
-            window.setTimeout(function(){update(true)}, 5000);
+            if (repeat_update == true){
+                // Update service status every 8 seconds
+                window.setTimeout(function(){update(true)}, 8000);
+            }
         }
         function handle_clicks() {
             // Handle action links
@@ -323,7 +378,43 @@
                 });
                 popup();
             });
-            // Handle forms
+            // Display overlays
+            $('#show_user_data').click(function(event) {
+                $('#msg').hide();
+                $('#overlay').show();
+                event.preventDefault();
+                var url = $(this).attr('href');
+                $.get(url, function(user_data) {
+                    // Pretty-print JSON user data and display in an overlay box
+                    var ud_obj = JSON.parse(user_data)
+                    var ud_str = JSON.stringify(ud_obj, null, 2);
+                    $('#user_data_content').html(ud_str);
+                    $('#user_data').fadeIn('fast');
+                });
+            });
+            $('#manage_FSs_link').click(function(){
+                $('#overlay').show();
+                $('#add_fs_overlay').show();
+                // get_filesystems();
+            });
+            $('#overlay').click(function(){
+                hidebox();
+            });
+            // Force an update of the field on click
+            $('#master_is_exec_host').click(function(){
+                update();
+            });
+        }
+        function popup() {
+            $("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
+        }
+        function clear_msg() {
+            // Clear message box 1 minute after the call to this method
+            // FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
+            window.setTimeout(function(){$('#msg').hide();}, 60000);
+        }
+        function handle_forms() {
+            // Handle generic forms
             $('.generic_form').ajaxForm({
                 type: 'POST',
                 dataType: 'json',
@@ -337,27 +428,21 @@
                     clear_msg();
                 }
             });
-            // Display overlays
-            $('#show_user_data').click(function(event) {
-                $('#msg').hide();
-                event.preventDefault();
-                var url = $(this).attr('href');
-                $.get(url, function(user_data) {
-                    // Pretty-print JSON user data and display in an overlay box
-                    var ud_obj = JSON.parse(user_data)
-                    var ud_str = JSON.stringify(ud_obj, null, 2);
-                    $('#user_data_content').html(ud_str);
-                    $('#user_data').fadeIn('fast');
-                });
+            // Handle form for adding a file system
+            $('#add_fs_form').ajaxForm({
+                type: 'POST',
+                dataType: 'json',
+                beforeSubmit: function(data){
+                    // hidebox();
+                    console.log("Setting filesystem_status before submit");
+                    $('#filesystem_status').html("Adding");
+                },
+                complete: function(data) {
+                    console.log("Calling complete");
+                    hidebox();
+                    // update();
+                }
             });
-        }
-        function popup() {
-            $("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
-        }
-        function clear_msg() {
-            // Clear message box 1 minute after the call to this method
-            // FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
-            window.setTimeout(function(){$('#msg').hide();}, 60000);
         }
         $(document).ready(function() {
             // Toggle help info boxes
@@ -372,8 +457,8 @@
                     help_link.removeClass("help_link_on");
                 }
             });
-            // Get services status
-            update();
+            // Initiate service status updates
+            update(true);
             // Handle control click events
             handle_clicks();
             // Make clearing form fields easier by auto selecting the content
@@ -382,12 +467,10 @@
             });
             // Add event to enable closing of an overlay box
             $('.boxclose').click(function(){
-                $('.box').hide();
+                hidebox();
             });
-            // Force an update of the field on click
-            $('#master_is_exec_host').click(function(){
-                update();
-            });
+            // Handle forms++
+            handle_forms();
         });
     </script>
 </%def>

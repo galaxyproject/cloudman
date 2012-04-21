@@ -109,6 +109,16 @@ class CM(BaseController):
         return self.instance_state_json(trans)
     
     @expose
+    def add_fs(self, trans, bucket_name):
+        if bucket_name != '':
+            log.debug("Adding a file system from bucket {0}".format(bucket_name))
+            self.app.manager.add_fs(bucket_name)
+        else:
+            log.error("Wanted to add a file system but provided no bucket name.")
+        return "FSACK"
+        # return self.get_all_services_status(trans)
+    
+    @expose
     def power(self, trans, number_nodes=0, pss=None):
         if self.app.manager.get_cluster_status() == 'OFF': # Cluster is OFF, initiate start procedure
             try:

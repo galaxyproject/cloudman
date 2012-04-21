@@ -697,14 +697,14 @@ div.report-row label
     min-height: 32px;
     border: 1px solid #AA6666;
     background-color: #FFCCCC;
-    background-image: url(error_message_icon.png);
+    background-image: url(/cloud/static/images/error_message_icon.png);
     background-repeat: no-repeat;
     background-position: 10px 10px;
 }
 
 .warningmessage 
 {
-    background-image: url(warn_message_icon.png);
+    background-image: url(/cloud/static/images/warn_message_icon.png);
     border-color: #AAAA66;
     background-color: #FFFFCC;
 }
