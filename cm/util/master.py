@@ -1193,6 +1193,13 @@ class ConsoleManager(object):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
     
+    def add_fs(self, bucket_name):
+        log.info("Adding a file system from bucket {0}".format(bucket_name))
+        fs = Filesystem(self.app, bucket_name)
+        fs.add_bucket(bucket_name)
+        self.services.append(fs)
+        log.debug("Master done adding FS from bucket {0}".format(bucket_name))
+    
     def stop_worker_instances( self ):
         log.info( "Stopping all '%s' worker instance(s)" % len(self.worker_instances) )
         to_terminate = []
@@ -1415,6 +1422,8 @@ class ConsoleMonitor( object ):
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'role', self.app.ud['role'])
             except EC2ResponseError, e:
                 log.debug("Error setting 'role' tag: %s" % e)
+            except Exception, e:
+                log.debug("General error setting 'role' tag: %s" % e)
         self.monitor_thread.start()
     
     def shutdown( self ):

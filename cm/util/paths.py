@@ -41,8 +41,9 @@ except Exception, e:
     P_GALAXY_HOME = default_galaxy_home
     print "(paths.py) Issue checking for custom galaxy_home in user data: {0}".format(e)
 
-P_GALAXY_DATA = "/mnt/galaxyData"
-P_GALAXY_TOOLS = "/mnt/galaxyTools"
-P_GALAXY_INDICES = "/mnt/galaxyIndices"
+P_MOUNT_ROOT = "/mnt"
+P_GALAXY_DATA = os.path.join(P_MOUNT_ROOT, 'galaxyData')
+P_GALAXY_TOOLS = os.path.join(P_MOUNT_ROOT, "galaxyTools")
+P_GALAXY_INDICES = os.path.join(P_MOUNT_ROOT, "galaxyIndices")
 
 IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')

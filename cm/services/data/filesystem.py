@@ -1,4 +1,5 @@
 import commands, os, time, shutil, threading, pwd, grp
+from datetime import datetime
 
 from boto.exception import EC2ResponseError
 
@@ -8,6 +9,7 @@ from cm.services import service_states
 from cm.services.data import DataService
 from cm.services.data import volume_status
 from cm.services.data.volume import Volume
+from cm.services.data.bucket import Bucket
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -18,11 +20,17 @@ class Filesystem(DataService):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
         self.volumes = []
+        self.buckets = []
         self.name = name
         self.size = None
         self.dirty = False
         self.mount_point = '/mnt/%s' % self.name
-        self.grow = None # Used (APPLICABLE ONLY FOR galaxyData FS) to indicate need to grow the file system; use following dict structure {'new_size': <size>, 'snap_desc': <snapshot description>}
+        self.grow = None # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
+                         # the file system; use following dict structure:
+                         # {'new_size': <size>, 'snap_desc': <snapshot description>}
+        self.started_starting = datetime.utcnow() # A time stamp when the state changed to STARTING.
+                                                  # It is used to avoid brief ERROR states during
+                                                  # the system configuration.
     
     def get_full_name(self):
         return "FS-%s" % self.name
@@ -38,6 +46,7 @@ class Filesystem(DataService):
         try:
             log.debug("Trying to add service '%s'" % self.get_full_name())
             self.state = service_states.STARTING
+            self.starter_starting = datetime.utcnow()
             for vol in self.volumes:
                 vol.create(self.name)
                 # Mark a volume as 'static' if created from a snapshot
@@ -48,10 +57,12 @@ class Filesystem(DataService):
                     vol.static = True
                 if vol.attach():
                     self.mount(vol)
-                self.status()
+            for b in self.buckets:
+                threading.Thread(target=b.mount).start()
+                log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
         except Exception, e:
             log.error("Error adding filesystem service '%s-%s': %s" % (self.svc_type, self.name, e))
-            self.status()
+        self.status()
     
     def remove(self):
         """ Sequential removal of volumes has issues so thread it"""
@@ -63,16 +74,18 @@ class Filesystem(DataService):
     def __remove(self, delete_vols=True):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
-        self.unmount()
         for vol in self.volumes:
+            self.unmount()
             log.debug("Detaching volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
             if vol.detach():
                 log.debug("Detached volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
                 if vol.static and self.name != 'galaxyData' and delete_vols:
                     log.debug("Deleting %s" % self.get_full_name())
                     vol.delete()
-            log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
-            self.state = service_states.SHUT_DOWN
+        for b in self.buckets:
+            b.unmount()
+        log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
+        self.state = service_states.SHUT_DOWN
     
     def clean(self):
         """ Remove filesystems and clean up as if they were never there. Useful for CloudMan restarts."""
@@ -270,13 +283,20 @@ class Filesystem(DataService):
            self.state==service_states.UNSTARTED or \
            self.state==service_states.WAITING_FOR_USER_ACTION:
             pass
+        if self.state==service_states.STARTING and \
+           (datetime.utcnow() - self.started_starting).seconds < 15:
+            # Allow a service to remain in STARTING state for some time
+            # before actually checking its status - this helps avoid
+            # brief ERROR states due to services not yet being configured
+            pass
         elif self.mount_point is not None:
             mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" % self.mount_point)
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
-                    # Check volume
-                    self.check_and_update_volume(self._get_attach_device_from_device(device))
+                    # Check volume(s) if part of the file system
+                    if len(self.volumes) > 0:
+                        self.check_and_update_volume(self._get_attach_device_from_device(device))
                     # Check mount point
                     if mnt_path == self.mount_point:
                         self.state = service_states.RUNNING
@@ -295,4 +315,7 @@ class Filesystem(DataService):
     
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
         self.volumes.append(Volume(self.app, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
+    
+    def add_bucket(self, bucket_name):
+        self.buckets.append(Bucket(bucket_name))
     

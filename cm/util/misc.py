@@ -571,6 +571,21 @@ def replace_string(file_name, pattern, subst):
     # Move new file
     move(abs_path, file_name)
 
+def _if_not_installed(prog_name):
+    """Decorator that checks if a callable program is installed.
+    """
+    def argcatcher(func):
+        def decorator(*args, **kwargs):
+            log.debug("Checking if {0} is installed".format(prog_name))
+            process = subprocess.Popen(prog_name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+            if process.returncode == 127:
+                log.debug("{0} is *not* installed".format(prog_name))
+                return func(*args, **kwargs)
+            else:
+                log.debug("{0} is installed".format(prog_name))
+        return decorator
+    return argcatcher
 
 class Sleeper( object ):
     """
