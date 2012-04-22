@@ -821,10 +821,15 @@ class ConsoleManager(object):
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
-                         fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                        log.debug("{0} file system has volume(s) already attached"\
+                            .format(snap['filesystem']))
+                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
                     else:
-                         fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
-                    log.debug("Adding static filesystem: '%s'" % snap['filesystem'])
+                        log.debug("There are no volumes already attached for file system {0}"\
+                            .format(snap['filesystem']))
+                        fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
+                    log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
+                        .format(snap['filesystem'], fs.volumes))
                     self.services.append(fs)
                     
             #User data - add a new file system for user data of size 'pss'                    

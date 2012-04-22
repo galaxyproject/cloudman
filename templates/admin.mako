@@ -433,14 +433,8 @@
                 type: 'POST',
                 dataType: 'json',
                 beforeSubmit: function(data){
-                    // hidebox();
-                    console.log("Setting filesystem_status before submit");
-                    $('#filesystem_status').html("Adding");
-                },
-                complete: function(data) {
-                    console.log("Calling complete");
                     hidebox();
-                    // update();
+                    $('#filesystem_status').html("Adding");
                 }
             });
         }

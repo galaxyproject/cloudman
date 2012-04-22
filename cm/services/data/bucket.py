@@ -8,7 +8,8 @@ import logging
 log = logging.getLogger('cloudman')
 
 class Bucket(object):
-    def __init__(self, bucket_name):
+    def __init__(self, filesystem, bucket_name):
+        self.fs = filesystem # Filesystem that the bucket represents
         self.bucket_name = bucket_name
         self.mount_point = os.path.join(paths.P_MOUNT_ROOT, bucket_name)
         self._install_s3fs()
