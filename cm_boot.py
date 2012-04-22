@@ -102,7 +102,7 @@ def _start_nginx():
         _run('rm -rf /mnt/galaxyData')
 
 def _get_s3connection(ud):
-    if ud['s3_host'] is not None and ud['s3_port'] is not None and ud['s3_conn_path'] is not None:
+    if 'cloud_type' in ud and ud['cloud_type'] != 'ec2':
         # If the use has specified an alternate s3 host, such as swift (for example),
         # then create an s3 connection using their user data
         log.info("Connecting to a custom Object Store")
