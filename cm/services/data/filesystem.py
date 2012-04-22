@@ -269,28 +269,75 @@ class Filesystem(DataService):
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system '%s' (vols=%s)" \
                 % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
     
+    def add_nfs_share(self, mount_point=None, permissions='rw'):
+        """ Share the given/current file system/mount point over NFS. Note that
+            if the given mount point already exists in /etc/exports, replace
+            the existing line with the line composed within this method.
+            
+            :type mount_point: string
+            :param mount_point: The mount point to add to the NFS share
+            
+            :type permissions: string
+            :param permissions: Choose the type of permissions for the hosts
+                                mounting this NFS mount point. Use: 'rw' for
+                                read-write (default) or 'ro' for read-only
+        """
+        ee_file = '/etc/exports'
+        if mount_point is None:
+            mount_point = self.mount_point
+        # Compose the line that will be put into /etc/exports
+        # NOTE: with Spot instances, should we use 'async' vs. 'sync' option?
+        # See: http://linux.die.net/man/5/exports
+        ee_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+            .format(mp=mount_point, perms=permissions)
+        # Determine if the given mount point is already shared
+        with open(ee_file) as f:
+            shared_paths = f.readlines()
+        in_ee = -1
+        for i, sp in enumerate(shared_paths):
+            if mount_point in sp:
+                in_ee = i
+        # If the mount point is already in /etc/exports, replace the existing
+        # entry with the newly composed ee_line (thus supporting change of 
+        # permissions). Otherwise, append ee_line to the end of the file.
+        if in_ee > -1:
+            shared_paths[in_ee] = ee_line
+        else:
+            shared_paths.append(ee_line)
+        # Write out the newly composed file
+        with open(ee_file, 'w') as f:
+            f.writelines(shared_paths)
+        # Mark the NFS server as being in need of a restart
+        self.dirty=True
+    
     def status(self):
         """Check if file system is mounted to the location based on its name.
         Set state to RUNNING if file system is accessible.
         Set state to ERROR otherwise.
         """
-        # log.debug("Updating service '%s-%s' status; current state: %s" % (self.svc_type, self.name, self.state))
+        # log.debug("Updating service '%s-%s' status; current state: %s" \
+        #   % (self.svc_type, self.name, self.state))
         if self.dirty:
-            if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", "As part of filesystem '%s-%s' update, successfully restarted NFS server" % (self.svc_type, self.name)):
+            if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", \
+                "As part of filesystem '%s-%s' update, successfully restarted NFS server" \
+                % (self.svc_type, self.name)):
                 self.dirty = False
         if self.state==service_states.SHUTTING_DOWN or \
            self.state==service_states.SHUT_DOWN or \
            self.state==service_states.UNSTARTED or \
            self.state==service_states.WAITING_FOR_USER_ACTION:
             pass
-        if self.state==service_states.STARTING and \
-           (datetime.utcnow() - self.started_starting).seconds < 15:
+        elif self.state==service_states.STARTING and \
+           (datetime.utcnow() - self.started_starting).seconds < 30:
+            log.debug("{0} in '{2}' state for {1} seconds".format(self.get_full_name(),
+                (datetime.utcnow() - self.started_starting).seconds, service_states.STARTING))
             # Allow a service to remain in STARTING state for some time
             # before actually checking its status - this helps avoid
             # brief ERROR states due to services not yet being configured
             pass
         elif self.mount_point is not None:
-            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" % self.mount_point)
+            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" \
+                % self.mount_point)
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
@@ -301,21 +348,24 @@ class Filesystem(DataService):
                     if mnt_path == self.mount_point:
                         self.state = service_states.RUNNING
                     else:
-                        log.error("STATUS CHECK: Retrieved mount path '%s' does not match expected path '%s'" % (mnt_location[1], self.mount_point))
+                        log.error("STATUS CHECK: Retrieved mount path '%s' does not match "
+                            "expected path '%s'" % (mnt_location[1], self.mount_point))
                         self.state = service_states.ERROR
                 except Exception, e:
                     log.error("STATUS CHECK: Exception checking status of FS '%s': %s" % (self.name, e))
                     self.state = service_states.ERROR
                     log.debug(mnt_location)
             else:
-                log.error("STATUS CHECK: File system named '%s' is not mounted. Error code %s" % (self.name, mnt_location[0]))
+                log.error("STATUS CHECK: File system named '%s' is not mounted. Error code %s" \
+                    % (self.name, mnt_location[0]))
                 self.state = service_states.ERROR
         else:
-            log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" % (self.name, self.mount_point, self.state))
+            log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" \
+                % (self.name, self.mount_point, self.state))
     
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
         self.volumes.append(Volume(self.app, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
     
     def add_bucket(self, bucket_name):
-        self.buckets.append(Bucket(bucket_name))
+        self.buckets.append(Bucket(self, bucket_name))
     
