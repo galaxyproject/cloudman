@@ -320,8 +320,8 @@ class Filesystem(DataService):
         #   % (self.svc_type, self.name, self.state))
         if self.dirty:
             if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", \
-                "As part of filesystem '%s-%s' update, successfully restarted NFS server" \
-                % (self.svc_type, self.name)):
+                "As part of %s filesystem update, successfully restarted NFS server" \
+                % self.name):
                 self.dirty = False
         if self.state==service_states.SHUTTING_DOWN or \
            self.state==service_states.SHUT_DOWN or \
@@ -365,7 +365,7 @@ class Filesystem(DataService):
                 % (self.name, self.mount_point, self.state))
     
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
-        self.volumes.append(Volume(self.app, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
+        self.volumes.append(Volume(self, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
     
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))

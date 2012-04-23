@@ -13,9 +13,11 @@ log = logging.getLogger('cloudman')
 
 class Volume(BlockStorage):
     
-    def __init__(self, app, vol_id=None, device=None, attach_device=None,
+    def __init__(self, filesystem, vol_id=None, device=None, attach_device=None,
                  size=0, from_snapshot_id=None, static=False):
-        super(Volume, self).__init__(app)
+        super(Volume, self).__init__(filesystem.app)
+        self.fs = filesystem
+        self.app = self.fs.app
         self.volume = None # boto instance object representing the current volume
         self.volume_id = vol_id
         self.device = device # Device ID visible by the operating system
@@ -31,6 +33,12 @@ class Volume(BlockStorage):
     
     def __str__(self):
         return self.volume_id
+    
+    def __repr__(self):
+        return self.volume_id
+    
+    def get_full_name(self):
+        return "{vol} (FS {fs})".format(vol=self.volume_id, fs=self.fs.name)
     
     def update(self, bsd):
         """ Update reference to the 'self' to point to argument 'bsd' """
@@ -141,12 +149,13 @@ class Volume(BlockStorage):
                 self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" \
-                    % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
+                    % (self.size, self.from_snapshot_id, self.get_full_name(), \
+                    self.app.cloud_interface.get_zone()))
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
         else:
             log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" \
-                % (self.status(), self.volume_id))
+                % (self.status(), self.get_full_name()))
         
         # Add tags to newly created volumes (do this outside the inital if/else
         # to ensure the tags get assigned even if using an existing volume vs. 
@@ -172,12 +181,12 @@ class Volume(BlockStorage):
         try:
             if attach_device is not None:
                 log.debug("Attaching volume '%s' to instance '%s' as device '%s'" 
-                    % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
+                    % (self.get_full_name(),  self.app.cloud_interface.get_instance_id(), attach_device))
                 volumestatus = self.app.cloud_interface.get_ec2_connection() \
                     .attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
             else:
                 log.error("Attaching volume '%s' to instance '%s' failed because could not determine device."
-                    % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
+                    % (self.get_full_name(),  self.app.cloud_interface.get_instance_id()))
                 return False
         except EC2ResponseError, e:
             for er in e.errors:
@@ -206,7 +215,7 @@ class Volume(BlockStorage):
                 attempts = 30
                 while ctn < attempts:
                     log.debug("Attaching volume '%s'; status: %s (check %s/%s)" \
-                        % (self.volume_id, volumestatus, ctn, attempts))
+                        % (self.get_full_name(), volumestatus, ctn, attempts))
                     if volumestatus == 'attached':
                         log.debug("Volume '%s' attached to instance '%s' as device '%s'" \
                             % (self.volume_id, self.app.cloud_interface.get_instance_id(), 
@@ -214,7 +223,7 @@ class Volume(BlockStorage):
                         break
                     if ctn == attempts-1:
                         log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'." \
-                            % (self.volume_id, self.app.cloud_interface.get_instance_id(), 
+                            % (self.get_full_name(), self.app.cloud_interface.get_instance_id(), 
                             self.get_attach_device()))
                         if attempts < 90:
                             log.debug("Will try another device")
@@ -237,7 +246,7 @@ class Volume(BlockStorage):
                 if self.volume.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
                     self.attach_device = self.volume.attach_data.device
                     log.debug("Tried to attach a volume but the volume '%s' is already "
-                        "attached (as device %s)" % (self.volume_id, self.get_attach_device()))
+                        "attached (as device %s)" % (self.get_full_name(), self.get_attach_device()))
                     return True
             elif self.volume_id is None:
                 log.error("Wanted to attach a volume but missing volume ID; cannot attach")
@@ -260,15 +269,15 @@ class Volume(BlockStorage):
                     .detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id())
             except EC2ResponseError, e:
                 log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" \
-                    % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
+                    % (self.get_full_name(), self.app.cloud_interface.get_instance_id(), e))
                 return False
                 
             for counter in range(30):
                 log.debug("Detaching volume '%s'; status '%s' (check %s/30)" \
-                    % (self.volume_id, volumestatus, counter))
+                    % (self.get_full_name(), volumestatus, counter))
                 if volumestatus == 'available':
                     log.debug("Volume '%s' successfully detached from instance '%s'." \
-                        % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
+                        % ( self.get_full_name(), self.app.cloud_interface.get_instance_id() ))
                     self.volume = None
                     break
                 if counter == 28:
@@ -278,17 +287,17 @@ class Volume(BlockStorage):
                             force=True)
                     except EC2ResponseError, e:
                         log.error("Second attempt at detaching volume '%s' from instance '%s' failed. "
-                            "Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
+                            "Exception: %s" % (self.get_full_name(), self.app.cloud_interface.get_instance_id(), e))
                         return False
                 if counter == 29:
                     log.debug("Volume '%s' FAILED to detach from instance '%s'" \
-                        % ( self.volume_id, self.app.cloud_interface.get_instance_id() ))
+                        % ( self.get_full_name(), self.app.cloud_interface.get_instance_id() ))
                     return False
                 time.sleep(6)
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes( [self.volume_id] )
                 volumestatus = volumes[0].status
         else:
-            log.warning("Cannot detach volume '%s' in state '%s'" % (self.volume_id, self.status()))
+            log.warning("Cannot detach volume '%s' in state '%s'" % (self.get_full_name(), self.status()))
             return False
         return True
     
