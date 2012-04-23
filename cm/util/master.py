@@ -712,7 +712,7 @@ class ConsoleManager(object):
         worker_ud = dict(self.app.ud.items() + worker_ud.items())
         return worker_ud
     
-    def add_instances( self, num_nodes, instance_type=''):
+    def add_instances( self, num_nodes, instance_type='', spot_price=None):
         num_nodes = int( num_nodes )
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         log.info( "Adding %s instance(s)..." % num_nodes )
