@@ -66,7 +66,8 @@ class Filesystem(DataService):
     
     def remove(self):
         """ Sequential removal of volumes has issues so thread it"""
-        log.info("Removing '%s-%s' data service" % (self.svc_type, self.name))
+        log.info("Removing '{0}' data service with volumes {1} and buckets {2}"\
+            .format(self.get_full_name(), self.volumes, self.buckets))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread( target=self.__remove() )
         r_thread.start()
