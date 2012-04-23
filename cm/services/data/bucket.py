@@ -39,6 +39,9 @@ class Bucket(object):
     def __str__(self):
         return self.bucket_name
     
+    def __repr__(self):
+        return self.bucket_name
+    
     def _compose_mount_cmd(self):
         """ Compose the command line used to mount the current bucket as a file system.
             This method checks if a given bucket is public or private and composes
