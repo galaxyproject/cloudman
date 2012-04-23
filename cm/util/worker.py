@@ -5,6 +5,7 @@ import datetime as dt
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
 from cm.services.apps.pss import PSS
+from cm.services.data.filesystem import Filesystem
 
 log = logging.getLogger( 'cloudman' )
 
@@ -384,6 +385,13 @@ class ConsoleMonitor( object ):
         elif message.startswith("REBOOT"):
             log.info("Received reboot command")
             ret_code = subprocess.call( "sudo telinit 6", shell=True )
+        elif message.startswith("ADDS3FS"):
+            bucket_name = message.split(' | ')[1]
+            log.info("Adding s3fs file system from bucket {0}".format(bucket_name))
+            fs = Filesystem(self.app, bucket_name)
+            fs.add_bucket(bucket_name)
+            fs.add()
+            log.debug("Worker done adding FS from bucket {0}".format(bucket_name))
         else:
             log.debug("Unknown message '%s'" % message)
     

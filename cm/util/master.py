@@ -1203,6 +1203,10 @@ class ConsoleManager(object):
         fs = Filesystem(self.app, bucket_name)
         fs.add_bucket(bucket_name)
         self.services.append(fs)
+        # Inform all workers to add the same FS (the file system will be the same
+        # and sharing it over NFS does not seems to work)
+        for w_inst in self.worker_instances:
+            w_inst.send_add_s3fs(bucket_name)
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
     
     def stop_worker_instances( self ):
@@ -1852,7 +1856,8 @@ class Instance( object ):
                 .format(self.get_id()))
             return True
         # log.debug( "In '%s' state." % self.app.manager.master_state )
-        #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
+        #log.debug("\tMT: Waiting on worker instance(s) to start up (wait time: %s sec)..." \
+        #   % (dt.datetime.utcnow() - self.last_state_change_time).seconds )
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         # Get current state of the instance
         state = self.get_m_state()
@@ -1906,13 +1911,20 @@ class Instance( object ):
     
     def send_master_pubkey( self ):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send( 'MASTER_PUBKEY | %s' % self.app.manager.get_root_public_key(), self.id )
+        self.app.manager.console_monitor.conn.send( 'MASTER_PUBKEY | %s' \
+            % self.app.manager.get_root_public_key(), self.id )
         log.info("Sent master public key to worker instance '%s'." % self.id)
-        log.debug( "\tMT: Message MASTER_PUBKEY %s sent to '%s'" % ( self.app.manager.get_root_public_key(), self.id ) )
+        log.debug( "\tMT: Message MASTER_PUBKEY %s sent to '%s'" \
+            % ( self.app.manager.get_root_public_key(), self.id ) )
     
     def send_start_sge( self ):
         log.debug( "\tMT: Sending START_SGE message to instance '%s'" % self.id )
         self.app.manager.console_monitor.conn.send( 'START_SGE', self.id )
+    
+    def send_add_s3fs(self, bucket_name):
+        msg = 'ADDS3FS | {0}'.format(bucket_name)
+        log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(msg=msg, inst=self.id))
+        self.app.manager.console_monitor.conn.send(msg, self.id)
     
     def handle_message( self, msg ):
         # log.debug( "Handling message: %s from %s" % ( msg, self.id ) )
@@ -1931,7 +1943,7 @@ class Instance( object ):
                 self.type = msp[4]
                 self.ami = msp[5]
                 self.local_hostname = msp[6]
-                log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s" \
+                log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s"\
                     % (self.private_ip,
                        self.public_ip, 
                        self.zone, 
@@ -1957,15 +1969,23 @@ class Instance( object ):
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True #This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert( msg.split( " | " )[1] )
-                log.debug( "Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" % self.id )
+                log.debug( "Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" \
+                    % self.id )
                 try:
                     sge_svc = self.app.manager.get_services('SGE')[0]
                     if sge_svc.add_sge_host(self.get_id(), self.get_private_ip()):
-                        # Now send message to worker to start SGE  
+                        # Send a message to worker to start SGE
                         self.send_start_sge()
+                        # If there are any bucket-based FSs, tell the worker to add those
+                        fss = self.app.manager.get_services('Filesystem')
+                        for fs in fss:
+                            if len(fs.buckets) > 0:
+                                for b in fs.buckets:
+                                    self.send_add_s3fs(b.bucket_name)
                         log.info( "Waiting on worker instance '%s' to configure itself..." % self.id )
                     else:
-                        log.error( "Adding host to SGE did not go smoothly, not instructing worker to configure SGE daemon." )
+                        log.error("Adding host to SGE did not go smoothly, "
+                            "not instructing worker to configure SGE daemon.")
                 except IndexError:
                     log.error("Could not get a handle on SGE service to add a host; host not added")
             elif msg_type == "NODE_READY":
