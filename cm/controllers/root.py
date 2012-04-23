@@ -109,10 +109,15 @@ class CM(BaseController):
         return self.instance_state_json(trans)
     
     @expose
-    def add_fs(self, trans, bucket_name):
+    def add_fs(self, trans, bucket_name, bucket_a_key='', bucket_s_key=''):
         if bucket_name != '':
             log.debug("Adding a file system from bucket {0}".format(bucket_name))
-            self.app.manager.add_fs(bucket_name)
+            # Clean form input data
+            if bucket_a_key == '':
+                bucket_a_key = None
+            if bucket_s_key == '':
+                bucket_s_key = None
+            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key.strip(), bucket_s_key.strip())
         else:
             log.error("Wanted to add a file system but provided no bucket name.")
         return "FSACK"
@@ -490,7 +495,8 @@ class CM(BaseController):
                                    ip=self.app.cloud_interface.get_self_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
-                                   bucket_cluster=self.app.ud['bucket_cluster'])
+                                   bucket_cluster=self.app.ud['bucket_cluster'],
+                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'))
     
     @expose
     def cluster_status(self, trans):

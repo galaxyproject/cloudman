@@ -366,6 +366,6 @@ class Filesystem(DataService):
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
         self.volumes.append(Volume(self.app, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
     
-    def add_bucket(self, bucket_name):
-        self.buckets.append(Bucket(self, bucket_name))
+    def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
+        self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
     
