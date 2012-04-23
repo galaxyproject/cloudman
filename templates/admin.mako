@@ -262,18 +262,37 @@
                     <div class="form-row">
                         <p>This form allows you to add an additional data source
                         and make it available as a local file system. Currently,
-                        adding public S3 buckets as a data source is the only supported
-                        functionality. Once added, the file system will be available
+                        adding S3 buckets as a data source is the only supported
+                        functionality. These buckets may be public or private (and
+                        owned by the user running this cluster).
+                        Once added, the file system will be available
                         on the underlying system under <span class="code">
                         /mnt/[bucket_name]</span> path.</p>
-                        <div class="form-row">
-                            <div id="fs_bucket">
-                                Public bucket name:
-                                <input type="text" id="fs_bucket_name" name="bucket_name" value='1000genomes' size="50"/>
-                            </div>
-                        </div>
-                        <input type="submit" value="Add a file system"/>
                     </div>
+                    <div id="fs_bucket">
+                        <div class="form-row">
+                            Bucket name:
+                            <input type="text" id="fs_bucket_name" name="bucket_name" value='1000genomes' size="50"/>
+                        </div>
+                        %if cloud_type != 'ec2':
+                            <div class="form-row">
+                                <p>
+                                It appears you are not running on the AWS cloud. CloudMan supports
+                                using only buckets from AWS S3. So, if the bucket you are trying to
+                                use is NOT PUBLIC, you must provide the AWS credentials that can be
+                                used to access this bucket. If the bucket you are trying to use
+                                IS PUBLIC, leave below fields empty.
+                                </p>
+                            </div> <div class="form-row">
+                                AWS access key:
+                                <input type="text" id="bucket_a_key" name="bucket_a_key" size="50"/>
+                            </div> <div class="form-row">
+                                AWS secret key:
+                                <input type="text" id="bucket_s_key" name="bucket_s_key" size="50"/>
+                            </div>
+                        %endif
+                    </div>
+                    <input type="submit" value="Add a file system"/>
                 </form></div>
             </div>
         </div>
