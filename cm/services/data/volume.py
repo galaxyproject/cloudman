@@ -29,6 +29,9 @@ class Volume(BlockStorage):
         self.snapshot_progress = None
         self.snapshot_status = None
     
+    def __str__(self):
+        return self.volume_id
+    
     def update(self, bsd):
         """ Update reference to the 'self' to point to argument 'bsd' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, bsd.id))

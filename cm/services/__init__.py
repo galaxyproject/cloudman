@@ -33,7 +33,8 @@ class Service( object):
             self.last_state_change_time = dt.datetime.utcnow()
             flag = True # indicate if current service prerequisites are satisfied
             for svc_type, svc_name in self.reqs.iteritems():
-                log.debug("'%s' service checking its prerequisite '%s:%s'" % (self.svc_type, svc_type, svc_name))
+                log.debug("'%s' service checking its prerequisite '%s:%s'" \
+                    % (self.get_full_name(), svc_type, svc_name))
                 for svc in self.app.manager.services:
                     # log.debug("Checking service %s state." % svc.svc_type)
                     if svc_type==svc.svc_type:
@@ -46,11 +47,14 @@ class Service( object):
                             if not svc.running():
                                 flag = False
             if flag:
-                log.info("Prerequisites OK; starting service '%s'" % self.svc_type)
+                log.info("{0} prerequisites OK; starting the service".format(self.get_full_name()))
                 self.start()
                 return True
             else:
-                log.info("Cannot start service '%s' because prerequisites are not yet satisfied." % self.svc_type)
+                log.info("{0} service prerequisites are not yet satisfied; setting service state to {1}"\
+                    .format(self.get_full_name(), service_states.UNSTARTED))
+                # Reset state so it get picked back up by monitor
+                self.state = service_states.UNSTARTED
                 return False
     
     def running(self):
