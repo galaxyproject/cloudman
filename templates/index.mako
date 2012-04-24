@@ -66,6 +66,15 @@ vertical-align: top;
                     <option value='c1.xlarge'>High-CPU Extra Large</option>
                 </select>
             </div>
+            ## Spot instaces work only for the AWS cloud
+            %if cloud_type == 'ec2':
+                <div class="form-row">
+                    <input type="checkbox" id="use_spot" />Use Spot instances<br/>
+                    Max spot price:
+                    <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
+                    <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
+                </div>
+            %endif
             <div class="form-row"><input type="submit" value="Start Additional Nodes"></div>
         </div>
         </form>
@@ -901,7 +910,16 @@ $(document).ready(function() {
                 }
             });
     });
-    
+    // Toggle accessibility of spot price field depending on whether spot instances should be used
+    $("#use_spot").click(function() {
+        if ($("#use_spot").attr("checked") == 'checked') {
+            $("#spot_price").removeAttr('disabled');
+            $("#spot_price").focus();
+        } else {
+            $("#spot_price").attr('disabled', 'disabled');
+            $("#spot_price").val("");
+        }
+    });
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
@@ -911,6 +929,9 @@ $(document).ready(function() {
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
+    
+    var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
+    spot_price.add( Validate.Numericality, { minimum: 0 } );
     
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
