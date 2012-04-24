@@ -44,6 +44,16 @@ cluster_status = Bunch(
     SHUT_DOWN="SHUT_DOWN" # Because we don't really support cluster restart
  )
 
+# Used by the Instance object
+instance_kind = Bunch( 
+    SPOT = "Spot",
+    ONDEMAND = "On-demand"
+)
+spot_states = Bunch(
+    OPEN = "open",
+    ACTIVE = "active",
+    CANCELLED = "cancelled"
+)
 
 class ConsoleManager(object):
     def __init__(self, app):
@@ -707,9 +717,9 @@ class ConsoleManager(object):
         log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
     
     def add_instances( self, num_nodes, instance_type='', spot_price=None):
-        return self.app.cloud_interface.run_instances(num=num_nodes,
-                                                      instance_type=instance_type,
-                                                      spot_price=spot_price)
+        self.app.cloud_interface.run_instances(num=num_nodes,
+                                               instance_type=instance_type,
+                                               spot_price=spot_price)
     
     def add_live_instance(self, instance_id):
         """ Add an instance to the list of worker instances; get a handle to the
@@ -1571,6 +1581,12 @@ class ConsoleMonitor( object ):
                          self.store_cluster_config()
             # Check status of worker instances
             for w_instance in self.app.manager.worker_instances:
+                if w_instance.is_spot():
+                    w_instance.update_spot()
+                    if not w_instance.spot_was_filled():
+                        # Wait until the Spot request has been filled to start
+                        # treating the instance as a regular Instance
+                        continue
                 if w_instance.check_if_instance_alive() is False:
                     log.error("Instance '%s' terminated prematurely. "
                         "Removing from SGE and local instance list." % w_instance.id)
@@ -1624,10 +1640,13 @@ class ConsoleMonitor( object ):
     
 
 class Instance( object ):
-    def __init__( self, app, inst=None, m_state=None, last_m_state_change=None, sw_state=None, reboot_required=False):
+    def __init__(self, app, inst=None, m_state=None, last_m_state_change=None,
+                 sw_state=None, reboot_required=False, spot_request_id=None):
         self.app = app
+        self.kind = instance_kind.SPOT if self.spot_request_id else instance_kind.ONDEMAND
         self.inst = inst # boto object of the instance
-        self.id = None
+        self.spot_request_id = spot_request_id
+        self.spot_state = None
         self.private_ip = None
         self.public_ip = None
         self.local_hostname = None
@@ -1635,10 +1654,12 @@ class Instance( object ):
             try:
                 self.id = str(inst.id)
             except EC2ResponseError, e:
-                log.error( "Error retrieving instance id: %s" % e )
-        self.m_state = m_state
+                log.error("Error retrieving instance id: %s" % e)
+        else:
+            self.id = None
+        self.m_state = m_state # Machine state
         self.last_m_state_change = dt.datetime.utcnow()
-        self.sw_state = sw_state
+        self.sw_state = sw_state # Software state
         self.is_alive = False
         self.node_ready = False
         self.num_cpus = 1
@@ -1656,6 +1677,51 @@ class Instance( object ):
         self.load = 0
         self.type = 'Unknown'
         self.reboot_required = reboot_required
+        self.update_spot()
+    
+    def get_cloud_instance_object(self):
+        """ Get the instance object for this instance from the library used to
+            communicate with the cloud middleware. In the case of boto, this
+            is the boto EC2 Instance object.
+            
+            :rtype: boto.ec2.instance.Instance (should really be a more generic repr
+                    but we'll wait for OCCI or something)
+            :return: cloud instance object for this instance
+        """
+        if self.inst is None and self.id is not None:
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            try:
+                rs = ec2_conn.get_all_instances([self.id])
+                for r in rs:
+                    self.id = r.instances[0].id
+            except EC2ResponseError, e:
+                log.error("Trouble getting the cloud instance ({0}) object: {1}"\
+                    .format(self.id, e))
+            except Exception, e:
+                log.error("Error getting the cloud instance ({0}) object: {1}"\
+                    .format(self.id, e))
+        return self.inst
+    
+    def is_spot(self):
+        """ Test is this Instance is a Spot instance.
+        
+            :rtype: bool
+            :return: True if the current Instance is Spot instance, False otherwise.
+        """
+        return self.kind == instance_kind.SPOT
+    
+    def spot_was_filled(self):
+        """ For Spot-based instances, test if the spot request has been 
+            filled (ie, an instance was started)
+            
+            :rtype: bool
+            :return: True if this is a Spot instance and if the Spot request
+                     is in state spot_states.ACTIVE. False otherwise.
+        """
+        self.update_spot()
+        if self.is_spot() and self.spot_state == spot_states.ACTIVE:
+            return True
+        return False
     
     def get_status_dict( self ):
         toret = {'id' : self.id, 
@@ -1696,9 +1762,13 @@ class Instance( object ):
                     ld = self.load
             elif self.node_ready:
                 ld = "Running"
-            return [self.id, ld, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
+            return [self.id, ld, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), \
+                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
+                    self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
+            return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow()-self.last_m_state_change),\
+                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
+                    self.sge_started, self.worker_status]
     
     def _update_inst_object(self):
         if self.app.TESTFLAG is True:
@@ -1723,6 +1793,8 @@ class Instance( object ):
         return self.id
     
     def get_desc(self):
+        """ Get basic but descriptive info about this instance. Useful for logging.
+        """
         return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
     
     def terminate(self):
@@ -1757,12 +1829,17 @@ class Instance( object ):
     
     def _remove_instance(self, force=False):
         """ A convenience method to remove the current instance from the list
-            of worker instances tracked by the master.
+            of worker instances tracked by the master object.
+            
+            :type force: bool
+            :param force: Indicate if the instance should be forcefully (ie, irrespective)
+                          of other logic) removed from the list of instances maintained
+                          by the master object.
         """
         for i in range( 0, 30 ):
-            if self.get_m_state() == 'terminated' \
-               or self.check_if_instance_alive() is False \
-               or force:
+            if force or \
+               self.get_m_state() == 'terminated' or \
+               self.check_if_instance_alive() is False:
                 try:
                     if self in self.app.manager.worker_instances:
                         self.app.manager.worker_instances.remove( self )
@@ -1868,6 +1945,42 @@ class Instance( object ):
                     % ( self.inst.id, self.reboot_count ) )
                 self.terminate()
         return True
+    
+    def update_spot(self, force=False):
+        """ Get an update on the state of a Spot request. If the request has entered
+            spot_states.ACTIVE or spot_states.CANCELLED states, update the Instance
+            object itself otherwise just update state. The method will continue to poll
+            for an update until the spot request has been filled (ie, enters state
+            spot_states.ACTIVE). After that, simply return the spot state (see
+            force parameter).
+            
+            :type force: bool
+            :param force: If True, poll for an update on the spot request,
+                          irrespective of the stored spot request state.
+        """
+        if self.is_spot() and (force or self.spot_state != spot_states.ACTIVE):
+            old_state = self.spot_state
+            try:
+                ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                reqs = ec2_conn.get_all_spot_instance_requests(request_ids=[self.spot_request_id])
+                for req in reqs:
+                    self.spot_state = req.state
+                    # Also update the worker_status because otherwise there's no
+                    # single source to distinguish between simply an instance
+                    # in Pending state and a Spot request
+                    self.worker_status = self.spot_state
+                    # If the state has changed, do a deeper update
+                    if self.spot_state != old_state:
+                        if self.spot_state == spot_states.CANCELLED:
+                            # The request was cancelled so remove this Instance object
+                            self._remove_instance(force=True)
+                        elif self.spot_state == spot_states.ACTIVE:
+                            # We should have an instance now
+                            self.id = req.instance_id
+                            self.get_cloud_instance_object()
+            except EC2ResponseError, e:
+                log.error("Trouble retrieving spot request {0}: {1}".format(self.spot_request_id, e))
+        return self.spot_state
     
     def get_private_ip( self ):
         # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
