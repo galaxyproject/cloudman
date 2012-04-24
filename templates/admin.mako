@@ -73,6 +73,8 @@
         <h3>Services controls</h3>
         <div class="help_text">
             Use these controls to administer individual application services managed by CloudMan.
+            Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
+            target='_blank'>${initial_cluster_type}</a>' type of cluster.
         </div>
         <table width="600px" style="margin:10px 0;">
             <tr style="text-align:left">

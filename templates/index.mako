@@ -929,10 +929,11 @@ $(document).ready(function() {
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
-    
-    var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
-    spot_price.add( Validate.Numericality, { minimum: 0 } );
-    
+    if ($('#spot_price').length != 0) {
+        // Add LiveValidation only if the field is actually present on the page
+        var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
+        spot_price.add( Validate.Numericality, { minimum: 0 } );
+    }
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
     
