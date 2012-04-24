@@ -33,7 +33,8 @@ class CM(BaseController):
                                         master_instance_type = self.app.cloud_interface.get_type(),
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
                                         image_config_support = BunchToo(self.app.config.ic),
-                                        CM_url=CM_url)
+                                        CM_url=CM_url,
+                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'))
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):
@@ -172,12 +173,17 @@ class CM(BaseController):
         self.app.manager.clean()
     
     @expose
-    def add_instances(self, trans, number_nodes, instance_type=''):
+    def add_instances(self, trans, number_nodes, instance_type='', spot_price=''):
         try:
             number_nodes = int(number_nodes)
+            if spot_price != '':
+                spot_price = float(spot_price)
+            else:
+                spot_price = None
         except ValueError, e:
-            log.error("You must provide valid value.  %s" % e)
-        self.app.manager.add_instances( number_nodes, instance_type)
+            log.error("You must provide valid value:  %s" % e)
+            return self.instance_state_json(trans)
+        self.app.manager.add_instances(number_nodes, instance_type, spot_price)
         return self.instance_state_json(trans)
     
     @expose
