@@ -1626,9 +1626,10 @@ class ConsoleMonitor( object ):
 class Instance( object ):
     def __init__( self, app, inst=None, m_state=None, last_m_state_change=None, sw_state=None, reboot_required=False):
         self.app = app
-        self.inst = inst
+        self.inst = inst # boto object of the instance
         self.id = None
         self.private_ip = None
+        self.public_ip = None
         self.local_hostname = None
         if inst:
             try:
@@ -1699,6 +1700,16 @@ class Instance( object ):
         else:
             return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, self.sge_started, self.worker_status]
     
+    def _update_inst_object(self):
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to update instance object, but TESTFLAG is set. Returning None")
+            return None
+        try:
+            self.inst.update()
+        except EC2ResponseError, e:
+            log.error("Error updating instance object: %s" % e)
+        return self.inst
+    
     def get_id(self):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID")
@@ -1711,19 +1722,22 @@ class Instance( object ):
                 log.error("Error retrieving instance id: %s" % e)
         return self.id
     
+    def get_desc(self):
+        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
+    
     def terminate(self):
         self.worker_status = "Stopping"
         t_thread = threading.Thread(target=self.__terminate)
         t_thread.start()
     
     def __terminate(self):
-        log.info("Terminating instance {0}".format(self.id))
+        log.info("Terminating instance {0}".format(self.get_desc()))
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         inst_terminated = False
         try:
             self.terminate_count += 1
             ec2_conn.terminate_instances([self.id])
-            log.info("Instance {0} successfully terminated.".format(self.id))
+            log.info("Instance {0} successfully terminated.".format(self.get_desc()))
             inst_terminated = True
         except EC2ResponseError, e:
             if e.errors[0][0] == 'InstanceNotFound':
@@ -1731,12 +1745,15 @@ class Instance( object ):
             else:
                 log.error("EC2 exception terminating instance '%s': %s" % (self.id, e))
         except Exception, e:
-            log.error("Exception terminating instance '%s': %s" % (self.id, e))
+            log.error("Exception terminating instance %s: %s" % (self.get_desc(), e))
         if inst_terminated is False:
-            log.error("Terminating instance '%s' did not go smoothly; instance state: '%s'" \
-                % (self.get_id(), self.get_m_state()))
+            log.error("Terminating instance %s did not go smoothly; instance state: '%s'" \
+                % (self.get_desc(), self.get_m_state()))
         else:
-            self._remove_instance()
+            # If we have not seen an error at this point, the instance
+            # has been terminated altough the cloud middleware may still
+            # be reporting it as 'alive' - so force removal from tracked list
+            self._remove_instance(force=True)
     
     def _remove_instance(self, force=False):
         """ A convenience method to remove the current instance from the list
@@ -1744,8 +1761,8 @@ class Instance( object ):
         """
         for i in range( 0, 30 ):
             if self.get_m_state() == 'terminated' \
-                or self.check_if_instance_alive() is False \
-                or force:
+               or self.check_if_instance_alive() is False \
+               or force:
                 try:
                     if self in self.app.manager.worker_instances:
                         self.app.manager.worker_instances.remove( self )
@@ -1755,6 +1772,7 @@ class Instance( object ):
                         "picked it up and deleted it already: %s" % (self.id, e))
                 break
             else:
+                log.debug("Instance {0} still alive?".format(self.get_desc()))
                 time.sleep( 4 )
     
     def instance_can_be_terminated( self ):
@@ -1853,7 +1871,25 @@ class Instance( object ):
     
     def get_private_ip( self ):
         # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to get instance private IP, but TESTFLAG is set. Returning 127.0.0.1")
+            self.private_ip = '127.0.0.1'
+        if self.private_ip is None:
+            inst = self._update_inst_object()
+            try:
+                self.private_ip = inst.private_ip_address
+            except EC2ResponseError:
+                log.debug("private_ip_address for instance {0} not (yet?) available.".format(self.get_id()))
         return self.private_ip
+        
+    def get_public_ip(self):
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to get instance public IP, but TESTFLAG is set. Returning 127.0.0.1")
+            self.public_ip = '127.0.0.1'
+        if self.public_ip is None:
+            inst = self._update_inst_object()
+            self.public_ip = inst.ip_address
+        return self.public_ip
     
     def get_local_hostname(self):
         return self.local_hostname
