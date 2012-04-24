@@ -15,7 +15,7 @@ from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.postgres import PostgresService
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoServerError, S3ResponseError
+from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -700,69 +700,10 @@ class ConsoleManager(object):
                     self.worker_instances.remove(inst)
         log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
     
-    def _compose_worker_user_data(self):
-        """ Compose worker instance user data.
-        """
-        worker_ud = {}
-        worker_ud['role'] = 'worker'
-        worker_ud['master_ip'] = self.app.cloud_interface.get_self_private_ip()
-        worker_ud['master_hostname'] = self.app.cloud_interface.get_local_hostname()
-        worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
-        # Merge the worker's user data with the master's user data
-        worker_ud = dict(self.app.ud.items() + worker_ud.items())
-        return worker_ud
-    
     def add_instances( self, num_nodes, instance_type='', spot_price=None):
-        num_nodes = int( num_nodes )
-        ec2_conn = self.app.cloud_interface.get_ec2_connection()
-        log.info( "Adding %s instance(s)..." % num_nodes )
-        worker_ud = self._compose_worker_user_data()
-        worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
-        #log.debug( "Worker user data: %s " % worker_ud )
-        reservation = None
-        if instance_type == '':
-            instance_type = self.app.cloud_interface.get_type()
-        log.debug( "Using following command: ec2_conn.run_instances( image_id='%s', min_count=1, max_count='%s', key_name='%s', security_groups=['%s'], user_data=[%s], instance_type='%s', placement='%s' )"
-              % ( self.app.cloud_interface.get_ami(), num_nodes, self.app.cloud_interface.get_key_pair_name(), ", ".join( self.app.cloud_interface.get_security_groups() ), worker_ud_str, instance_type, self.app.cloud_interface.get_zone() ) )
-        try:
-            # log.debug( "Would be starting worker instance(s)..." )
-            reservation = ec2_conn.run_instances( image_id=self.app.cloud_interface.get_ami(),
-                                                  min_count=1,
-                                                  max_count=num_nodes,
-                                                  key_name=self.app.cloud_interface.get_key_pair_name(),
-                                                  security_groups=self.app.cloud_interface.get_security_groups(),
-                                                  user_data=worker_ud_str,
-                                                  instance_type=instance_type,
-                                                  placement=self.app.cloud_interface.get_zone() )
-            time.sleep(3) # Rarely, instances take a bit to register, so wait a few seconds (although this is a very poor 'solution')
-            if reservation:
-                for instance in reservation.instances:
-                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
-                    self.app.cloud_interface.add_tag(instance, 'role', worker_ud['role'])
-                    i = Instance( self.app, inst=instance, m_state=instance.state )
-                    log.debug("Adding instance: %s" % instance)
-                    self.worker_instances.append( i )
-        except BotoServerError, e:
-            log.error( "boto server error when starting an instance: %s" % str( e ) )
-            return False
-        except EC2ResponseError, e:
-            err = "EC2 response error when starting worker nodes: %s" % str( e )
-            log.error( err )
-            return False
-            # Update cluster status
-            # self.master_state = master_states.ERROR
-            # self.console_monitor.last_state_change_time = dt.datetime.utcnow()
-            # log.debug( "Changed state to '%s'" % self.master_state )
-        except Exception, ex:
-            err = "Error when starting worker nodes: %s" % str( ex )
-            log.error( err )
-            return False
-            # self.master_state = master_states.ERROR
-            # self.console_monitor.last_state_change_time = dt.datetime.utcnow()
-            # log.debug( "Changed state to '%s'" % self.master_state )
-        
-        log.debug( "Started %s instance(s)" % num_nodes )
-        return True
+        return self.app.cloud_interface.run_instances(num=num_nodes,
+                                                      instance_type=instance_type,
+                                                      spot_price=spot_price)
     
     def add_live_instance(self, instance_id):
         """ Add an instance to the list of worker instances; get a handle to the
@@ -1875,8 +1816,9 @@ class Instance( object ):
             log.debug("Worker instance '%s' status: '%s' (time in this state: %s sec)" \
                 % (self.id, state, (dt.datetime.utcnow() - self.last_m_state_change).seconds))
         else:
-            log.debug("Worker instance '%s' status: '%s' (time in this state: %s sec)" \
-                % (self.id, state, (dt.datetime.utcnow() - self.last_m_state_change).seconds))
+            log.debug("Worker instance '%s' (%s) status: '%s' (time in this state: %s sec)" \
+                % (self.id, self.get_private_ip(), state, \
+                (dt.datetime.utcnow() - self.last_m_state_change).seconds))
             pass
         # If an instance has been in state 'running' for a while we still have not heard from it, check on it
         # DBTODO Figure out something better for state management.

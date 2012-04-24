@@ -296,7 +296,7 @@ class SGEService( ApplicationService ):
             log.debug(" - master is marked as non-exec host and will not be included in @allhosts file")
         # Add worker instances, excluding the one being removed
         for inst in self.app.manager.worker_instances:
-            if inst.get_private_ip() != to_remove:
+            if inst.get_private_ip() != to_remove and inst.get_private_ip() is not None:
                 log.debug(" - adding instance with IP '%s' (instance state: '%s')" \
                     % (inst.get_private_ip(), inst.worker_status))
                 ahl.append(inst.get_private_ip())

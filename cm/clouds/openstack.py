@@ -46,7 +46,7 @@ class OSInterface(EC2Interface):
                 except EC2ResponseError, e:
                     log.error("Cannot validate provided OpenStack credentials or configuration " \
                               "(AK:{0}, SK:{1}): {2}".format(self.aws_access_key, self.aws_secret_key, e))
-                    self.ec2_conn = False
+                    self.ec2_conn = None
             except Exception, e:
                 log.error(e)
         return self.ec2_conn

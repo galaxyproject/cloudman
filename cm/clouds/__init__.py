@@ -68,3 +68,9 @@ class CloudInterface(object):
         log.warning("Unimplemented")
         pass
     
+    def run_instances(self, num, instance_type, **kwargs):
+        """ Run an image.
+        """
+        log.warning("Unimplemented")
+        pass
+    

@@ -1,9 +1,14 @@
-import urllib, socket
-from cm.clouds import CloudInterface
+import time
+import urllib
+import socket
 
+from boto.exception import BotoServerError
+from boto.exception import EC2ResponseError
 from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
-from boto.exception import EC2ResponseError
+
+from cm.clouds import CloudInterface
+from cm.util.master import Instance
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -18,6 +23,10 @@ class EC2Interface(CloudInterface):
     
     def get_ami( self ):
         if self.ami is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning 'ami-l0cal1'")
+                self.ami = 'ami-l0cal1'
+                return self.ami
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance ami, attempt %s' % i)
@@ -106,6 +115,10 @@ class EC2Interface(CloudInterface):
     
     def get_security_groups( self ):
         if self.security_groups is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning 'cloudman_sg'")
+                self.security_groups = ['cloudman_sg']
+                return self.security_groups
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance security group, attempt %s' % i)
@@ -142,6 +155,10 @@ class EC2Interface(CloudInterface):
     
     def get_self_private_ip( self ):
         if self.self_private_ip is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning '127.0.0.1'")
+                self.self_private_ip = '127.0.0.1'
+                return self.self_private_ip
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance private IP, attempt %s' % i)
@@ -157,6 +174,10 @@ class EC2Interface(CloudInterface):
     
     def get_local_hostname(self):
         if self.local_hostname is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning 'localhost'")
+                self.local_hostname = 'localhost'
+                return self.local_hostname
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance local hostname, attempt %s' % i)
@@ -265,3 +286,67 @@ class EC2Interface(CloudInterface):
         except EC2ResponseError, e:
             log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
             return None
+    
+    def run_instances(self, num, instance_type, spot_price=None, **kwargs):
+        use_spot = False
+        if spot_price is not None:
+            use_spot = True
+        log.info("Adding {0} {1} instance(s)".format(num, 'spot' if use_spot else 'on-demand'))
+        worker_ud = self._compose_worker_user_data()
+        worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+        # log.debug( "Worker user data: %s " % worker_ud )
+        ec2_conn = self.get_ec2_connection()
+        reservation = None
+        if instance_type == '':
+            instance_type = self.get_type()
+        log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
+              "image_id='{iid}', min_count=1, max_count='{num}', key_name='{key}', "
+              "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
+              .format(iid=self.get_ami(), num=num, key=self.get_key_pair_name(), \
+              sgs=", ".join(self.get_security_groups()), ud=worker_ud_str, type=instance_type, \
+              zone=self.get_zone()))
+        try:
+            # log.debug( "Would be starting worker instance(s)..." )
+            reservation = ec2_conn.run_instances( image_id=self.get_ami(),
+                                                  min_count=1,
+                                                  max_count=num,
+                                                  key_name=self.get_key_pair_name(),
+                                                  security_groups=self.get_security_groups(),
+                                                  user_data=worker_ud_str,
+                                                  instance_type=instance_type,
+                                                  placement=self.get_zone() )
+            time.sleep(3) # Rarely, instances take a bit to register,
+                          # so wait a few seconds (although this is a very poor 'solution')
+            if reservation:
+                for instance in reservation.instances:
+                    self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                    self.add_tag(instance, 'role', worker_ud['role'])
+                    i = Instance( self.app, inst=instance, m_state=instance.state )
+                    log.debug("Adding instance: %s" % instance)
+                    self.app.manager.worker_instances.append( i )
+        except BotoServerError, e:
+            log.error( "boto server error when starting an instance: %s" % str( e ) )
+            return False
+        except EC2ResponseError, e:
+            err = "EC2 response error when starting worker nodes: %s" % str( e )
+            log.error( err )
+            return False
+        except Exception, ex:
+            err = "Error when starting worker nodes: %s" % str( ex )
+            log.error( err )
+            return False
+        log.debug( "Started %s instance(s)" % num )
+        return True
+    
+    def _compose_worker_user_data(self):
+        """ Compose worker instance user data.
+        """
+        worker_ud = {}
+        worker_ud['role'] = 'worker'
+        worker_ud['master_ip'] = self.get_self_private_ip()
+        worker_ud['master_hostname'] = self.get_local_hostname()
+        worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
+        # Merge the worker's user data with the master's user data
+        worker_ud = dict(self.app.ud.items() + worker_ud.items())
+        return worker_ud
+    
