@@ -156,23 +156,29 @@ class ConsoleManager(object):
             log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
             return False
         self.app.manager.services.append(SGEService(self.app))
-
+        
         if self.app.LOCALFLAG is True:
             self.init_cluster(cluster_type='Galaxy')
         
         # Add PSS service - this will run only after the cluster type has been
         # selected and all of the services are in state RUNNING
         self.app.manager.services.append(PSS(self.app))
-
+        
         if not self.add_preconfigured_services():
             return False
         self.manager_started = True
-        log.info( "Completed initial cluster configuration." )
+        if self.initial_cluster_type is not None:
+            cc_detail = "Starting previously existing cluster of type {0}"\
+                .format(self.initial_cluster_type)
+        else:
+            cc_detail = "This seems to be a new cluster; waiting to configure the type"
+        log.info( "Completed initial cluster configuration. {0}".format(cc_detail))
         return True
     
     def add_preconfigured_services(self):
         """ Inspect cluster configuration and persistent data and add 
         available/preconfigured services. """
+        log.debug("Cheking for and adding any preconfigured services")
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to add preconfigured cluster services but the TESTFLAG is set.")
             return None
