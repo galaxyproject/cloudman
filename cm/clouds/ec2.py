@@ -223,7 +223,8 @@ class EC2Interface(CloudInterface):
             try:
                 log.debug('Establishing boto EC2 connection')
                 if self.app.TESTFLAG is True:
-                    log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. Returning default EC2 connection.")
+                    log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
+                        "Returning default EC2 connection.")
                     self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
                     return self.ec2_conn
                 # In order to get a connection for the correct region, get instance zone and go from there
@@ -244,7 +245,8 @@ class EC2Interface(CloudInterface):
                     self.ec2_conn.get_all_instances()
                     log.debug("Got boto EC2 connection for region '%s'" % self.ec2_conn.region.name)
                 except EC2ResponseError, e:
-                    log.error("Cannot validate provided AWS credentials (A:%s, S:%s): %s" % (self.aws_access_key, self.aws_secret_key, e))
+                    log.error("Cannot validate provided AWS credentials (A:%s, S:%s): %s" \
+                        % (self.aws_access_key, self.aws_secret_key, e))
                     self.ec2_conn = False
             except Exception, e:
                 log.error(e)
@@ -272,7 +274,8 @@ class EC2Interface(CloudInterface):
         object must be an instance of a cloud object and support tagging.
         """
         try:
-            log.debug("Adding tag '%s:%s' to resource '%s'" % (key, value, resource.id if resource.id else resource))
+            log.debug("Adding tag '%s:%s' to resource '%s'" \
+                % (key, value, resource.id if resource.id else resource))
             resource.add_tag(key, value)
         except EC2ResponseError, e:
             log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
@@ -293,12 +296,16 @@ class EC2Interface(CloudInterface):
             use_spot = True
         log.info("Adding {0} {1} instance(s)".format(num, 'spot' if use_spot else 'on-demand'))
         worker_ud = self._compose_worker_user_data()
-        worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         # log.debug( "Worker user data: %s " % worker_ud )
-        ec2_conn = self.get_ec2_connection()
-        reservation = None
         if instance_type == '':
             instance_type = self.get_type()
+        if use_spot:
+            self._make_spot_request(num, instance_type, spot_price, worker_ud)
+        else:
+            self._run_ondemand_instances(num, instance_type, spot_price, worker_ud)
+        
+    def _run_ondemand_instances(self, num, instance_type, spot_price, worker_ud):
+        worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
               "image_id='{iid}', min_count=1, max_count='{num}', key_name='{key}', "
               "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
@@ -307,6 +314,8 @@ class EC2Interface(CloudInterface):
               zone=self.get_zone()))
         try:
             # log.debug( "Would be starting worker instance(s)..." )
+            reservation = None
+            ec2_conn = self.get_ec2_connection()
             reservation = ec2_conn.run_instances( image_id=self.get_ami(),
                                                   min_count=1,
                                                   max_count=num,
@@ -321,8 +330,8 @@ class EC2Interface(CloudInterface):
                 for instance in reservation.instances:
                     self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.add_tag(instance, 'role', worker_ud['role'])
-                    i = Instance( self.app, inst=instance, m_state=instance.state )
-                    log.debug("Adding instance: %s" % instance)
+                    i = Instance(app=self.app, inst=instance, m_state=instance.state)
+                    log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append( i )
         except BotoServerError, e:
             log.error( "boto server error when starting an instance: %s" % str( e ) )
@@ -336,7 +345,38 @@ class EC2Interface(CloudInterface):
             log.error( err )
             return False
         log.debug( "Started %s instance(s)" % num )
-        return True
+    
+    def _make_spot_request(self, num, instance_type, price, worker_ud):
+        worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+        log.debug("Making a Spot request with the following command: "
+                  "ec2_conn.request_spot_instances(price='{price}', image_id='{iid}', "
+                  "count='{num}', key_name='{key}', security_groups=['{sgs}'], "
+                  "instance_type='{type}', placement='{zone}', user_data='{ud}')"\
+                  .format(price=price, iid=self.get_ami(), num=num, key=self.get_key_pair_name(), \
+                  sgs=", ".join(self.get_security_groups()), type=instance_type, \
+                  zone=self.get_zone(), ud=worker_ud_str))
+        reqs = None
+        try:
+            ec2_conn = self.get_ec2_connection()
+            reqs = ec2_conn.request_spot_instances(price=price,
+                                                   image_id=self.get_ami(),
+                                                   count=num,
+                                                   key_name=self.get_key_pair_name(),
+                                                   security_groups=self.get_security_groups(),
+                                                   instance_type=instance_type,
+                                                   placement=self.get_zone(),
+                                                   user_data=worker_ud_str)
+            if reqs is not None:
+                for req in reqs:
+                    i = Instance(app=self.app, spot_request_id=req.id)
+                    log.debug("Adding Spot request {0} as an Instance".format(req.id))
+                    self.app.manager.worker_instances.append(i)
+        except EC2ResponseError, e:
+            log.error("Trouble issuing a spot instance request: {0}".format(e))
+            return False
+        except Exception, e:
+            log.error("An error when making a spot request: {0}".format(e))
+            return False
     
     def _compose_worker_user_data(self):
         """ Compose worker instance user data.
