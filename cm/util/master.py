@@ -41,6 +41,7 @@ cluster_status = Bunch(
     OFF="OFF",
     ON="ON",
     STARTING="STARTING",
+    SHUTTING_DOWN="SHUTTING_DOWN",
     SHUT_DOWN="SHUT_DOWN" # Because we don't really support cluster restart
  )
 
@@ -62,7 +63,7 @@ class ConsoleManager(object):
         self.app = app
         self.console_monitor = ConsoleMonitor(self.app)
         self.root_pub_key = None
-        self.cluster_status = cluster_status.OFF
+        self.cluster_status = cluster_status.STARTING
         self.master_state = master_states.INITIAL_STARTUP
         self.num_workers_requested = 0 # Number of worker nodes requested by user
         # The actual number of worker nodes (note: this is a list of Instance objects)
@@ -182,6 +183,7 @@ class ConsoleManager(object):
                 .format(self.initial_cluster_type)
         else:
             cc_detail = "This seems to be a new cluster; waiting to configure the type"
+        self.cluster_status = cluster_status.ON
         log.info( "Completed initial cluster configuration. {0}".format(cc_detail))
         return True
     
@@ -527,6 +529,8 @@ class ConsoleManager(object):
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
         log.debug("List of services before shutdown: %s" % [s.get_full_name() for s in self.services])
+        self.cluster_status = cluster_status.SHUTTING_DOWN
+        self.master_state = master_states.SHUTTING_DOWN
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
