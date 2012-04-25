@@ -69,7 +69,7 @@ class Filesystem(DataService):
         log.info("Removing '{0}' data service with volumes {1} and buckets {2}"\
             .format(self.get_full_name(), self.volumes, self.buckets))
         self.state = service_states.SHUTTING_DOWN
-        r_thread = threading.Thread( target=self.__remove() )
+        r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
     
     def __remove(self, delete_vols=True):

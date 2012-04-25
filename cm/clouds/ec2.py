@@ -221,12 +221,12 @@ class EC2Interface(CloudInterface):
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
-                log.debug('Establishing boto EC2 connection')
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
                         "Returning default EC2 connection.")
                     self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
                     return self.ec2_conn
+                log.debug('Establishing boto EC2 connection')
                 # In order to get a connection for the correct region, get instance zone and go from there
                 zone = self.get_zone()[:-1] # truncate zone and be left with region name
                 tmp_conn = EC2Connection(self.aws_access_key, self.aws_secret_key) # get conn in default region
