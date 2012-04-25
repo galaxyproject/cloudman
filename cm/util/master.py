@@ -1544,7 +1544,7 @@ class ConsoleMonitor( object ):
                 log.debug("Trying to setup AMQP connection; conn = '%s'" % self.conn)
                 self.conn.setup()
                 continue
-            # Do periodic service state update
+            # Do periodic system state update (eg, services, workers)
             if (dt.datetime.utcnow() - timer).seconds > 15:
                 timer = dt.datetime.utcnow()
                 self.app.manager.check_disk()
@@ -1555,6 +1555,44 @@ class ConsoleMonitor( object ):
                 for s in self.app.manager.services:
                     svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state=='Running' else s.state)
                 log.debug(svcs_state)
+                # Check the status of worker instances
+                for w_instance in self.app.manager.worker_instances:
+                    if w_instance.is_spot():
+                        w_instance.update_spot()
+                        if not w_instance.spot_was_filled():
+                            # Wait until the Spot request has been filled to start
+                            # treating the instance as a regular Instance
+                            continue
+                    if w_instance.check_if_instance_alive() is False:
+                        log.error("Instance '%s' terminated prematurely. "
+                            "Removing from SGE and local instance list." % w_instance.id)
+                        try:
+                            sge_svc = self.app.manager.get_services('SGE')[0]
+                            sge_svc.remove_sge_host(w_instance.get_id(), w_instance.get_private_ip())
+                        except IndexError:
+                            # SGE not available yet?
+                            #log.error("Could not get a handle on SGE service")
+                            pass
+                        # Remove reference to given instance object 
+                        if w_instance in self.app.manager.worker_instances:
+                            self.app.manager.worker_instances.remove( w_instance )
+                    # If have not heard from an instance for a while, check on it
+                    elif (dt.datetime.utcnow() - w_instance.last_comm).seconds > 20 and \
+                         w_instance.get_m_state() == 'running':
+                        w_instance.send_status_check()
+                    if w_instance.reboot_required:
+                        try:
+                            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                            log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
+                            if self.app.cloud_type == 'opennebula':
+                                self.app.manager.console_monitor.conn.send( 'REBOOT | %s' \
+                                    % w_instance.id, w_instance.id )
+                                log.info( "\tMT: Sent REBOOT message to worker '%s'" % w_instance.id )
+                            else:
+                                ec2_conn.reboot_instances([w_instance.id])
+                            w_instance.reboot_required = False
+                        except EC2ResponseError, e:
+                            log.debug("Error rebooting instance '%s': %s" % (w_instance.id, e))
             # Check and add any new services
             added_srvcs = False # Flag to indicate if cluster conf was changed
             for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
@@ -1571,7 +1609,7 @@ class ConsoleMonitor( object ):
             # the service state flag that is already maintained?
             if added_srvcs and self.app.cloud_type != 'opennebula':
                 self.store_cluster_config()
-            # Check and grow file system
+            # Check and grow the file system
             svcs = self.app.manager.get_services('Filesystem')
             for svc in svcs:
                 if svc.name == 'galaxyData' and svc.grow is not None:
@@ -1579,44 +1617,7 @@ class ConsoleMonitor( object ):
                      # Opennebula has no storage like S3, so this is not working (yet)
                      if self.app.cloud_type != 'opennebula':
                          self.store_cluster_config()
-            # Check status of worker instances
-            for w_instance in self.app.manager.worker_instances:
-                if w_instance.is_spot():
-                    w_instance.update_spot()
-                    if not w_instance.spot_was_filled():
-                        # Wait until the Spot request has been filled to start
-                        # treating the instance as a regular Instance
-                        continue
-                if w_instance.check_if_instance_alive() is False:
-                    log.error("Instance '%s' terminated prematurely. "
-                        "Removing from SGE and local instance list." % w_instance.id)
-                    try:
-                        sge_svc = self.app.manager.get_services('SGE')[0]
-                        sge_svc.remove_sge_host(w_instance.get_id(), w_instance.get_private_ip())
-                    except IndexError:
-                        # SGE not available yet?
-                        #log.error("Could not get a handle on SGE service")
-                        pass
-                    # Remove reference to given instance object 
-                    if w_instance in self.app.manager.worker_instances:
-                        self.app.manager.worker_instances.remove( w_instance )
-                # If have not heard from an instance for a while, check on it
-                elif (dt.datetime.utcnow() - w_instance.last_comm).seconds > 20 and \
-                     w_instance.get_m_state() == 'running':
-                    w_instance.send_status_check()
-                if w_instance.reboot_required:
-                    try:
-                        ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                        log.debug("Instance '%s' reboot required. Rebooting now." % w_instance.id)
-                        if self.app.cloud_type == 'opennebula':
-                            self.app.manager.console_monitor.conn.send( 'REBOOT | %s' \
-                                % w_instance.id, w_instance.id )
-                            log.info( "\tMT: Sent REBOOT message to worker '%s'" % w_instance.id )
-                        else:
-                            ec2_conn.reboot_instances([w_instance.id])
-                        w_instance.reboot_required = False
-                    except EC2ResponseError, e:
-                        log.debug("Error rebooting instance '%s': %s" % (w_instance.id, e))
+            # Check for any new AMQP messages
             m = self.conn.recv()
             while m is not None:
                 def do_match():
