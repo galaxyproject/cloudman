@@ -554,9 +554,22 @@ class ConsoleManager(object):
                 service.remove()
         if delete_cluster:
             self.delete_cluster()
+        # Make sure all the services have been shut down before declaring the cluster shut down
+        while(True):
+            log.debug("Waiting for all the services to shut down")
+            num_off = 0
+            for srvc in self.services:
+                if srvc.state == service_states.SHUT_DOWN:
+                    num_off += 1
+            if num_off == len(self.services):
+                break
+            time.sleep(6)
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
-        log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, manually terminate the master instance (and any remaining instances associated with this cluster) from the AWS console." % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
+        log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
+            "manually terminate the master instance (and any remaining instances "
+            "associated with this cluster) from the cloud console." \
+            % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
     
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
