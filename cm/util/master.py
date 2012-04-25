@@ -1375,6 +1375,12 @@ class ConsoleMonitor( object ):
             self.conn.setup()
         self.sleeper = misc.Sleeper()
         self.running = True
+        # Keep some local stats to be able to adjust system updates
+        self.last_update_time = dt.datetime.utcnow()
+        self.last_system_change_time = dt.datetime.utcnow()
+        self.update_frequency = 10 # Frequency (in seconds) between system updates
+        self.num_workers = -1
+        # Start the monitor thread
         self.monitor_thread = threading.Thread( target=self.__monitor )
     
     def start( self ):
@@ -1405,6 +1411,22 @@ class ConsoleMonitor( object ):
             log.info( "Console manager stopped" )
         except:
             pass
+    
+    def _update_frequency(self):
+        """ Update the frequency value at which system updates are performed by the monitor.
+        """
+        # Check if a worker was added/removed since the last update
+        if self.num_workers != len(self.app.manager.worker_instances):
+            self.last_system_change_time = dt.datetime.utcnow()
+            self.num_workers = len(self.app.manager.worker_instances)
+        # Update frequency: as more time passes since a change in the system,
+        # progressivley back off on frequency of system updates
+        if (dt.datetime.utcnow() - self.last_system_change_time).seconds > 600:
+            self.update_frequency = 60 # If no system changes for 10 mins, run update every minute
+        elif (dt.datetime.utcnow() - self.last_system_change_time).seconds > 300:
+            self.update_frequency = 30 # If no system changes for 5 mins, run update every 30 secs
+        else:
+            self.update_frequency = 10 # If last system change within past 5 mins, run update every 10 secs
     
     def update_instance_sw_state( self, inst_id, state ):
         """ 
@@ -1527,10 +1549,9 @@ class ConsoleMonitor( object ):
                 misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
     
     def __monitor( self ):
-        timer = dt.datetime.utcnow()
         if self.app.manager.manager_started == False:
             if not self.app.manager.start():
-                log.error("***** Manager failed to start *****")
+                log.critical("\n\n***** Manager failed to start *****\n")
                 return False
         log.debug("Monitor started; manager started")
         while self.running:
@@ -1544,9 +1565,10 @@ class ConsoleMonitor( object ):
                 log.debug("Trying to setup AMQP connection; conn = '%s'" % self.conn)
                 self.conn.setup()
                 continue
-            # Do periodic system state update (eg, services, workers)
-            if (dt.datetime.utcnow() - timer).seconds > 15:
-                timer = dt.datetime.utcnow()
+            # Do a periodic system state update (eg, services, workers)
+            self._update_frequency()
+            if (dt.datetime.utcnow() - self.last_update_time).seconds > self.update_frequency:
+                self.last_update_time = dt.datetime.utcnow()
                 self.app.manager.check_disk()
                 for service in self.app.manager.services:
                     service.status()
@@ -1597,6 +1619,7 @@ class ConsoleMonitor( object ):
             added_srvcs = False # Flag to indicate if cluster conf was changed
             for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
+                self.last_system_change_time = dt.datetime.utcnow()
                 if service.add():
                     added_srvcs = True
             # Store cluster conf after all services have been added.
@@ -1613,10 +1636,11 @@ class ConsoleMonitor( object ):
             svcs = self.app.manager.get_services('Filesystem')
             for svc in svcs:
                 if svc.name == 'galaxyData' and svc.grow is not None:
-                     self.expand_user_data_volume()
-                     # Opennebula has no storage like S3, so this is not working (yet)
-                     if self.app.cloud_type != 'opennebula':
-                         self.store_cluster_config()
+                    self.last_system_change_time = dt.datetime.utcnow()
+                    self.expand_user_data_volume()
+                    # Opennebula has no storage like S3, so this is not working (yet)
+                    if self.app.cloud_type != 'opennebula':
+                        self.store_cluster_config()
             # Check for any new AMQP messages
             m = self.conn.recv()
             while m is not None:
