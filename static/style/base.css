@@ -205,6 +205,31 @@ div.form-row-input > input{max-width:300px;}
     border: 1px solid black;
     font-size: smaller;
 }
+#snapshotoverlay_msg_box {
+    text-align: justify;
+}
+#snapshotoverlay_msg_box_important {
+    background: #BB0011;
+    width: 700px;
+    margin: 80px auto 0;
+    min-height: 72px;
+    padding: 10px;
+    color: white;
+    -moz-border-radius: 10px;
+    -webkit-border-radius:10px;
+    -khtml-border-radius:10px;
+}
+#snapshotoverlay_msg_box_warning {
+    background: #FFB400;
+    width: 700px;
+    margin: 71px auto 0;
+    min-height: 72px;
+    padding: 10px;
+    color: white;
+    -moz-border-radius: 10px;
+    -webkit-border-radius:10px;
+    -khtml-border-radius:10px;
+}
 .info_msg_box {
     text-align: center;
 }

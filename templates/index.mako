@@ -166,7 +166,9 @@ vertical-align: top;
 </div>
 
 ## Overlay that prevents any future clicking, see CSS
-<div id="snapshotoverlay" style="display:none"></div>
+<div id="snapshotoverlay" style="display:none">
+    <div id="snapshotoverlay_msg_box" style="display:none"></div>
+</div>
 <div id="no_click_clear_overlay" style="display:none"></div>
 <div id="snapshot_status_box" class="box">
     <h2>Volume Manipulation In Progress</h2>
@@ -202,7 +204,7 @@ vertical-align: top;
             any worker nodes (instances) associated with this cluster. Unless you
             choose to have the cluster deleted, all of your data will be preserved
             beyond the life of this instance. Next time you wish to start this same
-            cluster, simply use the same user data (i.e., cluster name and AWS account)
+            cluster, simply use the same user data (i.e., cluster name and credentials)
             and CloudMan will reactivate your cluster with your data.</p>
             <label>Automatically terminate the master instance?</label>
             <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
@@ -558,12 +560,18 @@ function update_ui(data){
         fsdet += "</ul>";
         $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
-        if (cluster_status === "SHUT_DOWN"){
-            $('#main_text').html("<div id='main_text_important'><h4>Important:</h4><p>This cluster has terminated. If not done automatically, please terminate the master instance from the AWS console.</p></div>");
+        if (cluster_status === "SHUTTING_DOWN"){
+            shutting_down();
+            return true; // Must return here because the remaining code clears the UI
+        }
+        else if (cluster_status === "SHUT_DOWN"){
             $('.action-button').addClass('ab_disabled');
             $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
-            // Cluster has shut down.  There is nothing else to update after disabling inputs.
-            return true;
+            $('#snapshotoverlay_msg_box').html("<div id='snapshotoverlay_msg_box_important'> \
+                <h4>Important:</h4><p>This cluster has terminated. If not done automatically, \
+                please terminate the master instance from the cloud console.</p></div>");
+            $('#snapshotoverlay_msg_box').show();
+            return true; // Must return here because the remaining code clears the UI
         }
         if (data.autoscaling.use_autoscaling === true) {
             use_autoscaling = true;
@@ -573,7 +581,7 @@ function update_ui(data){
             $('#scale_up_button > img').hide();
             $('#scale_down_button').addClass('ab_disabled');
             $('#scale_down_button > img').hide();
-        } else {
+        } else if (data.autoscaling.use_autoscaling === false) {
             use_autoscaling = false;
             as_min = 0;
             as_max = 0;
@@ -717,6 +725,24 @@ function show_log_container_body() {
     $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
     $('#log_container_header').addClass('clicked');
     $('#log_container_body').slideDown('fast');
+}
+
+function shutting_down() {
+    // Do the UI updates to indicate the cluster is in the 'SHUTTING_DOWN' state
+    $('#snapshotoverlay_msg_box').html("<div id='snapshotoverlay_msg_box_warning'> \
+        <h4>Important:</h4><p>This cluster is terminating. Please wait for all the services \
+        to stop and for all the nodes to be removed. Then, if not done automatically, \
+        terminate the master instance from the cloud console. All of the buttons on the \
+        console have been disabled at this point.</p></div>");
+    $('#snapshotoverlay_msg_box').show();
+    $('.action-button').addClass('ab_disabled');
+    // Show and scroll the log
+    show_log_container_body();
+    update_log();
+    $('#log_container_body').animate({
+        scrollTop: $("#log_container_body").attr("scrollHeight") + 100
+    }, 1000);
+    $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
 }
 
 $(document).ready(function() {
@@ -871,15 +897,8 @@ $(document).ready(function() {
         type: 'POST',
         dataType: 'json',
         beforeSubmit: function(data){
-            cluster_status = "OFF";
-            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then, if not done automatically, terminate the master instance from the AWS console. All of the buttons on the console have been disabled at this point.</p></div>");
+            shutting_down();
             hidebox();
-            show_log_container_body();
-            update_log();
-            $('#log_container_body').animate({
-                scrollTop: $("#log_container_body").attr("scrollHeight") + 100
-            }, 1000);
-            $('#no_click_clear_overlay').show(); // Overlay that prevents any future clicking
         },
         success: function( data ) {
             update_ui(data);
