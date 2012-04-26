@@ -378,6 +378,39 @@ class EC2Interface(CloudInterface):
             log.error("An error when making a spot request: {0}".format(e))
             return False
     
+    def terminate_instance(self, instance_id, spot_request_id=None):
+        inst_terminated = request_canceled = True
+        if instance_id is not None:
+            inst_terminated = self._terminate_instance(instance_id)
+        if spot_request_id is not None:
+            request_canceled = self._cancel_spot_request(spot_request_id)
+        return (inst_terminated and request_canceled)
+        
+    def _terminate_instance(self, instance_id):
+        ec2_conn = self.get_ec2_connection()
+        try:
+            log.info("Terminating instance {0}".format(instance_id))
+            ec2_conn.terminate_instances(instance_id)
+            return True
+        except EC2ResponseError, e:
+            if e.errors[0][0] == 'InstanceNotFound':
+                return True
+            else:
+                log.error("EC2 exception terminating instance '%s': %s" % (instance_id, e))
+        except Exception, e:
+            log.error("Exception terminating instance %s: %s" % (instance_id, e))
+        return False
+    
+    def _cancel_spot_request(self, request_id):
+        ec2_conn = self.get_ec2_connection()
+        try:
+            log.debug("Cancelling spot request {0}".format(request_id))
+            ec2_conn.cancel_spot_instance_requests([request_id])
+            return True
+        except EC2ResponseError, e:
+            log.error("Trouble cancelling spot request {0}: {1}".format(request_id, e))
+            return False
+    
     def _compose_worker_user_data(self):
         """ Compose worker instance user data.
         """

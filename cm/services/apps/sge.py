@@ -28,7 +28,8 @@ class SGEService( ApplicationService ):
         log.info("Removing SGE service")
         self.state = service_states.SHUTTING_DOWN
         for inst in self.app.manager.worker_instances:
-            self.remove_sge_host(inst.get_id(), inst.get_private_ip())
+            if not inst.is_spot() or inst.spot_was_filled():
+                self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master")
         self.state = service_states.SHUT_DOWN
