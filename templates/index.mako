@@ -69,8 +69,12 @@ vertical-align: top;
             ## Spot instaces work only for the AWS cloud
             %if cloud_type == 'ec2':
                 <div class="form-row">
-                    <input type="checkbox" id="use_spot" />Use Spot instances<br/>
-                    Max spot price:
+                    <input type="checkbox" id="use_spot" />
+                    Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
+                        Spot instances
+                    </a><br/>
+                    Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
+                        spot price</a>:
                     <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
                     <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
                 </div>

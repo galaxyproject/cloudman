@@ -94,18 +94,18 @@ if (TESTING == true){
                   'sge_started' : 0, 
                   'worker_status' : 'Starting',
                   'instance_state' : 'running'},
-                  {'id' : 'instance-3', 
+                  {'id' : 'i-d2a984b5', 
                   'ld' : '0',
-                  'time_in_state' : '2123s', 
-                  'nfs_data' : 1, 
-                  'nfs_tools' : 1, 
-                  'nfs_indices' : 1, 
-                  'nfs_sge' : 1, 
-                  'get_cert' : -1, 
-                  'sge_started' : 1, 
-                  'worker_status' : 'Error',
+                  'time_in_state' : '7m 36s',
+                  'nfs_data' : 0, 
+                  'nfs_tools' : 0, 
+                  'nfs_indices' : 0, 
+                  'nfs_sge' : 0, 
+                  'get_cert' : 0, 
+                  'sge_started' : 0, 
+                  'worker_status' : 'active',
                   'instance_state' : 'running'},
-                  {'id' : 'instance-4', 
+                  {'id' : null, 
                   'ld' : 0,
                   'time_in_state' : 0, 
                   'nfs_data' : 0, 
@@ -114,8 +114,8 @@ if (TESTING == true){
                   'nfs_sge' : 0, 
                   'get_cert' : 0, 
                   'sge_started' : 0, 
-                  'worker_status' : 'Pending',
-                  'instance_state' : 'pending'},
+                  'worker_status' : 'open',
+                  'instance_state' : null},
 
                    {'id' : 'instance-6', 
                      'ld' : '0.38 0.20 0.50',
@@ -234,24 +234,28 @@ function renderGraph(){
                     ld_arr = []
                 }
                 if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
-					ctx.fillStyle = "#FFDC40";
+					ctx.fillStyle = "#FFDC40"; // yellow
                     roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
                 }
                 else if (instances[q].worker_status == 'Error'){
-			        ctx.fillStyle = "#DF594B";
+			        ctx.fillStyle = "#DF594B"; // red
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
 			    }
 			    else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
-					ctx.fillStyle = "#66BB67";
+					ctx.fillStyle = "#66BB67"; // green
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
 			    }
 				else if(instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
-					ctx.fillStyle = "#5CBBFF";
+					ctx.fillStyle = "#5CBBFF"; // blue
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
 				else if(instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
-					ctx.fillStyle = "#575757";
+					ctx.fillStyle = "#575757"; // grey
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				else if(instances[q].worker_status == "active" || instances[q].worker_status=="open"){
+                    ctx.fillStyle = "#CDEAFF"; // light blue
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
 				else{
                     // Yellow unknown state.

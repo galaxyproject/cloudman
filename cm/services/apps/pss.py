@@ -1,8 +1,9 @@
 import os
-from cm.services.apps import ApplicationService
-# from cm.util import paths
-from cm.services import service_states
+import threading
+
 from cm.util import misc
+from cm.services import service_states
+from cm.services.apps import ApplicationService
 
 import logging
 log = logging.getLogger('cloudman')
@@ -29,6 +30,22 @@ class PSS(ApplicationService):
         self.pss_url = self.app.ud.get('post_start_script_url', None) if self.instance_role == 'master' \
             else self.app.ud.get('worker_post_start_script_url', None)
     
+    def _prime_data(self):
+        """ Some data is slow to obtain because a call to the cloud middleware
+            is required. When such data is required to complete a user request,
+            the request may be slow to complete. In an effort to alleviate some
+            of those delays, prime the data into local variables (particularly
+            the ones that do not change over a lifetime of a cluster).
+        """
+        log.debug("Priming local data variables...")
+        self.app.cloud_interface.get_ami()
+        self.app.cloud_interface.get_zone()
+        self.app.cloud_interface.get_key_pair_name()
+        self.app.cloud_interface.get_security_groups()
+        self.app.cloud_interface.get_self_private_ip()
+        self.app.cloud_interface.get_self_public_ip()
+        self.app.cloud_interface.get_local_hostname()
+    
     def add(self):
         if not self.already_ran and self.app.manager.initial_cluster_type is not None:
             log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
@@ -44,7 +61,7 @@ class PSS(ApplicationService):
             self.start()
             return True
         else:
-            log.debug("Not adding {0} svc; it already ran ({1}) or cluster was not yet initialized ({2})"\
+            log.debug("Not adding {0} svc; it already ran ({1}) or the cluster was not yet initialized ({2})"\
                 .format(self.svc_type, self.already_ran, self.app.manager.initial_cluster_type))
             return False
     
@@ -82,6 +99,8 @@ class PSS(ApplicationService):
         else:
             log.debug("%s does not exist or could not be downloaded; continuing without running it." \
                 % self.svc_type)
+        # Prime master instance with data in a seprate thread
+        threading.Thread(target=self._prime_data).start()
         self.state = service_states.SHUT_DOWN
         log.debug("%s service done and marked as '%s'" % (self.svc_type, self.state))
         if self.instance_role == 'master':
