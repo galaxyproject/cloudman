@@ -19,6 +19,16 @@ volume_status = Bunch(
     DELETING="deleting"
 )
 
+volume_status_map = {
+                     'creating'    : volume_status.CREATING,
+                     'available'   : volume_status.AVAILABLE,
+                     'in-use'      : volume_status.IN_USE,
+                     'attached'    : volume_status.ATTACHED,
+                     'deleting'    : volume_status.DELETING,
+                     }
+
+
+
 class Volume(object):
     def __init__(self, app, vol_id=None, device=None, attach_device=None, size=0, from_snapshot_id=None, static=False):
         self.app = app
@@ -47,47 +57,38 @@ class Volume(object):
             return self.volume.id
         else:
             return None
+
+    @property
+    def status(self):
+        if not self.volume:
+            # no volume active
+            status = volume_status.NONE
+        else:
+            try:
+                status = volume_status_map.get(self.volume.status,None)
+                if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
+                    status = volume_status.ATTACHED
+                if not status:
+                    log.error('Unknown volume status {0}. Assuming volume_status.NONE'.format(self.volume.status))
+                    status = volume_status.NONE
+            except EC2ResponseError as e:
+                log.error('Cannot retrieve status of current volume. {0}'.format(e))
+                status = volume_status.NONE
+        return status
+
+
  
     def update(self, vol):
-        """ Update reference to the 'self' to point to argument 'vol' """
+        """ switch to a different boto.ec2.volume.Volume """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
         self.volume = vol
         self.device = vol.attach_data.device
         self.size = vol.size
         self.from_snapshot_id = vol.snapshot_id
+        if self.from_snapshot_id == '':
+            self.from_snapshot_id = None
     
-    def status(self):
-        if self.volume_id is None:
-            return volume_status.NONE
-        else:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            if ec2_conn:
-                try:
-                    self.volume = ec2_conn.get_all_volumes([self.volume_id])[0]
-                except EC2ResponseError, e:
-                    log.error("Cannot retrieve reference to volume '%s'; setting volume id to None. Error: %s" % (self.volume_id, e))
-                    self.volume_id = None
-                    return volume_status.NONE
-                self.from_snapshot_id = self.volume.snapshot_id
-                if self.from_snapshot_id is '': # ensure consistency
-                    self.from_snapshot_id = None
-                if self.volume.status == 'creating':
-                    return volume_status.CREATING
-                elif self.volume.status == 'available':
-                    return volume_status.AVAILABLE
-                elif self.volume.status == 'in-use':
-                    if self.volume.attach_data.status == 'attached':
-                        return volume_status.ATTACHED
-                    else:
-                        return volume_status.IN_USE
-                elif self.volume.status == 'deleting':
-                    return volume_status.DELETING
-                else:
-                    log.debug("Unrecognized volume '%s' status: '%s'" % (self.volume_id, self.volume.status))
-                    return self.volume.status
-            # Connection failed
-            return volume_status.NONE
-    
+
     def get_attach_device(self, offset=0):
         # Need to ensure both of the variables are in sync
         if offset or (not self.device or not self.attach_device):
@@ -144,7 +145,7 @@ class Volume(object):
         return True
     
     def create(self, filesystem=None):
-        if self.status() == volume_status.NONE:
+        if self.status == volume_status.NONE:
             try:
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
@@ -153,7 +154,7 @@ class Volume(object):
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
         else:
-            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" % (self.status(), self.volume_id))
+            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" % (self.status, self.volume_id))
         
         # Add tags to newly created volumes (do this outside the inital if/else
         # to ensure the tags get assigned even if using an existing volume vs. 
@@ -163,7 +164,7 @@ class Volume(object):
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
         except EC2ResponseError, e:
-            log.error("Error adding tags to volume: %s" % e)        
+            log.error("Error adding tags to volume: %s" % e)
     
     def delete(self):
         try:
@@ -177,14 +178,13 @@ class Volume(object):
         try:
             if attach_device is not None:
                 log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
-                volumestatus = self.app.cloud_interface.get_ec2_connection().attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
             else:
                 log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
                 return False
         except EC2ResponseError, e:
             log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. Exception: %s" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device, e))
             return False
-        return volumestatus
+        return self.status
     
     def attach(self):
         """
@@ -192,7 +192,7 @@ class Volume(object):
         Try it for some time.
         """
         for counter in range( 30 ):
-            if self.status() == volume_status.AVAILABLE:
+            if self.status == volume_status.AVAILABLE:
                 attach_device = self.get_attach_device() # Ensure device ID is assigned to current volume
                 volumestatus = self.do_attach(attach_device)
                 # Wait until the volume is 'attached'
@@ -200,7 +200,7 @@ class Volume(object):
                 attempts = 30
                 while ctn < attempts:
                     log.debug("Attaching volume '%s'; status: %s (check %s/%s)" % (self.volume_id, volumestatus, ctn, attempts))
-                    if volumestatus == 'attached':
+                    if volumestatus == volume_status.ATTACHED:
                         log.debug("Volume '%s' attached to instance '%s' as device '%s'" % (self.volume_id, self.app.cloud_interface.get_instance_id(), self.get_attach_device()))
                         break
                     if ctn == attempts-1:
@@ -214,12 +214,11 @@ class Volume(object):
                         else:
                             log.debug("Will not try again. Aborting attaching of volume")
                             return False
-                    volumes = (self.app.cloud_interface.get_ec2_connection()).get_all_volumes([self.volume_id])
-                    volumestatus = volumes[0].attachment_state()
-                    time.sleep(2)
+                    volumestatus = self.status
+                    time.sleep(30)
                     ctn += 1
                 return True
-            elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
+            elif self.status == volume_status.IN_USE or self.status == volume_status.ATTACHED:
                 # Check if the volume is already attached to current instance (can happen following a reboot/crash)
                 if self.volume.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
                     self.attach_device = self.volume.attach_data.device
@@ -229,17 +228,17 @@ class Volume(object):
                 log.error("Wanted to attach a volume but missing volume ID; cannot attach")
                 return False
             if counter == 29:
-                log.warning("Cannot attach volume '%s' in state '%s'" % (self.volume_id, self.status()))
+                log.warning("Cannot attach volume '%s' in state '%s'" % (self.volume_id, self.status))
                 return False
-            log.debug("Wanting to attach volume '%s' but it's not 'available' yet (current state: '%s'). Waiting (%s/30)." % (self.volume_id, self.status(), counter))
-            time.sleep( 2 )
+            log.debug("Wanting to attach volume '%s' but it's not 'available' yet (current state: '%s'). Waiting (%s/30)." % (self.volume_id, self.status, counter))
+            time.sleep( 30 )
     
     def detach(self):
         """
         Detach EBS volume from an instance.
         Try it for some time.
         """
-        if self.status() == volume_status.ATTACHED or self.status() == volume_status.IN_USE:
+        if self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE:
             try:
                 volumestatus = self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id())
             except EC2ResponseError, e:
@@ -265,7 +264,7 @@ class Volume(object):
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes( [self.volume_id] )
                 volumestatus = volumes[0].status
         else:
-            log.warning("Cannot detach volume '%s' in state '%s'" % (self.volume_id, self.status()))
+            log.warning("Cannot detach volume '%s' in state '%s'" % (self.volume_id, self.status))
             return False
         return True
     
@@ -293,7 +292,6 @@ class Volume(object):
             return None
     
     def get_from_snap_id(self):
-        self.status()
         return self.from_snapshot_id
     
 
