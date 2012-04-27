@@ -23,7 +23,6 @@ class Volume(object):
     def __init__(self, app, vol_id=None, device=None, attach_device=None, size=0, from_snapshot_id=None, static=False):
         self.app = app
         self.volume = None # boto instance object representing the current volume
-        self.volume_id = vol_id
         self.device = device # Device ID visible by the operating system
         self.attach_device = attach_device # Device ID visible/reported by cloud provider as the device attach point
         self.size = size
@@ -42,11 +41,17 @@ class Volume(object):
             else:
                 log.error('Attempt to create Volume object with non-existent volume ID {0}'.format(vol_id))
 
+    @property
+    def volume_id(self):
+        if self.volume:
+            return self.volume.id
+        else:
+            return None
+ 
     def update(self, vol):
         """ Update reference to the 'self' to point to argument 'vol' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
         self.volume = vol
-        self.volume_id = vol.id
         self.device = vol.attach_data.device
         self.size = vol.size
         self.from_snapshot_id = vol.snapshot_id
@@ -143,7 +148,6 @@ class Volume(object):
             try:
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
-                self.volume_id = str(self.volume.id)
                 self.size = int(self.volume.size)
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
             except EC2ResponseError, e:
@@ -165,7 +169,6 @@ class Volume(object):
         try:
             self.app.cloud_interface.get_ec2_connection().delete_volume(self.volume_id)
             log.debug("Deleted volume '%s'" % self.volume_id)
-            self.volume_id = None
             self.volume = None
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
@@ -374,7 +377,6 @@ class Filesystem(DataService):
                 snap_id = vol.snapshot(self.grow['snap_description'])
                 vol.size = self.grow['new_size']
                 vol.from_snapshot_id = snap_id
-                vol.volume_id = None
             
             # Create a new volume based on just created snapshot and add the file system
             self.add()
