@@ -67,11 +67,10 @@ def formatDelta(delta):
         return '%sm %ss' % (m, s)
 
 def bucket_exists(s3_conn, bucket_name, validate=True):
-    if bucket_name is not None:
+    if bucket_name:
         try:
-            b = None
             b = s3_conn.lookup(bucket_name, validate=validate)
-            if b is not None:
+            if b:
                 # log.debug("Checking if bucket '%s' exists... it does." % bucket_name)
                 return True
             else:
@@ -106,9 +105,8 @@ def get_bucket(s3_conn, bucket_name, validate=True):
     return b
 
 def make_bucket_public(s3_conn, bucket_name, recursive=False):
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             b.make_public(recursive=recursive)
             log.debug("Bucket '%s' made public" % bucket_name)
@@ -118,9 +116,8 @@ def make_bucket_public(s3_conn, bucket_name, recursive=False):
     return False
 
 def make_key_public(s3_conn, bucket_name, key_name):
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             k = Key(b, key_name)
             if k.exists():
@@ -149,9 +146,8 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
                       will apply the grant to all keys within the bucket
                       or not.
     """
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             for c_id in cannonical_ids:
                 log.debug("Adding '%s' permission for bucket '%s' for users '%s'" % (permission, bucket_name, c_id))
@@ -180,9 +176,8 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
     :param cannonical_ids: A list of strings with canonical user ids associated 
                         with the AWS account your are granting the permission to.
     """
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             k = Key(b, key_name)
             if k.exists():
@@ -223,9 +218,8 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
     users=[] # Current list of users retrieved from folder's ACL
     key_list = None
     key_acl = None
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             key_list = b.get_all_keys(prefix=folder_name, delimiter='/')
             # for k in key_list:
@@ -278,9 +272,8 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
     other_users = [] # List of users on other (shared) folders in given bucket
     folder_users = get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name)
     # log.debug("List of users on to-be-deleted shared folder '%s': %s" % (folder_name, folder_users))
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             # Get list of shared folders in given bucket
             folder_list = b.get_all_keys(prefix='shared/', delimiter='/')
@@ -357,9 +350,8 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     :return: True if remote_filename exists in bucket_name
              False otherwise
     """
-    b = None
     b = get_bucket(s3_conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             k = Key(b, remote_filename)
             if k.exists():
@@ -385,9 +377,8 @@ def get_file_from_bucket( conn, bucket_name, remote_filename, local_file, valida
     return True
 
 def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
-    b = None
     b = get_bucket(conn, bucket_name)
-    if b is not None:
+    if b:
         k = Key( b, remote_filename )
         try:
             k.set_contents_from_filename( local_file )
@@ -416,9 +407,8 @@ def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filenam
     return False
 
 def delete_file_from_bucket(conn, bucket_name, remote_filename):
-    b = None
     b = get_bucket(conn, bucket_name)
-    if b is not None:
+    if b:
         try:
             k = Key( b, remote_filename )
             log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
@@ -432,9 +422,8 @@ def delete_bucket(conn, bucket_name):
     """Delete given bucket. This method will iterate through all the keys in
     the given bucket first and delete them. Finally, the bucket will be deleted."""
     try:
-        b = None
         b = get_bucket(conn, bucket_name)
-        if b is not None:
+        if b:
             keys = b.get_all_keys()
             for key in keys:
                 key.delete()
@@ -449,9 +438,8 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     found, the method returns None.    
     """
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
-    b = None
     b = get_bucket(conn, bucket_name)
-    if b is not None:
+    if b:
         k = b.get_key(remote_filename)
         if k and metadata_key:
             return k.get_metadata(metadata_key)
@@ -465,9 +453,8 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     """
     log.debug("Setting metadata '%s' for file '%s' in bucket '%s'" % (metadata_key, remote_filename, bucket_name))
 
-    b = None
     b = get_bucket(conn, bucket_name)
-    if b is not None:
+    if b:
         k = b.get_key(remote_filename)
         if k and metadata_key:
             # Simply setting the metadata through set_metadata does not work.
