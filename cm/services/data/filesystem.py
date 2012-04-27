@@ -32,7 +32,16 @@ class Volume(object):
         self.static = static # Indicates if a volume is created from a snapshot AND can be deleted upon cluster termination
         self.snapshot_progress = None
         self.snapshot_status = None
-    
+
+        if (vol_id): # get the volume object immediately, if id is passed
+            # need to go this roundabout way to get the volume because euca does not filter the get_all_volumes request by the volume ID, but keep the filter, so that it doesn't get overwhelmed on amazon
+            ec2_conn = self.app.cloud_interface.get_ec2_connection()
+            volumes = [ v for v in ec2_conn.get_all_volumes( volume_ids=(vol_id,) ) if v.id == vol_id ]
+            if volumes:
+                self.update(volumes[0])
+            else:
+                log.error('Attempt to create Volume object with non-existent volume ID {0}'.format(vol_id))
+
     def update(self, vol):
         """ Update reference to the 'self' to point to argument 'vol' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
