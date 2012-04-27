@@ -509,7 +509,10 @@ def run(cmd, err='cmd failed', ok='cmd OK'):
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         log.debug(ok)
-        return True
+        if stdout:
+            return stdout
+        else:
+            return True
     else:
         log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'" % (err, cmd, process.returncode, stderr))
         return False
