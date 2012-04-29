@@ -56,6 +56,7 @@ class EucaInterface(EC2Interface):
                                              port = port,
                                              path = path,
                                              region = region,
+                                             # debug = 2,
                     )
                     # Do a simple query to test if provided credentials are valid
                     try:
