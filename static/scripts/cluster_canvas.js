@@ -3,6 +3,8 @@ var cluster_view_tooltip_base = "";
 var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Ready</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
 var TESTING = false;
 var instances = Array();
+var pending_instance = false;
+var old_length = 1;
 
 if (TESTING == true){
     instances = [
@@ -245,9 +247,13 @@ function renderGraph(){
 					ctx.fillStyle = "#66BB67";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
 			    }
+				else if(instances[q].worker_status == "Creating" || instances[q].worker_status == "creating"){
+                                        ctx.fillStyle = "#123abc";
+                                        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                                }
 				else if(instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
 					ctx.fillStyle = "#5CBBFF";
-    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+    				        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
 				}
 				else if(instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
 					ctx.fillStyle = "#575757";
@@ -387,10 +393,23 @@ $('#cluster_canvas').click(function(eventObj){
 	renderGraph();
 });
 
+// This is called when a node it added by the user.
+// Causes a pending instance to be drawn
+function increment_pending_instance_count(num_new_nodes) {
+        old_length = instances.length;
+	pending_instance = true;	
+        window.setTimeout(update_cluster_canvas, 1);
+}
+
+function decrement_pending_instance_count(num_removed_nodes) {
+        // Does nothing at the moment
+}
+
+
 function update_cluster_canvas(){
 	// Perform get, update instances {} and then call for a graph redraw
 	$.getJSON('/cloud/instance_feed_json', function(data) {
-	    if(data){
+	    if(data) {
 	        instances = data.instances;
     		for (i= 0; i< instances.length; i++){
     			instances[i].b_x = 0;
@@ -398,13 +417,29 @@ function update_cluster_canvas(){
 				instances[i].b_xdx = 0;
 				instances[i].b_ydy = 0;
     		}
+                
 	    }
-	    else{
+	    else {
     		instances = [];
 	    }
+	    if ((pending_instance == true) && (old_length == instances.length)) {
+                            new_instance = new Object();
+                            new_instance.worker_status = "creating";
+                            new_instance.instance_state = "creating";
+                            new_instance.ld = "0 0 0";
+                            new_instance.time_in_state = "0m 0s";
+                            new_instance.id = "i-00000000";
+                            new_instance.instance_type = "Unknown";
+                            instances.push(new_instance);
+            }
+	    else {
+		pending_instance = false;
+		old_length = instances.length;
+	    }
+            
 	    renderGraph();
 	    refreshTip();
-		window.setTimeout(update_cluster_canvas, 10000);
+	        window.setTimeout(update_cluster_canvas, 10000);
 	});
 }
 

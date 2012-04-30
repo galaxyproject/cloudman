@@ -75,7 +75,7 @@ vertical-align: top;
                     <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
                 </div>
             %endif
-            <div class="form-row"><input type="submit" value="Start Additional Nodes"></div>
+            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
         </div>
         </form>
     </div>
@@ -97,7 +97,7 @@ vertical-align: top;
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;
                 </div>
-                <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
+                <div class="form-row"><input type="submit" value="Remove Existing Nodes" onClick="return remove_pending_node()"></div>
             </div>
         </form>
     </div>
@@ -717,6 +717,18 @@ function show_log_container_body() {
     $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
     $('#log_container_header').addClass('clicked');
     $('#log_container_body').slideDown('fast');
+}
+
+// This is called when a node it added by the user.
+// Causes a pending instance to be drawn
+function add_pending_node() {
+        increment_pending_instance_count(document.getElementById("add_instances_form").elements["number_nodes"].value);
+        return true;
+}
+
+function remove_pending_node() {
+        decrement_pending_instance_count(document.getElementById("remove_instances_form").elements["number_nodes"].value);
+        return true;
 }
 
 $(document).ready(function() {
