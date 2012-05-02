@@ -103,18 +103,18 @@ if (TESTING == true){
                   'sge_started' : 0, 
                   'worker_status' : 'Starting',
                   'instance_state' : 'running'},
-                  {'id' : 'instance-3', 
+                  {'id' : 'i-d2a984b5', 
                   'ld' : '0',
-                  'time_in_state' : '2123s', 
-                  'nfs_data' : 1, 
-                  'nfs_tools' : 1, 
-                  'nfs_indices' : 1, 
-                  'nfs_sge' : 1, 
-                  'get_cert' : -1, 
-                  'sge_started' : 1, 
-                  'worker_status' : 'Error',
+                  'time_in_state' : '7m 36s',
+                  'nfs_data' : 0, 
+                  'nfs_tools' : 0, 
+                  'nfs_indices' : 0, 
+                  'nfs_sge' : 0, 
+                  'get_cert' : 0, 
+                  'sge_started' : 0, 
+                  'worker_status' : 'active',
                   'instance_state' : 'running'},
-                  {'id' : 'instance-4', 
+                  {'id' : null, 
                   'ld' : 0,
                   'time_in_state' : 0, 
                   'nfs_data' : 0, 
@@ -123,8 +123,8 @@ if (TESTING == true){
                   'nfs_sge' : 0, 
                   'get_cert' : 0, 
                   'sge_started' : 0, 
-                  'worker_status' : 'Pending',
-                  'instance_state' : 'pending'},
+                  'worker_status' : 'open',
+                  'instance_state' : null},
 
                    {'id' : 'instance-6', 
                      'ld' : '0.38 0.20 0.50',
@@ -210,110 +210,120 @@ function renderGraph(){
     if (!ctx){
         return;
     }
-    ctx.clearRect(0, 0, c_width, c_height);
-    if (instances.length <= 20){
-	var q = 0;
-	for ( i = 0 ; i < n_height; i++){
-		for ( j = 0; j < n_width; j++){
-		        ctx.save();
-			b_x = j*b_width + j*b_spacing;
-			b_y = i*b_height + i*b_spacing;
-			b_xdx = b_x + b_width;
-			b_ydy = b_y + b_height;
-			if (q == instances.length){
+	ctx.clearRect(0, 0, c_width, c_height);
+	if (instances.length <= 20){
+		var q = 0;
+		for ( i = 0 ; i < n_height; i++){
+			for ( j = 0; j < n_width; j++){
+				ctx.save();
+				b_x = j*b_width + j*b_spacing;
+				b_y = i*b_height + i*b_spacing;
+				b_xdx = b_x + b_width;
+				b_ydy = b_y + b_height;
+				if (q == instances.length){
+					// Drop shadow for boxes
+					ctx.fillStyle = "rgb(230, 230, 230)";
+					roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
+					ctx.fillStyle = "rgb(220, 220, 220)"
+					roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+					ctx.restore();
+					continue;
+				}
+				// $('#status').append("Varcheck " + q);
+				instances[q].b_x = b_x;
+				instances[q].b_y = b_y;
+				instances[q].b_xdx = b_xdx;
+				instances[q].b_ydy = b_ydy;
 				// Drop shadow for boxes
 				ctx.fillStyle = "rgb(230, 230, 230)";
 				roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
-				ctx.fillStyle = "rgb(220, 220, 220)"
-				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				ctx.restore();
-				continue;
-			}
-			// $('#status').append("Varcheck " + q);
-			instances[q].b_x = b_x;
-			instances[q].b_y = b_y;
-			instances[q].b_xdx = b_xdx;
-			instances[q].b_ydy = b_ydy;
-			// Drop shadow for boxes
-			ctx.fillStyle = "rgb(230, 230, 230)";
-			roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
-                        if (instances[q].ld != 0){
+                if (instances[q].ld != 0){
     				ld_arr = instances[q].ld.split(" ");
-                        } else {
-                                ld_arr = []
-                        }
-                        if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
-			        ctx.fillStyle = "#FFDC40";
-                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-                        } else if (instances[q].worker_status == 'Error'){
-			        ctx.fillStyle = "#DF594B";
+                }else{
+                    ld_arr = []
+                }
+                if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
+					ctx.fillStyle = "#FFDC40"; // yellow
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                }
+                else if (instances[q].worker_status == 'Error'){
+			        ctx.fillStyle = "#DF594B"; // red
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
-			} else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
-				ctx.fillStyle = "#66BB67";
-    				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
-                        } else if (instances[q].worker_status == "Creating" || instances[q].worker_status == "creating"){
-                                ctx.fillStyle = "#5CBBFF";
-                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-                        } else if (instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
-				ctx.fillStyle = "#5CBBFF";
+                }
+                else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
+                        ctx.fillStyle = "#66BB67"; // green
+                        roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
+                }
+                else if (instances[q].worker_status == "Creating" || instances[q].worker_status == "creating"){
+                        ctx.fillStyle = "#5CBBFF"; // blue
+                        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                }
+                else if (instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
+                        ctx.fillStyle = "#5CBBFF"; // blue
+                        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                }
+				else if(instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
+					ctx.fillStyle = "#575757"; // grey
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-			} else if (instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
-				ctx.fillStyle = "#575757";
-    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-			} else {
-                                // Yellow unknown state.
-				ctx.fillStyle = "#FFDC40";
-                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-			}
-			if (ld_arr.length == 3) {
-    				scale_height = 1; //Scales the boxes.
-    				// Hard cap load at 1.
-                                // ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
-                                // ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
-                                // ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
-    				ld_arr[0] = Math.min(ld_arr[0], 1);
-    				ld_arr[1] = Math.min(ld_arr[1], 1);
-    				ld_arr[2] = Math.min(ld_arr[2], 1);
+				}
+				else if(instances[q].worker_status == "active" || instances[q].worker_status=="open"){
+                    ctx.fillStyle = "#CDEAFF"; // light blue
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				else{
+                    // Yellow unknown state.
+					ctx.fillStyle = "#FFDC40";
+                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				}
+				if (ld_arr.length == 3){
+    				    scale_height = 1; //Scales the boxes.
+    				    // Hard cap load at 1.
+                        // ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
+                        // ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
+                        // ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
+    					ld_arr[0] = Math.min(ld_arr[0], 1);
+    					ld_arr[1] = Math.min(ld_arr[1], 1);
+    					ld_arr[2] = Math.min(ld_arr[2], 1);
     			        ctx.fillStyle = "#575757";
-                                ctx.fillRect(x_offset + b_x + 3,
+                        ctx.fillRect(x_offset + b_x + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[2]) + bar_top_padding,
                                             ld_15,
                                             bar_height * ld_arr[2]);
-                                ctx.fillRect(x_offset + b_x + ld_15 + 3,
+                        ctx.fillRect(x_offset + b_x + ld_15 + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[1]) + bar_top_padding,
                                             ld_5,
                                             bar_height * ld_arr[1]);
-                                ctx.fillRect(x_offset + b_x + ld_15 + ld_5 + 3,
+                        ctx.fillRect(x_offset + b_x + ld_15 + ld_5 + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[0]) + bar_top_padding,
                                             ld_1,
                                             bar_height * ld_arr[0]);
-                        }
-                        if (q == selected_instance){
+                }
+                if (q == selected_instance){
     				roundedBox(x_offset + instances[q].b_x, y_offset + instances[q].b_y, b_width, b_height, b_corner_rad, ctx, b_stroke);
-                        }
-			ctx.restore();
-			q = q + 1;
-		}//cols
-	}//rows
-    }//if
-    else {
+                }
+				ctx.restore();
+				q = q + 1;
+			}//cols
+		}//rows
+	}//if
+	else{
         // Implement some other view for supporting many instances eventually.
-	for ( i = 0 ; i < n_height; i++){
-		for ( j = 0; j < n_width; j++){
-			ctx.save();
-			// ctx.font = "10px 'arial'";
-			b_x = j*b_width + j*b_spacing;
-			b_y = i*b_height + i*b_spacing;
+		for ( i = 0 ; i < n_height; i++){
+			for ( j = 0; j < n_width; j++){
+				ctx.save();
+				// ctx.font = "10px 'arial'";
+				b_x = j*b_width + j*b_spacing;
+				b_y = i*b_height + i*b_spacing;
 
-			ctx.fillStyle = "rgb(200, 200, 200)";
-			ctx.fillRect( b_x+2, b_y+2, b_width , b_height);
+				ctx.fillStyle = "rgb(200, 200, 200)";
+				ctx.fillRect( b_x+2, b_y+2, b_width , b_height);
 
-			ctx.fillStyle = "rgb(" + i * 40 + ", " + j * 40   + ", 0)";
-			ctx.fillRect( b_x, b_y, b_width , b_height);
-			ctx.restore();
+				ctx.fillStyle = "rgb(" + i * 40 + ", " + j * 40   + ", 0)";
+				ctx.fillRect( b_x, b_y, b_width , b_height);
+				ctx.restore();
+			}
 		}
 	}
-    }
 }
 
 ARRAY_COLORS = ['red', 'nodata', 'green', 'yellow'];

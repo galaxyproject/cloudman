@@ -19,7 +19,7 @@ log = logging.getLogger( 'cloudman' )
 
 class ONInterface(CloudInterface):
     
-    def __init__(self, aws_access_key, aws_secret_key, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
+    def __init__(self, aws_access_key=None, aws_secret_key=None, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
         super(ONInterface, self).__init__()
         self.app = app
         self.bridge = 72
@@ -156,16 +156,14 @@ class ONInterface(CloudInterface):
         return self.s3_conn
         #return None
     
-    def run_instances(self, image_id, min_count, max_count, key_name, security_groups, user_data, instance_type, placement):
+    def run_instances(self, num, instance_type, **kwargs):
 
         #TODO: Change this!!
         username = 'mdhollander'
         diskimage = 'vm-lucid-amd64-serial-galaxy-worker.img'
         vmname = "Cloudman_Node"
         
-        log.debug("Worker user data: %s" % user_data)
-        log.debug("Adding OpenNebula Worker nodes")
-        
+        log.debug("Adding {0} OpenNebula Worker nodes".format(num))
         # TODO: Remove public NIC? Save disk?
 #        vmtemplatestring ="""
 #NAME=\"%s\" MEMORY=1024 CPU=1 OS=[BOOT=\"hd\"] 
@@ -201,7 +199,7 @@ TEMPLATE_ID=397
 VCPU=1
 """
         r = Reservations()
-        for i in range(min_count,max_count+1):
+        for i in range(1,num+1):
             new_vm_id = VirtualMachine.allocate(self.s3_conn, vmtemplatestring)
             
             # Get the just initiated instances
