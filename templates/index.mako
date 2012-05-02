@@ -97,7 +97,7 @@ vertical-align: top;
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;
                 </div>
-                <div class="form-row"><input type="submit" value="Remove Existing Nodes" onClick="return remove_pending_node()"></div>
+                <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
             </div>
         </form>
     </div>
@@ -722,12 +722,7 @@ function show_log_container_body() {
 // This is called when a node it added by the user.
 // Causes a pending instance to be drawn
 function add_pending_node() {
-        increment_pending_instance_count(document.getElementById("add_instances_form").elements["number_nodes"].value);
-        return true;
-}
-
-function remove_pending_node() {
-        decrement_pending_instance_count(document.getElementById("remove_instances_form").elements["number_nodes"].value);
+        increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value));
         return true;
 }
 

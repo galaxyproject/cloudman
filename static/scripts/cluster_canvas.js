@@ -3,8 +3,15 @@ var cluster_view_tooltip_base = "";
 var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Ready</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
 var TESTING = false;
 var instances = Array();
+
+// Are there "expected" pending instances to be drawn
 var pending_instance = false;
-var old_length = 1;
+
+// The number of "expected" pending instances to be drawn
+var num_pending_instances = 0;
+
+// The length of instances[] at the time of the user adding new instances
+var old_instance_length = 1;
 
 if (TESTING == true){
     instances = [
@@ -203,116 +210,110 @@ function renderGraph(){
     if (!ctx){
         return;
     }
-	ctx.clearRect(0, 0, c_width, c_height);
-	if (instances.length <= 20){
-		var q = 0;
-		for ( i = 0 ; i < n_height; i++){
-			for ( j = 0; j < n_width; j++){
-				ctx.save();
-				b_x = j*b_width + j*b_spacing;
-				b_y = i*b_height + i*b_spacing;
-				b_xdx = b_x + b_width;
-				b_ydy = b_y + b_height;
-				if (q == instances.length){
-					// Drop shadow for boxes
-					ctx.fillStyle = "rgb(230, 230, 230)";
-					roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
-					ctx.fillStyle = "rgb(220, 220, 220)"
-					roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-					ctx.restore();
-					continue;
-				}
-				// $('#status').append("Varcheck " + q);
-				instances[q].b_x = b_x;
-				instances[q].b_y = b_y;
-				instances[q].b_xdx = b_xdx;
-				instances[q].b_ydy = b_ydy;
+    ctx.clearRect(0, 0, c_width, c_height);
+    if (instances.length <= 20){
+	var q = 0;
+	for ( i = 0 ; i < n_height; i++){
+		for ( j = 0; j < n_width; j++){
+		        ctx.save();
+			b_x = j*b_width + j*b_spacing;
+			b_y = i*b_height + i*b_spacing;
+			b_xdx = b_x + b_width;
+			b_ydy = b_y + b_height;
+			if (q == instances.length){
 				// Drop shadow for boxes
 				ctx.fillStyle = "rgb(230, 230, 230)";
 				roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
-                if (instances[q].ld != 0){
+				ctx.fillStyle = "rgb(220, 220, 220)"
+				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+				ctx.restore();
+				continue;
+			}
+			// $('#status').append("Varcheck " + q);
+			instances[q].b_x = b_x;
+			instances[q].b_y = b_y;
+			instances[q].b_xdx = b_xdx;
+			instances[q].b_ydy = b_ydy;
+			// Drop shadow for boxes
+			ctx.fillStyle = "rgb(230, 230, 230)";
+			roundedBox(x_offset + b_x+2, y_offset + b_y+2, b_width, b_height, b_corner_rad, ctx);
+                        if (instances[q].ld != 0){
     				ld_arr = instances[q].ld.split(" ");
-                }else{
-                    ld_arr = []
-                }
-                if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
-					ctx.fillStyle = "#FFDC40";
-                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-                }
-                else if (instances[q].worker_status == 'Error'){
+                        } else {
+                                ld_arr = []
+                        }
+                        if (instances[q].instance_state == 'shutting_down' || instances[q].instance_state == 'starting'){
+			        ctx.fillStyle = "#FFDC40";
+                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                        } else if (instances[q].worker_status == 'Error'){
 			        ctx.fillStyle = "#DF594B";
     				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
-			    }
-			    else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
-					ctx.fillStyle = "#66BB67";
-    				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);			        
-			    }
-				else if(instances[q].worker_status == "Creating" || instances[q].worker_status == "creating"){
-                                        ctx.fillStyle = "#123abc";
-                                        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-                                }
-				else if(instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
-					ctx.fillStyle = "#5CBBFF";
-    				        roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
-				else if(instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
-					ctx.fillStyle = "#575757";
+			} else if (instances[q].worker_status == "Ready" || instances[q].worker_status == "Running" || instances[q].worker_status == "running" || (q == 0)){
+				ctx.fillStyle = "#66BB67";
+    				roundedBox(x_offset + b_x, y_offset +  b_y, b_width, b_height, b_corner_rad, ctx);
+                        } else if (instances[q].worker_status == "Creating" || instances[q].worker_status == "creating"){
+                                ctx.fillStyle = "#5CBBFF";
+                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+                        } else if (instances[q].worker_status == "Pending" || instances[q].worker_status == "pending"){
+				ctx.fillStyle = "#5CBBFF";
     				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
-				else{
-                    // Yellow unknown state.
-					ctx.fillStyle = "#FFDC40";
-                    roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
-				}
-				if (ld_arr.length == 3){
-    				    scale_height = 1; //Scales the boxes.
-    				    // Hard cap load at 1.
-                        // ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
-                        // ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
-                        // ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
-    					ld_arr[0] = Math.min(ld_arr[0], 1);
-    					ld_arr[1] = Math.min(ld_arr[1], 1);
-    					ld_arr[2] = Math.min(ld_arr[2], 1);
+			} else if (instances[q].worker_status == "Shutdown" || instances[q].worker_status=="shutting down"){
+				ctx.fillStyle = "#575757";
+    				roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+			} else {
+                                // Yellow unknown state.
+				ctx.fillStyle = "#FFDC40";
+                                roundedBox(x_offset + b_x, y_offset + b_y, b_width, b_height, b_corner_rad, ctx);
+			}
+			if (ld_arr.length == 3) {
+    				scale_height = 1; //Scales the boxes.
+    				// Hard cap load at 1.
+                                // ld_arr[0] = Math.min(Math.max(0, ld_arr[0]-1), 1);
+                                // ld_arr[1] = Math.min(Math.max(0, ld_arr[1]-1), 1);
+                                // ld_arr[2] = Math.min(Math.max(0, ld_arr[2]-1), 1);
+    				ld_arr[0] = Math.min(ld_arr[0], 1);
+    				ld_arr[1] = Math.min(ld_arr[1], 1);
+    				ld_arr[2] = Math.min(ld_arr[2], 1);
     			        ctx.fillStyle = "#575757";
-                        ctx.fillRect(x_offset + b_x + 3,
+                                ctx.fillRect(x_offset + b_x + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[2]) + bar_top_padding,
                                             ld_15,
                                             bar_height * ld_arr[2]);
-                        ctx.fillRect(x_offset + b_x + ld_15 + 3,
+                                ctx.fillRect(x_offset + b_x + ld_15 + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[1]) + bar_top_padding,
                                             ld_5,
                                             bar_height * ld_arr[1]);
-                        ctx.fillRect(x_offset + b_x + ld_15 + ld_5 + 3,
+                                ctx.fillRect(x_offset + b_x + ld_15 + ld_5 + 3,
                                             y_offset + b_y + (bar_height - bar_height * ld_arr[0]) + bar_top_padding,
                                             ld_1,
                                             bar_height * ld_arr[0]);
-                }
-                if (q == selected_instance){
+                        }
+                        if (q == selected_instance){
     				roundedBox(x_offset + instances[q].b_x, y_offset + instances[q].b_y, b_width, b_height, b_corner_rad, ctx, b_stroke);
-                }
-				ctx.restore();
-				q = q + 1;
-			}//cols
-		}//rows
-	}//if
-	else{
+                        }
+			ctx.restore();
+			q = q + 1;
+		}//cols
+	}//rows
+    }//if
+    else {
         // Implement some other view for supporting many instances eventually.
-		for ( i = 0 ; i < n_height; i++){
-			for ( j = 0; j < n_width; j++){
-				ctx.save();
-				// ctx.font = "10px 'arial'";
-				b_x = j*b_width + j*b_spacing;
-				b_y = i*b_height + i*b_spacing;
+	for ( i = 0 ; i < n_height; i++){
+		for ( j = 0; j < n_width; j++){
+			ctx.save();
+			// ctx.font = "10px 'arial'";
+			b_x = j*b_width + j*b_spacing;
+			b_y = i*b_height + i*b_spacing;
 
-				ctx.fillStyle = "rgb(200, 200, 200)";
-				ctx.fillRect( b_x+2, b_y+2, b_width , b_height);
+			ctx.fillStyle = "rgb(200, 200, 200)";
+			ctx.fillRect( b_x+2, b_y+2, b_width , b_height);
 
-				ctx.fillStyle = "rgb(" + i * 40 + ", " + j * 40   + ", 0)";
-				ctx.fillRect( b_x, b_y, b_width , b_height);
-				ctx.restore();
-			}
+			ctx.fillStyle = "rgb(" + i * 40 + ", " + j * 40   + ", 0)";
+			ctx.fillRect( b_x, b_y, b_width , b_height);
+			ctx.restore();
 		}
 	}
+    }
 }
 
 ARRAY_COLORS = ['red', 'nodata', 'green', 'yellow'];
@@ -394,17 +395,18 @@ $('#cluster_canvas').click(function(eventObj){
 });
 
 // This is called when a node it added by the user.
-// Causes a pending instance to be drawn
+// Causes expected pending instances to be drawn, making the
+// GUI more responsive for the user.
 function increment_pending_instance_count(num_new_nodes) {
-        old_length = instances.length;
-	pending_instance = true;	
+        // Keep track of the current number of instances
+        old_instance_length = instances.length;
+        // Flag that there are going to be pending instances drawn
+	pending_instance = true;
+        // Keep track of the number of pending instances that we will need to draw
+        num_pending_instances = num_pending_instances + num_new_nodes;
+        // Update the cluster canvas
         window.setTimeout(update_cluster_canvas, 1);
 }
-
-function decrement_pending_instance_count(num_removed_nodes) {
-        // Does nothing at the moment
-}
-
 
 function update_cluster_canvas(){
 	// Perform get, update instances {} and then call for a graph redraw
@@ -422,24 +424,45 @@ function update_cluster_canvas(){
 	    else {
     		instances = [];
 	    }
-	    if ((pending_instance == true) && (old_length == instances.length)) {
-                            new_instance = new Object();
-                            new_instance.worker_status = "creating";
-                            new_instance.instance_state = "creating";
-                            new_instance.ld = "0 0 0";
-                            new_instance.time_in_state = "0m 0s";
-                            new_instance.id = "i-00000000";
-                            new_instance.instance_type = "Unknown";
-                            instances.push(new_instance);
+
+            // If there are pending instances then update the number we will
+            // need to draw
+            if (pending_instance == true) {
+                    if (old_instance_length < instances.length) {
+                            // New instances have arrived
+                            // Need to decrement number of pending instances
+                            var difference = instances.length - old_instance_length;
+                            num_pending_instances = num_pending_instances - difference;
+                            if (num_pending_instances == 0) {
+                                    pending_instance = false;
+                            }
+
+                    } 
             }
-	    else {
-		pending_instance = false;
-		old_length = instances.length;
-	    }
+            // Set the old length equal to the new length
+            old_instance_length = instances.length;
+
+            // Add the pending instances
+	    if (num_pending_instances > 0) {
+                    // Create a "dummy" pending instance
+                    new_instance = new Object();
+                    new_instance.worker_status = "creating";
+                    new_instance.instance_state = "creating";
+                    new_instance.ld = "0 0 0";
+                    new_instance.time_in_state = "0m 0s";
+                    new_instance.id = "i-00000000";
+                    new_instance.instance_type = "Unknown";
+
+                    // Add the dummy pending instance to the list of instances to be drawn
+                    var i = 0;
+                    for (i = 0; i < num_pending_instances; i++) {
+                        instances.push(new_instance);
+                    }
+            }
             
 	    renderGraph();
 	    refreshTip();
-	        window.setTimeout(update_cluster_canvas, 10000);
+	    window.setTimeout(update_cluster_canvas, 10000);
 	});
 }
 
