@@ -731,7 +731,7 @@ function show_log_container_body() {
     $('#log_container_body').slideDown('fast');
 }
 
-// This is called when a node it added by the user.
+// This is called when worker nodes are added by the user.
 // Causes a pending instance to be drawn
 function add_pending_node() {
         increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value));
