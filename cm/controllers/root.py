@@ -502,7 +502,8 @@ class CM(BaseController):
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],
-                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'))
+                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                   initial_cluster_type = self.app.manager.initial_cluster_type)
     
     @expose
     def cluster_status(self, trans):

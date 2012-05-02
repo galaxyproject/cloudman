@@ -28,7 +28,8 @@ class SGEService( ApplicationService ):
         log.info("Removing SGE service")
         self.state = service_states.SHUTTING_DOWN
         for inst in self.app.manager.worker_instances:
-            self.remove_sge_host(inst.get_id(), inst.get_private_ip())
+            if not inst.is_spot() or inst.spot_was_filled():
+                self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master")
         self.state = service_states.SHUT_DOWN
@@ -296,7 +297,7 @@ class SGEService( ApplicationService ):
             log.debug(" - master is marked as non-exec host and will not be included in @allhosts file")
         # Add worker instances, excluding the one being removed
         for inst in self.app.manager.worker_instances:
-            if inst.get_private_ip() != to_remove:
+            if inst.get_private_ip() != to_remove and inst.get_private_ip() is not None:
                 log.debug(" - adding instance with IP '%s' (instance state: '%s')" \
                     % (inst.get_private_ip(), inst.worker_status))
                 ahl.append(inst.get_private_ip())
