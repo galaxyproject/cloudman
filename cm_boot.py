@@ -97,6 +97,7 @@ def _start_nginx():
         os.makedirs('/mnt/galaxyData/upload_store')
     if not _run('/opt/galaxy/sbin/nginx'):
         _run('/etc/init.d/apache2 stop')
+        _run('/etc/init.d/tntnet stop') # On Ubuntu 12.04, this server also starts?
         _run('/opt/galaxy/sbin/nginx')
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
