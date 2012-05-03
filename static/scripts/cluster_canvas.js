@@ -9,6 +9,8 @@ var pending_instance = false;
 
 // The number of "expected" pending instances to be drawn
 var num_pending_instances = 0;
+// The lifecycle of an instance being requested (eg, on-deman, spot)
+var inst_lifecycle = "on-demand";
 
 // The length of instances[] at the time of the user adding new instances
 var old_instance_length = 1;
@@ -407,13 +409,15 @@ $('#cluster_canvas').click(function(eventObj){
 // This is called when a node it added by the user.
 // Causes expected pending instances to be drawn, making the
 // GUI more responsive for the user.
-function increment_pending_instance_count(num_new_nodes) {
+function increment_pending_instance_count(num_new_nodes, lifecycle) {
         // Keep track of the current number of instances
         old_instance_length = instances.length;
         // Flag that there are going to be pending instances drawn
-	pending_instance = true;
+        pending_instance = true;
         // Keep track of the number of pending instances that we will need to draw
         num_pending_instances = num_pending_instances + num_new_nodes;
+        // Differentiate between different instance lifecycle types
+        inst_lifecycle = lifecycle;
         // Update the cluster canvas
         window.setTimeout(update_cluster_canvas, 1);
 }
@@ -456,7 +460,12 @@ function update_cluster_canvas(){
 	    if (num_pending_instances > 0) {
                     // Create a "dummy" pending instance
                     new_instance = new Object();
-                    new_instance.worker_status = "creating";
+                    // worker_status is used to color instances and color depends on instance lifecycle
+                    if (inst_lifecycle == 'spot') {
+                        new_instance.worker_status = "open";
+                    } else {
+                        new_instance.worker_status = "creating";
+                    }
                     new_instance.instance_state = "creating";
                     new_instance.ld = "0 0 0";
                     new_instance.time_in_state = "0m 0s";

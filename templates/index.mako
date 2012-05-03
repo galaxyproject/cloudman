@@ -734,7 +734,10 @@ function show_log_container_body() {
 // This is called when worker nodes are added by the user.
 // Causes a pending instance to be drawn
 function add_pending_node() {
-        increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value));
+    inst_kind = 'on-demand';
+    if ($('#use_spot').length != 0 && $('#use_spot').attr("checked") == 'checked') {
+        inst_kind = 'spot';
+    } increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value), inst_kind);
         return true;
 }
 

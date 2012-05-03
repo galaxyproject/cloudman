@@ -684,29 +684,31 @@ class ConsoleManager(object):
         return idle_instances
     
     def remove_instances(self, num_nodes, force=False):
-        # Decide which instance(s) to terminate, remove the from SGE and terminate
-        idle_instances = self.get_idle_instances()
-        log.info("Found %s idle instances; trying to remove %s." % (len(idle_instances), num_nodes))
+        """ Decide which instance(s) to terminate, remove them from SGE and terminate
+        """
         num_terminated = 0
         # First look for idle instances that can be removed
-        for i in range ( 0, num_nodes ):
-            if len( idle_instances ) > 0:
+        idle_instances = self.get_idle_instances()
+        if len(idle_instances) > 0:
+            log.info("Found %s idle instances; trying to remove %s." % (len(idle_instances), num_nodes))
+            for i in range (0, num_nodes):
                 for inst in idle_instances:
                     if num_terminated < num_nodes:
                         self.remove_instance(inst.id)
                         num_terminated += 1
-            else:
-                log.info("No idle instances found")
+        else:
+            log.info("No idle instances found")
         log.debug("Num to terminate: %s, num terminated: %s; force set to '%s'" \
             % (num_nodes, num_terminated, force))
         # If force is set, terminate requested number of instances regardless whether they are idle
         if force is True and num_terminated < num_nodes:
             force_kill_instances = num_nodes - num_terminated
-            log.info( "Forcefully terminating '%s' instances" % force_kill_instances )
-            for i in range( 0, force_kill_instances ):
+            log.info("Forcefully terminating %s instances." % force_kill_instances)
+            for i in range(force_kill_instances):
                 for inst in self.worker_instances:
-                    self.remove_instance(inst.id)
-                    num_terminated += 1
+                    if not inst.is_spot() or inst.spot_was_filled():
+                        self.remove_instance(inst.id)
+                        num_terminated += 1
         if num_terminated > 0:
             log.info("Initiated requested termination of instances. Terminating '%s' instances." \
                 % num_terminated)
@@ -1771,7 +1773,9 @@ class Instance( object ):
             try:
                 self.inst.update()
             except EC2ResponseError, e:
-                log.error("Error updating instance object: %s" % e)
+                log.error("Cloud error updating instance object: %s" % e)
+            except Exception, e:
+                log.error("Exception updating instance object: %s" % e)
         return self.inst
     
     def is_spot(self):
@@ -1852,6 +1856,8 @@ class Instance( object ):
                 self.id = self.inst.id
             except EC2ResponseError, e:
                 log.error("Error retrieving instance id: %s" % e)
+            except Exception, e:
+                log.error("Exception retreiving instance object: %s" % e)
         return self.id
     
     def get_desc(self):
@@ -1889,19 +1895,19 @@ class Instance( object ):
                           of other logic) removed from the list of instances maintained
                           by the master object.
         """
-        for i in range( 0, 30 ):
+        for i in range(30):
             if force or self.check_if_instance_alive() is False:
                 try:
                     if self in self.app.manager.worker_instances:
-                        self.app.manager.worker_instances.remove( self )
+                        self.app.manager.worker_instances.remove(self)
                         log.info("Instance '%s' removed from the internal instance list." % self.id)
                 except ValueError, e:
                     log.warning("Instance '%s' no longer in instance list, the global monitor probably " \
                         "picked it up and deleted it already: %s" % (self.id, e))
                 break
             else:
-                log.debug("Instance {0} still alive?".format(self.get_desc()))
-                time.sleep( 4 )
+                log.debug("Instance {0} still alive?".format(self.id))
+                time.sleep(4)
     
     def instance_can_be_terminated( self ):
         log.debug( "Checking if instance '%s' can be terminated" % self.id )
@@ -1966,7 +1972,7 @@ class Instance( object ):
                 return False
         # Somtimes, an instance is terminated by Amazon prematurely so try to catch it 
         if state == 'terminated':
-            log.error("Worker instance '%s' seems to have terminated prematurely." % self.id)
+            log.error("Worker instance '%s' has terminated." % self.id)
             return False
         elif state == 'pending': # Display pending instances status to console log
             log.debug("Worker instance '%s' state: '%s' (for %s sec); status: '%s'" \
@@ -1974,7 +1980,7 @@ class Instance( object ):
                 self.worker_status))
         else:
             log.debug("Worker instance '%s' (%s) status: '%s' (time in this state: %s sec)" \
-                % (self.id, self.get_private_ip(), state, \
+                % (self.id, self.get_public_ip(), state, \
                 (dt.datetime.utcnow() - self.last_m_state_change).seconds))
             pass
         # If an instance has been in state 'running' for a while we still have not heard from it, check on it
