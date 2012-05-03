@@ -295,6 +295,9 @@ class EC2Interface(CloudInterface):
         if spot_price is not None:
             use_spot = True
         log.info("Adding {0} {1} instance(s)".format(num, 'spot' if use_spot else 'on-demand'))
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to start instance(s), but TESTFLAG is set.")
+            return
         worker_ud = self._compose_worker_user_data()
         # log.debug( "Worker user data: %s " % worker_ud )
         if instance_type == '':
