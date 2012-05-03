@@ -33,7 +33,6 @@ class Volume(object):
         self.app = app
         self.volume = None # boto instance object representing the current volume
         self.device = device # Device ID visible by the operating system
-        self.attach_device = attach_device # Device ID visible/reported by cloud provider as the device attach point
         self.size = size
         self.from_snapshot_id = from_snapshot_id
         self.device = None
@@ -42,9 +41,7 @@ class Volume(object):
         self.snapshot_status = None
 
         if (vol_id): # get the volume object immediately, if id is passed
-            # need to go this roundabout way to get the volume because euca does not filter the get_all_volumes request by the volume ID, but keep the filter, so that it doesn't get overwhelmed on amazon
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            volumes = [ v for v in ec2_conn.get_all_volumes( volume_ids=(vol_id,) ) if v.id == vol_id ]
+            volumes = self.app.cloud_interface.get_all_volumes( volume_ids=(vol_id,))
             if volumes:
                 self.update(volumes[0])
             else:
@@ -72,7 +69,14 @@ class Volume(object):
             return self.volume.id
         else:
             return None
-
+    
+    @property
+    def attach_device(self):
+        if self.volume:
+            return self.volume.attach_data.device
+        else:
+            return None
+    
     @property
     def status(self):
         if not self.volume:
@@ -139,8 +143,9 @@ class Volume(object):
 
     def delete(self):
         try:
-            self.app.cloud_interface.get_ec2_connection().delete_volume(self.volume_id)
-            log.debug("Deleted volume '%s'" % self.volume_id)
+            volume_id = self.volume_id
+            self.volume.delete()
+            log.debug("Deleted volume '%s'" % volume_id)
             self.volume = None
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
@@ -250,7 +255,7 @@ class Volume(object):
         """
         if self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE:
             try:
-                self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id())
+                self.volume.detach()
             except EC2ResponseError, e:
                 log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                 return False
@@ -258,7 +263,7 @@ class Volume(object):
             if self.status != volume_status.AVAILABLE:
                 log.debug('Attempting to detach again.')
                 try:
-                    self.app.cloud_interface.get_ec2_connection().detach_volume( self.volume_id, self.app.cloud_interface.get_instance_id())
+                    self.volume.detach()
                 except EC2ResponseError, e:
                     log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                     return False
@@ -272,9 +277,8 @@ class Volume(object):
 
     def snapshot(self, snap_description=None):
         log.info("Initiating creation of a snapshot for the volume '%s'" % self.volume_id)
-        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
-            snapshot = ec2_conn.create_snapshot(self.volume_id, description=snap_description)
+            snapshot = self.volume.create_snapshot(description=snap_description)
         except EC2ResponseError as ex:
             log.error("Error creating a snapshot from volume '%s': %s" % (self.volume_id, ex))
             raise
@@ -394,7 +398,6 @@ class Filesystem(DataService):
             # If desired by user, delete snapshot used during the resizing process
             if self.grow['delete_snap'] is True:
                 try:
-                    ec2_conn = self.app.cloud_interface.get_ec2_connection()
                     ec2_conn.delete_snapshot(snap_id)
                 except EC2ResponseError, e:
                     log.error("Error deleting snapshot '%s' during '%s' resizing: %s" % (snap_id, self.get_full_name(), e))
@@ -515,7 +518,7 @@ class Filesystem(DataService):
 
     def check_and_update_volume(self, device):
         f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-        vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+        vols = self.app.cloud_interface.get_all_volumes(filters=f)
         if len(vols) == 1:
             att_vol = vols[0]
             for vol in self.volumes: # Currently, bc. only 1 vol can be assoc. w/ FS, we'll only deal w/ 1 vol
