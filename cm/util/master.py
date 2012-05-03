@@ -14,7 +14,7 @@ from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.postgres import PostgresService
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoServerError, S3ResponseError
+from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -199,7 +199,7 @@ class ConsoleManager(object):
                         self.app.manager.services.append(GalaxyService(self.app))
                         self.app.manager.initial_cluster_type = 'Galaxy'
             return True
-        except Exception, e:
+        except (BotoClientError,BotoServerError) as e:
             log.error("Error in filesystem YAML: %s" % e)
             self.manager_started = False
             return False
@@ -458,13 +458,8 @@ class ConsoleManager(object):
             return volumes
         log.debug("Trying to discover any volumes attached to this instance...")
         try:
-            # f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-            # volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
-            all_volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
-            volumes = []
-            for v in all_volumes:
-                if v.attach_data and v.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
-                    volumes.append(v)
+            f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+            volumes = self.app.cloud_interface.get_all_volumes(filters=f)
         except EC2ResponseError, e:
             log.debug( "Error checking for attached volumes: %s" % e )
         log.debug("Attached volumes: %s" % volumes)
@@ -531,15 +526,12 @@ class ConsoleManager(object):
     def delete_cluster(self):
         log.info("All services shut down; deleting this cluster.")
         # Delete any remaining volume(s) assoc. w/ given cluster
-        # filters = {'tag:clusterName': self.app.ud['cluster_name']}
+        filters = {'tag:clusterName': self.app.ud['cluster_name']}
         try:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            # vols = ec2_conn.get_all_volumes(filters=filters)
-            vols = ec2_conn.get_all_volumes()
+            vols = self.app.cloud_interface.get_all_volumes(filters=filters)
             for vol in vols:
-                if self.app.cloud_interface.get_tag(vol,'clusterName') == self.app.ud['cluster_name']:
-                    log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
-                    ec2_conn.delete_volume(vol.id)
+                log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                vol.delete()
         except EC2ResponseError, e:
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3

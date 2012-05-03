@@ -239,3 +239,6 @@ class EC2Interface(CloudInterface):
         except EC2ResponseError, e:
             log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
             return None
+    
+    def get_all_volumes(self,volume_ids=None, filters=None):
+        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids, filters=filters)

@@ -34,7 +34,7 @@ class EucaInterface(EC2Interface):
         self.tags = {}
 
     def get_ec2_connection( self ):
-        if self.ec2_conn == None:
+        if not self.ec2_conn:
             if self.ec2_url:
                 url = urlparse(self.ec2_url)
                 host = url.hostname
@@ -182,3 +182,40 @@ class EucaInterface(EC2Interface):
             resource_tags = self.tags.get(resource.id,{})
             value = resource_tags.get(key)
         return value    
+
+    def get_all_volumes(self,volume_ids=None, filters=None):
+        # eucalyptus does not allow filters in get_all_volumes
+        
+        if isinstance(volume_ids,basestring):
+            volume_ids = (volume_ids,)
+        # need to go this roundabout way to get the volume because euca does not filter the get_all_volumes request by the volume ID,
+        # but keep the filter, in case it eventually does
+        volumes = [ v for v in self.get_ec2_connection().get_all_volumes( volume_ids= volume_ids ) if not volume_ids or (v.id in volume_ids) ]
+        if not filters:
+            filters = {}
+        excluded_vols = []
+        for v in volumes:
+            for key in filters.keys():
+                val = filters[key]
+                if key.startswith('tag:'):
+                    tag = key[4:]
+                    if self.get_tag(v.id,tag) != val:
+                        # log.debug('(get_all_volumes) Excluding volume {0} because tag {1} != {2}. (is {3})'.format(v.id,tag,val,self.get_tag(v.id,tag)))
+                        excluded_vols.append(v)
+                        continue
+                elif key == 'attachment.device':
+                    if v.attach_data.device != val:
+                        # log.debug('(get_all_volumes) Excluding volume {0} because it is not attached as {1} (is {2})'.format(v.id,val,v.attach_data.device))
+                        excluded_vols.append(v)
+                        continue
+                elif key == 'attachment.instance-id':
+                    if v.attach_data.instance_id != val:
+                        # log.debug('(get_all_volume) Excluding vol {0} because it is not attached to {1} (is {2})'.format(v.id,val,v.attach_data.instance_id))
+                        excluded_vols.append(v)
+                        continue
+                else:
+                    log.error('Could not filter on unknown filter key {0}'.format(key))
+        vols = [v for v in volumes if v not in excluded_vols]
+        # log.debug("(get_all_volumes) Returning volumes: {0}".format(vols))
+        return vols
+            
