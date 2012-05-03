@@ -207,8 +207,11 @@ class ConsoleManager( object ):
             # Ubuntu 11.10 support
             elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.13.so"):
                 os.symlink("/lib/x86_64-linux-gnu/libc-2.13.so", "/lib64/libc.so.6")
+            # Kernel 3.2 support (Ubuntu 12.04)
+            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.15.so"):
+                os.symlink("/lib/x86_64-linux-gnu/libc-2.15.so", "/lib64/libc.so.6")
             else:
-                log.debug("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+                log.error("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts 
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init

@@ -52,6 +52,7 @@ vertical-align: top;
             <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
             <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
             <div id="instance_type" class="form-row-input">
+            ##<%include file="clouds/ec2_types.mako" />
                 <select name="instance_type" id="instance_type">
                     <option value=''>Same as Master</option>
                     <option value='t1.micro'>Micro</option>
