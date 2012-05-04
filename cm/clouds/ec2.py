@@ -19,6 +19,10 @@ class EC2Interface(CloudInterface):
         self.user_data = None
         self.aws_access_key = None
         self.aws_secret_key = None
+        self.public_ip = None
+        self.local_ip = None
+        self.public_hostname = None
+        self.local_hostname = None
     
     def get_user_data(self, force=False):
         if self.user_data is None or force:
@@ -129,38 +133,70 @@ class EC2Interface(CloudInterface):
                     pass
         return self.key_pair_name
     
-    def get_self_private_ip( self ):
-        if self.self_private_ip is None:
+    def get_self_local_hostname( self ):
+        if self.local_hostname is None:
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance private hostname, attempt %s' % i)
                     fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-hostname')
-                    self.self_private_ip = fp.read()
+                    self.local_hostname = fp.read()
                     fp.close()
-                    if self.self_private_ip:
+                    if self.local_hostname:
                         break
                 except IOError:
                     pass
-        return self.self_private_ip
+        return self.local_hostname
     
-    def get_self_public_ip( self ):
-        if self.self_public_ip is None:
+    def get_self_local_ip( self ):
+        if self.local_ip is None:
+            if self.app.TESTFLAG:
+                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.1.1'")
+                self.local_ip = '127.0.1.1'
+            for i in range(0, 5):
+                try:
+                    log.debug('Gathering instance private ip, attempt %s' % i)
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
+                    self.local_ip = fp.read()
+                    fp.close()
+                    if self.local_ip:
+                        break
+                except IOError:
+                    pass
+        return self.local_ip
+
+    def get_self_public_hostname( self ):
+        if self.public_hostname is None:
             if self.app.TESTFLAG is True:
-                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_public_ip = '127.0.0.1'
-                return self.self_public_ip
+                log.debug("Attempted to get public hostname, but TESTFLAG is set. Returning 'ip-127-0-1-1'")
+                self.public_hostname = 'ip-127-0-1-1'
+                return self.public_hostname
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public hostname, attempt %s' % i)
                     fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
-                    self.self_public_ip = fp.read()
+                    self.public_hostname = fp.read()
                     fp.close()
-                    if self.self_public_ip:
+                    if self.public_hostname:
                         break
                 except Exception, e:
                     log.error ( "Error retrieving FQDN: %s" % e )
                                 
-        return self.self_public_ip
+        return self.public_hostname
+
+    def get_self_public_ip( self ):
+        if self.public_ip is None:
+            for i in range(0, 5):
+                try:
+                    log.debug('Gathering instance public ip, attempt %s' % i)
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-ipv4')
+                    self.public_ip = fp.read()
+                    fp.close()
+                    if self.public_ip:
+                        break
+                except IOError:
+                    pass
+        return self.public_ip
+
     
     def get_fqdn(self):
         log.debug( "Retrieving FQDN" )

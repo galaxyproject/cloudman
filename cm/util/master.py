@@ -647,7 +647,7 @@ class ConsoleManager(object):
             worker_ud['password'] = self.app.ud['password']
         worker_ud['cluster_name'] = self.app.ud['cluster_name']
         worker_ud['role'] = 'worker'
-        worker_ud['master_ip'] = self.app.cloud_interface.get_self_private_ip()
+        worker_ud['master_ip'] = self.app.cloud_interface.get_self_local_ip()
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         #log.debug( "Worker user data: %s " % worker_ud )
         reservation = None
@@ -1727,7 +1727,7 @@ class Instance( object ):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
         if self.app.TESTFLAG is True:
             return
-        self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_self_private_ip(), self.id )
+        self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_self_local_hostname(), self.id )
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
     
     def check_if_instance_alive( self ):

@@ -100,7 +100,7 @@ class SGEService( ApplicationService ):
         hostname = hostname_file.readline().rstrip()
         hostname_file.close()
         exec_nodes = hostname
-        # exec_nodes = self.app.cloud_interface.get_self_private_ip() 
+        # exec_nodes = self.app.cloud_interface.get_self_local_hostname() 
         SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
         with open( SGE_config_file, 'w' ) as f:
             print >> f, templates.SGE_INSTALL_TEMPLATE % ( hostname, hostname, exec_nodes )
@@ -238,8 +238,8 @@ class SGEService( ApplicationService ):
         log.debug( "to_remove: '%s'" % to_remove )
         # Add master instance to the execution host list
         log.debug("Composing SGE's @allhosts group config file '%s':" % filename)
-        log.debug(" - adding master instance; IP '%s'" % self.app.cloud_interface.get_self_private_ip())
-        ahl.append(self.app.cloud_interface.get_self_private_ip())
+        log.debug(" - adding master instance; IP '%s'" % self.app.cloud_interface.get_self_local_hostname())
+        ahl.append(self.app.cloud_interface.get_self_local_hostname())
         # Add worker instances, excluding the one being removed
         for inst in self.app.manager.worker_instances:
             if inst.get_private_ip() != to_remove:
