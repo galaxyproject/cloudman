@@ -459,7 +459,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako', 
-                                   ip=self.app.cloud_interface.get_self_public_ip(),
+                                   ip=self.app.cloud_interface.get_self_public_hostname(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems)
     
@@ -486,7 +486,7 @@ class CM(BaseController):
         DNS address if so, `#` otherwise. """
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
-            dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_ip() )
+            dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_hostname() )
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'

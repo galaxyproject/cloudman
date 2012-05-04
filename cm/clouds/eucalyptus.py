@@ -152,6 +152,37 @@ class EucaInterface(EC2Interface):
             self.ec2_url = self.user_data.get('ec2_url',None)
         return self.user_data
 
+    def get_self_local_hostname(self):
+        # Currently, Eucalyptus meta-data/local-hostname returns the IP address, not the hostname. Pull from system hostname instead
+        super(EucaInterface,self).get_self_local_hostname()
+        if self.local_hostname:
+            toks = self.local_hostname.split('.')
+            if len(toks) == 4:
+                r = filter(lambda x: int(x) < 256 and x > 0, toks)
+                if len(r) == 4:
+                    log.debug('local hostname ({0}) appears to be an IP address.'.format(self.local_hostname))
+                    self.local_hostname = None
+                    
+            if not self.local_hostname:
+                log.debug('Fetching hostname from local system hostname()')
+                self.local_hostname = socket.gethostname()
+        return self.local_hostname
+        
+    def get_self_public_hostname(self):
+        # Eucalyptus meta-data/public-hostname return the IP address. Fake it, assuming that it will be ip-NUM-NUM-NUM-NUM
+        super(EucaInterface,self).get_self_public_hostname()
+        if self.public_hostname:
+            toks = self.public_hostname.split('.')
+            if len(toks) == 4:
+                r = filter(lambda x: int(x) < 256 and x > 0, toks)
+                if len(r) == 4:
+                    self.public_hostname = None
+                    
+            if not self.public_hostname:
+                log.debug('Faking local hostname based on IP address {0}'.format('.'.join(toks)))
+                self.public_hostname = 'ip-%s' % '-'.join(toks)
+        return self.public_hostname
+
     def add_tag(self, resource, key, value):
         """ Add tag as key value pair to the `resource` object. The `resource`
         object must be an instance of a cloud object and support tagging.
