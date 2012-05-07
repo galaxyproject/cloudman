@@ -6,9 +6,9 @@ from boto.exception import S3ResponseError, EC2ResponseError
 import subprocess
 import threading
 import datetime as dt
-from tempfile import mkstemp
+from tempfile import mkstemp, NamedTemporaryFile
 from shutil import move
-from os import remove, close
+from os import remove, close, fsync
 
 
 log = logging.getLogger( 'cloudman' )
@@ -530,6 +530,46 @@ def replace_string(file_name, pattern, subst):
     # Move new file
     move(abs_path, file_name)
 
+def add_to_etc_hosts(hostname,ip_address):
+    try:
+        etc_hosts = open('/etc/hosts','r')
+        tmp = NamedTemporaryFile()
+        for l in etc_hosts:
+            if not hostname in l:
+                tmp.write(l)
+        etc_hosts.close()
+
+        # add a line for the new hostname
+        tmp.write('{0} {1}\n'.format(ip_address,hostname))
+
+        # make sure changes are written to disk
+        tmp.flush()
+        fsync(tmp.fileno())
+        # swap out /etc/hosts
+        run('cp /etc/hosts /etc/hosts.orig')
+        run('cp {0} /etc/hosts'.format(tmp.name))
+        run('chmod 644 /etc/hosts')
+    except (IOError,OSError) as e:
+        log.error('could not update /etc/hosts. {0}'.format(e))
+
+def remove_from_etc_hosts(hostname):
+    try:
+        etc_hosts = open('/etc/hosts','r')
+        tmp = NamedTemporaryFile()
+        for l in etc_hosts:
+            if not hostname in l:
+                tmp.write(l)
+        etc_hosts.close()
+
+        # make sure changes are written to disk
+        tmp.flush()
+        fsync(tmp.fileno())
+        # swap out /etc/hosts
+        run('cp /etc/hosts /etc/hosts.orig')
+        run('cp {0} /etc/hosts'.format(tmp.name))
+        run('chmod 644 /etc/hosts')
+    except (IOError, OSError) as e:
+        log.error('could not update /etc/hosts. {0}'.format(e))
 
 class Sleeper( object ):
     """
