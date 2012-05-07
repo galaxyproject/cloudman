@@ -88,6 +88,7 @@ class ConsoleManager( object ):
         
     def start( self ):
         self.mount_nfs( self.app.ud['master_ip'] )
+        misc.add_to_etc_hosts(self.app.ud['master_hostname'], self.app.ud['master_ip'])
         # misc.run("stop mountall", "Failed to stop mountall process", "Successfully stopped mountall process") # Ubuntu 10.04 bug 649591
     
     def shutdown( self, delete_cluster=None ):
@@ -251,7 +252,7 @@ class ConsoleMonitor( object ):
     
     def send_alive_message( self ):
         msg = "ALIVE | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_self_local_hostname(), 
-                                                  self.app.cloud_interface.get_self_public_hostname(), 
+                                                  self.app.cloud_interface.get_self_local_ip(), 
                                                   self.app.cloud_interface.get_zone(), 
                                                   self.app.cloud_interface.get_type(), 
                                                   self.app.cloud_interface.get_ami())

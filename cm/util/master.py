@@ -651,6 +651,7 @@ class ConsoleManager(object):
             worker_ud['ec2_url'] = self.app.ud['ec2_url']
         worker_ud['cluster_name'] = self.app.ud['cluster_name']
         worker_ud['role'] = 'worker'
+        worker_ud['master_hostname'] = self.app.cloud_interface.get_self_local_hostname()
         worker_ud['master_ip'] = self.app.cloud_interface.get_self_local_ip()
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         #log.debug( "Worker user data: %s " % worker_ud )
@@ -1589,6 +1590,7 @@ class Instance( object ):
         self.app = app
         self.inst = inst
         self.id = None
+        self.private_hostname = None
         self.private_ip = None
         if inst:
             try:
@@ -1698,7 +1700,9 @@ class Instance( object ):
                         time.sleep( 4 )
         except Exception, e:
             log.error( "Exception terminating instance '%s': %s" % ( self.id, e ) )
-        if inst_terminated is False:
+        if inst_terminated:
+            misc.remove_from_etc_hosts(self.private_hostname)
+        else:
             log.error( "Terminating instance '%s' did not go smoothly; instance state: '%s'" % ( self.id, self.m_state ) )
     
     def instance_can_be_terminated( self ):
@@ -1788,16 +1792,17 @@ class Instance( object ):
                 self.worker_status = "Starting"
                 log.info( "Instance '%s' reported alive" % self.id )
                 msp = msg.split(' | ')
-                self.private_ip = msp[1]
-                self.public_ip = msp[2]
+                self.private_hostname = msp[1]
+                self.private_ip = msp[2]
                 self.zone = msp[3]
                 self.type = msp[4]
                 self.ami = msp[5]
-                log.debug("INSTANCE_ALIVE private_dns:%s  public_dns:%s  zone:%s  type:%s  ami:%s" % (self.private_ip, 
-                                                                                                      self.public_ip, 
+                log.debug("INSTANCE_ALIVE private_dns:%s  private_ip:%s  zone:%s  type:%s  ami:%s" % (self.private_hostname, 
+                                                                                                      self.private_ip, 
                                                                                                       self.zone, 
                                                                                                       self.type, 
                                                                                                       self.ami))
+                misc.add_to_etc_hosts(self.private_hostname, self.private_ip)
                 # Instance is alive and functional. Send master pubkey.
                 self.send_master_pubkey()
             elif msg_type == "WORKER_H_CERT":
