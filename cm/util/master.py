@@ -645,6 +645,10 @@ class ConsoleManager(object):
         worker_ud['secret_key'] = self.app.ud['secret_key']
         if self.app.ud.has_key('password'):
             worker_ud['password'] = self.app.ud['password']
+        if self.app.ud.has_key('s3_url'):
+            worker_ud['s3_url'] = self.app.ud['s3_url']
+        if self.app.ud.has_key('ec2_url'):
+            worker_ud['ec2_url'] = self.app.ud['ec2_url']
         worker_ud['cluster_name'] = self.app.ud['cluster_name']
         worker_ud['role'] = 'worker'
         worker_ud['master_ip'] = self.app.cloud_interface.get_self_local_ip()
