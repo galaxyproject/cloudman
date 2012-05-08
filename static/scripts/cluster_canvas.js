@@ -385,9 +385,35 @@ function refreshTip(){
     }
 }
 
+// Get the co-ordinates of an event, relative to the event target
+// Apapted from: http://stackoverflow.com/questions/55677/how-do-i-get-the-coordinates-of-a-mouse-click-on-a-canvas-element
+function relMouseCoords(event){
+    var totalOffsetX = 0;
+    var totalOffsetY = 0;
+    var canvasX = 0;
+    var canvasY = 0;
+    var currentElement = event.target;
+
+    do{
+        totalOffsetX += currentElement.offsetLeft;
+        totalOffsetY += currentElement.offsetTop;
+    }
+    while(currentElement = currentElement.offsetParent)
+
+    canvasX = event.pageX - totalOffsetX;
+    canvasY = event.pageY - totalOffsetY;
+
+    return {x:canvasX, y:canvasY}
+}
+HTMLCanvasElement.prototype.relMouseCoords = relMouseCoords;
+
+// Callback for a click with the cluster_canvas
 $('#cluster_canvas').click(function(eventObj){
-	c_x = eventObj.layerX - eventObj.currentTarget.offsetLeft;
-	c_y = eventObj.layerY - eventObj.currentTarget.offsetTop;
+        // Get the co-ordinates of the click within the cluster_canvas
+        c_x = relMouseCoords(eventObj).x;
+        c_y = relMouseCoords(eventObj).y;
+
+        // Check whether an instance has been hit
 	for (i = 0; i < instances.length; i++){
 		if (c_x >= x_offset + instances[i].b_x && 
 			c_x <= x_offset + instances[i].b_xdx && 
