@@ -33,8 +33,9 @@ class CM(BaseController):
                                         master_instance_type = self.app.cloud_interface.get_type(),
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
                                         image_config_support = BunchToo(self.app.config.ic),
-                                        CM_url=CM_url,
-                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'))
+                                        CM_url = CM_url,
+                                        cloud_type = self.app.ud.get('cloud_type', 'ec2'),
+                                        cloud_name = self.app.ud.get('cloud_name', 'amazon').lower())
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):

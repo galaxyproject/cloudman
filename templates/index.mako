@@ -52,12 +52,8 @@ vertical-align: top;
             <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
             <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
             <div id="instance_type" class="form-row-input">
-                ## Select available instance types based on cloud type
-                %if cloud_type == "openstack":
-                    <%include file="clouds/openstack_types.mako" />
-                %else:
-                    <%include file="clouds/ec2_types.mako" />
-                %endif
+                ## Select available instance types based on cloud name
+                <%include file="clouds/${cloud_name}/instance_types.mako" />
             </div>
             ## Spot instaces work only for the AWS cloud
             %if cloud_type == 'ec2':
@@ -460,14 +456,6 @@ var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
 var as_max = 0; //max number of instances autoscaling should maintain
-var cloud_type = "ec2"; // Type of cloud. Defaults to ec2
-
-// Retrieve cloud type from user data
-$.getJSON('/cloud/get_user_data', function(data) {
-    if (data) {
-        cloud_type = data.cloud_type;
-    }
-});
 
 $(function() {
     $( "#sharing_accordion" ).accordion({
