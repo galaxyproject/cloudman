@@ -188,12 +188,15 @@ class GalaxyService(ApplicationService):
         if len(admins_list) > 0:
             log.info('Adding Galaxy admin users: %s' % admins_list)
             edited = False
-            config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
-            new_config_file = open(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), 'w')
+            config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
+            new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
+            config_file = open(config_file_path, 'r').readlines()
+            new_config_file = open(new_config_file_path, 'w')
             for line in config_file:
                 # Add all of the users in admins_list if no admin users exist
                 if '#admin_users = None' in line:
-                    line = line.replace('#admin_users = None', 'admin_users = %s' % ', '.join(str(a) for a in admins_list))
+                    line = line.replace('#admin_users = None', 'admin_users = %s' % ', '\
+                        .join(str(a) for a in admins_list))
                     edited = True
                 # Add only admin users that don't already exist in the admin user list
                 if not edited and 'admin_users' in line:
@@ -207,5 +210,8 @@ class GalaxyService(ApplicationService):
                     edited = True
                 new_config_file.write(line)
             new_config_file.close()
-            shutil.move(os.path.join(self.galaxy_home, 'universe_wsgi.ini.new'), os.path.join(self.galaxy_home, 'universe_wsgi.ini'))
+            config_file.close()
+            shutil.move(new_config_file_path, config_file_path)
+            # Change the owner of the file to galaxy user
+            os.chown(config_file_path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
     
