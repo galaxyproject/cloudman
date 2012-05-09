@@ -365,8 +365,12 @@ class Filesystem(DataService):
                 % (self.name, self.mount_point, self.state))
     
     def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
+        log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"\
+            .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
     
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
+        log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
+            .format(name=bucket_name, fs=self.get_full_name()))
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
     
