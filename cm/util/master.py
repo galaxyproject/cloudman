@@ -812,7 +812,7 @@ class ConsoleManager(object):
                             .format(snap['filesystem']))
                         fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
-                        .format(snap['filesystem'], fs.volumes))
+                        .format(fs.get_full_name(), fs.volumes))
                     self.services.append(fs)
                     
             #User data - add a new file system for user data of size 'pss'                    

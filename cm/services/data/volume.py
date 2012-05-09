@@ -32,13 +32,16 @@ class Volume(BlockStorage):
         self.snapshot_status = None
     
     def __str__(self):
-        return self.volume_id
+        return str(self.volume_id)
     
     def __repr__(self):
-        return self.volume_id
+        if self.volume_id is not None:
+            return self.get_full_name()
+        else:
+            return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
     
     def get_full_name(self):
-        return "{vol} (FS {fs})".format(vol=self.volume_id, fs=self.fs.name)
+        return "{vol} ({fs})".format(vol=self.volume_id, fs=self.fs.get_full_name())
     
     def update(self, bsd):
         """ Update reference to the 'self' to point to argument 'bsd' """

@@ -37,10 +37,10 @@ class Bucket(object):
         log.debug("Done installing s3fs")
     
     def __str__(self):
-        return self.bucket_name
+        return str(self.bucket_name)
     
     def __repr__(self):
-        return self.bucket_name
+        return str(self.bucket_name)
     
     def _compose_mount_cmd(self):
         """ Compose the command line used to mount the current bucket as a file system.
