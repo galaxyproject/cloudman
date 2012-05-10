@@ -1,4 +1,5 @@
 import os
+import commands
 from cm.util import misc
 
 # Commands
@@ -20,7 +21,16 @@ P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR  = "/mnt/galaxyData/pgsql/data"
-P_PG_HOME = "/usr/lib/postgresql/8.4/bin"
+
+try:
+    # Get only the first 3 chars of the version since that's all that's used for dir name
+    pg_ver = load = (commands.getoutput("dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
+    P_PG_HOME = "/usr/lib/postgresql/{0}/bin".format(pg_ver)
+except Exception, e:
+    P_PG_HOME = "/usr/lib/postgresql/9.1/bin"
+    print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_HOME to '{1}'"\
+        .format(e, P_PG_HOME)
+
 try:
     default_galaxy_home = "/mnt/galaxyTools/galaxy-central"
     # See if custom galaxy_home was specified as part of user data
@@ -39,7 +49,7 @@ try:
     print "Set paths.P_GALAXY_HOME as '{0}'".format(P_GALAXY_HOME)
 except Exception, e:
     P_GALAXY_HOME = default_galaxy_home
-    print "(paths.py) Issue checking for custom galaxy_home in user data: {0}".format(e)
+    print "[paths.py] Issue checking for custom galaxy_home in user data: {0}".format(e)
 
 P_MOUNT_ROOT = "/mnt"
 P_GALAXY_DATA = os.path.join(P_MOUNT_ROOT, 'galaxyData')
