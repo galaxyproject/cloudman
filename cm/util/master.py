@@ -561,8 +561,6 @@ class ConsoleManager(object):
             for wi in self.worker_instances:
                 if wi.is_spot() and not wi.spot_was_filled():
                     wi.terminate()
-        if delete_cluster:
-            self.delete_cluster()
         # Make sure all the services have been shut down before declaring the cluster shut down
         while(True):
             log.debug("Waiting for all the services to shut down")
@@ -573,6 +571,8 @@ class ConsoleManager(object):
             if num_off == len(self.services):
                 break
             time.sleep(6)
+        if delete_cluster:
+            self.delete_cluster()
         self.cluster_status = cluster_status.SHUT_DOWN
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
