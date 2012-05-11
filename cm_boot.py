@@ -5,7 +5,7 @@ Requires:
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
 
-import logging, sys, os, subprocess, yaml, tarfile, shutil, time
+import logging, sys, os, subprocess, yaml, tarfile, shutil, time, urllib
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
@@ -238,6 +238,21 @@ def _post_start_hook(ud):
         log.debug("Post start script does not exist; continuing.")
         return True
 
+def _fix_etc_hosts():
+    """ Without editing /etc/hosts, there are issues with hostname command
+        on NeCTAR (and consequently with setting up SGE).
+    """
+    try:
+        log.debug("Fixing /etc/hosts on NeCTAR")
+        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
+        ip = fp.read()
+        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
+        hn = fp.read()
+        _run('echo "# Added by CloudMan for NeCTAR" >> /etc/hosts')
+        _run('echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(ip=ip, hn1=hn, hn2=hn.split('.')[0]))
+    except Exception, e:
+        log.error("Troble fixing /etc/hosts on NeCTAR: {0}".format(e))
+
 def main():
     # _run('easy_install -U boto') # Update boto
     _run('easy_install oca') # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
@@ -250,6 +265,8 @@ def main():
         else:
             usage()
     if not ud.has_key('no_start'):
+        if ud.get('cloud_name', '').lower() == 'nectar':
+            _fix_etc_hosts()
         _start_nginx()
         _start(ud)
         # _post_start_hook(ud) # Execution of this script is moved into CloudMan, at the end of config
