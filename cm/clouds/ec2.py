@@ -393,8 +393,13 @@ class EC2Interface(CloudInterface):
         ec2_conn = self.get_ec2_connection()
         try:
             log.info("Terminating instance {0}".format(instance_id))
-            ec2_conn.terminate_instances(instance_id)
-            return True
+            ec2_conn.terminate_instances([instance_id])
+            # Make sure the instance was terminated
+            time.sleep(3) # First give the middleware a chance to register the termination
+            rs = ec2_conn.get_all_instances([instance_id])
+            if len(rs) == 0 or rs[0].instances[0].state == 'shutting-down' or \
+                rs[0].instances[0].state == 'terminated':
+                return True
         except EC2ResponseError, e:
             if e.errors[0][0] == 'InstanceNotFound':
                 return True

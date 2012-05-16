@@ -1,3 +1,5 @@
+import urllib
+
 from cm.clouds.ec2 import EC2Interface
 
 import boto
@@ -87,6 +89,32 @@ class OSInterface(EC2Interface):
             except Exception, e:
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
+    
+    def get_self_public_ip( self ):
+        """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
+            returns empty so do some monkey patching.
+        """
+        if self.self_public_ip is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
+                self.self_public_ip = '127.0.0.1'
+                return self.self_public_ip
+            for i in range(0, 5):
+                try:
+                    log.debug('Gathering instance public IP, attempt %s' % i)
+                    if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                        self.self_public_ip = self.get_self_private_ip()
+                    else:
+                        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
+                        self.self_public_ip = fp.read()
+                        fp.close()
+                    if self.self_public_ip:
+                        break
+                except Exception, e:
+                    log.error ( "Error retrieving FQDN: %s" % e )
+
+        return self.self_public_ip
+    
     
     def add_tag(self, resource, key, value):
         log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not " \
