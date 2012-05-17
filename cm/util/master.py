@@ -1373,10 +1373,11 @@ class ConsoleManager(object):
         shutil.copy("%s-tmp" % file_name, file_name)
     
     def get_status_dict( self ):
+        public_ip = self.app.cloud_interface.get_self_public_ip();
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
-            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester'}
+            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
@@ -1387,7 +1388,7 @@ class ConsoleManager(object):
             else:
                 # Debug only, this should never happen.  If the interface is able to display this, there is load.
                 load = "0 0 0"
-        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type() }
+        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type(), 'public_ip' : public_ip }
     
 
 class ConsoleMonitor( object ):
@@ -1811,7 +1812,8 @@ class Instance( object ):
                  'sge_started' : self.sge_started, 
                  'worker_status' : self.worker_status,
                  'instance_state' : self.m_state,
-                 'instance_type' : self.type}
+                 'instance_type' : self.type,
+                 'public_ip' : self.public_ip}
                 
         if self.load != 0:
             lds = self.load.split(' ')

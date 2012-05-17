@@ -9,7 +9,8 @@ var pending_instance = false;
 
 // The number of "expected" pending instances to be drawn
 var num_pending_instances = 0;
-// The lifecycle of an instance being requested (eg, on-deman, spot)
+
+// The lifecycle of an instance being requested (eg, on-demand, spot)
 var inst_lifecycle = "on-demand";
 
 // The length of instances[] at the time of the user adding new instances
@@ -346,24 +347,29 @@ function get_vol_ind(inst){
 function refreshTip(){
     if (selected_instance != -1 && selected_instance < instances.length){
         if (selected_instance == 0){
-            i_str = "<ul><li><b>Master Node</b></li><li>&nbsp;</li><li><b>" + instances[selected_instance].id + "</b></li><li>Alive: " + instances[selected_instance].time_in_state + "</li><li>Type: " + instances[selected_instance].instance_type + "</li>";
+            i_str = "<ul><li><b>Master Node</b></li><li>&nbsp;</li><li><b>" + instances[selected_instance].id + "</b></li><li>Alive: " + instances[selected_instance].time_in_state + "</li><li>Type: " + instances[selected_instance].instance_type + "</li>\
+                     <li>IP: " +  instances[selected_instance].public_ip + "</li>";
         }
         else{
+            // Show worker instance information
             i_str = "<ul><li><b>" + instances[selected_instance].id + "</b></li><li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>\
-            <li style='height:6px;'></li><li><div class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>Filesystems</li>\
-    	    <li><div class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>Permissions</li>\
-    	    <li><div class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>Scheduler</li>";
+            <li>IP: " + instances[selected_instance].public_ip + "</li>\
+            <li>Type: " + instances[selected_instance].type + "</li>\
+            <li><div title=\"Filesystems\" class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>\
+    	    <div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>\
+    	    <div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>\
+            <img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance(" + instances[selected_instance].id + ")\">&nbsp;\
+            <img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance(" + instances[selected_instance].id + ")\">\
+            </li>";
 	    }
         $('#cluster_view_tooltip').html(i_str);
     }else{
         if (use_autoscaling == true) {
-            // i_str = "<span id='toggle_autoscaling_link' style='cursor:pointer; background-image:url(/cloud/static/images/ying_yang.png); background-repeat:no-repeat; display:block; width:50px; height:50px; margin-left:auto; margin-right:auto;'>&nbsp;</span>"
             i_str = '<br/>Autoscaling is <span style="color: green;">on</span>.<br/> Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">off</a>?'
             i_str += '<p>Min nodes: <a class="editable">' + as_min + '</a>'
             i_str += '<br/>Max nodes: <a class="editable">' + as_max + '</a>'
             i_str += '<br/><span id="adjust_autoscaling_link" style="text-decoration: underline; cursor:pointer;">Adjust limits?</span></p>'
         } else {
-            // i_str = "<br/><span id='toggle_autoscaling_link' style='cursor:pointer; background-image:url(/cloud/static/images/ying_yang.png); background-repeat:no-repeat; display:block; width:50px; height:50px; margin-left:auto; margin-right:auto;'>&nbsp;</span>"
             i_str = '<br/><br/>Autoscaling is <span style="color: red;">off</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">on</a>?'
     	}
     	$('#cluster_view_tooltip').html(i_str);
@@ -381,8 +387,16 @@ function refreshTip(){
     			$('#adjust_autoscaling').show();
     		}
     	});
-        //$('#cluster_view_tooltip').html(cluster_view_tooltip_base);
     }
+}
+
+function terminateInstance(instanceid) {
+        alert("Terminate: " + instanceid);
+        return true;
+}
+function rebootInstance(instanceid) {
+        alert("Reboot: " + instanceid);
+        return true;
 }
 
 // Get the co-ordinates of an event, relative to the event target
