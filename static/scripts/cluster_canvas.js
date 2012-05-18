@@ -344,6 +344,34 @@ function get_vol_ind(inst){
     return 2;
 }
 
+// Build the HTML for the instance details panel/canvas
+function buildWorkerInstanceDetails() {
+        // Instance ID
+        worker_details = "<li><b>" + instances[selected_instance].id + "</b></li>";
+        // Instance state
+        worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>";
+        // Instance IP
+        worker_details += "<li>IP: " + instances[selected_instance].public_ip + "</li>";
+        // Instance type
+        worker_details += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
+        // Blank line
+        worker_details += "<li>&nbsp;</li>";
+        // Filesystem status
+        worker_details += "<li>";
+        worker_details += "<div title=\"Filesystems\" class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>";
+        // Permissions status
+    	worker_details += "<div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>";
+        // Scheduler status
+    	worker_details += "<div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>";
+        // Reboot button
+        worker_details += "<img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance(" + instances[selected_instance].id + ")\">&nbsp;";
+        // Terminate button
+        worker_details += "<img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance(" + instances[selected_instance].id + ")\">";
+        worker_details += "</li>";
+
+        return worker_details;
+}
+
 function refreshTip(){
     if (selected_instance != -1 && selected_instance < instances.length){
         if (selected_instance == 0){
@@ -352,16 +380,8 @@ function refreshTip(){
         }
         else{
             // Show worker instance information
-            i_str = "<ul><li><b>" + instances[selected_instance].id + "</b></li><li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>\
-            <li>IP: " + instances[selected_instance].public_ip + "</li>\
-            <li>Type: " + instances[selected_instance].type + "</li>\
-            <li><div title=\"Filesystems\" class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>\
-    	    <div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>\
-    	    <div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>\
-            <img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance(" + instances[selected_instance].id + ")\">&nbsp;\
-            <img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance(" + instances[selected_instance].id + ")\">\
-            </li>";
-	    }
+            i_str = "<ul>" + buildWorkerInstanceDetails();
+        }
         $('#cluster_view_tooltip').html(i_str);
     }else{
         if (use_autoscaling == true) {
@@ -391,7 +411,14 @@ function refreshTip(){
 }
 
 function terminateInstance(instanceid) {
+        // root/remove_instance?instance_id=instanceid
         alert("Terminate: " + instanceid);
+        $.get("root/remove_instance",
+                        {instance_id : instanceid},
+                        function(result) {
+                                alert('Got ' + result);
+                        }
+             );
         return true;
 }
 function rebootInstance(instanceid) {
