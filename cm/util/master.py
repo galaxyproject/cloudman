@@ -13,6 +13,7 @@ from cm.services.apps.pss import PSS
 from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.postgres import PostgresService
+from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, S3ResponseError
@@ -165,14 +166,13 @@ class ConsoleManager(object):
             return ("configuring", None)
         return (None, None)
     
+    @TestFlag(False)
     def start( self ):
         """ This method is automatically called as CloudMan starts; it tries to add
         and start available cluster services (as provided in the cluster's 
         configuration and persistent data )"""
         log.debug("ud at manager start: %s" % self.app.ud)
-        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
-            log.debug("Attempted to start the ConsoleManager. TESTFLAG is set; nothing to start, passing.")
-            return False
+        # Always add SGE service
         self.app.manager.services.append(SGEService(self.app))
         
         if self.app.LOCALFLAG is True:
@@ -1206,15 +1206,16 @@ class ConsoleManager(object):
             inst.terminate()
             # log.debug("Initiated termination of instance '%s'" % inst.id )
     
+    @TestFlag({}) #{'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
     def check_for_new_version_of_CM(self):
         """ Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
-        :rtype: bool
-        :return: If default revison number of CM is greater than user's version of CM, return True.
-                 Else, return False
+        
+        :rtype: dict
+        :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where each key 
+                 maps to an string representation of an int that corresponds to the version of
+                 CloudMan in the default repository vs. the currently running user's version.
+                 If CloudMan is unable to determine the versions, an empty dict is returned.
         """
-        if self.app.TESTFLAG is True:
-            log.debug( "Attempted to check for new version of CloudMan, but TESTFLAG is set." )
-            return {} #{'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
         log.debug("Checking for new version of CloudMan")
         s3_conn = self.app.cloud_interface.get_s3_connection()
         user_CM_rev = misc.get_file_metadata(s3_conn, self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision')
