@@ -9,6 +9,7 @@ from boto.ec2.connection import EC2Connection
 
 from cm.clouds import CloudInterface
 from cm.util.master import Instance
+from cm.util.decorators import TestFlag
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -39,12 +40,9 @@ class EC2Interface(CloudInterface):
                     pass
         return self.ami
     
+    @TestFlag('something.good')
     def get_type( self ):
         if self.instance_type is None:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get instance type, but TESTFLAG is set. Returning 'something.good'")
-                self.instance_type = 'something.good'
-                return self.instance_type
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance type, attempt %s' % i)

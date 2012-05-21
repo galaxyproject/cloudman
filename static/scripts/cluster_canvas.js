@@ -364,9 +364,9 @@ function buildWorkerInstanceDetails() {
         // Scheduler status
     	worker_details += "<div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>";
         // Reboot button
-        worker_details += "<img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance(" + instances[selected_instance].id + ")\">&nbsp;";
+        worker_details += "<img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance('" + instances[selected_instance].id + "')\">&nbsp;";
         // Terminate button
-        worker_details += "<img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance(" + instances[selected_instance].id + ")\">";
+        worker_details += "<img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance('" + instances[selected_instance].id + "')\">";
         worker_details += "</li>";
 
         return worker_details;
