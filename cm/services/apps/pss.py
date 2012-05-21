@@ -91,11 +91,12 @@ class PSS(ApplicationService):
                     % (b.name, self.pss_filename))
                 misc.get_file_from_bucket(s3_conn, b.name, self.pss_filename, local_pss_file)
         if os.path.exists(local_pss_file):
-            log.debug("%s found and saved to '%s'; running it now" \
+            log.info("%s found and saved to '%s'; running it now (note that this may take a while)" \
                 % (self.pss_filename, os.path.join(self.app.ud['cloudman_home'], self.pss_filename)))
             os.chmod(local_pss_file, 0755) # Ensure the script is executable
             misc.run('cd %s;./%s' % (self.app.ud['cloudman_home'], self.pss_filename))
             self.save_to_bucket()
+            log.info("Done running {0}".format(self.pss_filename))
         else:
             log.debug("%s does not exist or could not be downloaded; continuing without running it." \
                 % self.svc_type)
