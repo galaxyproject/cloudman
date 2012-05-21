@@ -5,7 +5,7 @@ from cm.util import paths
 from cm.clouds.cloud_config import CloudConfig
 
 log = logging.getLogger( 'cloudman' )
-logging.getLogger('boto').setLevel(logging.INFO)
+# logging.getLogger('boto').setLevel(logging.INFO)
 
 class CMLogHandler(logging.Handler):
     def __init__(self, app):
