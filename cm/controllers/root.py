@@ -196,7 +196,7 @@ class CM(BaseController):
 
     @expose
     def reboot_instance(self, trans, instance_id=''):
-        if instance_if == '';
+        if instance_id == '':
             return
         self.app.manager.reboot_instance(instance_id)
         return self.instance_state_json(trans)

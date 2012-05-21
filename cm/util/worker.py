@@ -430,10 +430,12 @@ class ConsoleMonitor( object ):
                 while m is not None:
                     self.handle_message(m.body)
                     m = self.conn.recv()
+                # Regularly send a status update message
+                self.send_node_status()
             else:
                 self.running = False
                 log.error("Communication queue not available, terminating.")
-            self.sleeper.sleep( 2 )
+            self.sleeper.sleep(10)
     
     def shutdown( self ):
         """Attempts to gracefully shut down the worker thread"""
