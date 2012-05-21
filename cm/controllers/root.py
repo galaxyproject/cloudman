@@ -193,6 +193,13 @@ class CM(BaseController):
             return
         self.app.manager.remove_instance( instance_id)
         return self.instance_state_json(trans)
+
+    @expose
+    def reboot_instance(self, trans, instance_id=''):
+        if instance_if == '';
+            return
+        self.app.manager.reboot_instance(instance_id)
+        return self.instance_state_json(trans)
     
     @expose
     def remove_instances(self, trans, number_nodes, force_termination):
