@@ -525,11 +525,11 @@ div.status_nodata{
 }
 
 ul li div#instance_status_icons img#instance_reboot_icon {
-    height: 8px;
+    height: 10px;
 }
 
 ul li div#instance_status_icons img#instance_terminate_icon {
-    height: 8px;
+    height: 10px;
 }
 
 
