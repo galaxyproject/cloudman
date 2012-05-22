@@ -415,8 +415,7 @@ function refreshTip(){
 function terminateInstance(instanceid) {
         // root/remove_instance?instance_id=instanceid
         if (confirm("Terminate instance " + instanceid + "?")) {
-                $.get("root/remove_instance",
-                        {instance_id : instanceid},
+                $.getJSON('/cloud/root/remove_instance?instance_id=' + instanceid,
                         function(result) {
                         }
                 );
@@ -427,8 +426,7 @@ function terminateInstance(instanceid) {
 function rebootInstance(instanceid) {
         // root/reboot_instance?instance_id=instanceid
         if (confirm("Reboot instance " + instanceid + "?")) {
-                $.get("root/reboot_instance",
-                        {instance_id : instanceid},
+                $.getJSON("/cloud/root/reboot_instance?instance_id=" + instanceid,
                         function(result) {
                         }
                 );
