@@ -348,16 +348,18 @@ function get_vol_ind(inst){
 function buildWorkerInstanceDetails() {
         // Instance ID
         worker_details = "<li><b>" + instances[selected_instance].id + "</b></li>";
-        // Instance state
-        worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>";
         // Instance IP
         if ((instances[selected_instance].worker_status == "Creating") || 
-                        (instances[selected_instance].public_ip == null)) {
+                        (instances[selected_instance].public_ip == null) ||
+                        (instances[selected_instance].public_ip == "")) {
                 // There's no IP address available (yet)
-                worker_details += "<li>IP: Unknown</li>";
+                worker_details += "<li>&nbsp;</li>";
         } else {
-                worker_details += "<li>IP: " + instances[selected_instance].public_ip + "</li>";
+                worker_details += "<li>(" + instances[selected_instance].public_ip + ")</li>";
         }
+        // Instance state
+        worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>";
+        
         // Instance type
         worker_details += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
         // Blank line
@@ -393,8 +395,7 @@ function buildWorkerInstanceDetails() {
 function refreshTip(){
     if (selected_instance != -1 && selected_instance < instances.length){
         if (selected_instance == 0){
-            i_str = "<ul><li><b>Master Node</b></li><li>&nbsp;</li><li><b>" + instances[selected_instance].id + "</b></li><li>Alive: " + instances[selected_instance].time_in_state + "</li><li>Type: " + instances[selected_instance].instance_type + "</li>\
-                     <li>IP: " +  instances[selected_instance].public_ip + "</li>";
+            i_str = "<ul><li><b>Master Node</b></li><li>&nbsp;</li><li><b>" + instances[selected_instance].id + "</b></li><li>(" +  instances[selected_instance].public_ip + ")</li><li>Alive: " + instances[selected_instance].time_in_state + "</li><li>Type: " + instances[selected_instance].instance_type + "</li>";
         }
         else{
             // Show worker instance information
