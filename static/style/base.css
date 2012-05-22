@@ -502,6 +502,12 @@ a.boxclose{
     margin-top:2px;
 }
 
+div#instance_status_icons {
+    margin: 0 auto;
+    width: 105px;
+    text-align: center;
+}
+
 div.status_green{
     background-image: url(../images/fugue/status.png);
 }

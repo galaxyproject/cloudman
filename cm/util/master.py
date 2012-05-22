@@ -744,6 +744,16 @@ class ConsoleManager(object):
                             print line
                 inst.terminate()
         log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
+
+    def reboot_instance(self, instance_id=''):
+        if instance_id == '':
+            log.warning("Tried to reboot an instance but did not receive instance ID")
+            return False
+        log.info("Specific reboot of instance '%s' requested." % instance_id)
+        for inst in self.worker_instances:
+            if inst.id == instance_id:
+               inst.reboot()
+        log.info("Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
     
     def add_instances( self, num_nodes, instance_type='', spot_price=None):
         self.app.cloud_interface.run_instances(num=num_nodes,

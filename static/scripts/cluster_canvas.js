@@ -356,8 +356,9 @@ function buildWorkerInstanceDetails() {
         worker_details += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
         // Blank line
         worker_details += "<li>&nbsp;</li>";
-        // Filesystem status
         worker_details += "<li>";
+        worker_details += "<div id='instance_status_icons'>";
+        // Filesystem status
         worker_details += "<div title=\"Filesystems\" class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>";
         // Permissions status
     	worker_details += "<div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>";
@@ -367,6 +368,7 @@ function buildWorkerInstanceDetails() {
         worker_details += "<img src=\"/cloud/static/images/reboot.png\" height=10px title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance('" + instances[selected_instance].id + "')\">&nbsp;";
         // Terminate button
         worker_details += "<img src=\"/cloud/static/images/terminate.png\" height=10px title=\"Terminate instance\" alt=\"Terminate instance\" onclick=\"return terminateInstance('" + instances[selected_instance].id + "')\">";
+        worker_details += "</div>";
         worker_details += "</li>";
 
         return worker_details;
@@ -412,17 +414,25 @@ function refreshTip(){
 
 function terminateInstance(instanceid) {
         // root/remove_instance?instance_id=instanceid
-        alert("Terminate: " + instanceid);
-        $.get("root/remove_instance",
+        if (confirm("Terminate instance " + instanceid + "?")) {
+                $.get("root/remove_instance",
                         {instance_id : instanceid},
                         function(result) {
-                                alert('Got ' + result);
                         }
-             );
+                );
+        }
         return true;
 }
+
 function rebootInstance(instanceid) {
-        alert("Reboot: " + instanceid);
+        // root/reboot_instance?instance_id=instanceid
+        if (confirm("Reboot instance " + instanceid + "?")) {
+                $.get("root/reboot_instance",
+                        {instance_id : instanceid},
+                        function(result) {
+                        }
+                );
+        }
         return true;
 }
 
