@@ -191,7 +191,7 @@ class CM(BaseController):
     def remove_instance(self, trans, instance_id=''):
         if instance_id == '':
             return
-        self.app.manager.remove_instance( instance_id)
+        self.app.manager.remove_instance(instance_id)
         return self.instance_state_json(trans)
 
     @expose
