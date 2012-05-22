@@ -524,6 +524,13 @@ div.status_nodata{
     background-image: url(../images/fugue/status-offline.png);
 }
 
+ul li div#instance_status_icons img#instance_reboot_icon {
+    height: 8px;
+}
+
+ul li div#instance_status_icons img#instance_terminate_icon {
+    height: 8px;
+}
 
 
 #cluster_view {
