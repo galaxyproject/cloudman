@@ -1,7 +1,7 @@
 import config, logging, logging.config, sys
 from cm.util import misc
 from cm.util import paths
-from cm.framework.messages.api import Messages
+from cm.framework import messages
 
 from cm.clouds.cloud_config import CloudConfig
 
@@ -59,7 +59,7 @@ class UniverseApplication( object ):
         # TODO: Ideally, this should be stored some form of more persistent
         # medium (eg, database, file, session) and used as a simple module (vs. object)
         # but that's hopefully still forthcoming.
-        self.msgs = Messages()
+        self.msgs = messages.Messages()
         
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
