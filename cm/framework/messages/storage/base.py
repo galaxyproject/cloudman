@@ -15,13 +15,15 @@ class Message(object):
         self.message = message
         self.added_at = dt.datetime.utcnow()
     
+    def __repr__(self):
+        return "[{0}] {1} ({2})".format(self.level, self.message, self.added_at)
 
 class BaseStorage(object):
     """
     This is the base backend for temporary message storage.
     
     This is not a complete class; to be a usable storage backend, it must be
-    subclassed and the two methods ``_get`` and ``_store`` overridden.
+    subclassed and methods ``_get``, ``_store``, and ``dismiss`` overridden.
     """
     
     def __init__(self, *args, **kwargs):
@@ -74,6 +76,14 @@ class BaseStorage(object):
         not be stored.
         
         One type of object must be able to be stored, ``Message``.
+        
+        **This method must be implemented by a subclass.**
+        """
+        raise NotImplementedError()
+    
+    def dismiss(self):
+        """
+        Dismiss all the currently stored messages except CRITICAL ones.
         
         **This method must be implemented by a subclass.**
         """

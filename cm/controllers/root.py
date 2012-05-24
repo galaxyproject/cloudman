@@ -332,6 +332,10 @@ class CM(BaseController):
         return msgs
     
     @expose
+    def dismiss_messages(self, trans):
+        self.app.msgs.dismiss()
+    
+    @expose
     def restart_service(self, trans, service_name):
         svcs = self.app.manager.get_services(service_name)
         if svcs:
