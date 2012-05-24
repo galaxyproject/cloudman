@@ -18,14 +18,14 @@ class Messages(object):
     
     def __init__(self):
         self.storage = default_storage()
-
+    
     def add_message(self, level, message):
         """
         Attempts to add a message to the request using the 'messages' module.
         """
         # storage = default_storage()
         self.storage.add(level, message)
-
+    
     def get_messages(self):
         """
         Returns stored messages, otherwise returns an empty list.
@@ -35,51 +35,64 @@ class Messages(object):
         # storage = default_storage()
         messages, retrieved = self.storage._get()
         return messages
-
-    def get_level():
+    
+    def dismiss(self):
+        """
+        Irreversably dismiss all the currently stored messages.
+        """
+        self.storage.dismiss()
+    
+    def get_level(self):
         """
         Returns the minimum level of messages to be recorded.
-    
+        
         """
         storage = default_storage()
         return storage.level
-
-    def set_level(level):
+    
+    def set_level(self, level):
         """
         Sets the minimum level of messages to be recorded, returning ``True`` if
         the level was recorded successfully.
-    
+        
         If set to ``None``, the default level will be used (see the ``get_level``
         method).
         """
         return True
-
-    def debug(message):
+    
+    def debug(self, message):
         """
         Adds a message with the ``DEBUG`` level.
         """
-        add_message(constants.DEBUG, message)
-
-    def info(message):
+        self.add_message(constants.DEBUG, message)
+    
+    def info(self, message):
         """
         Adds a message with the ``INFO`` level.
         """
-        add_message(constants.INFO, message)
-
-    def success(message):
+        self.add_message(constants.INFO, message)
+    
+    def success(self, message):
         """
         Adds a message with the ``SUCCESS`` level.
         """
-        add_message(constants.SUCCESS, message)
-
-    def warning(message):
+        self.add_message(constants.SUCCESS, message)
+    
+    def warning(self, message):
         """
         Adds a message with the ``WARNING`` level.
         """
-        add_message(constants.WARNING, message)
-
-    def error(message):
+        self.add_message(constants.WARNING, message)
+    
+    def error(self, message):
         """
         Adds a message with the ``ERROR`` level.
         """
-        add_message(constants.ERROR, message)
+        self.add_message(constants.ERROR, message)
+    
+    def critical(self, message):
+        """
+        Adds a message with the ``CRITICAL`` level.
+        """
+        self.add_message(constants.CRITICAL, message)
+    

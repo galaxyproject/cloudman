@@ -11,7 +11,8 @@ vertical-align: top;
     <div id="messages" class="messages">
         <div class="msgs_header">
             <span class="msgs_title">Messages</span>
-            <span class="help_text">(Non ERROR messages will automatically disappear after 5 minutes.)</span>
+            <span class="help_text">(CRITICAL messages cannot be dismissed.)</span>
+            <a id="msgs_dismiss"></a>
         </div>
         <div id="messages_list"></div>
     </div>
@@ -639,10 +640,15 @@ function update_messages(data) {
         var mList = $('#messages_list');
         mList.html('');
         $.each(data, function(i){
-                $('<li/>')
-                .addClass('message')
-                .text(data[i].message + ' (' + data[i].added_at.split('.')[0] + ')')
-                .appendTo(mList);
+            txt = data[i].message + ' (' + data[i].added_at.split('.')[0] + ')'
+            // Mark CRITICAL msgs
+            if (data[i].level == '50') {
+                txt = '[CRITICAL] ' + txt;
+            }
+            $('<li/>')
+            .addClass('message')
+            .text(txt)
+            .appendTo(mList);
         });
         $('#messages').show();
     }
@@ -680,6 +686,14 @@ function reboot_update(){
     });
 }
 
+function dismiss_messages(){
+    $.ajax({
+        type: "POST",
+        url:"${h.url_for(controller='root',action='dismiss_messages')}"
+    }).done(function(){
+       update();
+    });
+}
 function show_confirm(scf, snap_id){
     $('#del_scf_popup').show();
     $('#scf_txt').text(scf);
@@ -853,6 +867,9 @@ $(document).ready(function() {
     });
     $('.boxclose').click(function(){
         hidebox();
+    });
+    $('#msgs_dismiss').click(function(){
+        dismiss_messages();
     });
     $('#log_container_body').hide();
     $('#log_container_header').click(function() {

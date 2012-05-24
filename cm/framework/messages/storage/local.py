@@ -14,20 +14,12 @@ class LocalStorage(BaseStorage):
     
     def _get(self, *args, **kwargs):
         """ 
-        Retrieves a list of known messages and removes any expired messages
-        from memory.
+        Retrieves a list of all known messages.
         
         This storage always returns everything it has, so return True
         for the all_retrieved flag.
         """
-        msgs = self.messages
-        # Remove expired messages. A message is expired if it is older than
-        # 5 minutes and is not an ERROR message.
-        for msg in self.messages:
-            if msg.level != constants.ERROR and \
-               (dt.datetime.utcnow() - msg.added_at).seconds > 300:
-               self.messages.remove(msg)
-        return msgs, True
+        return self.messages, True
 
     def _store(self, messages, *args, **kwargs):
         """ Stores a list of messages to memory.
@@ -35,3 +27,15 @@ class LocalStorage(BaseStorage):
         if messages:
             self.messages += messages
         return []
+    
+    def dismiss(self):
+        """
+        Dismiss/remove all but CRITICAL messages from memory.
+        CRITICAL messages cannot be dismissed.
+        """
+        for msg in list(self.messages):
+            if msg.level != constants.CRITICAL:
+                self.messages.remove(msg)
+    
+
+        

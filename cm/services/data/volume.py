@@ -198,7 +198,7 @@ class Volume(BlockStorage):
                     msg = "Volume '{0}' is located in the wrong availability zone for this instance. "\
                         "You MUST terminate this instance and start a new one in zone '{1}'."\
                         .format(self.volume_id, self.app.cloud_interface.get_zone())
-                    self.app.msgs.add_message(messages.ERROR, msg)
+                    self.app.msgs.critical(msg)
                     log.error(msg)
                 else:
                     log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. "
