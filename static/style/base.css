@@ -730,6 +730,27 @@ div.report-row label
 
 /* Messages */
 
+.messages{
+    position:absolute;
+    top: 5px;
+    z-index:101;
+    display:none;
+    width:705px;
+    margin-bottom:10px;
+    padding:7px;
+    list-style: none;
+    background-color:#FFF1A8;
+    display: inline-block;
+    border: solid #E2E2D4 1px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -khtml-border-radius: 5px;
+    -moz-box-shadow: 0 1px 5px #333;
+    -webkit-box-shadow: 0 1px 5px #333;
+    
+    clear:both;
+}
+
 .errormessage, .warningmessage, .donemessage, .infomessage, .welcomeBlue, .welcomeRed
 {
     padding: 10px;
