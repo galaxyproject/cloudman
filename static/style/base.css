@@ -751,6 +751,14 @@ div.report-row label
     clear:both;
 }
 
+.msgs_header {
+    margin: 5px 0 8px;
+}
+.msgs_title {
+    font-size: 1.5em;
+    color: #023858;
+}
+
 .errormessage, .warningmessage, .donemessage, .infomessage, .welcomeBlue, .welcomeRed
 {
     padding: 10px;
