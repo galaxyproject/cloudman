@@ -759,6 +759,10 @@ div.report-row label
     color: #023858;
 }
 
+.message {
+    padding: 4px 0;
+}
+
 .errormessage, .warningmessage, .donemessage, .infomessage, .welcomeBlue, .welcomeRed
 {
     padding: 10px;
