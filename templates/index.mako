@@ -8,6 +8,7 @@ vertical-align: top;
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    <div id="messages" class="messages">Messages go here</div>
     <div id="main_text">
         %if initial_cluster_type is None:
             Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
@@ -626,6 +627,23 @@ function update_log(data){
     }
 }
 
+function update_messages(data) {
+    if (data && data.length > 0) {
+        var mList = $('#messages');
+        mList.html("<h2>Messages</h2>");
+        $.each(data, function(i){
+                $('<li/>')
+                .addClass('message')
+                .text(data[i].message)
+                .appendTo(mList);
+        });
+        $('#messages').show();
+    }
+    else {
+        $('#messages').hide();
+    }
+}
+
 function update(repeat_update){
     $.getJSON("${h.url_for(controller='root',action='full_update')}",
         {l_log : last_log},
@@ -633,6 +651,7 @@ function update(repeat_update){
             if (data){
                 update_ui(data.ui_update_data);
                 update_log(data.log_update_data);
+                update_messages(data.messages);
             }
         });
     if (repeat_update === true){
