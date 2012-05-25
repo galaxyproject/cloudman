@@ -730,6 +730,53 @@ div.report-row label
 
 /* Messages */
 
+.messages{
+    position:absolute;
+    top: 5px;
+    z-index:101;
+    display:none;
+    width:705px;
+    margin-bottom:10px;
+    padding:7px;
+    list-style: none;
+    background-color:#FFF1A8;
+    display: inline-block;
+    border: solid #E2E2D4 1px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -khtml-border-radius: 5px;
+    -moz-box-shadow: 0 1px 5px #333;
+    -webkit-box-shadow: 0 1px 5px #333;
+    
+    clear:both;
+}
+
+.msgs_header {
+    margin: 5px 0 8px;
+}
+.msgs_title {
+    font-size: 1.5em;
+    color: #023858;
+}
+
+.message {
+    padding: 4px 0;
+}
+
+#msgs_dismiss{
+    float:right;
+    width:15px;
+    height:15px;
+    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
+    margin-top:-7px;
+    cursor: pointer;
+}
+
+#msgs_dismiss:hover {
+    background-image : url(/cloud/static/images/delete_icon_dark.png);
+}
+
+
 .errormessage, .warningmessage, .donemessage, .infomessage, .welcomeBlue, .welcomeRed
 {
     padding: 10px;

@@ -4,6 +4,7 @@ import commands
 
 from boto.exception import EC2ResponseError
 
+from cm.framework import messages
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
 
@@ -194,9 +195,11 @@ class Volume(BlockStorage):
         except EC2ResponseError, e:
             for er in e.errors:
                 if er[0] == 'InvalidVolume.ZoneMismatch':
-                    log.error("Volume '{0}' is in the wrong zone for this instance. "
-                        "IT IS REQUIRED TO START A NEW INSTANCE IN ZONE '{1}'."\
-                        .format(self.volume_id, self.app.cloud_interface.get_zone()))
+                    msg = "Volume '{0}' is located in the wrong availability zone for this instance. "\
+                        "You MUST terminate this instance and start a new one in zone '{1}'."\
+                        .format(self.volume_id, self.app.cloud_interface.get_zone())
+                    self.app.msgs.critical(msg)
+                    log.error(msg)
                 else:
                     log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. "
                         "Exception: %s (%s)" % (self.volume_id,

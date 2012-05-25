@@ -5,6 +5,7 @@ import datetime as dt
 
 from cm.util.bunch import Bunch
 
+from cm.framework import messages
 from cm.util import misc, comm
 from cm.services.autoscale import Autoscale
 from cm.services import service_states

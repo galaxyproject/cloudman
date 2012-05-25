@@ -310,7 +310,8 @@ class CM(BaseController):
     @expose
     def full_update(self, trans, l_log=0):
         return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
-                                'log_update_data' : self.log_json(trans, l_log, no_json=True)})
+                                'log_update_data' : self.log_json(trans, l_log, no_json=True),
+                                'messages': self.messages_string(self.app.msgs.get_messages())})
     
     @expose
     def log_json(self, trans, l_log=0, no_json=False):
@@ -320,6 +321,19 @@ class CM(BaseController):
         else:
             return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
+    
+    def messages_string(self, messages):
+        """
+        Convert all messages into a string representation.
+        """
+        msgs = []
+        for msg in messages:
+            msgs.append({'message': msg.message, 'level': msg.level, 'added_at': str(msg.added_at)})
+        return msgs
+    
+    @expose
+    def dismiss_messages(self, trans):
+        self.app.msgs.dismiss()
     
     @expose
     def restart_service(self, trans, service_name):
