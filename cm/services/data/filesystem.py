@@ -1,4 +1,4 @@
-import commands, os, time, shutil, threading, pwd, grp
+import commands, os, time, shutil, threading, pwd, grp, subprocess
 from datetime import datetime
 
 from boto.exception import EC2ResponseError
@@ -175,12 +175,25 @@ class Filesystem(DataService):
                     else:
                         log.debug("Path '%s' does not yet exists." % volume.get_device())
                         time.sleep(4)
-                if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
-                    # FIXME: Assume if a file system cannot be mounted that it's because there is not a file system on the device so create one
-                    if run('/sbin/mkfs.xfs %s' % volume.get_device(), "Failed to create filesystem on device '%s'" % volume.get_device(), "Created filesystem on device '%s'" % volume.get_device()):
-                        if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point), "Error mounting file system '%s' from '%s'" % (self.mount_point, volume.get_device()), "Successfully mounted file system '%s' from '%s'" % (self.mount_point, volume.get_device())):
-                            log.error("Failed to mount device '%s' to mount point '%s'" % (volume.get_device(), self.mount_point))
+                # Until the underlying issue is fixed (see FIXME below), mask this
+                # even more by custom-handling the run command and thus not printing the err
+                cmd = '/bin/mount %s %s' % (volume.get_device(), self.mount_point)
+                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                _, _ = process.communicate()
+                if process.returncode != 0:
+                    # FIXME: Assume if a file system cannot be mounted that it's because
+                    # there is not a file system on the device so try creating one
+                    if run('/sbin/mkfs.xfs %s' % volume.get_device(), 
+                        "Failed to create filesystem on device %s" % volume.get_device(),
+                        "Created filesystem on device %s" % volume.get_device()):
+                        if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point),
+                            "Error mounting file system %s from %s" % (self.mount_point, volume.get_device()),
+                            "Successfully mounted file system %s from %s" % (self.mount_point, volume.get_device())):
+                            log.error("Failed to mount device '%s' to mount point '%s'" 
+                                % (volume.get_device(), self.mount_point))
                             return False
+                else:
+                    log.info("Successfully mounted file system {0} from {1}".format(self.mount_point, volume.get_device()))
                 try:
                     # Default owner of all mounted file systems to `galaxy` user
                     os.chown(self.mount_point, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
