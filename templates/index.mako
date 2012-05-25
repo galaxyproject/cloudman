@@ -8,14 +8,7 @@ vertical-align: top;
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
-    <div id="messages" class="messages">
-        <div class="msgs_header">
-            <span class="msgs_title">Messages</span>
-            <span class="help_text">(CRITICAL messages cannot be dismissed.)</span>
-            <a id="msgs_dismiss"></a>
-        </div>
-        <div id="messages_list"></div>
-    </div>
+    <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
             Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
@@ -635,29 +628,6 @@ function update_log(data){
     }
 }
 
-function update_messages(data) {
-    if (data && data.length > 0) {
-        // Clear the old list & repopulate
-        var mList = $('#messages_list');
-        mList.html('');
-        $.each(data, function(i){
-            txt = data[i].message + ' (' + data[i].added_at.split('.')[0] + ')'
-            // Mark CRITICAL msgs
-            if (data[i].level == '50') {
-                txt = '[CRITICAL] ' + txt;
-            }
-            $('<li/>')
-            .addClass('message')
-            .text(txt)
-            .appendTo(mList);
-        });
-        $('#messages').show();
-    }
-    else {
-        $('#messages').hide();
-    }
-}
-
 function update(repeat_update){
     $.getJSON("${h.url_for(controller='root',action='full_update')}",
         {l_log : last_log},
@@ -687,14 +657,6 @@ function reboot_update(){
     });
 }
 
-function dismiss_messages(){
-    $.ajax({
-        type: "POST",
-        url:"${h.url_for(controller='root',action='dismiss_messages')}"
-    }).done(function(){
-       update();
-    });
-}
 function show_confirm(scf, snap_id){
     $('#del_scf_popup').show();
     $('#scf_txt').text(scf);
@@ -868,9 +830,6 @@ $(document).ready(function() {
     });
     $('.boxclose').click(function(){
         hidebox();
-    });
-    $('#msgs_dismiss').click(function(){
-        dismiss_messages();
     });
     $('#log_container_body').hide();
     $('#log_container_header').click(function() {

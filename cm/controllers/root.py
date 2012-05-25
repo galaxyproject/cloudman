@@ -309,6 +309,7 @@ class CM(BaseController):
         status_dict['snapshot'] = {'status' : str(snap_status[0]),
                                    'progress' : str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
+        status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         return to_json_string(status_dict)
     
     @expose
