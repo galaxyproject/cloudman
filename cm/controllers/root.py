@@ -117,9 +117,13 @@ class CM(BaseController):
             # Clean form input data
             if bucket_a_key == '':
                 bucket_a_key = None
+            else:
+                bucket_a_key = bucket_a_key.strip()
             if bucket_s_key == '':
                 bucket_s_key = None
-            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key.strip(), bucket_s_key.strip())
+            else:
+                bucket_s_key = bucket_s_key.strip()
+            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
         else:
             log.error("Wanted to add a file system but provided no bucket name.")
         return "FSACK"
