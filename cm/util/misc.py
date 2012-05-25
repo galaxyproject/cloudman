@@ -54,6 +54,9 @@ def shellVars2Dict(filename):
             result[key] = val
     return result
 
+def formatSeconds(delta):
+    return '%s' % (delta.total_seconds())
+
 def formatDelta(delta):
     d = delta.days
     h = delta.seconds / 3600

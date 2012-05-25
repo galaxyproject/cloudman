@@ -477,6 +477,7 @@ $(function() {
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
 ## <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.stopwatch.js')}"> </script>
 <script type="text/javascript">
 
 function hidebox(){

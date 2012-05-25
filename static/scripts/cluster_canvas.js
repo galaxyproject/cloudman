@@ -348,18 +348,23 @@ function get_vol_ind(inst){
 function buildWorkerInstanceDetails() {
         // Instance ID
         worker_details = "<li><b>" + instances[selected_instance].id + "</b></li>";
-        // Instance IP
         if ((instances[selected_instance].worker_status == "Creating") || 
                         (instances[selected_instance].public_ip == null) ||
                         (instances[selected_instance].public_ip == "")) {
                 // There's no IP address available (yet)
                 worker_details += "<li>&nbsp;</li>";
+                // Instance state
+                worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li>";
+                // Time alive
+                worker_details += "<li>Alive: 00:00:00</li>";
         } else {
+                // Instance IP
                 worker_details += "<li>(" + instances[selected_instance].public_ip + ")</li>";
+                // Instance state
+                worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li>";
+                // Time alive
+                worker_details += "<li>" + drawAliveTime() + "</li>";
         }
-        // Instance state
-        worker_details += "<li>State: " + instances[selected_instance].worker_status + "</li><li>Alive: " + instances[selected_instance].time_in_state + "</li>";
-        
         // Instance type
         worker_details += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
         // Blank line
@@ -392,10 +397,45 @@ function buildWorkerInstanceDetails() {
         return worker_details;
 }
 
+function drawAliveTime() {
+        var time_string = "";
+        var time = Math.floor(instances[selected_instance].time_in_state);
+        var hours = Math.floor(time / 3600);
+
+        if (hours >= 24) {
+                // More than a day
+                var days = Math.floor(hours / 24);
+                time_string = days + " day";
+                if (days > 1) {
+                        time_string += "s";
+                }
+        } else if (hours >= 168) {
+                // More than a week
+                var weeks = Math.floor(hours / 168);
+                time_string = weeks + " week";
+                if (weeks > 1) {
+                        time_string += "s";
+                }
+        } else {
+                // Less than a day
+                time -= (hours * 60 * 60);
+                var minutes = Math.floor(time/60);
+                time -= (minutes * 60);
+                var seconds = Math.floor(time);
+                time_string = "<span id='master_stopwatch'>" + ("0" + hours).slice(-2) + ":" + ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2) + "</span>";
+        }
+        return "Alive: " + time_string;
+}
+
 function refreshTip(){
     if (selected_instance != -1 && selected_instance < instances.length){
         if (selected_instance == 0){
-            i_str = "<ul><li><b>Master Node</b></li><li>&nbsp;</li><li><b>" + instances[selected_instance].id + "</b></li><li>(" +  instances[selected_instance].public_ip + ")</li><li>Alive: " + instances[selected_instance].time_in_state + "</li><li>Type: " + instances[selected_instance].instance_type + "</li>";
+            i_str = "<ul>";
+            i_str += "<li><b>Master Node</b></li><li>&nbsp;</li>";
+            i_str += "<li><b>" + instances[selected_instance].id + "</b></li>";
+            i_str += "<li>(" +  instances[selected_instance].public_ip + ")</li>";
+            i_str += "<li>" + drawAliveTime() + "</li>";
+            i_str += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
         }
         else{
             // Show worker instance information
@@ -412,7 +452,10 @@ function refreshTip(){
             i_str = '<br/><br/>Autoscaling is <span style="color: red;">off</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">on</a>?'
     	}
     	$('#cluster_view_tooltip').html(i_str);
-    	$('#toggle_autoscaling_link').click(function(){
+
+        start_instance_timer();
+    	
+        $('#toggle_autoscaling_link').click(function(){
     		$('#overlay').show();
     		if (use_autoscaling == true) {
     			$('#turn_autoscaling_off').show();
@@ -496,6 +539,7 @@ $('#cluster_canvas').click(function(eventObj){
 			}
 	}
 	renderGraph();
+        start_instance_timer();
 });
 
 // This is called when a node it added by the user.
@@ -560,7 +604,7 @@ function update_cluster_canvas(){
                     }
                     new_instance.instance_state = "creating";
                     new_instance.ld = "0 0 0";
-                    new_instance.time_in_state = "0m 0s";
+                    new_instance.time_in_state = "0";
                     new_instance.id = "i-00000000";
                     new_instance.instance_type = "Unknown";
 
@@ -573,8 +617,17 @@ function update_cluster_canvas(){
             
 	    renderGraph();
 	    refreshTip();
+            start_instance_timer();
 	    window.setTimeout(update_cluster_canvas, 10000);
 	});
+}
+
+function start_instance_timer() {
+        if (selected_instance >= 0) {
+                $('#master_stopwatch').stopwatch({
+                        startTime: instances[selected_instance].time_in_state * 1000
+                }).stopwatch('start');
+        }
 }
 
 $(document).ready(function(){

@@ -1392,7 +1392,7 @@ class ConsoleManager(object):
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
-            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
+            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
@@ -1403,7 +1403,7 @@ class ConsoleManager(object):
             else:
                 # Debug only, this should never happen.  If the interface is able to display this, there is load.
                 load = "0 0 0"
-        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type(), 'public_ip' : public_ip }
+        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type(), 'public_ip' : public_ip }
     
 
 class ConsoleMonitor( object ):
@@ -1846,7 +1846,7 @@ class Instance( object ):
     def get_status_dict( self ):
         toret = {'id' : self.id, 
                  'ld' : self.load,
-                 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), 
+                 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), 
                  'nfs_data' : self.nfs_data, 
                  'nfs_tools' : self.nfs_tools, 
                  'nfs_indices' : self.nfs_indices, 
