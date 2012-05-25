@@ -31,8 +31,10 @@ class Bucket(object):
     
     @_if_not_installed("s3fs")
     def _install_s3fs(self):
-        log.info("s3fs is not available; installing it now.")
-        misc.run("cd /tmp; wget --output-document=s3fs.sh http://s3.amazonaws.com/cloudman-os/s3fs.sh")
+        msg = "s3fs is not installed; will install it now (note that this may take a while)."
+        log.info(msg)
+        self.fs.app.msgs.info(msg)
+        misc.run("cd /tmp;wget --output-document=s3fs.sh http://s3.amazonaws.com/cloudman/pss/s3fs.sh")
         misc.run("cd /tmp;sh s3fs.sh")
         log.debug("Done installing s3fs")
     
