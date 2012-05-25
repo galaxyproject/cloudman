@@ -1,0 +1,46 @@
+<div id="messages" class="messages">
+    <div class="msgs_header">
+        <span class="msgs_title">Messages</span>
+        <span class="help_text">(CRITICAL messages cannot be dismissed.)</span>
+        <a id="msgs_dismiss"></a>
+    </div>
+    <div id="messages_list"></div>
+</div>
+
+<script type="text/javascript">
+function update_messages(data) {
+    if (data && data.length > 0) {
+        // Clear the old list & repopulate
+        var mList = $('#messages_list');
+        mList.html('');
+        $.each(data, function(i){
+            txt = data[i].message + ' (' + data[i].added_at.split('.')[0] + ')'
+            // Mark CRITICAL msgs
+            if (data[i].level == '50') {
+                txt = '[CRITICAL] ' + txt;
+            }
+            $('<li/>')
+            .addClass('message')
+            .text(txt)
+            .appendTo(mList);
+        });
+        $('#messages').show();
+    }
+    else {
+        $('#messages').hide();
+    }
+}
+
+function dismiss_messages(){
+    $.ajax({
+        type: "POST",
+        url:"${h.url_for(controller='root',action='dismiss_messages')}"
+    }).done(function(){
+       update();
+    });
+}
+$('#msgs_dismiss').click(function(){
+    dismiss_messages();
+});
+
+</script>

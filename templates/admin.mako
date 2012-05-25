@@ -3,7 +3,8 @@
     <div class="body" style="max-width: 720px; margin: 0 auto;">
         <div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
             <span id="msg" class="info_msg_box_content" style="display: none"></span>
-        </div>        
+        </div>
+        <%include file="bits/messages.html" />
         <h2>CloudMan Admin Console</h2>
         <div id="main_text">
             This admin panel is a convenient way to gain insight into the status
@@ -322,6 +323,8 @@
             $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
                 function(data){
                     if (data){
+                        // Get any message data
+                        update_messages(data.messages);
                         if (data.galaxy_rev != 'N/A') {
                             // This will always point to galaxy-central but better than nothing?
                             var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/"
