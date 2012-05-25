@@ -61,6 +61,10 @@ class UniverseApplication( object ):
         # but that's hopefully still forthcoming.
         self.msgs = messages.Messages()
         
+        # Check that we actually got user creds in user data and inform user
+        if not ('access_key' in self.ud or 'secret_key' in self.ud):
+            self.msgs.error("No access credentials provided in user data. "
+                "You will not be able to add any services.")
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         self.manager = None
