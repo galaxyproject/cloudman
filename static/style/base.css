@@ -740,7 +740,7 @@ div.report-row label
     padding:7px;
     list-style: none;
     background-color:#FFF1A8;
-    display: inline-block;
+    display: none;
     border: solid #E2E2D4 1px;
     -moz-border-radius: 5px;
     -webkit-border-radius: 5px;

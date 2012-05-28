@@ -1,7 +1,7 @@
 <div id="messages" class="messages">
     <div class="msgs_header">
         <span class="msgs_title">Messages</span>
-        <span class="help_text">(CRITICAL messages cannot be dismissed.)</span>
+        <span class="help_text" id="critical_note" style="display: none">(CRITICAL messages cannot be dismissed.)</span>
         <a id="msgs_dismiss"></a>
     </div>
     <div id="messages_list"></div>
@@ -15,9 +15,10 @@ function update_messages(data) {
         mList.html('');
         $.each(data, function(i){
             txt = data[i].message + ' (' + data[i].added_at.split('.')[0] + ')'
-            // Mark CRITICAL msgs
+            // Mark CRITICAL msgs & show additional help text
             if (data[i].level == '50') {
                 txt = '[CRITICAL] ' + txt;
+                $("#critical_note").show();
             }
             $('<li/>')
             .addClass('message')
