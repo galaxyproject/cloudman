@@ -568,16 +568,22 @@ class ConsoleManager(object):
             for wi in self.worker_instances:
                 if wi.is_spot() and not wi.spot_was_filled():
                     wi.terminate()
-        # Make sure all the services have been shut down before declaring the cluster shut down
-        while(True):
-            log.debug("Waiting for all the services to shut down")
+        # Wait for all the services to shut down before declaring the cluster shut down
+        # (but don't wait indefinitely)
+        time_limit = 300 # wait for max 5 mins before shutting down
+        while(time_limit > 0):
+            log.debug("Waiting ({0} more seconds) for all the services to shut down.".format(time_limit))
             num_off = 0
             for srvc in self.services:
-                if srvc.state == service_states.SHUT_DOWN:
+                if srvc.state == service_states.SHUT_DOWN or srvc.state == service_states.ERROR or \
+                    srvc.state == service_states.UNSTARTED:
                     num_off += 1
             if num_off == len(self.services):
+                log.debug("All services shut down")
                 break
-            time.sleep(6)
+            sleep_time = 6
+            time.sleep(sleep_time)
+            time_limit -= sleep_time
         if delete_cluster:
             self.delete_cluster()
         self.cluster_status = cluster_status.SHUT_DOWN
@@ -1391,7 +1397,7 @@ class ConsoleManager(object):
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
-            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
+            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
@@ -1402,7 +1408,7 @@ class ConsoleManager(object):
             else:
                 # Debug only, this should never happen.  If the interface is able to display this, there is load.
                 load = "0 0 0"
-        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type(), 'public_ip' : public_ip }
+        return  {'id' : self.app.cloud_interface.get_instance_id(), 'ld' : load, 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type' : self.app.cloud_interface.get_type(), 'public_ip' : public_ip }
     
 
 class ConsoleMonitor( object ):
@@ -1845,7 +1851,7 @@ class Instance( object ):
     def get_status_dict( self ):
         toret = {'id' : self.id, 
                  'ld' : self.load,
-                 'time_in_state' : misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), 
+                 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), 
                  'nfs_data' : self.nfs_data, 
                  'nfs_tools' : self.nfs_tools, 
                  'nfs_indices' : self.nfs_indices, 
@@ -1882,11 +1888,11 @@ class Instance( object ):
                     ld = self.load
             elif self.node_ready:
                 ld = "Running"
-            return [self.id, ld, misc.formatDelta(dt.datetime.utcnow() - self.last_m_state_change), \
+            return [self.id, ld, misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), \
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
                     self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatDelta(dt.datetime.utcnow()-self.last_m_state_change),\
+            return [self.id, self.m_state, misc.formatSeconds(dt.datetime.utcnow()-self.last_m_state_change),\
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
                     self.sge_started, self.worker_status]
     
