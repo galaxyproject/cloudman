@@ -90,7 +90,7 @@ class PSS(ApplicationService):
                 log.debug("Cluster bucket '%s' found; looking for post start script '%s'" \
                     % (b.name, self.pss_filename))
                 misc.get_file_from_bucket(s3_conn, b.name, self.pss_filename, local_pss_file)
-        if os.path.exists(local_pss_file):
+        if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this may take a while)" \
                 % (self.pss_filename, os.path.join(self.app.ud['cloudman_home'], self.pss_filename)))
             os.chmod(local_pss_file, 0755) # Ensure the script is executable
@@ -100,7 +100,8 @@ class PSS(ApplicationService):
         else:
             log.debug("%s does not exist or could not be downloaded; continuing without running it." \
                 % self.svc_type)
-        # Prime master instance with data in a seprate thread
+        # Prime bject with instance data (because this may take a while
+        # on some clouds, do so in a seprate thread)
         threading.Thread(target=self._prime_data).start()
         self.state = service_states.SHUT_DOWN
         log.debug("%s service done and marked as '%s'" % (self.svc_type, self.state))
