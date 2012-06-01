@@ -432,7 +432,11 @@ function drawAliveTime() {
 // Expects system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
 // Returns the load, as a percentage, for the last 5 minutes
 function getLoadForDisplay(load_string) {
-       return "<li title=\"Average instance load in the past 5 minutes\">Load: " + (Math.floor(load_string.split(" ")[1] * 100) + "%") + "</li>";
+        load = 0;
+        if (typeof load_string === "string") {
+                load = load_string.split(" ")[1];
+        }
+       return "<li title=\"Average instance load in the past 5 minutes\">Load: " + (Math.floor(load * 100) + "%") + "</li>";
 }
 
 function refreshTip(){
