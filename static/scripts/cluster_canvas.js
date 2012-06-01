@@ -367,6 +367,8 @@ function buildWorkerInstanceDetails() {
         }
         // Instance type
         worker_details += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
+        // Instance load
+        worker_details += getLoadForDisplay(instances[selected_instance].ld);
         // Blank line
         worker_details += "<li>&nbsp;</li>";
         worker_details += "<li>";
@@ -427,6 +429,12 @@ function drawAliveTime() {
         return "Alive: " + time_string;
 }
 
+// Expects system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+// Returns the load, as a percentage, for the last 5 minutes
+function getLoadForDisplay(load_string) {
+       return "<li title=\"Average instance load in the past 5 minutes\">Load: " + (Math.floor(load_string.split(" ")[1] * 100) + "%") + "</li>";
+}
+
 function refreshTip(){
     if (selected_instance != -1 && selected_instance < instances.length){
         if (selected_instance == 0){
@@ -436,6 +444,8 @@ function refreshTip(){
             i_str += "<li>(" +  instances[selected_instance].public_ip + ")</li>";
             i_str += "<li>" + drawAliveTime() + "</li>";
             i_str += "<li>Type: " + instances[selected_instance].instance_type + "</li>";
+            // Instance load
+            i_str += getLoadForDisplay(instances[selected_instance].ld);
         }
         else{
             // Show worker instance information
