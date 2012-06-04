@@ -429,7 +429,7 @@ function drawAliveTime() {
         return "Alive: " + time_string;
 }
 
-// Expects system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+// Expects system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
 // Returns the load, as a percentage, for the last 5 minutes
 function getLoadForDisplay(load_string) {
         load = 0;
