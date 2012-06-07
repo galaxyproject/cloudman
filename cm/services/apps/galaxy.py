@@ -190,7 +190,8 @@ class GalaxyService(ApplicationService):
             edited = False
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
-            config_file = open(config_file_path, 'r').readlines()
+            with open(config_file_path, 'r') as f:
+                config_file = f.readlines()
             new_config_file = open(new_config_file_path, 'w')
             for line in config_file:
                 # Add all of the users in admins_list if no admin users exist
@@ -210,7 +211,6 @@ class GalaxyService(ApplicationService):
                     edited = True
                 new_config_file.write(line)
             new_config_file.close()
-            config_file.close()
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
             os.chown(config_file_path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
