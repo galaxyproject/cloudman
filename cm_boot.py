@@ -256,6 +256,7 @@ def _fix_etc_hosts():
 def main():
     # _run('easy_install -U boto') # Update boto
     _run('easy_install oca') # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
+    _run('easy_install Mako==0.7.0') # required for Galaxy Cloud AMI ami-da58aab3
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     if len(sys.argv) > 1:
