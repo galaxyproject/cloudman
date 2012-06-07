@@ -536,7 +536,8 @@ class ConsoleManager(object):
         return volumes
 
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True,
-                sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True):
+                sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
+                rebooting=False):
         if self.app.TESTFLAG is True:
             log.debug("Shutting down the cluster but the TESTFLAG is set")
             return
@@ -574,6 +575,9 @@ class ConsoleManager(object):
                     wi.terminate()
         # Wait for all the services to shut down before declaring the cluster shut down
         # (but don't wait indefinitely)
+        # This is required becasue with the file systems being removed in parallel via
+        # separate threads, those processes may not have completed by the time the
+        # complete shutdown does.
         time_limit = 300 # wait for max 5 mins before shutting down
         while(time_limit > 0):
             log.debug("Waiting ({0} more seconds) for all the services to shut down.".format(time_limit))
@@ -584,6 +588,9 @@ class ConsoleManager(object):
                     num_off += 1
             if num_off == len(self.services):
                 log.debug("All services shut down")
+                break
+            elif rebooting == True:
+                log.debug("Not waiting for all the services to shut down because we're just rebooting.")
                 break
             sleep_time = 6
             time.sleep(sleep_time)
@@ -603,7 +610,7 @@ class ConsoleManager(object):
             return False
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
-        self.shutdown(sd_filesystems=False, sd_instances=False)
+        self.shutdown(sd_filesystems=False, sd_instances=False, rebooting=True)
         if soft:
             if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'],\
                 self.app.ud['boot_script_name']))):
@@ -1262,13 +1269,25 @@ class ConsoleManager(object):
             log.debug( "Attempted to update CM, but TESTFLAG is set." )
             return None
         if self.check_for_new_version_of_CM():
-            log.info("Updating CloudMan application source file in cluster's bucket '%s'. It will be automatically available the next this cluster is instantiated." % self.app.ud['bucket_cluster'] )
+            log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
+                "It will be automatically available the next time this cluster is instantiated." \
+                % self.app.ud['bucket_cluster'] )
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            # Make a copy of the old/original CM source in cluster's bucket called 'copy_name'
+            # Make a copy of the old/original CM source and boot script in the cluster's bucket
+            # called 'copy_name' and 'copy_boot_name', respectivley
             copy_name = "%s_%s" % (self.app.config.cloudman_source_file_name, dt.date.today())
-            if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, copy_name):
-                # Copy over the default CM to cluster's bucket as self.app.config.cloudman_source_file_name
-                if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_default'], self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, self.app.config.cloudman_source_file_name):
+            copy_boot_name = "%s_%s" % (self.app.ud['boot_script_name'], dt.date.today())
+            if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name, copy_name) and \
+                misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], copy_boot_name):
+                # Now copy CloudMan source from the default bucket to cluster's bucket as
+                # self.app.config.cloudman_source_file_name and cm_boot.py as 'boot_script_name'
+                if misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_default'],
+                    self.app.ud['bucket_cluster'], self.app.config.cloudman_source_file_name,
+                    self.app.config.cloudman_source_file_name) and misc.copy_file_in_bucket(s3_conn,
+                    self.app.ud['bucket_default'], self.app.ud['bucket_cluster'],
+                    'cm_boot.py', self.app.ud['boot_script_name']):
                     return True
         return False
 
