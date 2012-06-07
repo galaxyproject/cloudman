@@ -188,6 +188,25 @@ class EC2Interface(CloudInterface):
                     pass
         return self.local_hostname
     
+    def get_self_public_hostname( self ):
+        if self.self_public_ip is None:
+            if self.app.TESTFLAG is True:
+                log.debug("Attempted to get public hostname, but TESTFLAG is set. Returning '127.0.0.1'")
+                self.self_public_ip = '127.0.0.1'
+                return self.self_public_ip
+            for i in range(0, 5):
+                try:
+                    log.debug('Gathering instance public hostname, attempt %s' % i)
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
+                    self.self_public_ip = fp.read()
+                    fp.close()
+                    if self.self_public_ip:
+                        break
+                except Exception, e:
+                    log.error ( "Error retrieving FQDN: %s" % e )
+                                
+        return self.self_public_ip
+    
     def get_self_public_ip( self ):
         if self.self_public_ip is None:
             if self.app.TESTFLAG is True:
@@ -197,7 +216,7 @@ class EC2Interface(CloudInterface):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public hostname, attempt %s' % i)
-                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
                     self.self_public_ip = fp.read()
                     fp.close()
                     if self.self_public_ip:

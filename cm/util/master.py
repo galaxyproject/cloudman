@@ -2159,7 +2159,13 @@ class Instance( object ):
                 self.zone = msp[3]
                 self.type = msp[4]
                 self.ami = msp[5]
-                self.local_hostname = msp[6]
+                try:
+                    self.local_hostname = msp[6]
+                except:
+                    # Older versions of CloudMan did not pass this value so if the master
+                    # and the worker are running 2 diff versions (can happen after an
+                    # automatic update), don't crash here.
+                    self.local_hostname = self.public_ip
                 log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s"\
                     % (self.private_ip,
                        self.public_ip,
