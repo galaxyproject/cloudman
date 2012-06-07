@@ -55,7 +55,10 @@ def shellVars2Dict(filename):
     return result
 
 def formatSeconds(delta):
-    return '%s' % (delta.total_seconds())
+    # Python 2.7 defines this function but in the mean time...
+    def _total_seconds(td):
+        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
+    return '%s' % (_total_seconds(delta))
 
 def formatDelta(delta):
     d = delta.days
