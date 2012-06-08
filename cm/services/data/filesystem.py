@@ -5,6 +5,7 @@ from boto.exception import EC2ResponseError
 
 from cm.util import paths
 from cm.util.misc import run
+from cm.util.misc import flock
 from cm.services import service_states
 from cm.services.data import DataService
 from cm.services.data import volume_status
@@ -19,6 +20,7 @@ class Filesystem(DataService):
     def __init__(self, app, name):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
+        self.nfs_lock_file = '/tmp/nfs.lockfile'
         self.volumes = []
         self.buckets = []
         self.name = name
@@ -228,17 +230,21 @@ class Filesystem(DataService):
             time.sleep( 2 )
     
     def unmount(self, mount_point=None):
-        """ Unmount file system at provided mount point. If present in /etc/exports, 
-        this method enables NFS on given mount point (i.e., uncomments respective
-        line in /etc/exports and restarts NFS) 
+        """ 
+        Unmount the file system at the provided or the default mount point.
+        If the file system is present in /etc/exports, this method enables
+        NFS on the given mount point by uncommenting the respective line in
+        this file and indicating that the NFS server should to be restarted).
         """
         if mount_point is not None:
             self.mount_point = mount_point
         try:
             mp = self.mount_point.replace('/', '\/') # Escape slashes for sed
-            if run("/bin/sed 's/^%s/#%s/' /etc/exports > /tmp/exports.tmp" % (mp, mp), "Error removing '%s' from '/etc/exports'" % self.mount_point, "Successfully removed '%s' from '/etc/exports'" % self.mount_point):
-                shutil.move( '/tmp/exports.tmp', '/etc/exports' )
-                self.dirty = True
+            # Because we're unmounting the file systems in separate threads, use a lock file
+            with flock(self.nfs_lock_file):
+                if run("/bin/sed 's/^%s/#%s/' /etc/exports > /tmp/exports.tmp" % (mp, mp), "Error removing '%s' from '/etc/exports'" % self.mount_point, "Successfully removed '%s' from '/etc/exports'" % self.mount_point):
+                    shutil.move( '/tmp/exports.tmp', '/etc/exports' )
+                    self.dirty = True
         except Exception, e:
             log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
             return False
@@ -325,17 +331,21 @@ class Filesystem(DataService):
         self.dirty=True
     
     def status(self):
-        """Check if file system is mounted to the location based on its name.
-        Set state to RUNNING if file system is accessible.
-        Set state to ERROR otherwise.
+        """
+        Do a status update for the current file system, checking
+        if the file system is mounted to a location based on its name.
+        Set state to RUNNING if the file system is accessible, otherwise
+        set state to ERROR.
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
         #   % (self.svc_type, self.name, self.state))
         if self.dirty:
-            if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", \
-                "As part of %s filesystem update, successfully restarted NFS server" \
-                % self.name):
-                self.dirty = False
+            # First check if the NFS server needs to be restarted but do it one thread at a time
+            with flock(self.nfs_lock_file):
+                if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server", \
+                    "As part of %s filesystem update, successfully restarted NFS server" \
+                    % self.name):
+                    self.dirty = False
         if self.state==service_states.SHUTTING_DOWN or \
            self.state==service_states.SHUT_DOWN or \
            self.state==service_states.UNSTARTED or \

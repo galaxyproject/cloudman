@@ -10,6 +10,8 @@ from tempfile import mkstemp
 from shutil import move
 import os
 from os import remove, close
+import contextlib
+import errno
 
 
 log = logging.getLogger( 'cloudman' )
@@ -53,6 +55,32 @@ def shellVars2Dict(filename):
         if key:
             result[key] = val
     return result
+
+@contextlib.contextmanager
+def flock(path, wait_delay=1):
+    """
+    A lockfile implementation (from http://code.activestate.com/recipes/576572/)
+    It is primarily intended to be used as a semaphore with multithreaded code.
+    
+    Use like so:
+    with flock('.lockfile'):
+       # do whatever.
+    """
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+        except OSError, e:
+            if e.errno != errno.EEXIST:
+                raise
+            time.sleep(wait_delay)
+            continue
+        else:
+            break
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+        os.unlink(path)
 
 def formatSeconds(delta):
     # Python 2.7 defines this function but in the mean time...

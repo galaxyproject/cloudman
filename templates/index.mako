@@ -420,7 +420,7 @@ vertical-align: top;
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Start CloudMan Cluster" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose CloudMan Platform" id="start_cluster_submit_btn"/>
         </div>
         </form>
     </div>
