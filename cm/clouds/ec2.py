@@ -216,7 +216,7 @@ class EC2Interface(CloudInterface):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public hostname, attempt %s' % i)
-                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
+                    fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-ipv4')
                     self.self_public_ip = fp.read()
                     fp.close()
                     if self.self_public_ip:
