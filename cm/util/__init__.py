@@ -5,6 +5,55 @@ Utility functions used systemwide.
 import logging
 import threading, random, string, re, binascii, pickle, os, sys, stat, grp
 
+from cm.util.bunch import Bunch
+
+# Define available states for various services
+master_states = Bunch(
+    INITIAL_STARTUP="Initial startup",
+    WAITING_FOR_USER_ACTION="Waiting for user action",
+    START_WORKERS="Start workers",
+    STARTING_WORKERS="Starting workers",
+    SEND_MASTER_PUBKEY="Sending master's public key",
+    WAITING_FOR_WORKER_INIT="Waiting for workers",
+    STARTING_SGE="Configuring SGE",
+    WAITING_FOR_WORKER_SGE="Waiting for workers to start SGE",
+    CONFIGURE_GALAXY="Configuring Galaxy",
+    GALAXY_STARTING="Galaxy starting",
+    READY="Ready",
+    SHUTTING_DOWN="Shutting down",
+    SHUT_DOWN="Shut down",
+    ERROR="Error"
+ )
+
+cluster_status = Bunch(
+    STARTING="STARTING", # or configuring services
+    WAITING="WAITING", # on user input
+    READY="READY", # to be used
+    SHUTTING_DOWN="SHUTTING_DOWN",
+    TERMINATED="TERMINATED",
+    ERROR="ERROR"
+ )
+
+# All of the following are used by the Instance class
+instance_states = Bunch(
+    PENDING = "pending",
+    RUNNING = "running",
+    SHUTTING_DOWN = "shutting-down",
+    TERMINATED = "terminated",
+    ERROR = "error"
+)
+instance_lifecycle = Bunch(
+    SPOT = "Spot",
+    ONDEMAND = "On-demand"
+)
+spot_states = Bunch(
+    OPEN = "open",
+    ACTIVE = "active",
+    CANCELLED = "cancelled"
+)
+
+
+
 # DBTODO Find out if we use any of this
 
 # Older py compatibility

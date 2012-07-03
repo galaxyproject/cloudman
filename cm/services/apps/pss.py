@@ -2,6 +2,7 @@ import os
 import threading
 
 from cm.util import misc
+from cm.util import cluster_status
 from cm.services import service_states
 from cm.services.apps import ApplicationService
 
@@ -17,7 +18,7 @@ class PSS(ApplicationService):
         but it's also the simplest way to ensure this runs only after all other
         servces have been configured and are running. Plus, it can eventually
         be extended to run arbitrary script when a condition is met."""
-    
+
     def __init__(self, app, instance_role='master'):
         super(PSS, self).__init__(app)
         self.svc_type = "post_start_script"
@@ -29,7 +30,7 @@ class PSS(ApplicationService):
         self.already_ran = False # True if the service has already been run
         self.pss_url = self.app.ud.get('post_start_script_url', None) if self.instance_role == 'master' \
             else self.app.ud.get('worker_post_start_script_url', None)
-    
+
     def _prime_data(self):
         """ Some data is slow to obtain because a call to the cloud middleware
             is required. When such data is required to complete a user request,
@@ -45,7 +46,7 @@ class PSS(ApplicationService):
         self.app.cloud_interface.get_self_private_ip()
         self.app.cloud_interface.get_self_public_ip()
         self.app.cloud_interface.get_local_hostname()
-    
+
     def add(self):
         if not self.already_ran and self.app.manager.initial_cluster_type is not None:
             log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
@@ -64,7 +65,7 @@ class PSS(ApplicationService):
             log.debug("Not adding {0} svc; it already ran ({1}) or the cluster was not yet initialized ({2})"\
                 .format(self.svc_type, self.already_ran, self.app.manager.initial_cluster_type))
             return False
-    
+
     def start(self):
         """ Wait until all other services are running before starting this one."""
         log.debug("Starting %s service" % self.svc_type)
@@ -109,7 +110,9 @@ class PSS(ApplicationService):
             # On master, remove the service upon completion (PSS runs only once)
             self.remove()
         self.already_ran = True
-    
+        # Once this serivce is complete, it's safe to assume the cluster is READY
+        self.app.manager.cluster_status = cluster_status.READY
+
     def save_to_bucket(self):
         """ Save the current post start script file to the cluster's
             bucket. Do so only if the file does not already exist there
@@ -130,7 +133,7 @@ class PSS(ApplicationService):
         else:
             log.debug("A current post start script {0} already exists in bucket {1}; not updating it"\
                 .format(self.pss_filename, self.app.ud['bucket_cluster']))
-    
+
     def remove(self):
         if self.state == service_states.SHUT_DOWN:
             log.debug("Removing %s service from master list of services" % self.svc_type)
@@ -140,6 +143,6 @@ class PSS(ApplicationService):
         else:
             log.debug("Tried removing %s service but it's not in state %s" \
                 % (self.svc_type, service_states.SHUT_DOWN))
-    
+
     def status(self):
         pass
