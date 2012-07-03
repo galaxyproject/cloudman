@@ -6,8 +6,7 @@ import datetime as dt
 from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
-from cm.util import (cluster_status, master_states, instance_states, 
-                     instance_lifecycle, spot_states)
+from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
 from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
@@ -30,7 +29,6 @@ class ConsoleManager(object):
         self.console_monitor = ConsoleMonitor(self.app)
         self.root_pub_key = None
         self.cluster_status = cluster_status.STARTING
-        self.master_state = master_states.INITIAL_STARTUP
         self.num_workers_requested = 0 # Number of worker nodes requested by user
         # The actual number of worker nodes (note: this is a list of Instance objects)
         # (beause get_worker_instances currenlty depends on tags, which is only
@@ -426,9 +424,6 @@ class ConsoleManager(object):
     def get_cluster_status( self ):
         return self.cluster_status
 
-    def get_instance_state( self ):
-        return self.master_state
-
     def toggle_master_as_exec_host(self, force_removal=False):
         """ By default, the master instance running all the services is also
             an execution host and is used to run jobs. This method allows one
@@ -505,7 +500,6 @@ class ConsoleManager(object):
             return
         log.debug("List of services before shutdown: %s" % [s.get_full_name() for s in self.services])
         self.cluster_status = cluster_status.SHUTTING_DOWN
-        self.master_state = master_states.SHUTTING_DOWN
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
@@ -560,7 +554,6 @@ class ConsoleManager(object):
         if delete_cluster:
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
-        self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
             "associated with this cluster) from the cloud console." \
@@ -589,7 +582,7 @@ class ConsoleManager(object):
         return False
 
     def terminate_master_instance(self, delete_cluster=False):
-        if not (self.cluster_status == cluster_status.TERMINATED and self.master_state == master_states.SHUT_DOWN):
+        if self.cluster_status != cluster_status.TERMINATED:
             self.shutdown(delete_cluster=delete_cluster)
         log.debug("Terminating the master instance")
         self.app.cloud_interface.terminate_instance(self.app.cloud_interface.get_instance_id())
@@ -628,10 +621,6 @@ class ConsoleManager(object):
         svcs = self.get_services('SGE')
         for service in svcs:
             service.clean()
-
-    def set_master_state(self, new_state):
-        log.debug( "Setting master state to '%s'" % new_state )
-        self.master_state = new_state
 
     def get_idle_instances( self ):
         # log.debug( "Looking for idle instances" )
