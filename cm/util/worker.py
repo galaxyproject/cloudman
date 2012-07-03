@@ -100,9 +100,6 @@ class ConsoleManager( object ):
     def get_cluster_status( self ):
         return "This is a worker node, cluster status not available."
     
-    def get_instance_state( self ):
-        return self.worker_status    
-    
     def mount_disk(self, master_ip, path, source_path=None):
         if source_path is None:
             source_path = path

@@ -504,7 +504,6 @@ function toggleVolDialog(){
 
 function update_ui(data){
     if (data){
-        $('#status').html(data.instance_state);
         $('#dns').attr("href", data.dns);
         if (data.dns == '#'){
             $('#dns').addClass('ab_disabled');
@@ -560,7 +559,7 @@ function update_ui(data){
             shutting_down();
             return true; // Must return here because the remaining code clears the UI
         }
-        else if (cluster_status === "SHUT_DOWN"){
+        else if (cluster_status === "TERMINATED"){
             $('.action-button').addClass('ab_disabled');
             $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
             $('#snapshotoverlay_msg_box').html("<div id='snapshotoverlay_msg_box_important'> \

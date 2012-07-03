@@ -18,15 +18,11 @@ class CM(BaseController):
         if self.app.ud['role'] == 'worker':
             return trans.fill_template('worker_index.mako', master_ip = self.app.ud['master_ip'])
         else:
-            cluster = {}
-            if self.app.manager.get_instance_state():
-                cluster['status'] = self.app.manager.get_instance_state()
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
             return trans.fill_template( 'index.mako',
-                                        cluster = cluster,
                                         permanent_storage_size = permanent_storage_size,
                                         initial_cluster_type = initial_cluster_type,
                                         cluster_name = cluster_name,
@@ -145,8 +141,6 @@ class CM(BaseController):
             except TypeError, ex:
                 log.error("You must provide valid values: %s" % ex)
                 return
-            # Set state that will initiate starting
-            self.app.manager.set_master_state( 'Start workers' )
         else: # Cluster is ON, initiate shutdown procedure
             self.app.shutdown()
         return "ACK"
@@ -566,8 +560,7 @@ class CM(BaseController):
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns()
         snap_status = self.app.manager.snapshot_status()
-        ret_dict = {'instance_state':self.app.manager.get_instance_state(),
-                    'cluster_status':self.app.manager.get_cluster_status(),
+        ret_dict = {'cluster_status':self.app.manager.get_cluster_status(),
                     'dns':dns,
                     'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available' : str(self.app.manager.get_num_available_workers()),
