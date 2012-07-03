@@ -6,6 +6,8 @@ import datetime as dt
 from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
+from cm.util import (cluster_status, master_states, instance_states, 
+                     instance_lifecycle, spot_states)
 from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
@@ -19,50 +21,6 @@ import cm.util.paths as paths
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
-
-#Master States
-master_states = Bunch(
-    INITIAL_STARTUP="Initial startup",
-    WAITING_FOR_USER_ACTION="Waiting for user action",
-    START_WORKERS="Start workers",
-    STARTING_WORKERS="Starting workers",
-    SEND_MASTER_PUBKEY="Sending master's public key",
-    WAITING_FOR_WORKER_INIT="Waiting for workers",
-    STARTING_SGE="Configuring SGE",
-    WAITING_FOR_WORKER_SGE="Waiting for workers to start SGE",
-    CONFIGURE_GALAXY="Configuring Galaxy",
-    GALAXY_STARTING="Galaxy starting",
-    READY="Ready",
-    SHUTTING_DOWN="Shutting down",
-    SHUT_DOWN="Shut down",
-    ERROR="Error"
- )
-
-cluster_status = Bunch(
-    OFF="OFF",
-    ON="ON",
-    STARTING="STARTING",
-    SHUTTING_DOWN="SHUTTING_DOWN",
-    SHUT_DOWN="SHUT_DOWN" # Because we don't really support cluster restart
- )
-
-# All of the following are used by the Instance class
-instance_states = Bunch(
-    PENDING = "pending",
-    RUNNING = "running",
-    SHUTTING_DOWN = "shutting-down",
-    TERMINATED = "terminated",
-    ERROR = "error"
-)
-instance_lifecycle = Bunch(
-    SPOT = "Spot",
-    ONDEMAND = "On-demand"
-)
-spot_states = Bunch(
-    OPEN = "open",
-    ACTIVE = "active",
-    CANCELLED = "cancelled"
-)
 
 class ConsoleManager(object):
     def __init__(self, app):
@@ -168,9 +126,11 @@ class ConsoleManager(object):
 
     @TestFlag(False)
     def start( self ):
-        """ This method is automatically called as CloudMan starts; it tries to add
+        """
+        This method is automatically called as CloudMan starts; it tries to add
         and start available cluster services (as provided in the cluster's
-        configuration and persistent data )"""
+        configuration and persistent data).
+        """
         log.debug("ud at manager start: %s" % self.app.ud)
         # Always add SGE service
         self.app.manager.services.append(SGEService(self.app))
@@ -178,8 +138,8 @@ class ConsoleManager(object):
         if self.app.LOCALFLAG is True:
             self.init_cluster(cluster_type='Galaxy')
 
-        # Add PSS service - this will run only after the cluster type has been
-        # selected and all of the services are in state RUNNING
+        # Add PSS service - however, this service will run only after the cluster
+        # type has been selected and all of the services are in RUNNING state
         self.app.manager.services.append(PSS(self.app))
 
         if self.app.ud.has_key("share_string"):
@@ -189,13 +149,15 @@ class ConsoleManager(object):
         elif not self.add_preconfigured_services():
             return False
         self.manager_started = True
+
+        # Check if a previously existing cluster is being recreated or is it a new one
         if self.initial_cluster_type is not None:
-            cc_detail = "Starting previously existing cluster of type {0}"\
+            cc_detail = "Configuring a previously existing cluster of type {0}"\
                 .format(self.initial_cluster_type)
         else:
-            cc_detail = "This seems to be a new cluster; waiting to configure the type"
-        self.cluster_status = cluster_status.ON
-        log.info( "Completed initial cluster configuration. {0}".format(cc_detail))
+            cc_detail = "This seems to be a new cluster; waiting to configure the type."
+            self.cluster_status = cluster_status.WAITING
+        log.info("Completed the initial cluster startup process. {0}".format(cc_detail))
         return True
 
     def add_preconfigured_services(self):
@@ -597,7 +559,7 @@ class ConsoleManager(object):
             time_limit -= sleep_time
         if delete_cluster:
             self.delete_cluster()
-        self.cluster_status = cluster_status.SHUT_DOWN
+        self.cluster_status = cluster_status.TERMINATED
         self.master_state = master_states.SHUT_DOWN
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
@@ -627,7 +589,7 @@ class ConsoleManager(object):
         return False
 
     def terminate_master_instance(self, delete_cluster=False):
-        if not (self.cluster_status == cluster_status.SHUT_DOWN and self.master_state == master_states.SHUT_DOWN):
+        if not (self.cluster_status == cluster_status.TERMINATED and self.master_state == master_states.SHUT_DOWN):
             self.shutdown(delete_cluster=delete_cluster)
         log.debug("Terminating the master instance")
         self.app.cloud_interface.terminate_instance(self.app.cloud_interface.get_instance_id())
@@ -799,25 +761,27 @@ class ConsoleManager(object):
         return False
 
     def init_cluster(self, cluster_type, pss = None):
-        """ Initialize a cluster. This implies starting requested services and
-        storing cluster configuration into cluster's bucket.
+        """ 
+        Initialize the type for this cluster and start appropriate services,
+        storing the cluster configuration into the cluster's bucket.
+
+        This method applies only to a new cluster.
 
         :type cluster_type: string
         :param cluster_type: Type of cluster being setup. Currently, accepting
-            values: 'Galaxy' and 'Data'
+                             values ``Galaxy``, ``Data``, or ``SGE``
 
         :type pss: int
         :param pss: Persistent Storage Size associated with data volumes being
-            created for the given cluster
+                    created for the cluster
         """
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
             return
+        self.cluster_status = cluster_status.STARTING
         self.app.manager.initial_cluster_type = cluster_type
         log.info("Initializing a '%s' cluster." % cluster_type)
         if cluster_type == 'Galaxy':
-            # Add required services:
-
             # Static data - get snapshot IDs from the default bucket and add respective file systems
             s3_conn = self.app.cloud_interface.get_s3_connection()
             snaps_file = 'cm_snaps.yaml'
@@ -845,7 +809,7 @@ class ConsoleManager(object):
                         .format(fs.get_full_name(), fs.volumes))
                     self.services.append(fs)
 
-            #User data - add a new file system for user data of size 'pss'
+            # User data - add a new file system for user data of size 'pss'
             if self.app.cloud_type not in ['opennebula', 'dummy']:
                 fs_name = 'galaxyData'
                 log.debug("Creating a new data filesystem: '%s'" % fs_name)
@@ -853,7 +817,7 @@ class ConsoleManager(object):
                 fs.add_volume(size=pss)
                 self.services.append(fs)
 
-            #PostgreSQL
+            # PostgreSQL
             self.services.append(PostgresService(self.app))
             # Galaxy
             self.services.append(GalaxyService(self.app))
@@ -866,15 +830,16 @@ class ConsoleManager(object):
             fs.add_volume(size=pss)
             self.services.append(fs)
         elif cluster_type == 'SGE':
-            # Nothing to do special?
+            # SGE service is automatically added at cluster start (see ``start`` method)
             pass
         else:
-            log.error("Tried to initialize a cluster but received unknown configuration: '%s'" % cluster_type)
+            log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
     def init_shared_cluster(self, shared_cluster_config):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to initialize a shared cluster from bucket '%s', but TESTFLAG is set." % shared_cluster_config)
             return
+        self.cluster_status = cluster_status.STARTING
         log.debug("Initializing a shared cluster from '%s'" % shared_cluster_config)
         s3_conn = self.app.cloud_interface.get_s3_connection()
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -1626,8 +1591,8 @@ class ConsoleMonitor( object ):
                 return False
         log.debug("Monitor started; manager started")
         while self.running:
-            self.sleeper.sleep( 4 )
-            if self.app.manager.cluster_status == cluster_status.SHUT_DOWN:
+            self.sleeper.sleep(4)
+            if self.app.manager.cluster_status == cluster_status.TERMINATED:
                 self.running = False
                 return
             # In case queue connection was not established, try again (this will happen if
@@ -1848,7 +1813,7 @@ class Instance( object ):
                 log.error("Error getting the cloud instance ({0}) object: {1}"\
                     .format(self.id, e))
         elif not self.is_spot():
-            log.warning("Cannot get cloud instance object without an instance ID?")
+            log.debug("Cannot get cloud instance object without an instance ID?")
         return self.inst
 
     def is_spot(self):
