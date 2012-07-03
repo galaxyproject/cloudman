@@ -366,10 +366,10 @@ vertical-align: top;
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
-    <h2>Initial Cluster Configuration</h2>
+    <h2>Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
-        <p>Welcome to CloudMan. This application will allow you to manage this cluster and
-        the services provided within. To get started, choose the type of cluster you'd like to work
+        <p>Welcome to CloudMan. This application will allow you to manage this cluster platform and
+        the services provided within. To get started, choose the type of platform you'd like to work
         with and provide the associated value, if any.</p>
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
@@ -420,7 +420,7 @@ vertical-align: top;
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Choose CloudMan Platform" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose platform type" id="start_cluster_submit_btn"/>
         </div>
         </form>
     </div>
