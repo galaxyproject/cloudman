@@ -153,7 +153,7 @@ class ConsoleManager(object):
             cc_detail = "Configuring a previously existing cluster of type {0}"\
                 .format(self.initial_cluster_type)
         else:
-            cc_detail = "This seems to be a new cluster; waiting to configure the type."
+            cc_detail = "This is a new cluster; waiting to configure the type."
             self.cluster_status = cluster_status.WAITING
         log.info("Completed the initial cluster startup process. {0}".format(cc_detail))
         return True
