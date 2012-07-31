@@ -131,8 +131,9 @@ def _get_cm(ud):
     else:
         default_bucket_name = DEFAULT_BUCKET_NAME
         log.debug("Using default bucket: {0}".format(default_bucket_name))
+    use_object_store = ud.get('use_object_store', True)
     # Test for existence of user's bucket and download appropriate CM instance
-    if ud.has_key('access_key') and ud.has_key('secret_key'):
+    if use_object_store and ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3connection(ud)
             b = None
@@ -151,7 +152,9 @@ def _get_cm(ud):
                 return True
     # Default to public repo and wget
     log.error("Could not retrieve CloudMan from cluster bucket.")
-    url = os.path.join(SERVICE_ROOT, default_bucket_name, CM_REMOTE_FILENAME)
+    url = ud.get('cloudman_repository', False)
+    if not url:
+        url = os.path.join(SERVICE_ROOT, default_bucket_name, CM_REMOTE_FILENAME)
     log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" \
         % (url, local_cm_file))
     # This assumes the default repository/bucket is readable to anyone w/o authentication
