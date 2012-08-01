@@ -122,7 +122,7 @@ def create_bucket(s3_conn, bucket_name):
     try:
         s3_conn.create_bucket(bucket_name)
         log.debug("Created bucket '%s'." % bucket_name)
-    except S3ResponseError, e:
+    except Exception, e:
         log.error( "Failed to create bucket '%s': %s" % (bucket_name, e))
         return False
     return True

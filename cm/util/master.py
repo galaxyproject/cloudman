@@ -487,7 +487,7 @@ class ConsoleManager(object):
         try:
             f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
             volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
-        except EC2ResponseError, e:
+        except Exception, e:
             log.debug( "Error checking for attached volumes: %s" % e )
         log.debug("Attached volumes: %s" % volumes)
         return volumes
