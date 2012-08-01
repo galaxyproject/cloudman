@@ -195,6 +195,15 @@ def _unpack_cm():
     log.info("<< Unpacking CloudMan from %s >>" % local_path)
     tar = tarfile.open(local_path, "r:gz")
     tar.extractall(CM_HOME) # Extract contents of downloaded file to CM_HOME
+    if "run.sh" not in tar.getnames():
+        # In this case (e.g. direct download from bitbucket) cloudman
+        # was extracted into a subdirectory of CM_HOME. Find that
+        # subdirectory and move all the files in it back to CM_HOME.
+        first_entry = tar.getnames()[0]
+        extracted_dir = first_entry.split("/")[0]
+        for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
+            shutil.move(os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
+
 
 def _start_cm():
     log.debug("Copying user data file from '%s' to '%s'" % \
@@ -211,6 +220,7 @@ def _stop_cm(clean=False):
 
 def _start(ud):
     if _get_cm(ud):
+
         _unpack_cm()
         _start_cm()
 
