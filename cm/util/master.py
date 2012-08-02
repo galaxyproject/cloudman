@@ -194,14 +194,20 @@ class ConsoleManager(object):
                     self.app.manager.initial_cluster_type = 'Data'
             if self.app.ud.has_key("services"):
                 for srvc in self.app.ud['services']:
-                    log.debug("Adding service: '%s'" % srvc['service'])
+                    service_name = srvc['service']
+                    log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into classes is not quite ideal...
-                    if srvc['service'] == 'Postgres':
+                    processed_service = False
+                    if service_name == 'Postgres':
                         self.app.manager.services.append(PostgresService(self.app))
                         self.app.manager.initial_cluster_type = 'Galaxy'
-                    if srvc['service'] == 'Galaxy':
+                        processed_service = True
+                    if service_name == 'Galaxy':
                         self.app.manager.services.append(GalaxyService(self.app))
                         self.app.manager.initial_cluster_type = 'Galaxy'
+                        processed_service = True
+                    if not processed_service:
+                        log.warning("Could not find service class matching userData service entry: %s" % service_name)
             return True
         except Exception, e:
             log.error("Error in filesystem YAML: %s" % e)
