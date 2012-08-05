@@ -17,7 +17,7 @@ log = logging.getLogger( 'cloudman' )
 
 
 class Filesystem(DataService):
-    def __init__(self, app, name):
+    def __init__(self, app, name, mount_point=None):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
         self.nfs_lock_file = '/tmp/nfs.lockfile'
@@ -26,7 +26,8 @@ class Filesystem(DataService):
         self.name = name
         self.size = None
         self.dirty = False
-        self.mount_point = '/mnt/%s' % self.name
+        self.kind = None # Choice of 'snapshot', 'volume', or 'bucket'
+        self.mount_point = mount_point if mount_point is not None else '/mnt/%s' % self.name
         self.grow = None # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
                          # the file system; use following dict structure:
                          # {'new_size': <size>, 'snap_desc': <snapshot description>}
@@ -52,14 +53,18 @@ class Filesystem(DataService):
             for vol in self.volumes:
                 vol.create(self.name)
                 # Mark a volume as 'static' if created from a snapshot
-                # Note that if a volume is marked as 'static', it is assumed it 
+                # Note that if a volume is marked as 'static', it is assumed it
                 # can be deleted upon cluster termination!
                 if self.name != 'galaxyData' and vol.from_snapshot_id is not None:
                     log.debug("Marked volume '%s' from file system '%s' as 'static'" % (vol.volume_id, self.name))
                     vol.static = True
+                    self.kind= 'snapshot'
+                else:
+                    self.kind = 'volume'
                 if vol.attach():
                     self.mount(vol)
             for b in self.buckets:
+                self.kind = 'bucket'
                 threading.Thread(target=b.mount).start()
                 log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
         except Exception, e:
@@ -387,7 +392,7 @@ class Filesystem(DataService):
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" \
                 % (self.name, self.mount_point, self.state))
     
-    def add_volume(self, vol_id=None, size=None, from_snapshot_id=None):
+    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None):
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"\
             .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))

@@ -67,6 +67,7 @@ class Volume(BlockStorage):
                     self.volume_id = None
                     return volume_status.NONE
                 self.from_snapshot_id = self.volume.snapshot_id
+                self.size = self.volume.size
                 if self.from_snapshot_id is '': # ensure consistency
                     self.from_snapshot_id = None
                 if self.volume.status == 'creating':
@@ -148,13 +149,16 @@ class Volume(BlockStorage):
             try:
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" \
                     % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
-                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size,
-                    self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
-                self.volume_id = str(self.volume.id)
-                self.size = int(self.volume.size)
-                log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" \
-                    % (self.size, self.from_snapshot_id, self.get_full_name(), \
-                    self.app.cloud_interface.get_zone()))
+                if self.size > 0:
+                    self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size,
+                        self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
+                    self.volume_id = str(self.volume.id)
+                    self.size = int(self.volume.size)
+                    log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" \
+                        % (self.size, self.from_snapshot_id, self.get_full_name(), \
+                        self.app.cloud_interface.get_zone()))
+                else:
+                    log.warning("Cannot create volume of size 0! Volume not created.")
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
         else:
