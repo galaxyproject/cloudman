@@ -48,7 +48,7 @@ def get_path(name, default_path):
 
 
 P_MOUNT_ROOT = "/mnt"
-P_GALAXY_TOOLS = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
+P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
 P_GALAXY_HOME = get_path("galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
 P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
 P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
