@@ -31,6 +31,8 @@ class UniverseApplication( object ):
         self.cloud_interface = cc.get_cloud_interface(self.cloud_type)
         # Load user data into a local field through a cloud interface
         self.ud = self.cloud_interface.get_user_data()
+        # From user data determine if object store (S3) should be used.
+        self.use_object_store = ud.get("use_object_store", True)
         # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()
@@ -68,7 +70,7 @@ class UniverseApplication( object ):
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-instantiation
         self.manager = None
-        if self.ud.has_key('bucket_cluster'):
+        if self.use_object_store and self.ud.has_key('bucket_cluster'):
             log.debug("Getting pd.yaml")
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(), self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
