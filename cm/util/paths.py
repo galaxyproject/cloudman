@@ -38,11 +38,10 @@ def get_path(name, default_path):
         if path is None:
             downloaded_pd_file = 'pd.yaml'
             if os.path.exists(downloaded_pd_file):
-                path = misc.load_yaml_file(downloaded_pd_file).get(name, \
-                  default_path)
-        else:
-            path = default_path
+                path = misc.load_yaml_file(downloaded_pd_file).get(name, default_path)
     except:
+        pass
+    if not path:
         path = default_path
     return path
 
