@@ -28,7 +28,7 @@ def TestFlag(ret_val):
         def df(*args, **kwargs):
             cl = args[0] # Get the function class
             if cl.app.TESTFLAG is True and cl.app.LOCALFLAG is False:
-                log.debug("Attempted to use the '{0}->{1}.{2}' function but TESTFLAG is set. Returning '{3}'."\
+                log.debug("Attempted to use the '{0}->{1}.{2}' method but TESTFLAG is set. Returning '{3}'."\
                     .format(cl.__module__, cl.__class__.__name__, fn.func_name, ret_val))
                 return ret_val
             else:

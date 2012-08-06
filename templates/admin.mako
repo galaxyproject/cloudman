@@ -459,6 +459,7 @@
                 beforeSubmit: function(data){
                     hidebox();
                     $('#filesystem_status').html("Adding");
+                    popup();
                 }
             });
         }
