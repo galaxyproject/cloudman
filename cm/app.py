@@ -32,7 +32,7 @@ class UniverseApplication( object ):
         # Load user data into a local field through a cloud interface
         self.ud = self.cloud_interface.get_user_data()
         # From user data determine if object store (S3) should be used.
-        self.use_object_store = ud.get("use_object_store", True)
+        self.use_object_store = self.ud.get("use_object_store", True)
         # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()
