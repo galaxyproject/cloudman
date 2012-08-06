@@ -130,6 +130,9 @@ class ConsoleManager(object):
         configuration and persistent data).
         """
         log.debug("ud at manager start: %s" % self.app.ud)
+
+        self.handle_prestart_commands()
+
         # Always add SGE service
         self.app.manager.services.append(SGEService(self.app))
 
@@ -157,6 +160,10 @@ class ConsoleManager(object):
             self.cluster_status = cluster_status.WAITING
         log.info("Completed the initial cluster startup process. {0}".format(cc_detail))
         return True
+
+    def handle_prestart_commands(self):
+        for command in self.app.ud.get("master_prestart_commands", []):
+            misc.run(command)
 
     def add_preconfigured_services(self):
         """ Inspect cluster configuration and persistent data and add
