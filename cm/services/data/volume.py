@@ -170,6 +170,7 @@ class Volume(BlockStorage):
         # creating a new one)
         try:
             self.app.cloud_interface.add_tag(self.volume, 'clusterName', self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
         except EC2ResponseError, e:
