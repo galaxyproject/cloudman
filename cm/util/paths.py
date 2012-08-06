@@ -20,7 +20,7 @@ P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
 P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
-P_PSQL_DIR  = "/mnt/galaxyData/pgsql/data"
+P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 
 try:
     # Get only the first 3 chars of the version since that's all that's used for dir name
@@ -31,29 +31,26 @@ except Exception, e:
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_HOME to '{1}'"\
         .format(e, P_PG_HOME)
 
-try:
-    default_galaxy_home = "/mnt/galaxyTools/galaxy-central"
-    # See if custom galaxy_home was specified as part of user data
-    P_GALAXY_HOME = misc.load_yaml_file(USER_DATA_FILE).get('galaxy_home', None)
-    # See if custom galaxy_home has been set on earlier invocations of the cluster
-    # pd.yaml is the persistend_data.yaml file initially downloaded from cluster's
-    # bucket. Also see app.py
-    if P_GALAXY_HOME is None:
-        downloaded_pd_file = 'pd.yaml'
-        if os.path.exists(downloaded_pd_file):
-            P_GALAXY_HOME = misc.load_yaml_file(downloaded_pd_file).get('galaxy_home', \
-                default_galaxy_home)
+
+def get_path(name, default_path):
+    try:
+        path = misc.load_yaml_file(USER_DATA_FILE).get(name, None)
+        if path is None:
+            downloaded_pd_file = 'pd.yaml'
+            if os.path.exists(downloaded_pd_file):
+                path = misc.load_yaml_file(downloaded_pd_file).get(name, \
+                  default_path)
         else:
-            print "'{0}' not found at paths.py load!".format(downloaded_pd_file)
-            P_GALAXY_HOME = default_galaxy_home
-    print "Set paths.P_GALAXY_HOME as '{0}'".format(P_GALAXY_HOME)
-except Exception, e:
-    P_GALAXY_HOME = default_galaxy_home
-    print "[paths.py] Issue checking for custom galaxy_home in user data: {0}".format(e)
+            path = default_path
+    except:
+        path = default_path
+    return path
+
 
 P_MOUNT_ROOT = "/mnt"
-P_GALAXY_DATA = os.path.join(P_MOUNT_ROOT, 'galaxyData')
-P_GALAXY_TOOLS = os.path.join(P_MOUNT_ROOT, "galaxyTools")
-P_GALAXY_INDICES = os.path.join(P_MOUNT_ROOT, "galaxyIndices")
+P_GALAXY_TOOLS = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
+P_GALAXY_HOME = get_path("galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
+P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
+P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
 
 IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')
