@@ -233,10 +233,11 @@ def _post_start_hook(ud):
     log.info("<<Checking for post start script>>")
     local_prs_file = os.path.join(CM_HOME, PRS_FILENAME)
     # Check user data first to allow owerwriting of a potentially existing script
+    use_object_store = ud.get('use_object_store', True)
     if ud.has_key('post_start_script_url'):
         # This assumes the provided URL is readable to anyone w/o authentication
         _run('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url']))
-    else:
+    elif use_object_store:
         s3_conn = _get_s3connection(ud)
         b = None
         if ud.has_key('bucket_cluster'):
