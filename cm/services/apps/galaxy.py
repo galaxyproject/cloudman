@@ -49,7 +49,9 @@ class GalaxyService(ApplicationService):
             self.status()
             if not self.configured:
                 log.info( "Setting up Galaxy application" )
-                s3_conn = self.app.cloud_interface.get_s3_connection()
+                s3_conn = None
+                if self.app.use_object_store:
+                    s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
                     log.debug("ls /mnt/: %s" % os.listdir('/mnt/'))
