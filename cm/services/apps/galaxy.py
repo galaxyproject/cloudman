@@ -64,7 +64,9 @@ class GalaxyService(ApplicationService):
                    log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
                 self.add_galaxy_admin_users()
-                os.chown( self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
+                if os.path.exists(universe_wsgi_path):
+                    os.chown(universe_wsgi_path, pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
                    log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                    log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
@@ -174,21 +176,34 @@ class GalaxyService(ApplicationService):
                 misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
             # Force cluster configuration state update on status change
             self.app.manager.console_monitor.store_cluster_config()
-    
+
+    def has_config_dir(self):
+        return self.app.ud.get("galaxy_conf_dir", None) is not None
+
+    def add_universe_option(self, name, value):
+        prefix = self.app.ud.get("option_priority", "400")
+        conf_dir = self.app.ud["galaxy_conf_dir"]
+        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
+        conf_file = os.path.join(conf_dir, conf_file_name)
+        open(conf_file, "w").write("[app:main]\n%s=%s" % (name, value))
+
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
             (see below) or by calling this method and providing a user list.
-            YAML format for user data for providing admin users 
+            YAML format for user data for providing admin users
             (note that these users will still have to manually register on the given cloud instance):
             admin_users:
              - user@example.com
              - user2@anotherexample.edu """
-        if self.app.ud.has_key('admin_users'):
-            for admin in self.app.ud['admin_users']:
-                if admin not in admins_list:
-                	admins_list.append(admin)
-        if len(admins_list) > 0:
-            log.info('Adding Galaxy admin users: %s' % admins_list)
+        for admin in self.app.ud.get('admin_users', []):
+            if admin not in admins_list:
+                    admins_list.append(admin)
+        if len(admins_list) == 0:
+            return False
+        log.info('Adding Galaxy admin users: %s' % admins_list)
+        if self.has_config_dir():
+            self.add_universe_option("admin_users", ",".join(admins_list))
+        else:
             edited = False
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
@@ -209,11 +224,10 @@ class GalaxyService(ApplicationService):
                         if admin not in line:
                             line += "%s, " % admin
                     if line.endswith(', '):
-                        line = line[:-2] + '\n' # remove trailing space and comma and add newline
+                        line = line[:-2] + '\n'  # remove trailing space and comma and add newline
                     edited = True
                 new_config_file.write(line)
             new_config_file.close()
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
             os.chown(config_file_path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
-    
