@@ -1,5 +1,7 @@
 import shutil, tarfile, os, time, subprocess, pwd, grp, datetime, commands
 
+from string import Template
+
 from cm.services.apps import ApplicationService
 from cm.util import paths, templates
 from cm.services import service_states
@@ -89,18 +91,35 @@ class SGEService( ApplicationService ):
         tar.close()
         subprocess.call( '%s -R sgeadmin:sgeadmin %s' % (paths.P_CHOWN, paths.P_SGE_ROOT), shell=True )
         return True
-    
+
+    def _get_sge_install_conf(self):
+        # Add master as an execution host
+        # Additional execution hosts will be added later, as they start
+        exec_nodes = self.app.cloud_interface.get_self_private_ip()
+        sge_install_template = Template(templates.SGE_INSTALL_TEMPLATE)
+        sge_params = {
+          "cluster_name": "GalaxyEC2",
+          "admin_host_list": self.app.cloud_interface.get_self_private_ip(),
+          "submit_host_list": self.app.cloud_interface.get_self_private_ip(),
+          "exec_host_list": exec_nodes,
+          "hostname_resolving": "true",
+        }
+        for key, value in self.app.ud.iteritems():
+            if key.startswith("sge_"):
+                key = key[len("sge_"):]
+                sge_params[key] = value
+
+        return sge_install_template.substitute(sge_params)
+
+
     def configure_sge( self ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to get volumes, but TESTFLAG is set." )
             return None
         log.info( "Configuring SGE..." )
-        # Add master as an execution host
-        # Additional execution hosts will be added later, as they start
-        exec_nodes = self.app.cloud_interface.get_self_private_ip() 
         SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
         with open( SGE_config_file, 'w' ) as f:
-            print >> f, templates.SGE_INSTALL_TEMPLATE % ( self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_self_private_ip(), exec_nodes )
+            print >> f, self._get_sge_install_conf()
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
         log.debug("Created SGE install template as file '%s'" % SGE_config_file)
         # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
