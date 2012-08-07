@@ -60,25 +60,29 @@ class GalaxyService(ApplicationService):
                     return False
                 # Retrieve config files from a persistent data repository (i.e., S3)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' ):
-                   log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                   log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                   misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
+                    log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
+                    log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
+                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
                 self.add_galaxy_admin_users()
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
                 if os.path.exists(universe_wsgi_path):
                     os.chown(universe_wsgi_path, pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
-                   log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                   log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                   misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' )
-                os.chown( self.galaxy_home + '/tool_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                    log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
+                    log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
+                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' )
+                tool_conf_path = os.path.join(self.galaxy_home, "tool_conf.xml")
+                if os.path.exists(tool_conf_path):
+                    os.chown( self.galaxy_home + '/tool_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' ):
-                   log.debug("Did not get Galaxy tool_data_table_conf.xml.cloud file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                   log.debug("Trying to retrieve latest one (tool_data_table_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                   misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' )
+                    log.debug("Did not get Galaxy tool_data_table_conf.xml.cloud file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
+                    log.debug("Trying to retrieve latest one (tool_data_table_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
+                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' )
                 try:
-                    shutil.copy('%s/tool_data_table_conf.xml.cloud' % self.galaxy_home, '%s/tool_data_table_conf.xml' % self.galaxy_home)
-                    os.chown( self.galaxy_home + '/tool_data_table_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                    tool_data_table_conf_path = os.path.join(env.galaxy_home, 'tool_data_table_conf.xml.cloud')
+                    if os.path.exists(tool_data_table_conf_path):
+                        shutil.copy(tool_data_table_conf_path, '%s/tool_data_table_conf.xml' % self.galaxy_home)
+                        os.chown( self.galaxy_home + '/tool_data_table_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 except:
                     pass
                 # 
