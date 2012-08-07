@@ -64,6 +64,7 @@ class GalaxyService(ApplicationService):
                     log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
                 self.add_galaxy_admin_users()
+                self.add_dynamic_galaxy_options()
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
                 if os.path.exists(universe_wsgi_path):
                     os.chown(universe_wsgi_path, pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
@@ -190,6 +191,14 @@ class GalaxyService(ApplicationService):
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
         conf_file = os.path.join(conf_dir, conf_file_name)
         open(conf_file, "w").write("[app:main]\n%s=%s" % (name, value))
+
+    def add_dynamic_galaxy_options(self):
+        if not self.has_config_dir():
+            return False
+        for key, value in self.app.ud.iteritems():
+            if key.startswith("galaxy_universe_"):
+                key = key[len("galaxy_universe_"):]
+                self.add_universe_option(key, value)
 
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
