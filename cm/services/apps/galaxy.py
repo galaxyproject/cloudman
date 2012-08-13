@@ -190,7 +190,7 @@ class GalaxyService(ApplicationService):
         conf_dir = self.app.ud["galaxy_conf_dir"]
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
         conf_file = os.path.join(conf_dir, conf_file_name)
-        open(conf_file, "w").write("%s\n%s=%s" % (section, name, value))
+        open(conf_file, "w").write("[%s]\n%s=%s" % (section, name, value))
 
     def add_dynamic_galaxy_options(self):
         if not self.has_config_dir():
