@@ -185,20 +185,24 @@ class GalaxyService(ApplicationService):
     def has_config_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None) is not None
 
-    def add_universe_option(self, name, value):
+    def add_universe_option(self, name, value, section="[app:main]"):
         prefix = self.app.ud.get("option_priority", "400")
         conf_dir = self.app.ud["galaxy_conf_dir"]
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
         conf_file = os.path.join(conf_dir, conf_file_name)
-        open(conf_file, "w").write("[app:main]\n%s=%s" % (name, value))
+        open(conf_file, "w").write("%s\n%s=%s" % (section, name, value))
 
     def add_dynamic_galaxy_options(self):
         if not self.has_config_dir():
             return False
-        for key, value in self.app.ud.iteritems():
-            if key.startswith("galaxy_universe_"):
-                key = key[len("galaxy_universe_"):]
-                self.add_universe_option(key, value)
+        dynamic_option_types = {"galaxy_universe_": "app:main",
+                                "galaxy_tool_runner_": "galaxy:tool_runners",
+                                }
+        for option_prefix, section in dynamic_option_types.iteritems():
+            for key, value in self.app.ud.iteritems():
+                if key.startswith(option_prefix):
+                    key = key[len(option_prefix):]
+                    self.add_universe_option(key, value, section)
 
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
