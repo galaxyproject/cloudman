@@ -34,17 +34,17 @@ class Filesystem(DataService):
         self.started_starting = datetime.utcnow() # A time stamp when the state changed to STARTING.
                                                   # It is used to avoid brief ERROR states during
                                                   # the system configuration.
-    
+
     def get_full_name(self):
         return "FS-%s" % self.name
-    
+
     def get_size(self):
         new_size = 0
         for volume in self.volumes:
             new_size += volume.size
         self.size = new_size
         return self.size
-    
+
     def add(self):
         try:
             log.debug("Trying to add service '%s'" % self.get_full_name())
@@ -70,7 +70,7 @@ class Filesystem(DataService):
         except Exception, e:
             log.error("Error adding filesystem service '%s-%s': %s" % (self.svc_type, self.name, e))
         self.status()
-    
+
     def remove(self):
         """ Sequential removal of volumes has issues so thread it"""
         log.info("Removing '{0}' data service with volumes {1} and buckets {2}"\
@@ -78,7 +78,7 @@ class Filesystem(DataService):
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
-    
+
     def __remove(self, delete_vols=True):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
@@ -94,7 +94,7 @@ class Filesystem(DataService):
             b.unmount()
         log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
         self.state = service_states.SHUT_DOWN
-    
+
     def clean(self):
         """ Remove filesystems and clean up as if they were never there. Useful for CloudMan restarts."""
         self.remove()
@@ -108,7 +108,7 @@ class Filesystem(DataService):
         else:
             log.warning("Wanted to clean file system {0} but the service is not in state '{1}'; it in state '{2}'") \
                 .format(self.name, service_states.SHUT_DOWN, self.state)
-    
+
     def expand(self):
         if self.grow is not None:
             self.__remove()
@@ -120,10 +120,10 @@ class Filesystem(DataService):
                 vol.size = self.grow['new_size']
                 vol.from_snapshot_id = snap_id
                 vol.volume_id = None
-            
+
             # Create a new volume based on just created snapshot and add the file system
             self.add()
-        
+
             # Grow file system
             if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'" % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
@@ -146,7 +146,7 @@ class Filesystem(DataService):
         else:
             log.debug("Tried to grow '%s' but grow flag is None" % self.get_full_name())
             return False
-    
+
     def snapshot(self, snap_description=None):
         self.__remove(delete_vols=False)
         snap_ids = []
@@ -156,11 +156,11 @@ class Filesystem(DataService):
         # After the snapshot is done, add the file system back as a cluster service
         self.add()
         return snap_ids
-    
+
     def mount(self, volume, mount_point=None):
-        """ Mount file system at provided mount point. If present in /etc/exports, 
+        """ Mount file system at provided mount point. If present in /etc/exports,
         this method enables NFS on given mount point (i.e., uncomments respective
-        line in /etc/exports) 
+        line in /etc/exports)
         """
         if mount_point is not None:
             self.mount_point = mount_point
@@ -172,7 +172,7 @@ class Filesystem(DataService):
                         return False
                 else:
                     os.mkdir( self.mount_point )
-                
+
                 # Potentially wait for the device to actually become available in the system
                 # TODO: Do something if the device is not available in given time period
                 for i in range(10):
@@ -190,13 +190,13 @@ class Filesystem(DataService):
                 if process.returncode != 0:
                     # FIXME: Assume if a file system cannot be mounted that it's because
                     # there is not a file system on the device so try creating one
-                    if run('/sbin/mkfs.xfs %s' % volume.get_device(), 
+                    if run('/sbin/mkfs.xfs %s' % volume.get_device(),
                         "Failed to create filesystem on device %s" % volume.get_device(),
                         "Created filesystem on device %s" % volume.get_device()):
                         if not run('/bin/mount %s %s' % (volume.get_device(), self.mount_point),
                             "Error mounting file system %s from %s" % (self.mount_point, volume.get_device()),
                             "Successfully mounted file system %s from %s" % (self.mount_point, volume.get_device())):
-                            log.error("Failed to mount device '%s' to mount point '%s'" 
+                            log.error("Failed to mount device '%s' to mount point '%s'"
                                 % (volume.get_device(), self.mount_point))
                             return False
                 else:
@@ -211,7 +211,7 @@ class Filesystem(DataService):
                             if not os.path.exists(path):
                                 os.mkdir(path)
                             # Make 'export' dir that's shared over NFS be
-                            # owned by `ubuntu` user so it's accesible 
+                            # owned by `ubuntu` user so it's accesible
                             # for use to the rest of the cluster
                             if sd == 'export':
                                 os.chown(path, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
@@ -233,9 +233,9 @@ class Filesystem(DataService):
                 return True
             log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (volume.volume_id, volume.status(), counter))
             time.sleep( 2 )
-    
+
     def unmount(self, mount_point=None):
-        """ 
+        """
         Unmount the file system at the provided or the default mount point.
         If the file system is present in /etc/exports, this method enables
         NFS on the given mount point by uncommenting the respective line in
@@ -267,12 +267,12 @@ class Filesystem(DataService):
         else:
             log.debug("Did not unmount file system '%s' because it is not in state 'running' or 'shutting-down'" % self.get_full_name())
             return False
-    
+
     def _get_attach_device_from_device(self, device):
         for vol in self.volumes:
             if device == vol.device:
                 return vol.attach_device
-    
+
     def check_and_update_volume(self, device):
         f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
         vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
@@ -293,15 +293,15 @@ class Filesystem(DataService):
         else:
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system '%s' (vols=%s)" \
                 % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
-    
+
     def add_nfs_share(self, mount_point=None, permissions='rw'):
         """ Share the given/current file system/mount point over NFS. Note that
             if the given mount point already exists in /etc/exports, replace
             the existing line with the line composed within this method.
-            
+
             :type mount_point: string
             :param mount_point: The mount point to add to the NFS share
-            
+
             :type permissions: string
             :param permissions: Choose the type of permissions for the hosts
                                 mounting this NFS mount point. Use: 'rw' for
@@ -323,7 +323,7 @@ class Filesystem(DataService):
             if mount_point in sp:
                 in_ee = i
         # If the mount point is already in /etc/exports, replace the existing
-        # entry with the newly composed ee_line (thus supporting change of 
+        # entry with the newly composed ee_line (thus supporting change of
         # permissions). Otherwise, append ee_line to the end of the file.
         if in_ee > -1:
             shared_paths[in_ee] = ee_line
@@ -334,7 +334,7 @@ class Filesystem(DataService):
             f.writelines(shared_paths)
         # Mark the NFS server as being in need of a restart
         self.dirty=True
-    
+
     def status(self):
         """
         Do a status update for the current file system, checking
@@ -391,14 +391,14 @@ class Filesystem(DataService):
         else:
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'" \
                 % (self.name, self.mount_point, self.state))
-    
+
     def add_volume(self, vol_id=None, size=0, from_snapshot_id=None):
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"\
             .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
-    
+
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
             .format(name=bucket_name, fs=self.get_full_name()))
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
-    
+
