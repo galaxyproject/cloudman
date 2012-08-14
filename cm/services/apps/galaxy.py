@@ -66,24 +66,22 @@ class GalaxyService(ApplicationService):
                 self.add_galaxy_admin_users()
                 self.add_dynamic_galaxy_options()
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
-                if os.path.exists(universe_wsgi_path):
-                    os.chown(universe_wsgi_path, pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                self._attempt_chown_galaxy_if_exists(universe_wsgi_path)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
                     log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' )
                 tool_conf_path = os.path.join(self.galaxy_home, "tool_conf.xml")
-                if os.path.exists(tool_conf_path):
-                    os.chown( self.galaxy_home + '/tool_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                _attempt_chown_galaxy_if_exists(tool_conf_path)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' ):
                     log.debug("Did not get Galaxy tool_data_table_conf.xml.cloud file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (tool_data_table_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' )
                 try:
-                    tool_data_table_conf_path = os.path.join(env.galaxy_home, 'tool_data_table_conf.xml.cloud')
+                    tool_data_table_conf_path = os.path.join(self.galaxy_home, 'tool_data_table_conf.xml.cloud')
                     if os.path.exists(tool_data_table_conf_path):
                         shutil.copy(tool_data_table_conf_path, '%s/tool_data_table_conf.xml' % self.galaxy_home)
-                        os.chown( self.galaxy_home + '/tool_data_table_conf.xml', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
+                        self._attempt_chown_galaxy(self.galaxy_home + '/tool_data_table_conf.xml')
                 except:
                     pass
                 # 
@@ -92,7 +90,7 @@ class GalaxyService(ApplicationService):
                 # Make sure the temporary job_working_directory exists on user data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % paths.P_GALAXY_DATA):
                     os.makedirs('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
-                os.chown('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                self._attempt_chown_galaxy('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
                 # Setup environemnt for the FTP server and start it
                 if not os.path.exists('%s/tmp/ftp' % paths.P_GALAXY_DATA):
                     os.makedirs('%s/tmp/ftp' % paths.P_GALAXY_DATA)
@@ -247,4 +245,16 @@ class GalaxyService(ApplicationService):
             new_config_file.close()
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
-            os.chown(config_file_path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+            self._attempt_chown_galaxy(config_file_path)
+
+    def _attempt_chown_galaxy_if_exists(self, path):
+        if os.path.exists(path):
+            self._attempt_chown_galaxy(path)
+
+    def _attempt_chown_galaxy(self, path):
+        try:
+            galaxy_uid = pwd.getpwnam("galaxy")[2]
+            galaxy_gid = grp.getgrnam("galaxy")[2]
+            os.chown(path, galaxy_uid, galaxy_gid)
+        except OSError:
+            misc.run("chown galaxy:galaxy '%s'" % path)
