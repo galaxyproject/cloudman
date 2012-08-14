@@ -13,7 +13,7 @@ log = logging.getLogger('cloudman')
 
 
 class Volume(BlockStorage):
-    
+
     def __init__(self, filesystem, vol_id=None, device=None, attach_device=None,
                  size=0, from_snapshot_id=None, static=False):
         super(Volume, self).__init__(filesystem.app)
@@ -31,19 +31,19 @@ class Volume(BlockStorage):
                              # AND can be deleted upon cluster termination
         self.snapshot_progress = None
         self.snapshot_status = None
-    
+
     def __str__(self):
         return str(self.volume_id)
-    
+
     def __repr__(self):
         if self.volume_id is not None:
             return self.get_full_name()
         else:
             return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
-    
+
     def get_full_name(self):
         return "{vol} ({fs})".format(vol=self.volume_id, fs=self.fs.get_full_name())
-    
+
     def update(self, bsd):
         """ Update reference to the 'self' to point to argument 'bsd' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, bsd.id))
@@ -52,7 +52,7 @@ class Volume(BlockStorage):
         self.device = bsd.attach_data.device
         self.size = bsd.size
         self.from_snapshot_id = bsd.snapshot_id
-    
+
     def status(self):
         if self.volume_id is None:
             return volume_status.NONE
@@ -86,29 +86,29 @@ class Volume(BlockStorage):
                     return self.volume.status
             # Connection failed
             return volume_status.NONE
-    
+
     def get_attach_device(self, offset=0):
         # Need to ensure both of the variables are in sync
         if offset or (not self.device or not self.attach_device):
             if not self._set_devices(offset):
                 return None
         return self.attach_device
-    
+
     def get_device(self, offset=0):
         # Need to ensure both of the variables are in sync
         if offset or (not self.device or not self.attach_device):
             if not self._set_devices(offset):
                 return None
         return self.device
-    
+
     def _set_devices(self, offset=0):
         """ Use this method to figure out which as device this volume should get
         attached and how is it visible to the system once attached.
         Offset forces creation of a new device ID"""
-        # Get list of Galaxy-specific devices already attached to 
+        # Get list of Galaxy-specific devices already attached to
         # the instance and set current volume as the next one in line
         # TODO: make device root an app config option vs. hard coding here
-        
+
         # As of Ubuntu 11.04 (kernel 2.6.38), EBS volumes attached to /dev/sd*
         # get attached as device /dev/xvd*. So, look at the current version
         # of kernel running and set volume's device accordingly
@@ -143,7 +143,7 @@ class Volume(BlockStorage):
         log.debug("Running on kernel version %s; set volume device as '%s' and attach "
             "device as '%s'" % (kernel_out[1], self.device, self.attach_device))
         return True
-    
+
     def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
             try:
@@ -164,9 +164,9 @@ class Volume(BlockStorage):
         else:
             log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" \
                 % (self.status(), self.get_full_name()))
-        
+
         # Add tags to newly created volumes (do this outside the inital if/else
-        # to ensure the tags get assigned even if using an existing volume vs. 
+        # to ensure the tags get assigned even if using an existing volume vs.
         # creating a new one)
         try:
             self.app.cloud_interface.add_tag(self.volume, 'clusterName', self.app.ud['cluster_name'])
@@ -174,8 +174,8 @@ class Volume(BlockStorage):
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
         except EC2ResponseError, e:
-            log.error("Error adding tags to volume: %s" % e)        
-    
+            log.error("Error adding tags to volume: %s" % e)
+
     def delete(self):
         try:
             self.app.cloud_interface.get_ec2_connection().delete_volume(self.volume_id)
@@ -185,11 +185,11 @@ class Volume(BlockStorage):
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually after "
                 "the cluster has shut down: %s" % (self.volume_id, e))
-    
+
     def do_attach(self, attach_device):
         try:
             if attach_device is not None:
-                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" 
+                log.debug("Attaching volume '%s' to instance '%s' as device '%s'"
                     % (self.get_full_name(),  self.app.cloud_interface.get_instance_id(), attach_device))
                 volumestatus = self.app.cloud_interface.get_ec2_connection() \
                     .attach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device)
@@ -211,7 +211,7 @@ class Volume(BlockStorage):
                         self.app.cloud_interface.get_instance_id(), attach_device, er[0], er[1]))
             return False
         return volumestatus
-    
+
     def attach(self):
         """
         Attach EBS volume to the given device.
@@ -229,12 +229,12 @@ class Volume(BlockStorage):
                         % (self.get_full_name(), volumestatus, ctn, attempts))
                     if volumestatus == 'attached':
                         log.debug("Volume '%s' attached to instance '%s' as device '%s'" \
-                            % (self.volume_id, self.app.cloud_interface.get_instance_id(), 
+                            % (self.volume_id, self.app.cloud_interface.get_instance_id(),
                             self.get_attach_device()))
                         break
                     if ctn == attempts-1:
                         log.debug("Volume '%s' FAILED to attach to instance '%s' as device '%s'." \
-                            % (self.get_full_name(), self.app.cloud_interface.get_instance_id(), 
+                            % (self.get_full_name(), self.app.cloud_interface.get_instance_id(),
                             self.get_attach_device()))
                         if attempts < 90:
                             log.debug("Will try another device")
@@ -268,7 +268,7 @@ class Volume(BlockStorage):
             log.debug("Wanting to attach volume '%s' but it's not 'available' yet (current state: '%s'). "
                 "Waiting (%s/30)." % (self.volume_id, self.status(), counter))
             time.sleep( 2 )
-    
+
     def detach(self):
         """
         Detach EBS volume from an instance.
@@ -282,7 +282,7 @@ class Volume(BlockStorage):
                 log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" \
                     % (self.get_full_name(), self.app.cloud_interface.get_instance_id(), e))
                 return False
-                
+
             for counter in range(30):
                 log.debug("Detaching volume '%s'; status '%s' (check %s/30)" \
                     % (self.get_full_name(), volumestatus, counter))
@@ -294,7 +294,7 @@ class Volume(BlockStorage):
                 if counter == 28:
                     try:
                         volumestatus = self.app.cloud_interface.get_ec2_connection()\
-                            .detach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(), 
+                            .detach_volume(self.volume_id, self.app.cloud_interface.get_instance_id(),
                             force=True)
                     except EC2ResponseError, e:
                         log.error("Second attempt at detaching volume '%s' from instance '%s' failed. "
@@ -311,7 +311,7 @@ class Volume(BlockStorage):
             log.warning("Cannot detach volume '%s' in state '%s'" % (self.get_full_name(), self.status()))
             return False
         return True
-    
+
     def snapshot(self, snap_description=None):
         log.info("Initiating creation of a snapshot for the volume '%s'" % self.volume_id)
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -320,7 +320,7 @@ class Volume(BlockStorage):
         except Exception, ex:
             log.error("Error creating a snapshot from volume '%s': %s" % (self.volume_id, ex))
             raise
-        if snapshot: 
+        if snapshot:
             while snapshot.status != 'completed':
                 log.debug("Snapshot '%s' progress: '%s'; status: '%s'" \
                     % (snapshot.id, snapshot.progress, snapshot.status))
@@ -336,9 +336,8 @@ class Volume(BlockStorage):
         else:
             log.error("Could not create snapshot from volume '%s'" % self.volume_id)
             return None
-    
+
     def get_from_snap_id(self):
         self.status()
         return self.from_snapshot_id
-    
 
