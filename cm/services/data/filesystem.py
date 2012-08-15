@@ -184,45 +184,53 @@ class Filesystem(DataService):
                 % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
 
     def add_nfs_share(self, mount_point=None, permissions='rw'):
-        """ Share the given/current file system/mount point over NFS. Note that
-            if the given mount point already exists in /etc/exports, replace
-            the existing line with the line composed within this method.
-
-            :type mount_point: string
-            :param mount_point: The mount point to add to the NFS share
-
-            :type permissions: string
-            :param permissions: Choose the type of permissions for the hosts
-                                mounting this NFS mount point. Use: 'rw' for
-                                read-write (default) or 'ro' for read-only
         """
-        ee_file = '/etc/exports'
-        if mount_point is None:
-            mount_point = self.mount_point
-        # Compose the line that will be put into /etc/exports
-        # NOTE: with Spot instances, should we use 'async' vs. 'sync' option?
-        # See: http://linux.die.net/man/5/exports
-        ee_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
-            .format(mp=mount_point, perms=permissions)
-        # Determine if the given mount point is already shared
-        with open(ee_file) as f:
-            shared_paths = f.readlines()
-        in_ee = -1
-        for i, sp in enumerate(shared_paths):
-            if mount_point in sp:
-                in_ee = i
-        # If the mount point is already in /etc/exports, replace the existing
-        # entry with the newly composed ee_line (thus supporting change of
-        # permissions). Otherwise, append ee_line to the end of the file.
-        if in_ee > -1:
-            shared_paths[in_ee] = ee_line
-        else:
-            shared_paths.append(ee_line)
-        # Write out the newly composed file
-        with open(ee_file, 'w') as f:
-            f.writelines(shared_paths)
-        # Mark the NFS server as being in need of a restart
-        self.dirty=True
+        Share the given/current file system/mount point over NFS. Note that
+        if the given mount point already exists in /etc/exports, replace
+        the existing line with the line composed within this method.
+
+        :type mount_point: string
+        :param mount_point: The mount point to add to the NFS share
+
+        :type permissions: string
+        :param permissions: Choose the type of permissions for the hosts
+                            mounting this NFS mount point. Use: 'rw' for
+                            read-write (default) or 'ro' for read-only
+        """
+        try:
+            ee_file = '/etc/exports'
+            if mount_point is None:
+                mount_point = self.mount_point
+            # Compose the line that will be put into /etc/exports
+            # NOTE: with Spot instances, should we use 'async' vs. 'sync' option?
+            # See: http://linux.die.net/man/5/exports
+            ee_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+                .format(mp=mount_point, perms=permissions)
+            # Make sure we manipulate ee_file by a single process at a time
+            with flock(self.nfs_lock_file):
+                # Determine if the given mount point is already shared
+                with open(ee_file) as f:
+                    shared_paths = f.readlines()
+                in_ee = -1
+                for i, sp in enumerate(shared_paths):
+                    if mount_point in sp:
+                        in_ee = i
+                # If the mount point is already in /etc/exports, replace the existing
+                # entry with the newly composed ee_line (thus supporting change of
+                # permissions). Otherwise, append ee_line to the end of the file.
+                if in_ee > -1:
+                    shared_paths[in_ee] = ee_line
+                else:
+                    shared_paths.append(ee_line)
+                # Write out the newly composed file
+                with open(ee_file, 'w') as f:
+                    f.writelines(shared_paths)
+            # Mark the NFS server as being in need of a restart
+            self.dirty=True
+            return True
+        except Exception, e:
+            log.error("Error configuring {0} file for NFS: {1}".format(ee_file, e))
+            return False
 
     def status(self):
         """
