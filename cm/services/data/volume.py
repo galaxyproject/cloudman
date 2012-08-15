@@ -1,5 +1,8 @@
+import os
 import re
+import pwd
 import time
+import shutil
 import commands
 
 from boto.exception import EC2ResponseError
@@ -340,4 +343,81 @@ class Volume(BlockStorage):
     def get_from_snap_id(self):
         self.status()
         return self.from_snapshot_id
+
+    def mount(self, mount_point):
+        """
+        Mount this volume as a locally accessible file system and make it
+        available over NFS
+        """
+        for counter in range(30):
+            if self.status() == volume_status.ATTACHED:
+                if os.path.exists(mount_point):
+                    # Check if the mount location is empty
+                    if len(os.listdir(mount_point)) != 0:
+                        log.warning("A file system at {0} already exists and is not empty; cannot "
+                        "mount volume {1}".format(mount_point, self.volume_id))
+                        return False
+                else:
+                    os.mkdir(mount_point)
+                # Potentially wait for the device to actually become available in the system
+                # TODO: Do something if the device is not available in the given time period
+                for i in range(10):
+                    if os.path.exists(self.get_device()):
+                        log.debug("Device path {0} checked and it exists.".format(self.get_device()))
+                        break
+                    else:
+                        log.debug("Device path {0} does not yet exists; waiting...".format(self.get_device()))
+                        time.sleep(4)
+                # Until the underlying issue is fixed (see FIXME below), mask this
+                # even more by custom-handling the run command and thus not printing the err
+                cmd = '/bin/mount %s %s' % (self.get_device(), mount_point)
+                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                _, _ = process.communicate()
+                if process.returncode != 0:
+                    # FIXME: Assume if a file system cannot be mounted that it's because
+                    # there is not a file system on the device so try creating one
+                    if run('/sbin/mkfs.xfs %s' % self.get_device(),
+                        "Failed to create a files ystem on device %s" % self.get_device(),
+                        "Created a file system on device %s" % self.get_device()):
+                        if not run('/bin/mount %s %s' % (self.get_device(), mount_point),
+                            "Error mounting file system %s from %s" % (mount_point, self.get_device()),
+                            "Successfully mounted file system %s from %s" % (mount_point, self.get_device())):
+                            log.error("Failed to mount device '%s' to mount point '%s'"
+                                % (self.get_device(), mount_point))
+                            return False
+                else:
+                    log.info("Successfully mounted file system {0} from {1}".format(mount_point,
+                        self.get_device()))
+                try:
+                    # Default owner of all mounted file systems to `galaxy` user
+                    os.chown(mount_point, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                    # Add Galaxy- and CloudBioLinux-required files under the 'data' dir
+                    if self.fs.name == 'galaxyData':
+                        for sd in ['files', 'tmp', 'upload_store', 'export']:
+                            path = os.path.join(paths.P_GALAXY_DATA, sd)
+                            if not os.path.exists(path):
+                                os.mkdir(path)
+                            # Make 'export' dir that's shared over NFS be
+                            # owned by `ubuntu` user so it's accesible
+                            # for use to the rest of the cluster
+                            if sd == 'export':
+                                os.chown(path, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+                            else:
+                                os.chown(path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                except OSError, e:
+                    log.debug("Tried making 'galaxyData' sub-dirs but failed: %s" % e)
+                # TODO: Don't require mount points to be in /etc/exports but simply add them for any FS
+                try:
+                    mp = mount_point.replace('/', '\/') # Escape slashes for sed
+                    if run("/bin/sed -i 's/^#%s/%s/' /etc/exports" % (mp, mp),
+                            "Error removing '%s' from '/etc/exports'" % mount_point,
+                            "Successfully edited '%s' in '/etc/exports' for NFS." % mount_point):
+                        self.fs.dirty = True
+                except Exception, e:
+                    log.debug("Problems configuring NFS or /etc/exports: %s" % e)
+                    return False
+                return True
+            log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (self.volume_id,
+                self.status(), counter))
+            time.sleep(2)
 
