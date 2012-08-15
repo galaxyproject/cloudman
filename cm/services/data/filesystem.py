@@ -1,14 +1,19 @@
-import commands, os, time, shutil, threading, pwd, grp, subprocess
+"""
+A core class for what CloudMan sees as a file system. This means that it is
+aware of it and can thus manipulate it.
+"""
+import os
+import shutil
+import commands
+import threading
 from datetime import datetime
 
 from boto.exception import EC2ResponseError
 
-from cm.util import paths
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.services import service_states
 from cm.services.data import DataService
-from cm.services.data import volume_status
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 
@@ -21,9 +26,9 @@ class Filesystem(DataService):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
         self.nfs_lock_file = '/tmp/nfs.lockfile'
-        self.volumes = []
-        self.buckets = []
-        self.name = name
+        self.volumes = [] # A list of cm.services.data.volume.Volume objects
+        self.buckets = [] # A list of cm.services.data.bucket.Bucket objects
+        self.name = name  # File system name
         self.size = None
         self.dirty = False
         self.kind = None # Choice of 'snapshot', 'volume', or 'bucket'
@@ -72,24 +77,23 @@ class Filesystem(DataService):
         self.status()
 
     def remove(self):
-        """ Sequential removal of volumes has issues so thread it"""
-        log.info("Removing '{0}' data service with volumes {1} and buckets {2}"\
+        """
+        Initiate removal of this file system from the system
+        """
+        log.info("Initiating removal of '{0}' data service with volumes {1} and buckets {2}"\
             .format(self.get_full_name(), self.volumes, self.buckets))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
 
     def __remove(self, delete_vols=True):
-        log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
+        """
+        Do the actual removal of devices used to compose this file system
+        """
+        log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
-            vol.unmount(self.mount_point)
-            log.debug("Detaching volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
-            if vol.detach():
-                log.debug("Detached volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
-                if vol.static and self.name != 'galaxyData' and delete_vols:
-                    log.debug("Deleting %s" % self.get_full_name())
-                    vol.delete()
+            vol.remove(self.mount_point)
         for b in self.buckets:
             b.unmount()
         log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
@@ -97,7 +101,7 @@ class Filesystem(DataService):
 
     def clean(self):
         """ Remove filesystems and clean up as if they were never there. Useful for CloudMan restarts."""
-        self.remove()
+        self.__remove()
         # If the service was successfuly removed, remove the mount point
         if self.state == service_states.SHUT_DOWN:
             try:

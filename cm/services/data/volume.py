@@ -1,3 +1,7 @@
+"""
+A wrapper class around volume block storage devices. For the purposes of this
+class, a single object/volume maps to a complete file system.
+"""
 import os
 import re
 import pwd
@@ -345,6 +349,19 @@ class Volume(BlockStorage):
     def get_from_snap_id(self):
         self.status()
         return self.from_snapshot_id
+
+    def remove(self, mount_point, delete_vols=True):
+        """
+        Remove this volume from the system. This implies unmounting the associated
+        file system, detaching the volume, and, optionally, deleting the volume.
+        """
+        self.unmount(mount_point)
+        log.debug("Detaching volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
+        if self.detach():
+            log.debug("Detached volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
+            if self.static and self.fs.name != 'galaxyData' and delete_vols:
+                log.debug("Deleting volume {0} as part of {1}".format(self.volume_id, self.fs.get_full_name()))
+                self.delete()
 
     def mount(self, mount_point):
         """
