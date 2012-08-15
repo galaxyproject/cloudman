@@ -83,7 +83,7 @@ class Filesystem(DataService):
         log.debug("Thread-removing '%s-%s' data service" % (self.svc_type, self.name))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
-            self.unmount()
+            vol.unmount(self.mount_point)
             log.debug("Detaching volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
             if vol.detach():
                 log.debug("Detached volume '%s' as %s" % (vol.volume_id, self.get_full_name()))
@@ -156,40 +156,6 @@ class Filesystem(DataService):
         # After the snapshot is done, add the file system back as a cluster service
         self.add()
         return snap_ids
-
-    def unmount(self, mount_point=None):
-        """
-        Unmount the file system at the provided or the default mount point.
-        If the file system is present in /etc/exports, this method enables
-        NFS on the given mount point by uncommenting the respective line in
-        this file and indicating that the NFS server should to be restarted).
-        """
-        if mount_point is not None:
-            self.mount_point = mount_point
-        try:
-            mp = self.mount_point.replace('/', '\/') # Escape slashes for sed
-            # Because we're unmounting the file systems in separate threads, use a lock file
-            with flock(self.nfs_lock_file):
-                if run("/bin/sed 's/^%s/#%s/' /etc/exports > /tmp/exports.tmp" % (mp, mp), "Error removing '%s' from '/etc/exports'" % self.mount_point, "Successfully removed '%s' from '/etc/exports'" % self.mount_point):
-                    shutil.move( '/tmp/exports.tmp', '/etc/exports' )
-                    self.dirty = True
-        except Exception, e:
-            log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
-            return False
-        self.status()
-        if self.state == service_states.RUNNING or self.state == service_states.SHUTTING_DOWN:
-            for counter in range(10):
-                if run('/bin/umount -f %s' % self.mount_point, "Error unmounting file system '%s'" % self.mount_point, "Successfully unmounted file system '%s'" % self.mount_point):
-                    break
-                if counter == 9:
-                    log.warning("Could not unmount file system at '%s'" % self.mount_point)
-                    return False
-                counter += 1
-                time.sleep(3)
-            return True
-        else:
-            log.debug("Did not unmount file system '%s' because it is not in state 'running' or 'shutting-down'" % self.get_full_name())
-            return False
 
     def _get_attach_device_from_device(self, device):
         for vol in self.volumes:
