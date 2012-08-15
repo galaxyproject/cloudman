@@ -18,7 +18,7 @@ from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 
 class Filesystem(DataService):
@@ -41,39 +41,37 @@ class Filesystem(DataService):
                                                   # the system configuration.
 
     def get_full_name(self):
+        """
+        Return a descriptive name of this file system
+        """
         return "FS-%s" % self.name
 
     def get_size(self):
+        """
+        Get the total size of this file system across all of its devices
+        """
         new_size = 0
         for volume in self.volumes:
             new_size += volume.size
+        # TODO: get FS size for buckets
         self.size = new_size
         return self.size
 
     def add(self):
+        """
+        Add this file system service by adding any devices that compose it
+        """
         try:
-            log.debug("Trying to add service '%s'" % self.get_full_name())
+            log.debug("Trying to add file system service {0}".format(self.get_full_name()))
             self.state = service_states.STARTING
-            self.starter_starting = datetime.utcnow()
             for vol in self.volumes:
-                vol.create(self.name)
-                # Mark a volume as 'static' if created from a snapshot
-                # Note that if a volume is marked as 'static', it is assumed it
-                # can be deleted upon cluster termination!
-                if self.name != 'galaxyData' and vol.from_snapshot_id is not None:
-                    log.debug("Marked volume '%s' from file system '%s' as 'static'" % (vol.volume_id, self.name))
-                    vol.static = True
-                    self.kind= 'snapshot'
-                else:
-                    self.kind = 'volume'
-                if vol.attach():
-                    vol.mount(self.mount_point)
+                threading.Thread(target=vol.add).start()
             for b in self.buckets:
                 self.kind = 'bucket'
                 threading.Thread(target=b.mount).start()
                 log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
         except Exception, e:
-            log.error("Error adding filesystem service '%s-%s': %s" % (self.svc_type, self.name, e))
+            log.error("Error adding file system service {0}: {1}".format(self.get_full_name(), e))
         self.status()
 
     def remove(self):
@@ -100,7 +98,10 @@ class Filesystem(DataService):
         self.state = service_states.SHUT_DOWN
 
     def clean(self):
-        """ Remove filesystems and clean up as if they were never there. Useful for CloudMan restarts."""
+        """
+        Remove this file system and clean up the system as if the file system was
+        never there. Useful for CloudMan restarts.
+        """
         self.__remove()
         # If the service was successfuly removed, remove the mount point
         if self.state == service_states.SHUT_DOWN:
@@ -152,6 +153,10 @@ class Filesystem(DataService):
             return False
 
     def snapshot(self, snap_description=None):
+        """
+        Create a snapshot of this file system. **Note** that this only applies to
+        file systems based on volumes.
+        """
         self.__remove(delete_vols=False)
         snap_ids = []
         # Create a snapshot of the detached volumes
@@ -294,11 +299,23 @@ class Filesystem(DataService):
                 % (self.name, self.mount_point, self.state))
 
     def add_volume(self, vol_id=None, size=0, from_snapshot_id=None):
+        """
+        Add a volume device to this file system.
+
+        Each file system is composed of actual devices; otherwise, it's just an
+        empty shell/wrapper for what CloudMan considers a file system.
+        """
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"\
             .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size, from_snapshot_id=from_snapshot_id))
 
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
+        """
+        Add a bucket to this file system.
+
+        Each file system is composed of actual devices; otherwise, it's just an
+        empty shell/wrapper for what CloudMan considers a file system.
+        """
         log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
             .format(name=bucket_name, fs=self.get_full_name()))
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))

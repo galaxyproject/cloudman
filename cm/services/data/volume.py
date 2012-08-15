@@ -4,15 +4,17 @@ class, a single object/volume maps to a complete file system.
 """
 import os
 import re
+import grp
 import pwd
 import time
-import shutil
 import commands
+import subprocess
 
 from boto.exception import EC2ResponseError
 
+from cm.util import paths
+from cm.util.misc import run
 from cm.util.misc import flock
-from cm.framework import messages
 from cm.services import service_states
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
@@ -349,6 +351,25 @@ class Volume(BlockStorage):
     def get_from_snap_id(self):
         self.status()
         return self.from_snapshot_id
+
+    def add(self):
+        """
+        Add this volume as a file system. This implies creating a volume (if
+        it does not already exist), attaching it to the instance, and mounting
+        the file system.
+        """
+        self.create(self.fs.name)
+        # Mark a volume as 'static' if created from a snapshot
+        # Note that if a volume is marked as 'static', it is assumed it
+        # can be deleted upon cluster termination!
+        if self.fs.name != 'galaxyData' and self.from_snapshot_id is not None:
+            log.debug("Marked volume '%s' from file system '%s' as 'static'" % (self.volume_id, self.fs.name))
+            self.static = True
+            self.fs.kind= 'snapshot'
+        else:
+            self.fs.kind = 'volume'
+        if self.attach():
+            self.mount(self.fs.mount_point)
 
     def remove(self, mount_point, delete_vols=True):
         """
