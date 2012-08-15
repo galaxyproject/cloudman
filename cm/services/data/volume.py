@@ -408,17 +408,9 @@ class Volume(BlockStorage):
                                 os.chown(path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                 except OSError, e:
                     log.debug("Tried making 'galaxyData' sub-dirs but failed: %s" % e)
-                # TODO: Don't require mount points to be in /etc/exports but simply add them for any FS
-                try:
-                    mp = mount_point.replace('/', '\/') # Escape slashes for sed
-                    if run("/bin/sed -i 's/^#%s/%s/' /etc/exports" % (mp, mp),
-                            "Error removing '%s' from '/etc/exports'" % mount_point,
-                            "Successfully edited '%s' in '/etc/exports' for NFS." % mount_point):
-                        self.fs.dirty = True
-                except Exception, e:
-                    log.debug("Problems configuring NFS or /etc/exports: %s" % e)
-                    return False
-                return True
+                # Lastly, share the newly mounted file system over NFS
+                if self.fs.add_nfs_share(mount_point):
+                    return True
             log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (self.volume_id,
                 self.status(), counter))
             time.sleep(2)
