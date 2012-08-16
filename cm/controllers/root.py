@@ -82,6 +82,13 @@ class CM(BaseController):
         return "Cluster configuration '%s' received and processed." % startup_opt
 
     @expose
+    def get_cluster_type(self):
+        """
+        Get the type of the cluster that's been configured
+        """
+        return self.app.manager.initial_cluster_type
+
+    @expose
     def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
         if delete_snap:
             delete_snap = True
