@@ -53,7 +53,7 @@ class Filesystem(DataService):
         new_size = 0
         for volume in self.volumes:
             new_size += volume.size
-        # TODO: get FS size for buckets
+        # TODO: get FS size used by bucket(s)
         self.size = new_size
         return self.size
 
@@ -111,10 +111,17 @@ class Filesystem(DataService):
             except OSError, e:
                 log.error("Trouble cleaning directory '%s': %s" % (self.mount_point, e))
         else:
-            log.warning("Wanted to clean file system {0} but the service is not in state '{1}'; it in state '{2}'") \
-                .format(self.name, service_states.SHUT_DOWN, self.state)
+            log.warning("Wanted to clean file system {0} but the service is not in state '{1}'; "\
+                    "it in state '{2}'").format(self.name, service_states.SHUT_DOWN, self.state)
 
     def expand(self):
+        """
+        Exapnd the size of this file system. Note that this process requires
+        the file system to be unmounted during the operation and the new one
+        will be automatically remounted upon completion of the process.
+
+        Also note that this method applies only to Volume-based file systems.
+        """
         if self.grow is not None:
             self.__remove()
             smaller_vol_ids = []
@@ -130,7 +137,8 @@ class Filesystem(DataService):
             self.add()
 
             # Grow file system
-            if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'" % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
+            if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
+                    % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
             # Delete old, smaller volumes since everything seems to have gone ok
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
@@ -138,14 +146,16 @@ class Filesystem(DataService):
                 try:
                     ec2_conn.delete_volume(smaller_vol_id)
                 except EC2ResponseError, e:
-                    log.error("Error deleting old data volume '%s' during '%s' resizing: %s" % (smaller_vol_id, self.get_full_name(), e))
+                    log.error("Error deleting old data volume '%s' during '%s' resizing: %s"
+                            % (smaller_vol_id, self.get_full_name(), e))
             # If desired by user, delete snapshot used during the resizing process
             if self.grow['delete_snap'] is True:
                 try:
                     ec2_conn = self.app.cloud_interface.get_ec2_connection()
                     ec2_conn.delete_snapshot(snap_id)
                 except EC2ResponseError, e:
-                    log.error("Error deleting snapshot '%s' during '%s' resizing: %s" % (snap_id, self.get_full_name(), e))
+                    log.error("Error deleting snapshot '%s' during '%s' resizing: %s"
+                            % (snap_id, self.get_full_name(), e))
             self.grow = None # Reset flag
             return True
         else:
@@ -167,16 +177,28 @@ class Filesystem(DataService):
         return snap_ids
 
     def _get_attach_device_from_device(self, device):
+        """
+        Get the device a volume is attached as from the volume itself (i.e.,
+        double check that the ``device`` we have locally is the ``device`` the
+        cloud middleware sees as well).
+        If the devices do not match, return ``None``.
+        """
         for vol in self.volumes:
             if device == vol.device:
+                # This is limited to file systems composed from 1 volume only
                 return vol.attach_device
+        return None
 
     def check_and_update_volume(self, device):
-        f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+        """
+        Check that the volume used for this file system is actually the volume
+        we have a reference to and update local fields as necessary.
+        """
+        f = {'attachment.device':device, 'attachment.instance-id':self.app.cloud_interface.get_instance_id()}
         vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
         if len(vols) == 1:
             att_vol = vols[0]
-            for vol in self.volumes: # Currently, bc. only 1 vol can be assoc. w/ FS, we'll only deal w/ 1 vol
+            for vol in self.volumes: # Currently, bc. only 1 vol can be assoc w/ FS, we'll only deal w/ 1 vol
                 if (vol is None and att_vol) or (vol and att_vol and vol.volume_id != att_vol.id):
                     log.debug("Discovered change of vol %s to '%s', attached as device '%s', for FS '%s'" \
                         % ([vol.volume_id for vol in self.volumes], att_vol.id, device, self.name))
@@ -189,8 +211,8 @@ class Filesystem(DataService):
                     # Update cluster configuration (i.e., persistent_data.yaml) in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()
         else:
-            log.warning("Did not find a volume attached to instance '%s' as device '%s', file system '%s' (vols=%s)" \
-                % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
+            log.warning("Did not find a volume attached to instance '%s' as device '%s', file system "\
+                    "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
 
     def add_nfs_share(self, mount_point=None, permissions='rw'):
         """
