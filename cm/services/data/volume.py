@@ -158,6 +158,11 @@ class Volume(BlockStorage):
     def create(self, filesystem=None):
         if self.status() == volume_status.NONE:
             try:
+                # Get the size of a snapshot from which we'll create a volume
+                if self.size == 0 and self.from_snapshot_id is not None:
+                    snap = self.app.cloud_interface.ec2_conn.get_all_snapshots(
+                            snapshot_ids=[self.from_snapshot_id])[0]
+                    self.size = snap.volume_size
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" \
                     % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 if self.size > 0:

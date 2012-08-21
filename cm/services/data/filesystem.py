@@ -69,7 +69,9 @@ class Filesystem(DataService):
                 self.state = service_states.STARTING
                 self.started_starting = datetime.utcnow()
                 for vol in self.volumes:
-                    threading.Thread(target=vol.add).start()
+                    # Threading has some issues w/ race conditions over device IDs
+                    # threading.Thread(target=vol.add).start()
+                    vol.add()
                 for b in self.buckets:
                     self.kind = 'bucket'
                     threading.Thread(target=b.mount).start()
