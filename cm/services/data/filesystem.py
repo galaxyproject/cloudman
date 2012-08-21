@@ -16,6 +16,7 @@ from cm.services import service_states
 from cm.services.data import DataService
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
+from cm.services.data.transient_storage import TransientStorage
 
 import logging
 log = logging.getLogger('cloudman')
@@ -28,10 +29,11 @@ class Filesystem(DataService):
         self.nfs_lock_file = '/tmp/nfs.lockfile'
         self.volumes = [] # A list of cm.services.data.volume.Volume objects
         self.buckets = [] # A list of cm.services.data.bucket.Bucket objects
+        self.transient_storage = [] # Instance's transient storage
         self.name = name  # File system name
         self.size = None
         self.dirty = False
-        self.kind = None # Choice of 'snapshot', 'volume', or 'bucket'
+        self.kind = None # Choice of 'snapshot', 'volume', 'bucket', or 'transient'
         self.mount_point = mount_point if mount_point is not None else '/mnt/%s' % self.name
         self.grow = None # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
                          # the file system; use following dict structure:
@@ -61,25 +63,34 @@ class Filesystem(DataService):
         """
         Add this file system service by adding any devices that compose it
         """
-        try:
-            log.debug("Trying to add file system service {0}".format(self.get_full_name()))
-            self.state = service_states.STARTING
-            for vol in self.volumes:
-                threading.Thread(target=vol.add).start()
-            for b in self.buckets:
-                self.kind = 'bucket'
-                threading.Thread(target=b.mount).start()
-                log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
-        except Exception, e:
-            log.error("Error adding file system service {0}: {1}".format(self.get_full_name(), e))
-        self.status()
+        if self.state == service_states.UNSTARTED:
+            try:
+                log.debug("Trying to add file system service {0}".format(self.get_full_name()))
+                self.state = service_states.STARTING
+                self.started_starting = datetime.utcnow()
+                for vol in self.volumes:
+                    threading.Thread(target=vol.add).start()
+                for b in self.buckets:
+                    self.kind = 'bucket'
+                    threading.Thread(target=b.mount).start()
+                    log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
+                for ts in self.transient_storage:
+                    self.kind = 'transient'
+                    ts.add()
+            except Exception, e:
+                log.error("Error adding file system service {0}: {1}".format(self.get_full_name(), e))
+            self.status()
+        else:
+            log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"\
+                    .format(self.get_full_name(), service_states.UNSTARTED, self.state))
 
     def remove(self):
         """
         Initiate removal of this file system from the system
         """
-        log.info("Initiating removal of '{0}' data service with volumes {1} and buckets {2}"\
-            .format(self.get_full_name(), self.volumes, self.buckets))
+        log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, and"\
+                "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
+                    self.transient_storage))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
@@ -256,12 +267,66 @@ class Filesystem(DataService):
                 # Write out the newly composed file
                 with open(ee_file, 'w') as f:
                     f.writelines(shared_paths)
+                log.debug("Added '{0}' line to NFS file {1}".format(ee_line.strip(), ee_file))
             # Mark the NFS server as being in need of a restart
             self.dirty=True
             return True
         except Exception, e:
             log.error("Error configuring {0} file for NFS: {1}".format(ee_file, e))
             return False
+
+    def remove_nfs_share(self, mount_point=None):
+        """
+        Remove the given/current file system/mount point from being shared
+        over NFS. The method removes the file system's ``mount_point`` from
+        ``/etc/share`` and indcates that the NFS server needs restarting.
+        """
+        try:
+            ee_file = '/etc/exports'
+            if mount_point is None:
+                mount_point = self.mount_point
+            mount_point = mount_point.replace('/', '\/') # Escape slashes for sed
+            # To avoid race conditions between threads, use a lock file
+            with flock(self.fs.nfs_lock_file):
+                run("sed -i '/^{0}/d' {1}".format(mount_point, ee_file))
+            self.dirty = True
+            return True
+        except Exception, e:
+            log.error("Error removing FS {0} share from NFS: {1}".format(mount_point, e))
+            return False
+
+    def _service_transitioning(self):
+        """
+        A convenience method indicating if the service is in a transitioning state
+        (i.e., ``SHUTTING_DOWN, SHUT_DOWN, UNSTARTED, WAITING_FOR_USER_ACTION``).
+        If so, return ``True``, else return ``False``.
+        """
+        if self.state==service_states.SHUTTING_DOWN or \
+           self.state==service_states.SHUT_DOWN or \
+           self.state==service_states.UNSTARTED or \
+           self.state==service_states.WAITING_FOR_USER_ACTION:
+               return True
+        return False
+
+    def _service_starting(self, wait_period=30):
+        """
+        A convenience method that checks if a service has been in ``STARTING``
+        state too long. ``wait_period`` indicates how many seconds that period is.
+        So, if a service is in ``STARTING`` state and has been there for less then
+        the ``waiting_period``, the method returns ``True`` (i.e., the service IS
+        starting). If the service is in not in ``STARTING`` state or it's been in
+        that state for longer than the ``wait_period``, return ``False``.
+
+        Basically, this method allows a service to remain in ``STARTING`` state
+        for some time before actually checking its status - this helps avoid
+        brief ``ERROR`` states due to a service not yet been configured.
+        """
+        if self.state==service_states.STARTING and \
+               (datetime.utcnow()-self.started_starting).seconds < wait_period:
+            log.debug("{0} in '{2}' state for {1} seconds".format(self.get_full_name(),
+                (datetime.utcnow() - self.started_starting).seconds, service_states.STARTING))
+            return True
+        return False
 
     def status(self):
         """
@@ -279,18 +344,15 @@ class Filesystem(DataService):
                     "As part of %s filesystem update, successfully restarted NFS server" \
                     % self.name):
                     self.dirty = False
-        if self.state==service_states.SHUTTING_DOWN or \
-           self.state==service_states.SHUT_DOWN or \
-           self.state==service_states.UNSTARTED or \
-           self.state==service_states.WAITING_FOR_USER_ACTION:
+        # Transient storage file system has its own process for checking status
+        if len(self.transient_storage) > 0:
+            for ts in self.transient_storage:
+                ts.status()
+            return
+        # TODO: Move volume-specific checks into volume.py
+        if self._service_transitioning():
             pass
-        elif self.state==service_states.STARTING and \
-           (datetime.utcnow() - self.started_starting).seconds < 30:
-            log.debug("{0} in '{2}' state for {1} seconds".format(self.get_full_name(),
-                (datetime.utcnow() - self.started_starting).seconds, service_states.STARTING))
-            # Allow a service to remain in STARTING state for some time
-            # before actually checking its status - this helps avoid
-            # brief ERROR states due to services not yet being configured
+        elif self._service_starting():
             pass
         elif self.mount_point is not None:
             mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" \
@@ -341,4 +403,13 @@ class Filesystem(DataService):
         log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
             .format(name=bucket_name, fs=self.get_full_name()))
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
+
+    def add_transient_storage(self):
+        """
+        Add instance's transient storage and make it available over NFS to the
+        cluster. All this really does is makes a directory under ``/mnt`` and
+        exports it over NFS.
+        """
+        log.debug("Configuring instance transient storage at {0} with NFS.".format(self.mount_point))
+        self.transient_storage.append(TransientStorage(self))
 

@@ -135,6 +135,10 @@ class ConsoleManager(object):
 
         # Always add SGE service
         self.app.manager.services.append(SGEService(self.app))
+        # Always share instance transient storage over NFS
+        tfs = Filesystem(self.app, 'transient_nfs')
+        tfs.add_transient_storage()
+        self.app.manager.services.append(tfs)
 
         if self.app.LOCALFLAG is True:
             self.init_cluster(cluster_type='Galaxy')
@@ -1582,19 +1586,21 @@ class ConsoleMonitor( object ):
             fss = [] # list of filesystems
             for srvc in self.app.manager.services:
                 if srvc.svc_type=='Filesystem':
-                    fs = {}
-                    fs['name'] = srvc.name
-                    fs['mount_point'] = srvc.mount_point
-                    fs['kind'] = srvc.kind
-                    if srvc.kind == 'bucket':
-                        fs['ids'] = [b.bucket_name for b in srvc.buckets]
-                    elif srvc.kind == 'volume':
-                        fs['ids'] = [v.volume_id for v in srvc.volumes]
-                    elif srvc.kind == 'snapshot':
-                        fs['ids'] = [v.from_snapshot_id for v in srvc.volumes]
-                    else:
-                        log.error("Unknown filesystem kind {0}".format(srvc.kind))
-                    fss.append(fs)
+                    # Transient file systems do not get persisted
+                    if srvc.kind != 'transient':
+                        fs = {}
+                        fs['name'] = srvc.name
+                        fs['mount_point'] = srvc.mount_point
+                        fs['kind'] = srvc.kind
+                        if srvc.kind == 'bucket':
+                            fs['ids'] = [b.bucket_name for b in srvc.buckets]
+                        elif srvc.kind == 'volume':
+                            fs['ids'] = [v.volume_id for v in srvc.volumes]
+                        elif srvc.kind == 'snapshot':
+                            fs['ids'] = [v.from_snapshot_id for v in srvc.volumes]
+                        else:
+                            log.error("Unknown filesystem kind {0}".format(srvc.kind))
+                        fss.append(fs)
                 else:
                     s = {}
                     s['name'] = srvc.svc_type
@@ -1719,7 +1725,10 @@ class ConsoleMonitor( object ):
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = dt.datetime.utcnow()
                 if service.add():
+                    # FIXME: file systems do not return True on service add
                     added_srvcs = True
+                #else:
+                    #log.debug("Monitor DIDN'T add service {0}?".format(service.get_full_name()))
             # Store cluster conf after all services have been added.
             # NOTE: this flag relies on the assumption service additions are
             # sequential (i.e., monitor waits for the service add call to complete).
@@ -1798,6 +1807,7 @@ class Instance( object ):
         self.nfs_tools = 0
         self.nfs_indices = 0
         self.nfs_sge = 0
+        self.nfs_tfs = 0 # Transient file system, NFS-mounted from the master
         self.get_cert = 0
         self.sge_started = 0
         self.worker_status = 'Pending' # Pending, Wake, Startup, Ready, Stopping, Error
@@ -1923,6 +1933,7 @@ class Instance( object ):
                  'nfs_tools' : self.nfs_tools,
                  'nfs_indices' : self.nfs_indices,
                  'nfs_sge' : self.nfs_sge,
+                 'nfs_tfs' : self.nfs_tfs,
                  'get_cert' : self.get_cert,
                  'sge_started' : self.sge_started,
                  'worker_status' : self.worker_status,
@@ -2274,6 +2285,7 @@ class Instance( object ):
                 self.sge_started = msplit[6]
                 self.load = msplit[7]
                 self.worker_status = msplit[8]
+                self.nfs_tfs = msplit[9]
             elif msg_type == 'NODE_SHUTTING_DOWN':
                 msplit = msg.split( ' | ' )
                 self.worker_status = msplit[1]
