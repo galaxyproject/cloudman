@@ -183,7 +183,7 @@ class GalaxyService(ApplicationService):
     def has_config_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None) is not None
 
-    def add_universe_option(self, name, value, section="[app:main]"):
+    def add_universe_option(self, name, value, section="app:main"):
         prefix = self.app.ud.get("option_priority", "400")
         conf_dir = self.app.ud["galaxy_conf_dir"]
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
