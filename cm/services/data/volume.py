@@ -476,10 +476,16 @@ class Volume(BlockStorage):
             return False
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
+            log.debug("Unmounting volume-based FS from {0}".format(mount_point))
             for counter in range(10):
-                if run('/bin/umount -f %s' % mount_point,
+                if run('/bin/umount %s' % mount_point,
                         "Error unmounting file system '%s'" % mount_point,
                         "Successfully unmounted file system '%s'" % mount_point):
+                    # Clean up the system path now that the file system is unmounted
+                    try:
+                        os.rmdir(mount_point)
+                    except OSError, e:
+                        log.error("Error removing unmounted path {0}: {1}".format(mount_point, e))
                     break
                 if counter == 9:
                     log.warning("Could not unmount file system at '%s'" % mount_point)
