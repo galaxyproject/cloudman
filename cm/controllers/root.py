@@ -1,6 +1,6 @@
-import logging
 import os
 import re
+import logging
 import subprocess
 
 from cm.util.json import to_json_string
