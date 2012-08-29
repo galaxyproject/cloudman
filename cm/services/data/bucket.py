@@ -48,8 +48,10 @@ class Bucket(object):
         log.info(msg)
         self.app.msgs.info(msg)
         misc.run("cd /tmp;wget --output-document=s3fs.sh http://s3.amazonaws.com/cloudman/pss/s3fs.sh")
-        misc.run("cd /tmp;sh s3fs.sh")
-        msg = "Done installing s3fs"
+        if misc.run("cd /tmp;bash s3fs.sh"):
+            msg = "Done installing s3fs"
+        else:
+            msg = "Trouble installing sf3s; giving up."
         log.debug(msg)
         self.app.msgs.info(msg)
 
