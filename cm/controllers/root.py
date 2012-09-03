@@ -569,6 +569,8 @@ class CM(BaseController):
         snap_status = self.app.manager.snapshot_status()
         ret_dict = {'cluster_status':self.app.manager.get_cluster_status(),
                     'dns':dns,
+                    'master_ip':self.app.ud.get('master_ip', None),
+                    'master_id':self.app.ud.get('master_id', None),
                     'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available' : str(self.app.manager.get_num_available_workers()),
                                         'requested' : str(len(self.app.manager.worker_instances))},
