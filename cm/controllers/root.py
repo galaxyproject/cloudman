@@ -568,7 +568,7 @@ class CM(BaseController):
         ret_dict = {'master_ip': self.app.cloud_interface.get_self_public_ip(),
                     'master_id': self.app.cloud_interface.get_instance_id(),
                     'ami_id' : self.app.cloud_interface.get_ami(),
-                    'availability-zone' : self.app.cloud_interface.get_zone(),
+                    'availability_zone' : self.app.cloud_interface.get_zone(),
                     'key_pair_name' : self.app.cloud_interface.get_key_pair_name(),
                     'security_groups' : self.app.cloud_interface.get_security_groups(),
                     'master_host_name': self.app.cloud_interface.get_self_public_hostname()
