@@ -564,21 +564,34 @@ class CM(BaseController):
         return dns
 
     @expose
+    def static_instance_state_json(self, trans, no_json=False):
+        ret_dict = {'master_ip': self.app.cloud_interface.get_self_public_ip(),
+                    'master_id': self.app.cloud_interface.get_instance_id(),
+                    'ami_id' : self.app.cloud_interface.get_ami(),
+                    'availability-zone' : self.app.cloud_interface.get_zone(),
+                    'key_pair_name' : self.app.cloud_interface.get_key_pair_name(),
+                    'security_groups' : self.app.cloud_interface.get_security_groups(),
+                    'master_host_name': self.app.cloud_interface.get_self_public_hostname()
+                   }
+        if no_json:
+            return ret_dict
+        else:
+            return to_json_string(ret_dict)
+
+    @expose
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns()
         snap_status = self.app.manager.snapshot_status()
-        ret_dict = {'cluster_status':self.app.manager.get_cluster_status(),
-                    'dns':dns,
-                    'master_ip':self.app.ud.get('master_ip', None),
-                    'master_id':self.app.ud.get('master_id', None),
-                    'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
+        ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
+                    'dns': dns,
+                    'instance_status': {'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available' : str(self.app.manager.get_num_available_workers()),
                                         'requested' : str(len(self.app.manager.worker_instances))},
-                    'disk_usage':{'used':str(self.app.manager.disk_used),
+                    'disk_usage': {'used':str(self.app.manager.disk_used),
                                     'total':str(self.app.manager.disk_total),
                                     'pct':str(self.app.manager.disk_pct)},
-                    'data_status':self.app.manager.get_data_status(),
-                    'app_status':self.app.manager.get_app_status(),
+                    'data_status': self.app.manager.get_data_status(),
+                    'app_status': self.app.manager.get_app_status(),
                     'all_fs' : self.app.manager.all_fs_status_array(),
                     'snapshot' : {'status' : str(snap_status[0]),
                                   'progress' : str(snap_status[1])},

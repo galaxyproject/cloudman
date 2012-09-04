@@ -442,7 +442,6 @@ class EC2Interface(CloudInterface):
         worker_ud = {}
         worker_ud['role'] = 'worker'
         worker_ud['master_ip'] = self.get_self_private_ip()
-        worker_ud['master_id'] = self.get_instance_id()
         worker_ud['master_hostname'] = self.get_local_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
         # Merge the worker's user data with the master's user data
