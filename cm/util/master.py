@@ -1,6 +1,7 @@
 """Galaxy CM master manager"""
 import logging, logging.config, threading, os, time, subprocess, commands, fileinput
 import shutil
+import random
 import datetime as dt
 
 from cm.util.bunch import Bunch
@@ -458,6 +459,12 @@ class ConsoleManager(object):
             return "nodata"
 
     def get_srvc_status(self, srvc):
+        """
+        Get the status a service ``srvc``. If the service is not a recognized as
+        a CloudMan-service, return ``Service not recognized``. If the service is
+        not currently running (i.e., not currently recognized by CloudMan as a
+        service it should be managing), return ``Service not found``.
+        """
         if srvc in ['Galaxy', 'SGE', 'Postgres', 'Filesystem']:
             svcarr = [s for s in self.services if s.svc_type == srvc]
             if len(svcarr) > 0:
@@ -466,15 +473,75 @@ class ConsoleManager(object):
                 return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
+    def get_all_filesystems_status(self):
+        """
+        Get a list and information about each of the file systems currently
+        managed by CloudMan.
+
+        For example::
+            TODO: Make the example match the real situation
+            [{"name": "galaxyData", "status": "Available", "device": "/dev/sdg1",
+            "kind": "volume", "mount_point": "/mnt/galaxyData", "DOT": False,
+            "size": 20, "owner": "galaxy", "NFS_shared": True},
+            {"name": "1000genomes", "status": "Available", "device": None,
+            "kind": "bucket", "mount_point": "/mnt/100genomes", "DOT": False,
+            "size": None, "owner": "ubuntu", "NFS_shared": True}]
+        """
+        fss = []
+        fs_svcs = [s for s in self.services if s.svc_type=='Filesystem']
+        for fs in fs_svcs:
+            fss.append(fs.get_details())
+        return fss
+
+        #return []
+
+        # TEMP only; used to alternate input on the UI
+        #r = random.choice([1, 2, 3])
+        r = 4
+        log.debug("Dummy random #: %s" % r)
+        dummy = [{  "name": "galaxyData",
+                    "status": "Available",
+                    "device": "/dev/sdg1",
+                    "kind": "volume",
+                    "mount_point": "/mnt/galaxyData",
+                    "DoT": False,
+                    "size": 20,
+                    "size_used": 2,
+                    "size_pct": "10%",
+                    "error_msg": None}]
+        if r == 2 or r == 4:
+            dummy.append({"name": "1000genomes", "status": "Removing", "device": "N/A",
+            "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": False,
+            "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
+        if r == 3:
+            dummy[0]['status'] = "Adding"
+        if r == 4:
+            dummy.append({"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
+            "kind": "volume", "mount_point": "/mnt/galaxyIndices", "DoT": True,
+            "size": "700", "NFS_shared": True, "size_used": 675, "size_pct": "96%", "error_msg": "Process returned 2"})
+        return dummy
+
     def get_all_services_status(self):
+        """
+        Return a dictionary containing a list of currently running service and
+        their status.
+
+        For example::
+            {"Postgres": "Running", "SGE": "Running", "Galaxy": "Running",
+            "Filesystems": "Running"}
+        """
         status_dict = {}
         for srvc in self.services:
             status_dict[srvc.svc_type] = srvc.state
-        status_dict['galaxy_rev'] = self.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.get_galaxy_admins()
         return status_dict
 
     def get_galaxy_rev(self):
+        """
+        Get the Mercurial revision of the Galaxy instance that's running as a
+        CloudMan-managed service.
+        Return a string with either the revision (e.g., ``5757:963e73d40e24``)
+        or ``N/A`` if unable to get the revision number.
+        """
         cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, paths.P_GALAXY_HOME)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = process.communicate()

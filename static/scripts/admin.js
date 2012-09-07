@@ -76,6 +76,7 @@ function update(repeat_update){
                 } else {
                     $('#master_is_exec_host').html("Switch master to run jobs");
                 }
+                $('#dummy').html(data.dummy);
             }
     });
     if (repeat_update === true){
@@ -117,17 +118,37 @@ function handle_clicks() {
             $('#user_data').fadeIn('fast');
         });
     });
-    $('#manage_FSs_link').click(function(){
-        $('#overlay').show();
-        $('#add_fs_overlay').show();
+    //$('#manage_FSs_link').click(function(){
+        //$('#overlay').show();
+        //$('#add_fs_overlay').show();
         // get_filesystems();
-    });
-    $('#overlay').click(function(){
-        hidebox();
-    });
+    //});
+    // Clicking the semi-transparent overlay clears any overlays
+    $('body').on('click', 'div.overlay', function() { hidebox();});
     // Force an update of the field on click
     $('#master_is_exec_host').click(function(){
         update();
+    });
+    // Handle click on 'Details' of an individual file system
+    // TODO: this should be translated to a backbone event
+    $('table').on('click', 'a.fs-details', function() {
+        // Make sure any other details boxes are closed before opening a new one
+        if ($('.fs-details-box').is(':visible')) {
+            $('.fs-details-box-close').trigger('click');
+        }
+        var elid = $(this).attr('details-box'); // Get the element ID of the clicked FS
+        var tr = $(this).parents('tr'); // Keep reference to the highlighted tr
+        tr.animate({backgroundColor: '#FEF1B5'}, 'slow');
+        $("#"+elid).show("fold");
+        // Add a hide event on the 'close' button
+        // Need to use closure here to keep a reference to the highlighted tr
+        var closer = function () {
+            $("#"+elid).on('click', "a.fs-details-box-close", function() {
+                $("#"+elid).hide();
+                $(tr).animate({backgroundColor: 'transparent'}, 'slow');
+            });
+        }();
+        return false; // prevent page autoscroll to the top
     });
 }
 function handle_forms() {
@@ -184,3 +205,177 @@ $(document).ready(function() {
     // Handle forms++
     handle_forms();
 });
+
+// Backbone.js components
+(function ($) {
+
+    // Define the file system model
+    var Filesystem = Backbone.Model.extend({
+        defaults: {
+            id: null,
+            status: 'Unavailable'
+        }
+    });
+
+    // Define the filesystems collection
+    var Filesystems = Backbone.Collection.extend({
+        model: Filesystem,
+        url: get_all_filesystems_url
+    });
+    var FScollection = new Filesystems(); // A container for all Filesystems
+
+    // Define an individual file system summary view
+    var FilesystemView = Backbone.View.extend({
+        // Template for rendering an indiviudal file system summary/overview
+        filesystemSummaryTemplate: '<td class="fs-td1"><%= name %></td>' +
+            '<td class="fs-status fs-td1"><%= status %></td>' +
+            '<td class="fs-td2"><a class="fs-remove" id="fs-<%= name %>-remove" href="' + manage_service_url +
+            '?service_name=<%= name %>&to_be_started=False&is_filesystem=True">'+
+            'Remove</a></td>' +
+            '<td class="fs-td2"><a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a></td>' +
+            '<td class="td-spacer"></td>',
+        tagName: "tr",
+        className: "filesystem-tr",
+        attributes: function() {
+            // Explicitly add file system name as a tag/row attribute
+            return {fs_name: this.model.get('name')};
+        },
+
+        render: function () {
+            var tmpl = _.template(this.filesystemSummaryTemplate);
+            $(this.el).html(tmpl(this.model.toJSON()));
+            if (this.model.attributes.status === 'Available') {
+                $(this.el).find('.fs-status').addClass("td-green-bckgd");
+            } else if (this.model.attributes.status === 'Removing' ||
+                this.model.attributes.status === 'Adding') {
+                $(this.el).find('.fs-status').addClass("td-yellow-bckgd");
+            } else if (this.model.attributes.status === 'Error') {
+                $(this.el).find('.fs-status').addClass("td-red-bckgd");
+            }
+            return this;
+        }
+    });
+
+    // Define the details popup view for an individual file system
+    var FilesystemDetailsView = Backbone.View.extend({
+        filesystemDetailsTemplate: '<a class="fs-details-box-close"></a>' +
+            '<div class="fs-details-box-header">File system information</div>' +
+            '<table>' +
+            '<tr><th>Name:</th><td><%= name %></td>' +
+            '<tr><th>Status:</th><td><%= status %></td>' +
+            '<tr><th>Mount point:</th><td><%= mount_point %></td>' +
+            '<tr><th>Device:</th><td><%= device %></td>' +
+            '<tr><th>Kind:</th><td><%= kind %></td>' +
+            '<tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>' +
+            '<tr><th>Delete on termination:</th><td><%= DoT %></td>' +
+            '</table>',
+        tagName: "div",
+        className: "fs-details-box",
+
+        render: function () {
+            var tmpl = _.template(this.filesystemDetailsTemplate);
+            $(this.el).attr('id', "fs-"+this.model.attributes.name+"-details");
+            // TODO: Instead of using a predefined template, traverse the model
+            // and dispay any info that a FS sends:
+            // for (key in this.model.attributes) {console.log(key + ": " + this.model.get(key))}
+            $(this.el).html(tmpl(this.model.toJSON()));
+            return this;
+        }
+    });
+
+    // Define the master view, i.e., list of all the file systems
+    var FilesystemsView = Backbone.View.extend({
+        tableHeaderTemplate: '<tr class="filesystem-tr"><th width="200px">Name</th>' +
+            '<th width="100px">Status</th></tr>',
+        el: $("#filesystems-table"),
+
+        initialize: function() {
+            // Bind events to actions
+            this.on("click:removeFS", this.handleRemove, this);
+            FScollection.on('reset', this.render, this); // Triggered on the initial page load
+        },
+
+        render: function () {
+            var that = this;
+            // Clear the current list; otherwise, the list just grows indefinitely
+            // FIXME: I don't think this will work once FS can be added from the client side?
+            //        Just add an argument from the update method?
+            $(this.el).empty();
+            $('#fs-details-container').empty();
+            // Explicitly add the header row
+            //this.$el.append(this.tableHeaderTemplate);
+            // Add all of the file systems, one per row
+            _.each(FScollection.models, function (fs) {
+                that.renderFilesystem(fs);
+            }, this);
+        },
+
+        renderFilesystem: function (fs) {
+            var filesystemView = new FilesystemView({
+                model: fs
+            });
+            this.$el.append(filesystemView.render().el);
+            var filesystemDetailsView = new FilesystemDetailsView({
+                model: fs
+            });
+            $('#fs-details-container').append(filesystemDetailsView.render().el);
+        },
+
+        // Add UI event handlers
+        events: {
+            "click .fs-remove": "triggerRemove"
+        },
+
+        triggerRemove: function (event) {
+            // Is this trigger necessary? Why can't the click just be handled in this method?
+            this.fsToRemoveID = event.currentTarget.id; // Reference to the element ID of the FS to be remvoed
+            this.fsToRemoveTR = $('#'+event.currentTarget.id).parents('tr'); // Reference to tr to be removed
+            event.preventDefault();
+            this.trigger("click:removeFS");
+        },
+
+        handleRemove: function() {
+            var el = $('#'+this.fsToRemoveID);
+            var url = el.attr('href');
+            $.get(url, function(data) {
+                //alert("Success");
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            //.success(function() { alert("Second success"); })
+            //.error(function() { alert("Error"); })
+            //.complete(function() { alert("Complete"); });
+            popup();
+            // A rather convoluted way to instantly update the UI status to 'Removing'
+            // Is there a more straighforward way?
+            for (var i=0; i<FScollection.models.length; i++) {
+                if (FScollection.models[i].attributes.name === this.fsToRemoveTR.attr('fs_name')) {
+                    FScollection.models[i].attributes.status = 'Removing';
+                }
+            }
+            var that = this;
+            var tmp_models = FScollection.models; // .reset below clears the models so keep a reference
+            FScollection.reset();
+            _.each(tmp_models, function (fs) {
+                that.renderFilesystem(fs);
+            }, this);
+        },
+    });
+
+    // Create an instance of the master view
+    var filesystemList = new FilesystemsView();
+    // Fetch the initial data from the server
+    FScollection.fetch();
+    function updateFS() {
+        // Do not update file systems while a details box is visible because it
+        // does not function: conceptually, a file system may dissapear so what
+        // to display; also, the UI gets rendered w/ each refresh so it's would
+        // have to be handled differently (maybe one day)
+        if (!$('.fs-details-box').is(':visible')) {
+            // Keep updating the display with the fresh data from the server
+            FScollection.fetch();
+        }
+        window.setTimeout(function(){updateFS();}, 5000);
+    }
+    updateFS();
+} (jQuery));

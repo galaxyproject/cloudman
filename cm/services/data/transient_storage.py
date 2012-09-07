@@ -9,6 +9,7 @@ storage over NFS to the rest of the cluster.
 import os
 import grp
 import pwd
+import commands
 
 from cm.services import service_states
 from cm.services.data import BlockStorage
@@ -25,12 +26,23 @@ class TransientStorage(BlockStorage):
         super(TransientStorage, self).__init__(filesystem.app)
         self.fs = filesystem
         self.app = self.fs.app
+        self.device = None
 
     def __repr__(self):
         return self.get_full_name()
 
     def get_full_name(self):
         return "Transient storage @ {0}".format(self.fs.mount_point)
+
+    def _get_details(self, details):
+        """
+        Transient storage-specific file system details
+        """
+        details['DoT']      = "Yes"
+        details['device']   = self.device
+        # TODO: keep track of any errors
+        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        return details
 
     def add(self):
         """
@@ -42,6 +54,8 @@ class TransientStorage(BlockStorage):
             if not os.path.exists(self.fs.mount_point):
                 os.mkdir(self.fs.mount_point)
             os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+            self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
+                    % self.fs.mount_point)
             if self.fs.add_nfs_share(self.fs.mount_point):
                 self.status()
                 return True
@@ -86,6 +100,9 @@ class TransientStorage(BlockStorage):
                 for shared_path in shared_paths:
                     if self.fs.mount_point in shared_path:
                         self.fs.state = service_states.RUNNING
+                        update_size_cmd = "df -h %s | grep -v Filesystem | awk '{print $2, $3, $5}'" \
+                            % self.fs.mount_point
+                        self.fs._update_size(cmd=update_size_cmd)
                         return
                 # Or should this set it to UNSTARTED? Because this FS is just an
                 # NFS-exported file path...

@@ -61,6 +61,16 @@ class Bucket(object):
     def __repr__(self):
         return str(self.bucket_name)
 
+    def _get_details(self, details):
+        """
+        Bucket-specific details for this file system
+        """
+        details['DoT']      = "No"
+        details['device']   = "N/A"
+        # TODO: keep track of any errors
+        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        return details
+
     def _compose_mount_cmd(self):
         """
         Compose the command line used to mount the current bucket as a file system.
@@ -136,4 +146,4 @@ class Bucket(object):
         Check on the status of this bucket as a mounted file system
         """
         # TODO
-        pass
+        self.fs._update_size()

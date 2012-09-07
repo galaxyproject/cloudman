@@ -27,11 +27,17 @@ class Filesystem(DataService):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
         self.nfs_lock_file = '/tmp/nfs.lockfile'
+        # TODO: Introduce a new file system layer that abstracts/consolidates
+        # potentially multiple devices under a single file system interface
+        # Maybe a class above this class should be introduced, e.g., DataService,
+        # that provides the common interface???
         self.volumes = [] # A list of cm.services.data.volume.Volume objects
         self.buckets = [] # A list of cm.services.data.bucket.Bucket objects
         self.transient_storage = [] # Instance's transient storage
         self.name = name  # File system name
-        self.size = None
+        self.size = None      # Total size of this file system
+        self.size_used = None # Used size of the this file system
+        self.size_pct = None  # Used percentage of this file system
         self.dirty = False
         self.kind = None # Choice of 'snapshot', 'volume', 'bucket', or 'transient'
         self.mount_point = mount_point if mount_point is not None else '/mnt/%s' % self.name
@@ -47,6 +53,36 @@ class Filesystem(DataService):
         Return a descriptive name of this file system
         """
         return "FS-%s" % self.name
+
+    def get_details(self):
+        """
+        Return a dictionary with the details describing the details of this file system.
+        """
+        details = {}
+        details = self._get_details(details)
+        # Uff... This is not scalable and, depending on the context, questionably
+        # functionally correct...
+        for vol in self.volumes:
+            details = vol._get_details(details)
+        for b in self.buckets:
+            details = b._get_details(details)
+        for ts in self.transient_storage:
+            details = ts._get_details(details)
+        return details
+
+    def _get_details(self, details):
+        """
+        Get details about this file system, excluding any device-specific details
+        """
+        details['name']     = self.name
+        details['kind']     = str(self.kind).title()
+        details['size']     = self.size
+        details['size_used']= self.size_used
+        details['size_pct'] = self.size_pct
+        details['status']   = self.state
+        details['err_msg']  = ""
+        details['mount_point'] = self.mount_point
+        return details
 
     def get_size(self):
         """
@@ -330,6 +366,27 @@ class Filesystem(DataService):
             return True
         return False
 
+    def _update_size(self, cmd=None):
+        """
+        Update local size fields to reflect the current file system usage.
+        The optional ``cmd`` can be specified if the process of obtaining the
+        file system size differe from the *standard* one. If provided, the output
+        from this command must have the following format: *total used percentage*
+        For example: ``335G 199M 1%``
+        """
+        if not cmd:
+            cmd = "df -h | grep %s | awk '{print $2, $3, $5}'" % self.name
+        # Get size & usage
+        try:
+            disk_usage = commands.getoutput(cmd)
+            disk_usage = disk_usage.split(' ')
+            if len(disk_usage) == 3:
+                self.size = disk_usage[0] # or should this the device size?
+                self.size_used = disk_usage[1]
+                self.size_pct = disk_usage[2]
+        except Exception, e:
+            log.debug("Error updating file system {0} size and usage: {1}".format(self.get_full_name(), e))
+
     def status(self):
         """
         Do a status update for the current file system, checking
@@ -368,6 +425,7 @@ class Filesystem(DataService):
                     # Check mount point
                     if mnt_path == self.mount_point:
                         self.state = service_states.RUNNING
+                        self._update_size()
                     else:
                         log.error("STATUS CHECK: Retrieved mount path '%s' does not match "
                             "expected path '%s'" % (mnt_location[1], self.mount_point))

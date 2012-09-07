@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import subprocess
+from datetime import datetime
 
 from cm.util.json import to_json_string
 from cm.framework import expose
@@ -130,8 +131,7 @@ class CM(BaseController):
             self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
         else:
             log.error("Wanted to add a file system but provided no bucket name.")
-        return "FSACK"
-        # return self.get_all_services_status(trans)
+        return "FS_ACK"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -306,13 +306,21 @@ class CM(BaseController):
     @expose
     def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
+        #status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns()
+        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
         snap_status = self.app.manager.snapshot_status()
         status_dict['snapshot'] = {'status' : str(snap_status[0]),
                                    'progress' : str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
+        #status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return to_json_string(status_dict)
+
+    @expose
+    def get_all_filesystems(self, trans):
+        return to_json_string(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
@@ -410,11 +418,25 @@ class CM(BaseController):
             return comment
 
     @expose
-    def manage_service(self, trans, service_name, to_be_started=True):
-        svcs = self.app.manager.get_services(service_name)
+    def manage_service(self, trans, service_name, to_be_started=True, is_filesystem=False):
+        """
+        Manage a CloudMan service identified by ``service_name``. Currently,
+        managing a service means that the service can be started (if
+        ``to_be_started`` argument is set to ``True``) or stopped (the default
+        action). If wanting to manipulate a file system service, set
+        ``is_filesystem`` to ``True`` and set ``service_name`` to be the file
+        system name.
+        """
+        is_filesystem = (is_filesystem == 'True') # convert to boolean
+        to_be_started = (to_be_started == 'True')
+        if is_filesystem:
+            svcs = [s for s in self.app.manager.services if s.svc_type=='Filesystem' \
+                    and s.name==service_name]
+        else:
+            svcs = self.app.manager.get_services(service_name)
         if svcs:
             log.debug("Managing services: %s" % svcs)
-            if to_be_started == "False":
+            if to_be_started == False:
                 for s in svcs:
                     s.remove()
                 return "%s stopped" % service_name
@@ -423,7 +445,10 @@ class CM(BaseController):
                     s.start()
                 return "%s started" % service_name
         else:
-            return "Cannot find %s service." % service_name
+            msg = "Cannot find service '{0}'".format(service_name)
+            #self.app.msgs.warning(msg)
+            log.warning(msg)
+            return msg
 
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):

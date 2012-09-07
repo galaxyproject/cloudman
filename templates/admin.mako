@@ -77,11 +77,11 @@
             Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
             target='_blank'>${initial_cluster_type}</a>' type of cluster.
         </div>
-        <table width="600px" style="margin:10px 0;">
+        <table width="700px" style="margin:10px 0;">
             <tr style="text-align:left">
-                <th width="15%">Name</th>
-                <th width="30%">Status</th>
-                <th colspan="4"></th>
+                <th width="20%">Service name</th>
+                <th width="20%">Status</th>
+                <th width="60%" colspan="6"></th>
             </tr>
             <tr>
                 <td>Galaxy</td>
@@ -110,13 +110,16 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
-            <tr>
-                <td>File systems</td>
-                <td><span id="filesystem_status">&nbsp;</span></td>
-                <td>No logs</td>
-                <td><a href="#" id="manage_FSs_link">Manage</a></td>
-            </tr>
+            ##<tr>
+            ##    <td>Dummy</td>
+            ##    <td><span id="dummy"></span></td>
+            ##</tr>
         </table>
+        <strong>File systems</strong>
+        ## backbone-managed
+        <div id='fs-details-container'></div>
+        <table id="filesystems-table"></table>
+
         <h3>System controls</h3>
         <div class="help_text">
             Use these controls to administer CloudMan itself as well as the underlying system.
@@ -306,7 +309,12 @@
     <script type='text/javascript'>
         // Place URLs here so that url_for can be used to generate them
         var get_all_services_status_url = "${h.url_for(controller='root',action='get_all_services_status')}";
+        var get_all_filesystems_url = "${h.url_for(controller='root',action='get_all_filesystems')}";
+        var manage_service_url= "${h.url_for(controller='root',action='manage_service')}";
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 </%def>

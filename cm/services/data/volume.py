@@ -55,6 +55,16 @@ class Volume(BlockStorage):
     def get_full_name(self):
         return "{vol} ({fs})".format(vol=self.volume_id, fs=self.fs.get_full_name())
 
+    def _get_details(self, details):
+        """
+        Volume-specific details for this file system
+        """
+        details['DoT']      = "Yes" if self.static else "No"
+        details['device']   = self.device
+        # TODO: keep track of any errors
+        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        return details
+
     def update(self, bsd):
         """ Update reference to the 'self' to point to argument 'bsd' """
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, bsd.id))
@@ -170,6 +180,14 @@ class Volume(BlockStorage):
                         self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                     self.volume_id = str(self.volume.id)
                     self.size = int(self.volume.size)
+                    # Wait until the volume is actually created
+                    # NOTE that this could potentially take forever
+                    volumestatus = self.volume.update()
+                    while volumestatus != 'available':
+                        log.debug("Waiting for volume '%s' to create; status: %s" \
+                            % (self.get_full_name(), volumestatus))
+                        time.sleep(3)
+                        volumestatus = self.volume.update()
                     log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" \
                         % (self.size, self.from_snapshot_id, self.get_full_name(), \
                         self.app.cloud_interface.get_zone()))
