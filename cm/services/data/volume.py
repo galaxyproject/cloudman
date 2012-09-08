@@ -61,6 +61,10 @@ class Volume(BlockStorage):
         """
         details['DoT']      = "Yes" if self.static else "No"
         details['device']   = self.device
+        details['volume_id']= self.volume_id
+        details['from_snap'] = self.from_snapshot_id
+        details['snapshot_progress'] = self.snapshot_progress
+        details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
         details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
         return details

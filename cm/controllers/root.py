@@ -83,7 +83,7 @@ class CM(BaseController):
         return "Cluster configuration '%s' received and processed." % startup_opt
 
     @expose
-    def get_cluster_type(self):
+    def get_cluster_type(self, trans):
         """
         Get the type of the cluster that's been configured
         """
