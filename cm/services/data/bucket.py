@@ -66,7 +66,8 @@ class Bucket(object):
         Bucket-specific details for this file system
         """
         details['DoT']      = "No"
-        details['device']   = "N/A"
+        details['bucket_name'] = self.bucket_name
+        details['access_key'] = self.access_key
         # TODO: keep track of any errors
         details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
         return details

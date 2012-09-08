@@ -206,6 +206,16 @@ $(document).ready(function() {
     handle_forms();
 });
 
+String.prototype.toProperCase = function () {
+    // Convert a string to Title Case capitalization
+    return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+};
+String.prototype.toSpaced = function(){
+    // Convert an underscore-connected string to a space-connected string
+    // (e.g., i_am_undescored -> i am underscored)
+	return this.replace(/(\_[a-z])/g, function($1){return $1.toUpperCase().replace('_',' ');});
+};
+
 // Backbone.js components
 (function ($) {
 
@@ -264,21 +274,30 @@ $(document).ready(function() {
             '<tr><th>Name:</th><td><%= name %></td>' +
             '<tr><th>Status:</th><td><%= status %></td>' +
             '<tr><th>Mount point:</th><td><%= mount_point %></td>' +
-            '<tr><th>Device:</th><td><%= device %></td>' +
             '<tr><th>Kind:</th><td><%= kind %></td>' +
             '<tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>' +
-            '<tr><th>Delete on termination:</th><td><%= DoT %></td>' +
-            '</table>',
+            '<tr><th>Delete on termination:</th><td><%= DoT %></td>',
         tagName: "div",
         className: "fs-details-box",
 
         render: function () {
             var tmpl = _.template(this.filesystemDetailsTemplate);
             $(this.el).attr('id', "fs-"+this.model.attributes.name+"-details");
-            // TODO: Instead of using a predefined template, traverse the model
-            // and dispay any info that a FS sends:
-            // for (key in this.model.attributes) {console.log(key + ": " + this.model.get(key))}
-            $(this.el).html(tmpl(this.model.toJSON()));
+            // Build the details table using the 'standard' keys and then add any
+            // additional ones that are found in the provided file system's JSON
+            html = tmpl(this.model.toJSON())
+            standard_keys = ['name', 'status', 'mount_point', 'kind',
+                'size', 'size_used', 'size_pct', 'DoT'];
+            for (key in this.model.attributes) {
+                if ($.inArray(key, standard_keys) === -1) {
+                    if (this.model.get(key) != null) {
+                        html += '<tr><th>'+key.toSpaced().toProperCase()+':</th><td>' +
+                            this.model.get(key)+'</td>';
+                    }
+                }
+            }
+            html += '</table>';
+            $(this.el).html(html);
             return this;
         }
     });

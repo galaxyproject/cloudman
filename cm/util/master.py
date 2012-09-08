@@ -508,9 +508,10 @@ class ConsoleManager(object):
                     "size": 20,
                     "size_used": 2,
                     "size_pct": "10%",
-                    "error_msg": None}]
+                    "error_msg": None,
+                    "volume_id": "vol-dbi23ins"}]
         if r == 2 or r == 4:
-            dummy.append({"name": "1000genomes", "status": "Removing", "device": "N/A",
+            dummy.append({"name": "1000genomes", "status": "Removing",
             "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": False,
             "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
         if r == 3:
