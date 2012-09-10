@@ -522,6 +522,8 @@ class ConsoleManager(object):
             "size": "700", "NFS_shared": True, "size_used": 675, "size_pct": "96%", "error_msg": "Process returned 2"})
         return dummy
 
+    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "Starting_TestFlag",
+        "Filesystems": "Running"})
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
