@@ -1233,14 +1233,17 @@ p.disabled {
     border-collapse: collapse;
     /*padding-left: 20px;*/
 }
-.fs-td1{
-    width: 20%;
+.fs-td-10pct {
+    width: 10%;
 }
-.fs-td2 {
+.fs-td-15pct {
     width: 15%;
 }
-.td-spacer{
-    width: 30%;
+.fs-td-20pct{
+    width: 20%;
+}
+.fs-td-spacer{
+    width: 15%;
 }
 .filesystem-tr {
     text-align:left;
@@ -1252,7 +1255,7 @@ p.disabled {
     display:none;
     /*float:right;*/
     position:absolute;
-    margin-left:465px;
+    margin-left:580px;
     width: 220px;
     background-color:#fff;
     color:#7F7F7F;
@@ -1347,4 +1350,33 @@ p.disabled {
 }
 .td-red-txt{
     color: #BF3030;
+}
+.icon-button {
+    width: 16px;
+    height: 16px;
+    display: block;
+    float: left;
+    margin-left: 5px;
+    text-indent: 20px;
+    background-repeat: no-repeat;
+    background-position: 0px 0px;
+    padding: 0;
+}
+.fs-remove {
+    background: transparent url(/cloud/static/images/delete_icon.png) no-repeat;
+}
+.fs-remove:hover {
+    background-image : url(/cloud/static/images/delete_icon_red.png);
+}
+.fs-persist{
+    background: transparent url(/cloud/static/images/persist_bw.png) no-repeat;
+}
+.fs-persist:hover {
+    background-image : url(/cloud/static/images/persist.png);
+}
+.fs-resize {
+    background: transparent url(/cloud/static/images/disc_plus_bw.png) no-repeat;
+}
+.fs-resize:hover {
+    background-image : url(/cloud/static/images/disc_plus.png);
 }
