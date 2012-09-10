@@ -505,24 +505,29 @@ class ConsoleManager(object):
                     "kind": "volume",
                     "mount_point": "/mnt/galaxyData",
                     "DoT": False,
-                    "size": 20,
-                    "size_used": 2,
+                    "size": "20G",
+                    "size_used": "2G",
                     "size_pct": "10%",
                     "error_msg": None,
                     "volume_id": "vol-dbi23ins"}]
         if r == 2 or r == 4:
             dummy.append({"name": "1000genomes", "status": "Removing",
-            "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": False,
+            "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": "No",
             "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
         if r == 3:
             dummy[0]['status'] = "Adding"
         if r == 4:
+            dummy.append({"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
+            "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
+            "size": "10G", "size_used": "1.9G", "size_pct": "19%",
+            "error_msg": None, "from_snap": "snap-bdr2whd"})
             dummy.append({"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
-            "kind": "volume", "mount_point": "/mnt/galaxyIndices", "DoT": True,
-            "size": "700", "NFS_shared": True, "size_used": 675, "size_pct": "96%", "error_msg": "Process returned 2"})
+            "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
+            "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
+            "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
         return dummy
 
-    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "Starting_TestFlag",
+    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
         "Filesystems": "Running"})
     def get_all_services_status(self):
         """

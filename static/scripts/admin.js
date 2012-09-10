@@ -184,6 +184,7 @@ function handle_forms() {
         }
     });
 }
+
 $(document).ready(function() {
     // Toggle help info boxes
     $(".help_info span").click(function () {
@@ -244,13 +245,33 @@ String.prototype.toSpaced = function(){
     // Define an individual file system summary view
     var FilesystemView = Backbone.View.extend({
         // Template for rendering an indiviudal file system summary/overview
-        filesystemSummaryTemplate: '<td class="fs-td1"><%= name %></td>' +
-            '<td class="fs-status fs-td1"><%= status %></td>' +
-            '<td class="fs-td2"><a class="fs-remove" id="fs-<%= name %>-remove" href="' + manage_service_url +
-            '?service_name=<%= name %>&to_be_started=False&is_filesystem=True">'+
-            'Remove</a></td>' +
-            '<td class="fs-td2"><a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a></td>' +
-            '<td class="td-spacer"></td>',
+        filesystemSummaryTemplate: '<td class="fs-td-20pct"><%= name %></td>' +
+            '<td class="fs-status fs-td-15pct"><%= status %></td>' +
+            '<td class="fs-td-20pct">' +
+            '<% if (status === "Available") { %>' +
+                '<%= size_used %>/<%= size %> (<%= size_pct %>)' +
+            '<% } %></td>' +
+            '<td class="fs-td-15pct">' +
+            '<% if (status === "Available") { %>' +
+                '<a class="fs-remove icon-button" id="fs-<%= name %>-remove" href="' + manage_service_url +
+                '?service_name=<%= name %>&to_be_started=False&is_filesystem=True"' +
+                'title="Remove this file system"></a>' +
+                // It only makes sense to persist DoT, snapshot-based file systems
+                '<% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" \
+                    && DoT === "Yes") { %>' +
+                    '<a class="fs-persist icon-button" id="fs-<%= name %>-persist" href="#"' +
+                    'title="Persist file system changes"></a>' +
+                '<% } %>' +
+                // It only makes sense to resize volume-based file systems
+                '<% if (typeof(kind) != "undefined" && kind === "volume" ) { %>' +
+                    '<a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#"' +
+                    'title="Increase file system size"></a>' +
+                '<% } %>' +
+            '<% } %></td>'+
+            '<td class="fs-td-15pct">' +
+                '<a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>' +
+            '</td>' +
+            '<td class="fs-td-spacer"></td>',
         tagName: "tr",
         className: "filesystem-tr",
         attributes: function() {
@@ -259,6 +280,9 @@ String.prototype.toSpaced = function(){
         },
 
         render: function () {
+            // Must clear tooltips; otherwise, following a rerender, the binding
+            // element no longer exists and thus the tool tip stays on forever
+            $(".tipsy").remove();
             var tmpl = _.template(this.filesystemSummaryTemplate);
             $(this.el).html(tmpl(this.model.toJSON()));
             if (this.model.attributes.status === 'Available') {
@@ -269,6 +293,8 @@ String.prototype.toSpaced = function(){
             } else if (this.model.attributes.status === 'Error') {
                 $(this.el).find('.fs-status').addClass("td-red-txt");
             }
+            // Add toopltips
+            this.$('a.icon-button').tipsy({gravity: 's', fade: true});
             return this;
         }
     });
@@ -311,8 +337,9 @@ String.prototype.toSpaced = function(){
 
     // Define the master view, i.e., list of all the file systems
     var FilesystemsView = Backbone.View.extend({
-        tableHeaderTemplate: '<tr class="filesystem-tr"><th width="200px">Name</th>' +
-            '<th width="100px">Status</th></tr>',
+        tableHeaderTemplate: '<tr class="filesystem-tr"><th class="fs-td-20pct">Name</th>' +
+            '<th class="fs-td-20pct">Status</th><th class="fs-td-15pct">Usage</th>' +
+            '<th class="fs-td-15pct">Controls</td><th colspan="2"></th></tr>',
         el: $("#filesystems-table"),
 
         initialize: function() {
@@ -329,7 +356,7 @@ String.prototype.toSpaced = function(){
             $(this.el).empty();
             $('#fs-details-container').empty();
             // Explicitly add the header row
-            //this.$el.append(this.tableHeaderTemplate);
+            this.$el.append(this.tableHeaderTemplate);
             // Add all of the file systems, one per row
             _.each(FScollection.models, function (fs) {
                 that.renderFilesystem(fs);

@@ -80,8 +80,8 @@
         <table width="700px" style="margin:10px 0;">
             <tr style="text-align:left">
                 <th width="20%">Service name</th>
-                <th width="20%">Status</th>
-                <th width="60%" colspan="6"></th>
+                <th width="15%">Status</th>
+                <th width="65%" colspan="6"></th>
             </tr>
             <tr>
                 <td>Galaxy</td>
@@ -314,6 +314,7 @@
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
