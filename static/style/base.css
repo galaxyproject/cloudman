@@ -1339,3 +1339,12 @@ p.disabled {
         color-stop(0.78, rgb(255,222,214))
     );
 }
+.td-green-txt{
+    color: #639B41;
+}
+.td-tan-txt{
+    color: #BFB795;
+}
+.td-red-txt{
+    color: #BF3030;
+}

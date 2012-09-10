@@ -46,31 +46,38 @@ function update(repeat_update){
                     $('#update_fs_status').html("");
                     $('#snapshotoverlay').hide();
                 }
-                // Set color for services - `Running` is green, anything else is red
+                // Set color for services - `Running`: green, 'Error': red; anything else is tan
+                // Galaxy
                 if (data.Galaxy === 'Running') {
-                    $('#galaxy_status').css("color", "green");
+                    $('#galaxy_status').css("color", "#639B41");
+                }
+                else if (data.Galaxy === 'Error') {
+                    $('#galaxy_status').css("color", "#BF3030");
                 }
                 else {
-                    $('#galaxy_status').css("color", "red");
+                    $('#galaxy_status').css("color", "#BFB795");
                 }
+                // Postgres
                 if (data.Postgres === 'Running') {
-                    $('#postgres_status').css("color", "green");
+                    $('#postgres_status').css("color", "#639B41");
+                }
+                else if (data.Postgres === 'Error') {
+                    $('#postgres_status').css("color", "#BF3030");
                 }
                 else {
-                    $('#postgres_status').css("color", "red");
+                    $('#postgres_status').css("color", "#BFB795");
                 }
+                // SGE
                 if (data.SGE === 'Running') {
-                    $('#sge_status').css("color", "green");
+                    $('#sge_status').css("color", "#639B41");
+                }
+                else if (data.SGE === 'Error') {
+                    $('#sge_status').css("color", "#BF3030");
                 }
                 else {
-                    $('#sge_status').css("color", "red");
+                    $('#sge_status').css("color", "#BFB795");
                 }
-                if (data.Filesystem === 'Running') {
-                    $('#filesystem_status').css("color", "green");
-                }
-                else {
-                    $('#filesystem_status').css("color", "red");
-                }
+
                 if (data.master_is_exec_host === true) {
                     $('#master_is_exec_host').html("Switch master not to run jobs");
                 } else {
@@ -255,12 +262,12 @@ String.prototype.toSpaced = function(){
             var tmpl = _.template(this.filesystemSummaryTemplate);
             $(this.el).html(tmpl(this.model.toJSON()));
             if (this.model.attributes.status === 'Available') {
-                $(this.el).find('.fs-status').addClass("td-green-bckgd");
+                $(this.el).find('.fs-status').addClass("td-green-txt");
             } else if (this.model.attributes.status === 'Removing' ||
                 this.model.attributes.status === 'Adding') {
-                $(this.el).find('.fs-status').addClass("td-yellow-bckgd");
+                $(this.el).find('.fs-status').addClass("td-tan-txt");
             } else if (this.model.attributes.status === 'Error') {
-                $(this.el).find('.fs-status').addClass("td-red-bckgd");
+                $(this.el).find('.fs-status').addClass("td-red-txt");
             }
             return this;
         }
