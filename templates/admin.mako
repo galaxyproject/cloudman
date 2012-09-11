@@ -119,6 +119,7 @@
         ## backbone-managed
         <div id='fs-details-container'></div>
         <table id="filesystems-table"></table>
+        <div id='fs-resize-form-container'></div>
 
         <h3>System controls</h3>
         <div class="help_text">
@@ -310,7 +311,9 @@
         // Place URLs here so that url_for can be used to generate them
         var get_all_services_status_url = "${h.url_for(controller='root',action='get_all_services_status')}";
         var get_all_filesystems_url = "${h.url_for(controller='root',action='get_all_filesystems')}";
-        var manage_service_url= "${h.url_for(controller='root',action='manage_service')}";
+        var manage_service_url = "${h.url_for(controller='root',action='manage_service')}";
+        var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
+        var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>

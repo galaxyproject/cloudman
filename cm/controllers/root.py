@@ -90,9 +90,13 @@ class CM(BaseController):
         return self.app.manager.initial_cluster_type
 
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
+    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False,
+            fs_name='galaxyData'):
         if delete_snap:
             delete_snap = True
+        log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
+                "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
+                "will" if delete_snap else "will not"))
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
@@ -108,12 +112,12 @@ class CM(BaseController):
         except Exception, g_ex:
             log.error("Unknown Exception: %s" % g_ex)
             return "Unknown exception. Check the log for details."
-        return self.instance_state_json(trans)
+        return "Initated '{0}' file system expansion".format(fs_name)
 
     @expose
     def update_file_system(self, trans, fs_name):
         self.app.manager.update_file_system(fs_name)
-        return self.instance_state_json(trans)
+        return "Initiated persisiting of '{0}' file system".format(fs_name)
 
     @expose
     def add_fs(self, trans, bucket_name, bucket_a_key='', bucket_s_key=''):

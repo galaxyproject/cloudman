@@ -1291,6 +1291,13 @@ p.disabled {
 .fs-details-box-close:hover{
     background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
+.fs-resize-form {
+    display:none;
+    width: 694px;
+    background-color:#FEF1B5;
+    padding: 3px;
+    border-top:1px solid #ccc;
+}
 .td-yellow-bckgd{
     /*#FEF1B5 -> #FFF5C8 -> #FFF7D6*/
     background-image: linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
