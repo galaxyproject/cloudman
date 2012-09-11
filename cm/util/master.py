@@ -477,15 +477,6 @@ class ConsoleManager(object):
         """
         Get a list and information about each of the file systems currently
         managed by CloudMan.
-
-        For example::
-            TODO: Make the example match the real situation
-            [{"name": "galaxyData", "status": "Available", "device": "/dev/sdg1",
-            "kind": "volume", "mount_point": "/mnt/galaxyData", "DOT": False,
-            "size": 20, "owner": "galaxy", "NFS_shared": True},
-            {"name": "1000genomes", "status": "Available", "device": None,
-            "kind": "bucket", "mount_point": "/mnt/100genomes", "DOT": False,
-            "size": None, "owner": "ubuntu", "NFS_shared": True}]
         """
         fss = []
         fs_svcs = [s for s in self.services if s.svc_type=='Filesystem']
@@ -525,10 +516,14 @@ class ConsoleManager(object):
             "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
             "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
             "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
+            dummy.append({"name": "custom", "status": "Available", "device": "/dev/sdg4",
+            "kind": "volume", "mount_point": "/mnt/custom", "DoT": "No",
+            "size": "70G", "NFS_shared": True, "size_used": "5G", "size_pct": "7%",
+            "error_msg": ""})
         return dummy
 
     @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
-        "Filesystems": "Running"})
+        "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
@@ -1416,13 +1411,30 @@ class ConsoleManager(object):
                     return True
         return False
 
-    def expand_user_data_volume(self, new_vol_size, snap_description=None, delete_snap=False):
-        # Mark file system as needing to be expanded
+    def expand_user_data_volume(self, new_vol_size, snap_description=None,
+            delete_snap=False, fs_name='galaxyData'):
+        """
+        Mark the file system ``fs_name`` for size expansion. For full details on how
+        this works, take a look at the file system expansion method for the
+        respective file system type.
+        If the underlying file system supports/requires creation of a point-in-time
+        snapshot, setting ``delete_snap`` to ``False`` will retain the snapshot
+        that will be creted during the expansion process under the given cloud account.
+        If the snapshot is to be kept, a brief ``snap_description`` can be provided.
+        """
+        # Mark the file system as needing to be expanded
         svcs = self.get_services('Filesystem')
+        fs_found = False;
         for svc in svcs:
-            if svc.name == 'galaxyData':
-                log.debug("Marking '%s' for expansion to %sGB with snap description '%s'" % (svc.get_full_name(), new_vol_size, snap_description))
-                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description, 'delete_snap': delete_snap}
+            if svc.name == fs_name:
+                fs_found = True
+                log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
+                        % (svc.get_full_name(), new_vol_size, snap_description))
+                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description,
+                        'delete_snap': delete_snap}
+        if not fs_found:
+            log.warning("Could not initiate expansion of {0} file system because the "\
+                    "file system was not found?".format(fs_name))
 
     def get_root_public_key( self ):
         if self.app.TESTFLAG is True:
