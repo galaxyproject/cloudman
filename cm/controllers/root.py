@@ -120,7 +120,9 @@ class CM(BaseController):
         return "Initiated persisiting of '{0}' file system".format(fs_name)
 
     @expose
-    def add_fs(self, trans, bucket_name, bucket_a_key='', bucket_s_key=''):
+    def add_file_system(self, trans, fs_kind, new_fs=False, size='',
+            bucket_name='', bucket_a_key='', bucket_s_key=''):
+        log.debug("Wanting to add a file system of kind {0}".format(fs_kind))
         if bucket_name != '':
             log.debug("Adding a file system from bucket {0}".format(bucket_name))
             # Clean form input data

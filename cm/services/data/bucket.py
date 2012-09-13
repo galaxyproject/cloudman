@@ -69,7 +69,7 @@ class Bucket(object):
         details['bucket_name'] = self.bucket_name
         details['access_key'] = self.access_key
         # TODO: keep track of any errors
-        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
         return details
 
     def _compose_mount_cmd(self):
