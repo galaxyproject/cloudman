@@ -126,7 +126,7 @@ class Filesystem(DataService):
         """
         Initiate removal of this file system from the system
         """
-        log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, and"\
+        log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, and "\
                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
                     self.transient_storage))
         self.state = service_states.SHUTTING_DOWN
@@ -140,11 +140,16 @@ class Filesystem(DataService):
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
-            vol.remove(self.mount_point)
+            vol.remove(self.mount_point, delete_vols)
         for b in self.buckets:
             b.unmount()
+        for t in self.transient_storage:
+            t.remove()
         log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
         self.state = service_states.SHUT_DOWN
+        # Remove self from the list of master's services
+        if self.state == service_states.SHUT_DOWN:
+            self.app.manager.services.remove(self)
 
     def clean(self):
         """
@@ -243,13 +248,22 @@ class Filesystem(DataService):
         Check that the volume used for this file system is actually the volume
         we have a reference to and update local fields as necessary.
         """
-        f = {'attachment.device':device, 'attachment.instance-id':self.app.cloud_interface.get_instance_id()}
-        vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+        if self.app.cloud_type == "ec2":
+            # filtering w/ boto is supported only with ec2
+            f = {'attachment.device':device, 'attachment.instance-id':self.app.cloud_interface.get_instance_id()}
+            vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+        else:
+            vols = []
+            all_vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+            for vol in all_vols:
+                if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id() and \
+                   vol.attach_data.device == device:
+                       vols.append(vol)
         if len(vols) == 1:
             att_vol = vols[0]
             for vol in self.volumes: # Currently, bc. only 1 vol can be assoc w/ FS, we'll only deal w/ 1 vol
                 if (vol is None and att_vol) or (vol and att_vol and vol.volume_id != att_vol.id):
-                    log.debug("Discovered change of vol %s to '%s', attached as device '%s', for FS '%s'" \
+                    log.debug("Discovered a change of vol %s to '%s', attached as device '%s', for FS '%s'" \
                         % ([vol.volume_id for vol in self.volumes], att_vol.id, device, self.name))
                     vol.update(att_vol)
                     # If the new volume does not have tags (clusterName & filesystem), add those
@@ -324,9 +338,11 @@ class Filesystem(DataService):
             if mount_point is None:
                 mount_point = self.mount_point
             mount_point = mount_point.replace('/', '\/') # Escape slashes for sed
+            cmd = "sed -i '/^{0}/d' {1}".format(mount_point, ee_file)
+            log.debug("Removing NSF share for mount point {0}; cmd: {1}".format(mount_point, cmd))
             # To avoid race conditions between threads, use a lock file
-            with flock(self.fs.nfs_lock_file):
-                run("sed -i '/^{0}/d' {1}".format(mount_point, ee_file))
+            with flock(self.nfs_lock_file):
+                run(cmd)
             self.dirty = True
             return True
         except Exception, e:
@@ -419,7 +435,8 @@ class Filesystem(DataService):
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
-                    # Check volume(s) if part of the file system
+                    # Check volume(s) if part of the file system (but because boto
+                    # filtering works only on ec2, for now, do this check only on ec2)
                     if len(self.volumes) > 0:
                         self.check_and_update_volume(self._get_attach_device_from_device(device))
                     # Check mount point

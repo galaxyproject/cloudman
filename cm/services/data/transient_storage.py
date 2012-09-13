@@ -41,7 +41,7 @@ class TransientStorage(BlockStorage):
         details['DoT']      = "Yes"
         details['device']   = self.device
         # TODO: keep track of any errors
-        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
         return details
 
     def add(self):

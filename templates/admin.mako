@@ -120,6 +120,9 @@
         <div id='fs-details-container'></div>
         <table id="filesystems-table"></table>
         <div id='fs-resize-form-container'></div>
+        <div id='fs-add-form-container'>
+            <div id="fs-add-button"><span class="plus-sign">+</span> Add new</div>
+        </div>
 
         <h3>System controls</h3>
         <div class="help_text">
@@ -128,7 +131,10 @@
         <ul class='services_list'>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li>Name of this cluster's bucket: ${bucket_cluster}
-                (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#" target="_blank">access via AWS console</a>)
+                %if cloud_type == 'ec2':
+                    (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#"
+                      target="_blank">access via AWS console</a>)
+                %endif
                 <span class="help_info">
                     <span class="help_link">Bucket info</span>
                     <div class="help_content" style="display: none">
@@ -314,6 +320,7 @@
         var manage_service_url = "${h.url_for(controller='root',action='manage_service')}";
         var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
         var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
+        var add_fs_url = "${h.url_for(controller='root',action='add_file_system')}";
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>

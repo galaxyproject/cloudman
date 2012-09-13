@@ -7,6 +7,7 @@ import re
 import grp
 import pwd
 import time
+import string
 import commands
 import subprocess
 
@@ -66,7 +67,7 @@ class Volume(BlockStorage):
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
-        details['err_msg']  = "" if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
         return details
 
     def update(self, bsd):
@@ -127,46 +128,92 @@ class Volume(BlockStorage):
         return self.device
 
     def _set_devices(self, offset=0):
-        """ Use this method to figure out which as device this volume should get
+        """
+        Use this method to figure out as which device should this volume get
         attached and how is it visible to the system once attached.
-        Offset forces creation of a new device ID"""
-        # Get list of Galaxy-specific devices already attached to
-        # the instance and set current volume as the next one in line
-        # TODO: make device root an app config option vs. hard coding here
+        ``offset`` forces creation of a new device ID.
+        """
+        def get_next_device_index(mount_base, offset=0, numeric=False):
+            """
+            Get the next device index in sequence based on ``mount_base``. For
+            example, given ``mount_base`` as ``/dev/vd`` the method will look
+            for any devices starting with that base and return the next available
+            index: if ``/dev/vdc`` is the highest order in the current list of
+            devices with that mount base, the method will return ``d``, for
+            ``/dev/vdd``. If no devices are found, the method returns ``a``. If
+            the highest most device is ends with ``z``, the method returns ``None``.
 
-        # As of Ubuntu 11.04 (kernel 2.6.38), EBS volumes attached to /dev/sd*
+            If ``offset`` is set, offset the next index by the provided value. This
+            applies to both, numeric and non-numeric indexes.
+
+            If ``numeric`` is set to ``True``, the next index in sequence will be
+            a numeric value. For example, if ``/dev/sdg1`` already exists on the
+            system, the method will return ``'2'``. If no devices with that mount
+            base exist, the method will return ``'1'``. Note that the return value
+            of this method is a string, not an int.
+            """
+            dev_list = commands.getstatusoutput('ls %s*' % mount_base)
+            if dev_list[0] == 0:
+                # We have at least 1 device with this mount base, let's figure out the next one
+                if numeric is True:
+                    device_index = str(max([int(d[len(mount_base):]) for d in dev_list[1].split()])+1+offset)
+                else:
+                    # Get the highest device in sequence
+                    highest_device = dev_list[1].split().pop()
+                    # Remove any potential numbers (ie, partitions) from the device name
+                    # eg, if device was ``/dev/vda1``, get down to only ``/dev/vda``
+                    partitions = re.search(r'\d+$', highest_device)
+                    highest_device = highest_device.rstrip(partitions.group(0) if partitions else '')
+                    # Get the last letter of the device
+                    highest_device_index = highest_device[len(highest_device)-1]
+                    # Get the next device in sequence, taking care of the ``z`` case
+                    if highest_device_index == 'z':
+                        log.error("Cannot get the next device index becaue we're 'z' already!")
+                        return None
+                    hdi_num = string.ascii_lowercase.index(highest_device_index)
+                    device_index = string.ascii_lowercase[hdi_num+1+offset]
+            else:
+                # No devices with this mount base exist, return the defaults
+                if numeric is True:
+                    device_index = '1'
+                else:
+                    device_index = 'a'
+            log.debug("Setting {0} device index to '{1}'".format(self.get_full_name(), device_index))
+            return device_index
+
+        # As of Ubuntu 11.04 (kernel 2.6.38), EC2 EBS volumes attached to /dev/sd*
         # get attached as device /dev/xvd*. So, look at the current version
         # of kernel running and set volume's device accordingly
         kernel_out = commands.getstatusoutput('uname -r')
-        if kernel_out[0] == 0:
-            # Extract significant kernel version numbers and test against
-            # lowest kernel version that changes device mappings
-            if map(int, kernel_out[1].split('-')[0].split('.')) >= [2, 6, 38]:
-                mount_base = '/dev/xvdg'
+        numeric_index = False # By default, device indices will be letter-based
+        if self.app.cloud_type == 'ec2':
+            if kernel_out[0] == 0:
+                numeric_index = True # on ec2, we use numeric device indexing
+                # Extract significant kernel version numbers and test against
+                # lowest kernel version that changes device mappings
+                if map(int, kernel_out[1].split('-')[0].split('.')) >= [2, 6, 38]:
+                    mount_base = '/dev/xvdg'
+                else:
+                    mount_base = '/dev/sdg'
             else:
-                mount_base = '/dev/sdg'
-        else:
-            log.error("Could not discover kernel version required for to obtain volume's device.")
-            return False
-        attach_base = '/dev/sdg'
+                log.error("Could not discover kernel version required for to obtain volume's device.")
+                return False
+            attach_base = '/dev/sdg'
+        else: # non-ec2 clouds do not seem to have the above issue but attach to a different device
+            mount_base = '/dev/vd'
+            attach_base = '/dev/vd'
+
         # In case the system was rebooted and the volume is already attached, match
         # the device ID with the attach device ID
         # If offset is set, force creation of new IDs
         if self.attach_device and offset == 0:
             self.device = re.sub(attach_base, mount_base, self.attach_device)
             return True
-        dev_list = commands.getstatusoutput('ls %s*' % mount_base)
-        if dev_list[0] == 0:
-            device_number = str(max([int(d[len(mount_base):]) for d in dev_list[1].split()])+1+offset)
-            self.device = '%s%s' % (mount_base, device_number)
-            self.attach_device = '%s%s' % (attach_base, device_number)
-        else:
-            log.debug("No devices found attached to %s#, defaulting current volume device "
-                "to %s1 and attach device to %s1" % (mount_base, mount_base, attach_base))
-            self.device = '%s1' % mount_base
-            self.attach_device = '%s1' % attach_base
-        log.debug("Running on kernel version %s; set volume device as '%s' and attach "
-            "device as '%s'" % (kernel_out[1], self.device, self.attach_device))
+        device_index = get_next_device_index(mount_base, offset=offset, numeric=numeric_index)
+        self.device = '%s%s' % (mount_base, device_index)
+        self.attach_device = '%s%s' % (attach_base, device_index)
+        log.debug("Running on kernel version %s; set %s volume device as '%s' and attach "
+            "device as '%s'" % (kernel_out[1], self.get_full_name(), self.device, self.attach_device))
         return True
 
     def create(self, filesystem=None):
@@ -286,7 +333,7 @@ class Volume(BlockStorage):
                             return False
                     volumes = (self.app.cloud_interface.get_ec2_connection()).get_all_volumes([self.volume_id])
                     volumestatus = volumes[0].attachment_state()
-                    time.sleep(2)
+                    time.sleep(3)
                     ctn += 1
                 return True
             elif self.status() == volume_status.IN_USE or self.status() == volume_status.ATTACHED:
@@ -434,7 +481,7 @@ class Volume(BlockStorage):
                         break
                     else:
                         log.debug("Device path {0} does not yet exists; waiting...".format(self.get_device()))
-                        time.sleep(4)
+                        time.sleep(6)
                 # Until the underlying issue is fixed (see FIXME below), mask this
                 # even more by custom-handling the run command and thus not printing the err
                 cmd = '/bin/mount %s %s' % (self.get_device(), mount_point)
@@ -444,7 +491,7 @@ class Volume(BlockStorage):
                     # FIXME: Assume if a file system cannot be mounted that it's because
                     # there is not a file system on the device so try creating one
                     if run('/sbin/mkfs.xfs %s' % self.get_device(),
-                        "Failed to create a files ystem on device %s" % self.get_device(),
+                        "Failed to create a files system on device %s" % self.get_device(),
                         "Created a file system on device %s" % self.get_device()):
                         if not run('/bin/mount %s %s' % (self.get_device(), mount_point),
                             "Error mounting file system %s from %s" % (mount_point, self.get_device()),

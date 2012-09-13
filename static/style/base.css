@@ -1297,6 +1297,7 @@ p.disabled {
     background-color:#FEF1B5;
     padding: 3px;
     border-top:1px solid #ccc;
+    text-align: justify;
 }
 .td-yellow-bckgd{
     /*#FEF1B5 -> #FFF5C8 -> #FFF7D6*/
@@ -1386,4 +1387,66 @@ p.disabled {
 }
 .fs-resize:hover {
     background-image : url(/cloud/static/images/disc_plus.png);
+}
+#fs-add-button {
+    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        left bottom,
+        color-stop(0.02, rgb(255,255,255)),
+        color-stop(0.85, rgb(245,245,245))
+    );
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: #989898;
+    webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+    cursor: default;
+    text-align: center;
+    white-space: nowrap;
+    margin-right: 16px;
+    height: 22px;
+    line-height: 22px;
+    width: 70px;
+    outline: 0;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+#fs-add-button:hover {
+    color: #5B5B5B;
+    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        left bottom,
+        color-stop(0.02, rgb(255,255,255)),
+        color-stop(0.85, rgb(245,245,245))
+    );
+    border: 1px solid rgba(0, 0, 0, 0.3);
+}
+.fs-add-form {
+    /*display:none;*/
+    width: 694px;
+    background-color:#FEF1B5;
+    padding: 3px;
+    border-top:1px solid #ccc;
+}
+.plus-sign {
+    font-size: 13px;
+}
+.plus-sign:hover {
+    font-size: 13px;
 }

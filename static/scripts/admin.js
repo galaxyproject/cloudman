@@ -249,12 +249,12 @@ String.prototype.toSpaced = function(){
             '<td class="fs-status fs-td-15pct"><%= status %></td>' +
             '<td class="fs-td-20pct">' +
             // Only disply usage when the file system is 'Available'
-            '<% if (status === "Available") { %>' +
+            '<% if (status === "Available" || status === "Running") { %>' +
                 '<%= size_used %>/<%= size %> (<%= size_pct %>)' +
             '<% } %></td>' +
             '<td class="fs-td-15pct">' +
             // Only disply controls when the file system is 'Available'
-            '<% if (status === "Available") { %>' +
+            '<% if (status === "Available" || status === "Running") { %>' +
                 '<a class="fs-remove icon-button" id="fs-<%= name %>-remove" href="' + manage_service_url +
                 '?service_name=<%= name %>&to_be_started=False&is_filesystem=True"' +
                 'title="Remove this file system"></a>' +
@@ -266,7 +266,7 @@ String.prototype.toSpaced = function(){
                     'title="Persist file system changes"></a>' +
                 '<% } %>' +
                 // It only makes sense to resize volume-based file systems
-                '<% if (typeof(kind) != "undefined" && kind === "volume" ) { %>' +
+                '<% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>' +
                     '<a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#"' +
                     'title="Increase file system size"></a>' +
                 '<% } %>' +
@@ -288,7 +288,8 @@ String.prototype.toSpaced = function(){
             $(".tipsy").remove();
             var tmpl = _.template(this.filesystemSummaryTemplate);
             $(this.el).html(tmpl(this.model.toJSON()));
-            if (this.model.attributes.status === 'Available') {
+            if (this.model.attributes.status === 'Available' ||
+                this.model.attributes.status === 'Running') {
                 $(this.el).find('.fs-status').addClass("td-green-txt");
             } else if (this.model.attributes.status === 'Error') {
                 $(this.el).find('.fs-status').addClass("td-red-txt");
@@ -316,11 +317,11 @@ String.prototype.toSpaced = function(){
             'be visible in the snapshot\'s description.</p>' +
             '</div>' +
             '<div class="form-row">' +
-                '<label>New disk size (minimum <span id="du-inc"><%= size %></span>, ' +
-                'maximum 1000G)</label>' +
+                '<label>New disk size (minimum <span id="du-inc"><%= size %></span>B, ' +
+                'maximum 1000GB)</label>' +
                 '<div id="permanent_storage_size" class="form-row-input">' +
                     '<input type="text" name="new_vol_size" id="new_vol_size" '+
-                    'placeholder="Greater than <%= size %>" size="25">' +
+                    'placeholder="Greater than <%= size %>B" size="25">' +
                 '</div>' +
                 '<label>Note</label>' +
                 '<div id="permanent_storage_size" class="form-row-input">' +
@@ -398,6 +399,88 @@ String.prototype.toSpaced = function(){
         }
     });
 
+    // Define the form view for resizing a file system
+    var FilesystemAddFormView = Backbone.View.extend({
+        fsAddFormTemplate:
+            '<div class="form-row">' +
+            'Through this form you may add a new file system and make it available ' +
+            'to the rest of this CloudMan platform. ' +
+            '</div>' +
+            '<div class="form-row">' +
+                '<label>New file system size (minimum <span id="du-inc">1GB</span>, ' +
+                'maximum 1000GB)</label>' +
+                '<div class="form-row-input">' +
+                    '<input type="text" name="new_disk_size" size="10">' +
+                '</div>' +
+                '<label>Delete the created disk on cluster termination?</label>' +
+                '<input type="checkbox" name="dot"> If checked, ' +
+                'the created disk will be deleted upon cluster termination' +
+                '<div class="form-row">' +
+                    '<input type="submit" value="Add new file system"/>' +
+                    'or <a class="fs-add-form-close" href="#">cancel</a>' +
+                '</div>' +
+                '<input type="checkbox" name="new_fs" checked="yes" hidden="yes" />' +
+                '<input type="text" name="fs_kind" value="volume" hidden="yes" />' +
+            '</div>',
+        tagName: "form",
+        className: "fs-add-form",
+
+        initialize: function() {
+            this.on("click:closeForm", this.closeForm, this);
+            // FIXME: Do it this way
+            // http://stackoverflow.com/questions/8274257/backbone-js-views-binding-event-to-element-outside-of-el
+            $('#fs-add-button').click(this.render);
+        },
+
+        events: {
+            "click #fs-add-button": "render",
+            "submit": "handleAdd",
+            "click .fs-add-form-close": "triggerFormClose",
+        },
+
+        render: function() {
+            var tmpl = _.template(this.fsAddFormTemplate);
+            $(this.el).attr('id', "fs-add-volume-form");
+            $(this.el).attr('action', add_fs_url);
+            $(this.el).attr('method', 'post');
+            $(this.el).html(tmpl());
+            return this;
+        },
+
+        handleAdd: function(event) {
+            // Issues the add request to the back end
+            event.preventDefault();
+            var el = $('#'+event.currentTarget.id);
+            var url = el.attr('action');
+            $.post(url, el.serialize(),
+                function(data) {
+                    $('#msg').html(data).fadeIn();
+                    clear_msg();
+            });
+            popup();
+            // Hide the resize form
+            this.formElToClose = el;
+            this.closeForm();
+            // TODO: Update status
+            //updateFSStatus(fsName, "Resizing");
+        },
+
+        triggerFormClose: function(event) {
+            // Capture the form element and trigger actual form closing
+            event.preventDefault();
+            this.formElToClose = $(event.currentTarget).parents('form');
+            this.trigger("click:closeForm");
+        },
+
+        closeForm: function() {
+            // Close the visible file system resize form
+            if (this.formElToClose.is(':visible')) {
+                // Hide add form
+                this.formElToClose.hide("blind");
+            }
+        }
+    });
+
     // Define the details popup view for an individual file system
     var FilesystemDetailsView = Backbone.View.extend({
         filesystemDetailsTemplate: '<a class="fs-details-box-close"></a>' +
@@ -454,12 +537,14 @@ String.prototype.toSpaced = function(){
             //        Just add an argument from the update method?
             $(this.el).empty();
             $('#fs-details-container').empty();
-            // Explicitly add the header row
-            this.$el.append(this.tableHeaderTemplate);
-            // Add all of the file systems, one per row
-            _.each(FScollection.models, function (fs) {
-                that.renderFilesystem(fs);
-            }, this);
+            if (FScollection.models.length > 0) {
+                // Explicitly add the header row
+                this.$el.append(this.tableHeaderTemplate);
+                // Add all of the file systems, one per row
+                _.each(FScollection.models, function (fs) {
+                    that.renderFilesystem(fs);
+                }, this);
+            }
         },
 
         renderFilesystem: function (fs) {
@@ -478,6 +563,7 @@ String.prototype.toSpaced = function(){
                 model: fs
             });
             $('#fs-resize-form-container').append(filesystemResizeFormView.render().el);
+
         },
 
         // Add UI event handlers
@@ -492,6 +578,9 @@ String.prototype.toSpaced = function(){
             this.fsToRemoveID = event.currentTarget.id; // Reference to the element ID of the FS to be remvoed
             this.fsToRemoveTR = $('#'+event.currentTarget.id).parents('tr'); // Reference to tr to be removed
             event.preventDefault();
+            // Clear any other forms that may be opened before removing a file system.
+            // Otherwise, we run the risk of removing the element the form is bound to
+            $('.fs-resize-form-close').trigger('click');
             this.trigger("click:removeFS");
         },
 
@@ -553,21 +642,19 @@ String.prototype.toSpaced = function(){
     var filesystemList = new FilesystemsView();
     // Fetch the initial data from the server
     FScollection.fetch();
+    // Render file system add form view
+    var filesystemAddFormView= new FilesystemAddFormView();
+    //$('#fs-add-form-container').append(filesystemAddFormView.render().el);
 
     function updateFSStatus(fs_name, new_status) {
-        // A rather convoluted way of instantly updating the UI status of file
-        // system ``fs_name`` to ``new_status``
-        // Is there a more straighforward way???
+        // A common method for updating the UI based on user action before the
+        // backend info is fetched
         for (var i=0; i<FScollection.models.length; i++) {
             if (FScollection.models[i].attributes.name === fs_name) {
                 FScollection.models[i].attributes.status = new_status;
             }
         }
-        var tmp_models = FScollection.models; // .reset below clears the models so keep a reference
-        FScollection.reset();
-        _.each(tmp_models, function (fs) {
-            filesystemList.renderFilesystem(fs);
-        }, this);
+        filesystemList.render();
     };
 
     function updateFS() {

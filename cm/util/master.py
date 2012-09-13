@@ -140,23 +140,23 @@ class ConsoleManager(object):
         tfs = Filesystem(self.app, 'transient_nfs')
         tfs.add_transient_storage()
         self.app.manager.services.append(tfs)
-
-        if self.app.LOCALFLAG is True:
-            self.init_cluster(cluster_type='Galaxy')
-
-        # Add PSS service - note that this service runs only after the cluster
+        # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.app.manager.services.append(PSS(self.app))
 
+        # Check if starting a derived cluster and initialize from share, 
+        # which calls add_preconfigured_services
+        # Note that share_string overrides everything.
         if self.app.ud.has_key("share_string"):
-            # Share string overrides everything.
-            # Initialize from share, which calls add_preconfigured_services
             self.app.manager.init_shared_cluster(self.app.ud['share_string'].strip())
+        # else look if this is a restart of a previously existing cluster
+        # and add appropriate services
         elif not self.add_preconfigured_services():
             return False
         self.manager_started = True
 
         # Check if a previously existing cluster is being recreated or is it a new one
+        self.initial_cluster_type = self.app.ud.get('cluster_type', None)
         if self.initial_cluster_type is not None:
             cc_detail = "Configuring a previously existing cluster of type {0}"\
                 .format(self.initial_cluster_type)
@@ -167,6 +167,16 @@ class ConsoleManager(object):
         return True
 
     def handle_prestart_commands(self):
+        """
+        Inspect the user data key ``master_prestart_commands`` and simply
+        execute any commands provided there.
+
+        For example::
+            master_prestart_commands:
+              - "mkdir -p /mnt/galaxyData/pgsql/"
+              - "mkdir -p /mnt/galaxyData/tmp"
+              - "chown -R galaxy:galaxy /mnt/galaxyData"
+        """
         for command in self.app.ud.get("master_prestart_commands", []):
             misc.run(command)
 
@@ -186,8 +196,7 @@ class ConsoleManager(object):
             # Process the current cluster config
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
-                    log.debug("Adding a previously defined filesystem '{0}' of "\
-                        "kind '{1}'".format(fs['name'], fs['kind']))
+                    err = False
                     filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
@@ -207,8 +216,14 @@ class ConsoleManager(object):
                         a_key = fs.get('access_key', None)
                         s_key = fs.get('secret_key', None)
                         filesystem.add_bucket(fs['name'], a_key, s_key)
-                    self.app.manager.services.append(filesystem)
-                    #self.app.manager.initial_cluster_type = 'Galaxy'
+                    else:
+                        err = True
+                        log.warning("Device kind '{0}' for file system {1} not recognized; "\
+                                "not adding the file system.".format(fs['kind'], fs['name']))
+                    if not err:
+                        log.debug("Adding a previously existing filesystem '{0}' of "\
+                            "kind '{1}'".format(fs['name'], fs['kind']))
+                        self.app.manager.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_name = srvc['name']
@@ -217,14 +232,13 @@ class ConsoleManager(object):
                     processed_service = False
                     if service_name == 'Postgres':
                         self.app.manager.services.append(PostgresService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
                         processed_service = True
                     if service_name == 'Galaxy':
                         self.app.manager.services.append(GalaxyService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
                         processed_service = True
-                    if not processed_service:
-                        log.warning("Could not find service class matching userData service entry: %s" % service_name)
+                    if not processed_service and service_name != 'SGE': # SGE is added by default
+                        log.warning("Could not find service class matching userData service entry: %s"\
+                                % service_name)
             return True
         except Exception, e:
             log.error("Error reading existing cluster configuration file: %s" % e)
@@ -473,6 +487,14 @@ class ConsoleManager(object):
                 return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
+    @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
+        "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
+        "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G"},
+        {"size_used": "33M", "status": "Running", "kind": "Volume",
+        "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
+        "err_msg": None, "snapshot_progress": None, "from_snap": None,
+        "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
+        "DoT": "No", "size": "1014M"}], quiet=True)
     def get_all_filesystems_status(self):
         """
         Get a list and information about each of the file systems currently
@@ -491,7 +513,7 @@ class ConsoleManager(object):
         r = 4
         log.debug("Dummy random #: %s" % r)
         dummy = [{  "name": "galaxyData",
-                    "status": "Available",
+                    "status": "Running",
                     "device": "/dev/sdg1",
                     "kind": "volume",
                     "mount_point": "/mnt/galaxyData",
@@ -644,19 +666,27 @@ class ConsoleManager(object):
             log.debug( "Error checking for live instances: %s" % e )
         return instances
 
+    @TestFlag([])
     def get_attached_volumes(self):
-        """Get a list of EBS volumes attached to the current instance."""
-        volumes = []
-        if self.app.TESTFLAG is True:
-            return volumes
+        """
+        Get a list of block storage volumes currently attached to this instance.
+        """
         log.debug("Trying to discover any volumes attached to this instance...")
+        attached_volumes = []
         try:
-            f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-            volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            if self.app.cloud_type == 'ec2':
+                # filtering w/ boto is supported only with ec2
+                f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+                attached_volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            else:
+                volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+                for vol in volumes:
+                    if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
+                        attached_volumes.append(vol)
         except Exception, e:
             log.debug( "Error checking for attached volumes: %s" % e )
-        log.debug("Attached volumes: %s" % volumes)
-        return volumes
+        log.debug("Attached volumes: %s" % attached_volumes)
+        return attached_volumes
 
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True,
                 sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
@@ -722,8 +752,8 @@ class ConsoleManager(object):
         self.cluster_status = cluster_status.TERMINATED
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
-            "associated with this cluster) from the cloud console." \
-            % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
+            "associated with this cluster) from the %s cloud console." \
+            % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
@@ -756,10 +786,12 @@ class ConsoleManager(object):
     def delete_cluster(self):
         log.info("All services shut down; deleting this cluster.")
         # Delete any remaining volume(s) assoc. w/ given cluster
-        filters = {'tag:clusterName': self.app.ud['cluster_name']}
+        vols = []
         try:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            vols = ec2_conn.get_all_volumes(filters=filters)
+            if self.app.cloud_type == 'ec2':
+                filters = {'tag:clusterName': self.app.ud['cluster_name']}
+                ec2_conn = self.app.cloud_interface.get_ec2_connection()
+                vols = ec2_conn.get_all_volumes(filters=filters)
             for vol in vols:
                 log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
                 ec2_conn.delete_volume(vol.id)
@@ -1311,7 +1343,7 @@ class ConsoleManager(object):
                     log.debug("Removing file system '%s' service as part of the file system update" \
                         % file_system_name)
                     svc.remove()
-                    self.services.remove(svc)
+                    #self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
                     fs = Filesystem(self.app, file_system_name)
                     for snap_id in snap_ids:
@@ -1696,6 +1728,7 @@ class ConsoleMonitor( object ):
                     svcs.append(s)
             cc['filesystems'] = fss
             cc['services'] = svcs
+            cc['cluster_type'] = self.app.manager.initial_cluster_type
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
