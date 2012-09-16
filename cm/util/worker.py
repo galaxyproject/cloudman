@@ -229,7 +229,9 @@ class ConsoleManager( object ):
         
         SGE_config_file = '/tmp/galaxyEC2_configuration.conf'
         f = open( SGE_config_file, 'w' )
-        print >> f, sge_install_template % ( self.app.cloud_interface.get_self_private_ip(), "", self.app.cloud_interface.get_self_private_ip() )
+        print >> f, sge_install_template % (self.app.cloud_interface.get_self_private_ip(),
+                self.app.cloud_interface.get_self_private_ip(),
+                self.app.cloud_interface.get_self_private_ip())
         f.close()
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
