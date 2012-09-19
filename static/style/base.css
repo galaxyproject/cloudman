@@ -1388,7 +1388,7 @@ p.disabled {
 .fs-resize:hover {
     background-image : url(/cloud/static/images/disc_plus.png);
 }
-#fs-add-button {
+#fs-add-btn {
     background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
     background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
     background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
@@ -1420,7 +1420,7 @@ p.disabled {
     font-weight: bold;
     margin-top: 5px;
 }
-#fs-add-button:hover {
+#fs-add-btn:hover {
     color: #5B5B5B;
     background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
     background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
@@ -1438,11 +1438,14 @@ p.disabled {
     border: 1px solid rgba(0, 0, 0, 0.3);
 }
 .fs-add-form {
-    /*display:none;*/
+    display:none;
     width: 694px;
     background-color:#FEF1B5;
     padding: 3px;
     border-top:1px solid #ccc;
+}
+#add-fs-submit-btn, #add-fs-dot, #add-fs-persist, #add-bucket-fs-creds{
+    display:none;
 }
 .plus-sign {
     font-size: 13px;
@@ -1450,3 +1453,33 @@ p.disabled {
 .plus-sign:hover {
     font-size: 13px;
 }
+fieldset {
+    border: 0;
+    padding-left: 0;
+}
+.inline-radio-btns{
+    padding: 5px 10px;
+}
+.inline-radio-btns label{
+    display: inline !important;
+    padding-right: 15px;
+}
+#add-bucket-form, #add-volume-form, #add-snapshot-form, #add-new-volume-form {
+    display: none;
+    border-top: 1px solid #CCC;
+}
+.add-fs-details-form-row{
+    padding: 5px 10px;
+}
+#fs-add-form-close-btn {
+    float:right;
+    width:15px;
+    height:15px;
+    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
+    /*cursor: pointer;*/
+    margin: -5px -7px 0 0;
+}
+#fs-add-form-close-btn:hover {
+    background-image : url(/cloud/static/images/delete_icon_dark.png);
+}
+
