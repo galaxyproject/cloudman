@@ -399,88 +399,6 @@ String.prototype.toSpaced = function(){
         }
     });
 
-    // Define the form view for resizing a file system
-    var FilesystemAddFormView = Backbone.View.extend({
-        fsAddFormTemplate:
-            '<div class="form-row">' +
-            'Through this form you may add a new file system and make it available ' +
-            'to the rest of this CloudMan platform. ' +
-            '</div>' +
-            '<div class="form-row">' +
-                '<label>New file system size (minimum <span id="du-inc">1GB</span>, ' +
-                'maximum 1000GB)</label>' +
-                '<div class="form-row-input">' +
-                    '<input type="text" name="new_disk_size" size="10">' +
-                '</div>' +
-                '<label>Delete the created disk on cluster termination?</label>' +
-                '<input type="checkbox" name="dot"> If checked, ' +
-                'the created disk will be deleted upon cluster termination' +
-                '<div class="form-row">' +
-                    '<input type="submit" value="Add new file system"/>' +
-                    'or <a class="fs-add-form-close" href="#">cancel</a>' +
-                '</div>' +
-                '<input type="checkbox" name="new_fs" checked="yes" hidden="yes" />' +
-                '<input type="text" name="fs_kind" value="volume" hidden="yes" />' +
-            '</div>',
-        tagName: "form",
-        className: "fs-add-form",
-
-        initialize: function() {
-            this.on("click:closeForm", this.closeForm, this);
-            // FIXME: Do it this way
-            // http://stackoverflow.com/questions/8274257/backbone-js-views-binding-event-to-element-outside-of-el
-            $('#fs-add-button').click(this.render);
-        },
-
-        events: {
-            "click #fs-add-button": "render",
-            "submit": "handleAdd",
-            "click .fs-add-form-close": "triggerFormClose",
-        },
-
-        render: function() {
-            var tmpl = _.template(this.fsAddFormTemplate);
-            $(this.el).attr('id', "fs-add-volume-form");
-            $(this.el).attr('action', add_fs_url);
-            $(this.el).attr('method', 'post');
-            $(this.el).html(tmpl());
-            return this;
-        },
-
-        handleAdd: function(event) {
-            // Issues the add request to the back end
-            event.preventDefault();
-            var el = $('#'+event.currentTarget.id);
-            var url = el.attr('action');
-            $.post(url, el.serialize(),
-                function(data) {
-                    $('#msg').html(data).fadeIn();
-                    clear_msg();
-            });
-            popup();
-            // Hide the resize form
-            this.formElToClose = el;
-            this.closeForm();
-            // TODO: Update status
-            //updateFSStatus(fsName, "Resizing");
-        },
-
-        triggerFormClose: function(event) {
-            // Capture the form element and trigger actual form closing
-            event.preventDefault();
-            this.formElToClose = $(event.currentTarget).parents('form');
-            this.trigger("click:closeForm");
-        },
-
-        closeForm: function() {
-            // Close the visible file system resize form
-            if (this.formElToClose.is(':visible')) {
-                // Hide add form
-                this.formElToClose.hide("blind");
-            }
-        }
-    });
-
     // Define the details popup view for an individual file system
     var FilesystemDetailsView = Backbone.View.extend({
         filesystemDetailsTemplate: '<a class="fs-details-box-close"></a>' +
@@ -638,13 +556,257 @@ String.prototype.toSpaced = function(){
 
     });
 
+    // --- Views for adding a new file system service ---
+
+    // Define the view for a form used to add a new file system
+    var AddFilesystemFormView = Backbone.View.extend({
+        fsAddFormTemplate:
+            '<div class="form-row">' +
+            '<a id="fs-add-form-close-btn" title="Cancel" href="#"></a>' +
+            'Through this form you may add a new file system and make it available ' +
+            'to the rest of this CloudMan platform. ' +
+            '</div><div class="inline-radio-btns">' +
+            '<fieldset>' +
+                '<b>File system source or device:</b> ' +
+                '<input type="radio" name="fs_kind" id="fs-kind-bucket-name" class="fs-add-radio-btn" value="bucket"/>' +
+                '<label for="fs-kind-bucket-name">Bucket</label>' +
+                '<input type="radio" name="fs_kind" id="fs-kind-volume" class="fs-add-radio-btn" value="volume" />' +
+                '<label for="fs-kind-volume">Volume</label>' +
+                '<input type="radio" name="fs_kind" id="fs-kind-snapshot" class="fs-add-radio-btn" value="snapshot"/>' +
+                '<label for="fs-kind-snapshot">Snapshot</label>' +
+                '<input type="radio" name="fs_kind" id="fs-kind-new-volume" class="fs-add-radio-btn" value="new_volume"/>' +
+                '<label for="fs-kind-new-volume">New volume</label>' +
+            '</fieldset>' +
+            // Bucket form details
+            '</div><div id="add-bucket-form" class="add-fs-details-form-row">' +
+                '<table><tr>' +
+                    '<td><label for="bucket_name">Bucket name: </label></td>' +
+                    '<td><input type="text" size="20" name="bucket_name" id="bucket_name" ' +
+                        'placeholder="e.g., 1000genomes"/> (AWS S3 buckets only)</td>' +
+                    '</tr><tr>' +
+                    '<td><label for="bucket_fs_name">File system name: </label></td>' +
+                    '<td><input type="text" size="20" name="bucket_fs_name" id="bucket_fs_name"> ' +
+                    '(no spaces, alphanumeric characters only)</td>' +
+                '</tr></table></div>' +
+                '<div id="add-bucket-fs-creds">' +
+                    '<p> It appears you are not running on the AWS cloud. CloudMan supports '+
+                    'using only buckets from AWS S3. So, if the bucket you are trying to ' +
+                    'use is NOT PUBLIC, you must provide the AWS credentials that can be ' +
+                    'used to access this bucket. If the bucket you are trying to use' +
+                    'IS PUBLIC, leave below fields empty.</p>' +
+                    '<table><tr>' +
+                        '<td><label for"bucket_a_key">AWS access key: </label></td>' +
+                        '<td><input type="text" id="bucket_a_key" name="bucket_a_key" size="50" /></td>' +
+                    '</tr><tr>' +
+                        '<td><label for"bucket_s_key">AWS secret key: </label></td>' +
+                        '<td><input type="text" id="bucket_s_key" name="bucket_s_key" size="50" /></td>' +
+                    '</tr></table>' +
+                '</div>' +
+            // Volume form details
+            '</div><div id="add-volume-form" class="add-fs-details-form-row">' +
+                '<table><tr>' +
+                    '<td><label for="vol_id">Volume ID: </label></td>' +
+                    '<td><input type="text" size="20" name="vol_id" id="vol_id" ' +
+                        'placeholder="e.g., vol-456e6973"/></td>' +
+                    '</tr><tr>' +
+                    '<td><label for="vol_fs_name">File system name: </label></td>' +
+                    '<td><input type="text" size="20" name="vol_fs_name" id="vol_fs_name"> ' +
+                    '(no spaces, alphanumeric characters only)</td>' +
+                '</tr></table>' +
+            // Snapshot form details
+            '</div><div id="add-snapshot-form" class="add-fs-details-form-row">' +
+                '<table><tr>' +
+                    '<td><label for="snap_id">Snapshot ID: </label></td>' +
+                    '<td><input type="text" size="20" name="snap_id" id="snap_id" ' +
+                        'placeholder="e.g., snap-c21cdsi6"/></td>' +
+                    '</tr><tr>' +
+                    '<td><label for="snap_fs_name">File system name: </label></td>' +
+                    '<td><input type="text" size="20" name="snap_fs_name" id="snap_fs_name"> ' +
+                    '(no spaces, alphanumeric characters only)</td>' +
+                '</tr></table>' +
+            // New volume form details
+            '</div><div id="add-new-volume-form" class="add-fs-details-form-row">' +
+                '<table><tr>' +
+                    '<td><label for="new_disk_size">New file system size: </label></td>' +
+                    '<td><input type="text" size="20" name="new_disk_size" id="new_disk_size" ' +
+                        'placeholder="e.g., 100"> (minimum 1GB, maximum 1000GB)</td>' +
+                    '</tr><tr>' +
+                    '<td><label for="new_vol_fs_name">File system name: </label></td>' +
+                    '<td><input type="text" size="20" name="new_vol_fs_name" id="new_vol_fs_name"> ' +
+                    '(no spaces, alphanumeric characters only)</td>' +
+                '</tr></table>' +
+            '</div><div id="add-fs-dot" class="add-fs-details-form-row">' +
+                '<input type="checkbox" name="dot" id="add-fs-dot-box"><label for="add-fs-dot-box">' +
+                'If checked, the created disk <b>will be deleted</b> upon cluster termination</label>' +
+            '</div><div id="add-fs-persist" class="add-fs-details-form-row">' +
+                '<input type="checkbox" name="persist" id="add-fs-persist-box">' +
+                '<label for="add-fs-persist-box">If checked, ' +
+                'the created disk <b>will be persisted</b> as part of the cluster configuration ' +
+                'and thus automatically added the next this this cluster is started</label>' +
+            '</div>' +
+            '<div id="add-fs-submit-btn" class="add-fs-details-form-row">' +
+                '<input type="submit" value="Add new file system"/>' +
+                'or <a class="fs-add-form-close" href="#">cancel</a>' +
+            '</div>' +
+            '</div>',
+        tagName: "form",
+        className: "fs-add-form",
+
+        events: {
+            "submit": "handleAdd",
+            "click .fs-add-form-close": "triggerFormClose",
+            "click #fs-add-form-close-btn": "triggerFormClose",
+            "click #fs-kind-bucket-name": "showBucketForm",
+            "click #fs-kind-volume": "showVolumeForm",
+            "click #fs-kind-snapshot": "showSnapshotForm",
+            "click #fs-kind-new-volume": "showNewVolumeForm",
+        },
+
+        initialize: function(options) {
+            this.vent = options.vent;
+            options.vent.bind("triggerAddFilesystem", this.showForm);
+            this.on("click:closeForm", this.closeForm, this);
+        },
+
+        render: function() {
+            var tmpl = _.template(this.fsAddFormTemplate);
+            $(this.el).attr('id', "fs-add-form-id");
+            $(this.el).attr('action', add_fs_url);
+            $(this.el).attr('method', 'post');
+            $(this.el).html(tmpl());
+            return this;
+        },
+
+        showForm: function() {
+            $('#fs-add-form-id').show("blind");
+        },
+
+        showBucketForm: function(event) {
+            event.stopPropagation();
+            this.hideDetailsForm(event);
+            $("#add-bucket-form").show("blind");
+            if (cloud_type != 'ec2') {
+                $('#add-bucket-fs-creds').show();
+            }
+            $('#add-fs-persist').show("blind");
+            $('#add-fs-submit-btn').show("blind");
+        },
+
+        showVolumeForm: function() {
+            this.hideDetailsForm();
+            $("#add-volume-form").show("blind");
+            $('#add-fs-dot').show("blind");
+            $('#add-fs-persist').show("blind");
+            $('#add-fs-submit-btn').show("blind");
+        },
+
+        showSnapshotForm: function() {
+            this.hideDetailsForm();
+            $("#add-snapshot-form").show("blind");
+            $('#add-fs-dot').show("blind");
+            $('#add-fs-persist').show("blind");
+            $('#add-fs-submit-btn').show("blind");
+        },
+
+        showNewVolumeForm: function() {
+            this.hideDetailsForm();
+            $("#add-new-volume-form").show("blind");
+            $('#add-fs-dot').show("blind");
+            $('#add-fs-persist').show("blind");
+            $('#add-fs-submit-btn').show("blind");
+        },
+
+        hideDetailsForm: function(event) {
+            $('.add-fs-details-form-row').each(function() {
+                var elid = $(this).attr('id');
+                if ($('#'+elid).is(':visible')) {
+                    $(this).hide("blind");
+                }
+            });
+        },
+
+        handleAdd: function(event) {
+            // Issues the add request to the back end
+            event.preventDefault();
+            var el = $('#'+event.currentTarget.id);
+            var url = el.attr('action');
+            $.post(url, el.serialize(),
+                function(data) {
+                    $('#msg').html(data).fadeIn();
+                    clear_msg();
+            });
+            popup();
+            // Hide the resize form
+            this.formElToClose = el;
+            this.closeForm();
+            // TODO: Update status
+            //updateFSStatus(fsName, "Resizing");
+        },
+
+        triggerFormClose: function(event) {
+            // Capture the form element and trigger actual form closing
+            event.preventDefault();
+            this.formElToClose = $(event.currentTarget).parents('form');
+            this.trigger("click:closeForm");
+        },
+
+        closeForm: function() {
+            // Clean the form
+            $('.fs-add-radio-btn').each(function() {
+                $(this).prop('checked', false);
+            });
+            $('.add-fs-details-form-row').each(function() {
+                if ($(this).is(":visible")) {
+                    $(this).hide("blind");
+                }
+            });
+            // Close the visible file system add form
+            if (this.formElToClose.is(':visible')) {
+                this.formElToClose.hide("blind");
+            }
+            this.vent.trigger("addFilesystemFormClose");
+        }
+
+    });
+
+    // Define the view for dealing with the 'Add file system' button
+    var AddFilesystemBtnView = Backbone.View.extend({
+        el: $('#fs-add-btn'),
+
+        events: {
+            "click": "triggerAdd",
+        },
+
+        initialize: function(options) {
+            this.vent = options.vent;
+            this.vent.bind("addFilesystemFormClose", this.render, this);
+        },
+
+        render: function() {
+            $(this.el).show();
+        },
+
+        triggerAdd: function() {
+            this.vent.trigger("triggerAddFilesystem");
+            $(this.el).hide("blind");
+        }
+
+    });
+
+    // --- Driver code ---
+
+    // An app-wide event aggregator object: http://bit.ly/p3nTe6
+    var vent = _.extend({}, Backbone.Events);
     // Create an instance of the master view
     var filesystemList = new FilesystemsView();
     // Fetch the initial data from the server
     FScollection.fetch();
-    // Render file system add form view
-    var filesystemAddFormView= new FilesystemAddFormView();
-    //$('#fs-add-form-container').append(filesystemAddFormView.render().el);
+    // Create instances of the add new file system button and form views
+    // Also, subscribe those to global events
+    // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
+    var addFilesystemBtnView= new AddFilesystemBtnView({vent: vent});
+    var addFilesystemFormView = new AddFilesystemFormView({vent: vent});
+    $('#fs-add-form').html(addFilesystemFormView.render().el);
 
     function updateFSStatus(fs_name, new_status) {
         // A common method for updating the UI based on user action before the

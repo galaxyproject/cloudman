@@ -120,23 +120,61 @@ class CM(BaseController):
         return "Initiated persisiting of '{0}' file system".format(fs_name)
 
     @expose
-    def add_file_system(self, trans, fs_kind, new_fs=False, size='',
-            bucket_name='', bucket_a_key='', bucket_s_key=''):
+    def add_file_system(self, trans, fs_kind, dot=False, persist=False,
+            new_disk_size='', new_vol_fs_name='',
+            vol_id=None, vol_fs_name='',
+            snap_id=None, snap_fs_name='',
+            bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
+            **kwargs):
+        """
+        Decide on the new file system kind and call the appropriate manager method.
+
+        There are four options from which a new file system can be added (the
+        value in parentheses is the expected value of ``fs_kind`` argument for
+        the corresponding option)::
+            * (AWS S3) bucket (bucket)
+            * Existing volume (volume)
+            * Existing snapshot (snapshot)
+            * New volume (new_volume)
+
+        The ``dot`` parameter, if set to ``True``, will mark
+        the new file system to be **deleted on termination**. The ``persist``
+        parameter will, if set to ``True``, add the new file system to the
+        cluster configuration, thus automatically adding it the next time
+        this cluster is started.
+        Note that although both of these two arguments can be set simultaneously,
+        they are conflicting and the ``dot`` parameter will take precedence.
+
+        The rest of the parameters define the details for each file system kind.
+        """
         log.debug("Wanting to add a file system of kind {0}".format(fs_kind))
-        if bucket_name != '':
-            log.debug("Adding a file system from bucket {0}".format(bucket_name))
-            # Clean form input data
-            if bucket_a_key == '':
-                bucket_a_key = None
+        dot = True if dot == 'on' else False
+        persist = True if persist == 'on' else False
+        if fs_kind == 'bucket':
+            if bucket_name != '':
+                log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
+                # Clean form input data
+                if bucket_a_key == '':
+                    bucket_a_key = None
+                else:
+                    bucket_a_key = bucket_a_key.strip()
+                if bucket_s_key == '':
+                    bucket_s_key = None
+                else:
+                    bucket_s_key = bucket_s_key.strip()
+                self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
             else:
-                bucket_a_key = bucket_a_key.strip()
-            if bucket_s_key == '':
-                bucket_s_key = None
-            else:
-                bucket_s_key = bucket_s_key.strip()
-            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
+                log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
+        elif fs_kind == 'volume' or fs_kind == 'snapshot':
+                log.debug("Adding '{2}' file system based on an exising {0}, {1}"\
+                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+        elif fs_kind == 'new_volume':
+            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "\
+                "be deleted, of size {1}"\
+                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
         else:
-            log.error("Wanted to add a file system but provided no bucket name.")
+            log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "FS_ACK"
 
     @expose

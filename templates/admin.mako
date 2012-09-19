@@ -120,8 +120,9 @@
         <div id='fs-details-container'></div>
         <table id="filesystems-table"></table>
         <div id='fs-resize-form-container'></div>
-        <div id='fs-add-form-container'>
-            <div id="fs-add-button"><span class="plus-sign">+</span> Add new</div>
+        <div id='fs-add-container'>
+            <div id='fs-add-form'></div>
+            <div id='fs-add-btn'><span class="plus-sign">+</span> Add new</div>
         </div>
 
         <h3>System controls</h3>
@@ -321,6 +322,7 @@
         var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
         var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
         var add_fs_url = "${h.url_for(controller='root',action='add_file_system')}";
+        var cloud_type = "${cloud_type}";
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
