@@ -6,7 +6,7 @@ from routes import url_for
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 ## Default title
-<%def name="title()">Galaxy Cloudman</%def>
+<%def name="title()">CloudMan</%def>
 
 ## Default stylesheets
 <%def name="stylesheets()">
@@ -21,7 +21,7 @@ from routes import url_for
   <script type='text/javascript' src="/static/scripts/IE8.js"></script>
   <script type='text/javascript' src="/static/scripts/ie7-recalc.js"></script>
   <![endif]-->
-  <script type='text/javascript' src="${h.url_for('/static/scripts/jQuery-1.4.2.js')}"></script>
+  <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-1.7.1.min.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-ui-1.8.10.custom.min.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/livevalidation_standalone.compressed.js')}"></script>
 </%def>
@@ -40,21 +40,21 @@ from routes import url_for
       </td>
       <td align="left" valign="middle">
         <div class="pageTitle">
-            <a href="${h.url_for(controller='root', action='index')}">Galaxy Cloudman</a>
+            <a href="${h.url_for(controller='root', action='index')}">CloudMan from Galaxy</a>
         </div>
       </td>
       <td align="right" valign="middle">
       %if CM_url:
         <span id='cm_update_message'>
-			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
-			  <a target="_blank" href="${CM_url}">What's New</a> | 
-			  <a id='update_cm' href="#">Update CloudMan</a>
-	          &nbsp;&nbsp;&nbsp;
+              There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
+              <a target="_blank" href="${CM_url}">What's New</a> | 
+              <a id='update_cm' href="#">Update CloudMan</a>
+              &nbsp;&nbsp;&nbsp;
         </span>
          <span style='display:none' id="update_reboot_now"><a href="#">Restart cluster now?</a></span>&nbsp;&nbsp;&nbsp;
       %endif
-	    <a href="${h.url_for(controller='root', action='admin')}">Admin</a>
-		| <a href="mailto:galaxy-bugs@bx.psu.edu">Report bugs</a>
+        <a href="${h.url_for(controller='root', action='admin')}">Admin</a>
+        | <a href="mailto:galaxy-bugs@bx.psu.edu">Report bugs</a>
         | <a target="_blank" href="http://usegalaxy.org/cloud">Wiki</a>                  
         | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">Screencast</a>
         &nbsp;

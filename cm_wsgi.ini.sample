@@ -38,3 +38,6 @@ static_images_dir  = static/images
 static_favicon_dir = static/favicon.ico
 static_scripts_dir = static/scripts
 static_style_dir   = static/style
+
+# Don't display server logs
+#use_translogger   = False

@@ -18,29 +18,28 @@ class CM(BaseController):
         if self.app.ud['role'] == 'worker':
             return trans.fill_template('worker_index.mako', master_ip = self.app.ud['master_ip'])
         else:
-            cluster = {}
-            if self.app.manager.get_instance_state():
-                cluster['status'] = self.app.manager.get_instance_state()
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
             return trans.fill_template( 'index.mako',
-                                        cluster = cluster,
                                         permanent_storage_size = permanent_storage_size,
                                         initial_cluster_type = initial_cluster_type,
                                         cluster_name = cluster_name,
                                         master_instance_type = self.app.cloud_interface.get_type(),
                                         use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
                                         image_config_support = BunchToo(self.app.config.ic),
-                                        CM_url=CM_url)
+                                        CM_url = CM_url,
+                                        cloud_type = self.app.ud.get('cloud_type', 'ec2'),
+                                        cloud_name = self.app.ud.get('cloud_name', 'amazon').lower())
+
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):
             try:
-                CM_url = trans.app.config.get( "CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/" )
-                num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
-                CM_url += changesets['default_CM_rev'] + '/' + str(num_changes)
+                CM_url = trans.app.config.get("CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
+                # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
+                CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
             except Exception, e:
                 log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
@@ -49,20 +48,20 @@ class CM(BaseController):
     @expose
     def combined(self, trans):
         return trans.fill_template('cm_combined.mako')
-    
+
     @expose
     def instance_feed(self, trans):
         return trans.fill_template('instance_feed.mako', instances = self.app.manager.worker_instances)
-    
+
     @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return to_json_string(dict_feed)
-    
+
     @expose
     def minibar(self, trans):
         return trans.fill_template('mini_control.mako')
-    
+
     @expose
     def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None, shared_bucket=None):
         if self.app.manager.initial_cluster_type is None:
@@ -75,13 +74,20 @@ class CM(BaseController):
                 self.app.manager.init_cluster(startup_opt, pss)
             elif startup_opt == "Shared_cluster":
                 if shared_bucket is not None:
-                    self.app.manager.init_shared_cluster(shared_bucket)
+                    self.app.manager.init_shared_cluster(shared_bucket.strip())
                 else:
                     return "Must provide shared bucket name; cluster configuration not set."
         else:
             return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
         return "Cluster configuration '%s' received and processed." % startup_opt
-    
+
+    @expose
+    def get_cluster_type(self):
+        """
+        Get the type of the cluster that's been configured
+        """
+        return self.app.manager.initial_cluster_type
+
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
         if delete_snap:
@@ -98,13 +104,35 @@ class CM(BaseController):
         except TypeError, ex:
             log.error("You must provide valid value type: %s" % ex)
             return "TypeError exception. Check the log."
+        except Exception, g_ex:
+            log.error("Unknown Exception: %s" % g_ex)
+            return "Unknown exception. Check the log for details."
         return self.instance_state_json(trans)
-    
+
     @expose
     def update_file_system(self, trans, fs_name):
         self.app.manager.update_file_system(fs_name)
         return self.instance_state_json(trans)
-    
+
+    @expose
+    def add_fs(self, trans, bucket_name, bucket_a_key='', bucket_s_key=''):
+        if bucket_name != '':
+            log.debug("Adding a file system from bucket {0}".format(bucket_name))
+            # Clean form input data
+            if bucket_a_key == '':
+                bucket_a_key = None
+            else:
+                bucket_a_key = bucket_a_key.strip()
+            if bucket_s_key == '':
+                bucket_s_key = None
+            else:
+                bucket_s_key = bucket_s_key.strip()
+            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
+        else:
+            log.error("Wanted to add a file system but provided no bucket name.")
+        return "FSACK"
+        # return self.get_all_services_status(trans)
+
     @expose
     def power(self, trans, number_nodes=0, pss=None):
         if self.app.manager.get_cluster_status() == 'OFF': # Cluster is OFF, initiate start procedure
@@ -120,16 +148,14 @@ class CM(BaseController):
             except TypeError, ex:
                 log.error("You must provide valid values: %s" % ex)
                 return
-            # Set state that will initiate starting
-            self.app.manager.set_master_state( 'Start workers' )
         else: # Cluster is ON, initiate shutdown procedure
             self.app.shutdown()
         return "ACK"
-    
+
     @expose
     def detailed_shutdown(self, trans, galaxy = True, sge = True, postgres = True, filesystems = True, volumes = True, instances = True):
         self.app.shutdown(sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes, sd_instances=instances, sd_volumes_delete=volumes)
-    
+
     @expose
     def kill_all(self, trans, terminate_master_instance=False, delete_cluster=False):
         if delete_cluster:
@@ -139,57 +165,75 @@ class CM(BaseController):
             return self.instance_state_json(trans)
         self.app.shutdown(delete_cluster=delete_cluster)
         return self.instance_state_json(trans)
-    
+
     @expose
     def reboot(self, trans):
         r = 'initiated' if self.app.manager.reboot() else 'failed'
         return "Reboot %s." % r
-    
+
     @expose
     def cleanup(self, trans):
         self.app.manager.shutdown()
-    
+
     @expose
     def hard_clean(self, trans):
         self.app.manager.clean()
-    
+
     @expose
-    def add_instances(self, trans, number_nodes, instance_type=''):
+    def add_instances(self, trans, number_nodes, instance_type='', spot_price=''):
         try:
             number_nodes = int(number_nodes)
+            if spot_price != '':
+                spot_price = float(spot_price)
+            else:
+                spot_price = None
         except ValueError, e:
-            log.error("You must provide valid value.  %s" % e)
-        self.app.manager.add_instances( number_nodes, instance_type)
+            log.error("You must provide valid value:  %s" % e)
+            return self.instance_state_json(trans)
+        self.app.manager.add_instances(number_nodes, instance_type, spot_price)
         return self.instance_state_json(trans)
-    
+
     @expose
     def remove_instance(self, trans, instance_id=''):
         if instance_id == '':
             return
-        self.app.manager.remove_instance( instance_id)
+        self.app.manager.remove_instance(instance_id)
         return self.instance_state_json(trans)
-    
+
+    @expose
+    def reboot_instance(self, trans, instance_id=''):
+        if instance_id == '':
+            return
+        self.app.manager.reboot_instance(instance_id)
+        return self.instance_state_json(trans)
+
     @expose
     def remove_instances(self, trans, number_nodes, force_termination):
         try:
-            number_nodes=int(number_nodes)
-            log.debug("Num nodes requested to terminate: %s, force termination: %s" % (number_nodes, force_termination))
+            number_nodes = int(number_nodes)
+            force_termination = True if force_termination == 'True' else False
+            log.debug("Num nodes requested to terminate: %s, force termination: %s" \
+                % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
         return self.instance_state_json(trans)
-    
+
+    @expose
+    def store_cluster_config(self, trans):
+        self.app.manager.console_monitor.store_cluster_config()
+
     @expose
     def log(self, trans, l_log=0):
         trans.response.set_content_type( "text" )
         return "\n".join(self.app.logger.logmessages)
-    
+
     def tail(self, file_name, num_lines):
         """ Read num_lines from file_name starting at the end (using UNIX tail cmd)
         """
         ps = subprocess.Popen("tail -n %s %s" % (num_lines, file_name), shell=True, stdout=subprocess.PIPE)
         return str(ps.communicate()[0])
-    
+
     @expose
     def service_log(self, trans, service_name, show=None, num_lines=None, **kwargs):
         # Choose log file path based on service name
@@ -209,7 +253,7 @@ class CM(BaseController):
                 try:
                     cmd = ('%s - galaxy -c "export SGE_ROOT=%s;\
                         . %s/default/common/settings.sh; \
-                        %s/bin/lx24-amd64/qstat -f > %s"' 
+                        %s/bin/lx24-amd64/qstat -f > %s"'
                         % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT, log_file))
                     subprocess.call(cmd, shell=True)
                 except OSError:
@@ -217,7 +261,7 @@ class CM(BaseController):
             else:
                 log_file = os.path.join(paths.P_SGE_CELL, 'messages')
         elif service_name == 'CloudMan':
-                log_file = "paster.log"
+            log_file = "paster.log"
         # Set log length
         if num_lines:
             if show == 'more':
@@ -236,29 +280,29 @@ class CM(BaseController):
         # Convert the log file contents to unicode for proper display
         log = self.to_unicode(log)
         trans.response.set_content_type("text")
-        return trans.fill_template("srvc_log.mako", 
+        return trans.fill_template("srvc_log.mako",
                                    service_name=service_name,
-                                   log=log, 
-                                   num_lines=num_lines, 
-                                   full=(show=='all'), 
+                                   log=log,
+                                   num_lines=num_lines,
+                                   full=(show=='all'),
                                    log_file=log_file)
-    
+
     def to_unicode(self, a_string):
-        """ 
+        """
         Convert a string to unicode in utf-8 format; if string is already unicode,
         does nothing because string's encoding cannot be determined by introspection.
         """
         a_string_type = type ( a_string )
         if a_string_type is str:
-           return unicode( a_string, 'utf-8' )
+            return unicode( a_string, 'utf-8' )
         elif a_string_type is unicode:
-           return a_string
-    
+            return a_string
+
     @expose
     def get_srvc_status(self, trans, srvc):
         return to_json_string({'srvc': srvc,
                                'status': self.app.manager.get_srvc_status(srvc)})
-    
+
     @expose
     def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
@@ -266,13 +310,16 @@ class CM(BaseController):
         snap_status = self.app.manager.snapshot_status()
         status_dict['snapshot'] = {'status' : str(snap_status[0]),
                                    'progress' : str(snap_status[1])}
+        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
+        status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         return to_json_string(status_dict)
-    
+
     @expose
     def full_update(self, trans, l_log=0):
         return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
-                                'log_update_data' : self.log_json(trans, l_log, no_json=True)})
-    
+                                'log_update_data' : self.log_json(trans, l_log, no_json=True),
+                                'messages': self.messages_string(self.app.msgs.get_messages())})
+
     @expose
     def log_json(self, trans, l_log=0, no_json=False):
         if no_json:
@@ -281,7 +328,20 @@ class CM(BaseController):
         else:
             return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
-    
+
+    def messages_string(self, messages):
+        """
+        Convert all messages into a string representation.
+        """
+        msgs = []
+        for msg in messages:
+            msgs.append({'message': msg.message, 'level': msg.level, 'added_at': str(msg.added_at)})
+        return msgs
+
+    @expose
+    def dismiss_messages(self, trans):
+        self.app.msgs.dismiss()
+
     @expose
     def restart_service(self, trans, service_name):
         svcs = self.app.manager.get_services(service_name)
@@ -293,7 +353,7 @@ class CM(BaseController):
             return "%s service restarted." % service_name
         else:
             return "Cannot find %s service." % service_name
-    
+
     @expose
     def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central", db_only=False):
         if db_only == 'True':
@@ -321,7 +381,7 @@ class CM(BaseController):
             comment = "Galaxy service does not seem to be configured."
             log.warning(comment)
             return comment
-    
+
     @expose
     def add_galaxy_admin_users(self, trans, admin_users=None):
         log.info("Received following list of admin users: '%s'" % admin_users)
@@ -330,9 +390,9 @@ class CM(BaseController):
             # Test if provided values are in email format and remove non-email formatted ones
             admins_list_check = admins_list
             for admin in admins_list_check:
-                 m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
-                 if not m:
-                     admins_list.remove(admin)
+                m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
+                if not m:
+                    admins_list.remove(admin)
             # Get a handle to Galaxy service and add admins
             svcs = self.app.manager.get_services('Galaxy')
             if len(svcs)>0 and len(admins_list)>0:
@@ -348,7 +408,7 @@ class CM(BaseController):
             comment = "No admin users provided: '%s'" % admin_users
             log.warning(comment)
             return comment
-    
+
     @expose
     def manage_service(self, trans, service_name, to_be_started=True):
         svcs = self.app.manager.get_services(service_name)
@@ -364,7 +424,7 @@ class CM(BaseController):
                 return "%s started" % service_name
         else:
             return "Cannot find %s service." % service_name
-    
+
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
         if self.app.manager.get_services('Autoscale'):
@@ -387,7 +447,7 @@ class CM(BaseController):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-    
+
     @expose
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
         if self.app.manager.get_services('Autoscale'):
@@ -405,15 +465,15 @@ class CM(BaseController):
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
-    
+
     def check_as_vals(self, as_min, as_max):
         """ Check if limits for autoscaling are acceptable."""
         if as_min is not None and as_min.isdigit() and int(as_min)>=0 and int(as_min)<20 and \
            as_max is not None and as_max.isdigit() and int(as_max)>=int(as_min) and int(as_max)<20:
-           return True
+            return True
         else:
-           return False
-    
+            return False
+
     @expose
     def share_a_cluster(self, trans, visibility, user_ids="", cannonical_ids=""):
         if visibility == 'shared' and user_ids != "" and cannonical_ids != "":
@@ -441,16 +501,24 @@ class CM(BaseController):
             return self.instance_state_json(trans)
         self.app.manager.share_a_cluster(u_ids, c_ids)
         return self.instance_state_json(trans, no_json=True)
-    
+
     @expose
     def get_shared_instances(self, trans):
         return to_json_string({'shared_instances': self.app.manager.get_shared_instances()})
-    
+
     @expose
     def delete_shared_instance(self, trans, shared_instance_folder=None, snap_id=None):
         shared_instance_folder = '/'.join((shared_instance_folder.split('/')[1:]))
         return self.app.manager.delete_shared_instance(shared_instance_folder, snap_id)
-    
+
+    @expose
+    def toggle_master_as_exec_host(self, trans):
+        if self.app.manager.toggle_master_as_exec_host() is True:
+            comment = "Master is an execution host."
+        else:
+            comment = "Master is not an execution host."
+        return comment
+
     @expose
     def admin(self, trans):
         # Get names of the file systems
@@ -458,19 +526,22 @@ class CM(BaseController):
         fss = self.app.manager.get_services('Filesystem')
         for fs in fss:
             filesystems.append(fs.name)
-        return trans.fill_template('admin.mako', 
+        return trans.fill_template('admin.mako',
                                    ip=self.app.cloud_interface.get_self_public_hostname(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
-                                   filesystems=filesystems)
-    
+                                   filesystems=filesystems,
+                                   bucket_cluster=self.app.ud['bucket_cluster'],
+                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                   initial_cluster_type = self.app.manager.initial_cluster_type)
+
     @expose
     def cluster_status(self, trans):
         return trans.fill_template( "cluster_status.mako", instances = self.app.manager.worker_instances)
-    
+
     @expose
     def get_user_data(self, trans):
         return to_json_string(self.app.ud)
-    
+
     @expose
     def recover_monitor(self, trans, force='False'):
         if self.app.manager.console_monitor and force == 'False':
@@ -480,9 +551,9 @@ class CM(BaseController):
                 return "The instance has a new monitor now."
             else:
                 return "There was an error. Can't create a new monitor."
-    
+
     def get_galaxy_dns(self):
-        """ Check if Galaxy is running and the the web UI is accessible. Return 
+        """ Check if Galaxy is running and the the web UI is accessible. Return
         DNS address if so, `#` otherwise. """
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
@@ -491,13 +562,12 @@ class CM(BaseController):
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
         return dns
-    
+
     @expose
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns()
         snap_status = self.app.manager.snapshot_status()
-        ret_dict = {'instance_state':self.app.manager.get_instance_state(),
-                    'cluster_status':self.app.manager.get_cluster_status(),
+        ret_dict = {'cluster_status':self.app.manager.get_cluster_status(),
                     'dns':dns,
                     'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available' : str(self.app.manager.get_num_available_workers()),
@@ -518,11 +588,11 @@ class CM(BaseController):
             return ret_dict
         else:
             return to_json_string(ret_dict)
-    
+
     @expose
     def update_users_CM(self, trans):
         return to_json_string({'updated':self.app.manager.update_users_CM()})
-    
+
     @expose
     def masthead(self, trans):
         brand = trans.app.config.get( "brand", "" )
@@ -534,4 +604,4 @@ class CM(BaseController):
         blog_url = trans.app.config.get( "blog_url", "http://g2.trac.bx.psu.edu/blog"   )
         screencasts_url = trans.app.config.get( "screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts" )
         return trans.fill_template( "masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url,bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url )
-    
+

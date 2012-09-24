@@ -6,18 +6,21 @@ vertical-align: top;
 }
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
-    <h2>Galaxy Cloudman Console</h2>
+    <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
-            Welcome to Galaxy Cloudman.  This application will allow you to manage this cloud instance and the services 
-            provided within. If this is your first time running this cluster, you will need to select an initial data volume 
-            size. Once the data store is configured, default services will start and you will be able to add and remove additional
-            services as well as 'worker' nodes on which jobs are run.
+            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            This application allows you to manage this cloud cluster and the services provided within. 
+            If this is your first time running this cluster, you will need to select an initial data volume 
+            size. Once the data store is configured, default services will start and you will be able to add 
+            and remove additional services as well as 'worker' nodes on which jobs are run.
         %else:
-            Welcome to Galaxy Cloudman.  This application allows you to manage this instance of Galaxy CloudMan. Your previous 
-            data store has been reconnected.  Once the cluster has initialized, use the controls below to add and remove 'worker' 
-            nodes for running jobs.
+            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            This application allows you to manage this instance cloud cluster and the services 
+            provided within. Your previous data store has been reconnected.  Once the cluster has initialized, 
+            use the controls below to manage services provided by the application.
         %endif
     </div>
     <div style="clear: both;"></div><br/>
@@ -43,26 +46,30 @@ vertical-align: top;
         <div class="form-row">
             <label>Number of nodes to start:</label>
             <div id="num_nodes" class="form-row-input">
-                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="0" size="10">
+                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="1" size="10">
                 <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
             </div>
             <br/>
             <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
             <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
             <div id="instance_type" class="form-row-input">
-                <select name="instance_type" id="instance_type">
-                    <option value=''>Same as Master</option>
-                    <option value='t1.micro'>Micro</option>
-                    <option value='m1.large'>Large</option>
-                    <option value='m1.xlarge'>Extra Large</option>
-                    <option value='m2.xlarge'>High-Memory Extra Large</option>
-                    <option value='m2.2xlarge'>High-Memory Double Extra Large</option>
-                    <option value='m2.4xlarge'>High-Memory Quadruple Extra Large</option>
-                    ## <option value='c1.medium'>High-CPU Medium</option>
-                    <option value='c1.xlarge'>High-CPU Extra Large</option>
-                </select>
+                ## Select available instance types based on cloud name
+                <%include file="clouds/${cloud_name}/instance_types.mako" />
             </div>
-            <div class="form-row"><input type="submit" value="Start Additional Nodes"></div>
+            ## Spot instaces work only for the AWS cloud
+            %if cloud_type == 'ec2':
+                <div class="form-row">
+                    <input type="checkbox" id="use_spot" />
+                    Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
+                        Spot instances
+                    </a><br/>
+                    Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
+                        spot price</a>:
+                    <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
+                    <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
+                </div>
+            %endif
+            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
         </div>
         </form>
     </div>
@@ -135,7 +142,7 @@ vertical-align: top;
         the snapshot's description.</p>
         </div>
         <div class="form-row">
-            <label>New Disk Size (max 1000GB):</label>
+            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 1000GB):</label>
             <div id="permanent_storage_size" class="form-row-input">
                 <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
             </div>
@@ -153,7 +160,9 @@ vertical-align: top;
 </div>
 
 ## Overlay that prevents any future clicking, see CSS
-<div id="snapshotoverlay" style="display:none"></div>
+<div id="snapshotoverlay" style="display:none">
+    <div id="snapshotoverlay_msg_box" style="display:none"></div>
+</div>
 <div id="no_click_clear_overlay" style="display:none"></div>
 <div id="snapshot_status_box" class="box">
     <h2>Volume Manipulation In Progress</h2>
@@ -186,13 +195,18 @@ vertical-align: top;
         <div class="form-row">
             <label>Are you sure you want to power the cluster off?</label>
             <p>This action will shut down all services on the cluster and terminate
-            any worker nodes (instances) associated with this cluster. By default, 
-            the master instance will be left alive and should be terminated 
-            manually (using the AWS console).</p>
+            any worker nodes (instances) associated with this cluster. Unless you
+            choose to have the cluster deleted, all of your data will be preserved
+            beyond the life of this instance. Next time you wish to start this same
+            cluster, simply use the same user data (i.e., cluster name and credentials)
+            and CloudMan will reactivate your cluster with your data.</p>
             <label>Automatically terminate the master instance?</label>
-            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked> If checked, this master instance will automatically terminate after all services have been shut down.
+            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
+            If checked, this master instance will automatically terminate after all services have been shut down.
+            If not checked, you should maually terminate this instance after all services have been shut down.
             <p></p><label>Also delete this cluster?</label>
-            <input type="checkbox" name="delete_cluster" id="delete_cluster"> If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
+            <input type="checkbox" name="delete_cluster" id="delete_cluster">
+            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
             <div class="form-row"><input type="submit" value="Yes, power off"></div>
         </div>
     </form>
@@ -352,10 +366,10 @@ vertical-align: top;
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
-    <h2>Initial Cluster Configuration</h2>
+    <h2>Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
-        <p>Welcome to CloudMan. This application will allow you to manage this cluster and
-        the services provided within. To get started, choose the type of cluster you'd like to work
+        <p>Welcome to CloudMan. This application will allow you to manage this cluster platform and
+        the services provided within. To get started, choose the type of platform you'd like to work
         with and provide the associated value, if any.</p>
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
@@ -366,6 +380,7 @@ vertical-align: top;
                     <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
                     Specify the initial storage size (in Gigabytes):
                 </p>
+                <input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
             % else:
                 <p class='disabled'>
                     <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" disabled='true'>
@@ -375,8 +390,8 @@ vertical-align: top;
                     so see the available cluster configuration options.
                     <br/>Specify the initial storage size (in Gigabytes):
                 </p>
-            % endif 
-            <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+            % endif             
         </div>
         <div id='extra_startup_options'>
             <div class="form-row">
@@ -405,7 +420,7 @@ vertical-align: top;
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Start Cluster" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose platform type" id="start_cluster_submit_btn"/>
         </div>
         </form>
     </div>
@@ -442,6 +457,7 @@ var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
 var as_max = 0; //max number of instances autoscaling should maintain
+
 $(function() {
     $( "#sharing_accordion" ).accordion({
         autoHeight: false,
@@ -454,6 +470,7 @@ $(function() {
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
 ## <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.stopwatch.js')}"> </script>
 <script type="text/javascript">
 
 function hidebox(){
@@ -487,7 +504,6 @@ function toggleVolDialog(){
 
 function update_ui(data){
     if (data){
-        $('#status').html(data.instance_state);
         $('#dns').attr("href", data.dns);
         if (data.dns == '#'){
             $('#dns').addClass('ab_disabled');
@@ -502,9 +518,12 @@ function update_ui(data){
         $('#status-available').text( data.instance_status.available );
         $('#status-total').text( data.instance_status.requested );
         $('#du-total').text(data.disk_usage.total);
+        $('#du-inc').text(data.disk_usage.total.slice(0,-1));
         $('#du-used').text(data.disk_usage.used);
         $('#du-pct').text(data.disk_usage.pct);
-        $('#new_vol_size').val("Must be larger than " + data.disk_usage.total);
+        if($('#new_vol_size').val() == '0'){
+            $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
+        }
         if (parseInt(data.disk_usage.pct) > 80){
             $('#storage_warning').show();
         }else{
@@ -536,12 +555,18 @@ function update_ui(data){
         fsdet += "</ul>";
         $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
-        if (cluster_status === "SHUT_DOWN"){
-            $('#main_text').html("<div id='main_text_important'><h4>Important:</h4><p>This cluster has terminated. If not done automatically, please terminate the master instance from the AWS console.</p></div>");
+        if (cluster_status === "SHUTTING_DOWN"){
+            shutting_down();
+            return true; // Must return here because the remaining code clears the UI
+        }
+        else if (cluster_status === "TERMINATED"){
             $('.action-button').addClass('ab_disabled');
             $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
-            // Cluster has shut down.  There is nothing else to update after disabling inputs.
-            return true;
+            $('#snapshotoverlay_msg_box').html("<div id='snapshotoverlay_msg_box_important'> \
+                <h4>Important:</h4><p>This cluster has terminated. If not done automatically, \
+                please terminate the master instance from the cloud console.</p></div>");
+            $('#snapshotoverlay_msg_box').show();
+            return true; // Must return here because the remaining code clears the UI
         }
         if (data.autoscaling.use_autoscaling === true) {
             use_autoscaling = true;
@@ -551,7 +576,7 @@ function update_ui(data){
             $('#scale_up_button > img').hide();
             $('#scale_down_button').addClass('ab_disabled');
             $('#scale_down_button > img').hide();
-        } else {
+        } else if (data.autoscaling.use_autoscaling === false) {
             use_autoscaling = false;
             as_min = 0;
             as_max = 0;
@@ -609,6 +634,7 @@ function update(repeat_update){
             if (data){
                 update_ui(data.ui_update_data);
                 update_log(data.log_update_data);
+                update_messages(data.messages);
             }
         });
     if (repeat_update === true){
@@ -688,6 +714,41 @@ function get_shared_instances(){
                 }
             }
         });
+}
+
+function show_log_container_body() {
+    // Show the containter box for CloudMan log on the main page
+    $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
+    $('#log_container_header').addClass('clicked');
+    $('#log_container_body').slideDown('fast');
+}
+
+// This is called when worker nodes are added by the user.
+// Causes a pending instance to be drawn
+function add_pending_node() {
+    inst_kind = 'on-demand';
+    if ($('#use_spot').length != 0 && $('#use_spot').attr("checked") == 'checked') {
+        inst_kind = 'spot';
+    } increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value), inst_kind);
+        return true;
+}
+
+function shutting_down() {
+    // Do the UI updates to indicate the cluster is in the 'SHUTTING_DOWN' state
+    $('#snapshotoverlay_msg_box').html("<div id='snapshotoverlay_msg_box_warning'> \
+        <h4>Important:</h4><p>This cluster is terminating. Please wait for all the services \
+        to stop and for all the nodes to be removed. Then, if not done automatically, \
+        terminate the master instance from the cloud console. All of the buttons on the \
+        console have been disabled at this point.</p></div>");
+    $('#snapshotoverlay_msg_box').show();
+    $('.action-button').addClass('ab_disabled');
+    // Show and scroll the log
+    show_log_container_body();
+    update_log();
+    $('#log_container_body').animate({
+        scrollTop: $("#log_container_body").attr("scrollHeight") + 100
+    }, 1000);
+    $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
 }
 
 $(document).ready(function() {
@@ -772,9 +833,7 @@ $(document).ready(function() {
     $('#log_container_body').hide();
     $('#log_container_header').click(function() {
         if ($('#log_container_body').is(":hidden")){
-            $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
-            $('#log_container_header').addClass('clicked');
-            $('#log_container_body').slideDown('fast');
+            show_log_container_body();
         } else {
             $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
             $('#log_container_body').slideUp('fast', function(){
@@ -844,10 +903,8 @@ $(document).ready(function() {
         type: 'POST',
         dataType: 'json',
         beforeSubmit: function(data){
-            cluster_status = "OFF";
-            $('#main_text').html("<div id='main_text_warning'><h4>Important:</h4><p>This cluster is terminating. Please wait for all services to stop and for all nodes to be removed, and then terminate the master instance from the AWS console.</p></div>");
+            shutting_down();
             hidebox();
-            $('#no_click_clear_overlay').show(); // Overlay that prevents any future clicking
         },
         success: function( data ) {
             update_ui(data);
@@ -878,7 +935,16 @@ $(document).ready(function() {
                 }
             });
     });
-    
+    // Toggle accessibility of spot price field depending on whether spot instances should be used
+    $("#use_spot").click(function() {
+        if ($("#use_spot").attr("checked") == 'checked') {
+            $("#spot_price").removeAttr('disabled');
+            $("#spot_price").focus();
+        } else {
+            $("#spot_price").attr('disabled', 'disabled');
+            $("#spot_price").val("");
+        }
+    });
     // Form validation
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
@@ -888,7 +954,11 @@ $(document).ready(function() {
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
-    
+    if ($('#spot_price').length != 0) {
+        // Add LiveValidation only if the field is actually present on the page
+        var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
+        spot_price.add( Validate.Numericality, { minimum: 0 } );
+    }
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
     

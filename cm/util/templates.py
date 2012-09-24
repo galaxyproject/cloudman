@@ -3,7 +3,7 @@ SGE_INSTALL_TEMPLATE = \
 SGE_QMASTER_PORT="6444"
 SGE_EXECD_PORT="6445"
 SGE_ENABLE_SMF="false"
-SGE_CLUSTER_NAME="GalaxyEC2"
+SGE_CLUSTER_NAME="$cluster_name"
 SGE_JMX_PORT=""
 SGE_JMX_SSL="false"
 SGE_JMX_SSL_CLIENT="false"
@@ -20,11 +20,11 @@ SPOOLING_METHOD="classic"
 DB_SPOOLING_SERVER="none"
 DB_SPOOLING_DIR="/opt/sge/default/spooldb"
 PAR_EXECD_INST_COUNT="20"
-ADMIN_HOST_LIST="%s"
-SUBMIT_HOST_LIST="%s"
-EXEC_HOST_LIST="%s"
+ADMIN_HOST_LIST="$admin_host_list"
+SUBMIT_HOST_LIST="$submit_host_list"
+EXEC_HOST_LIST="$exec_host_list"
 EXECD_SPOOL_DIR_LOCAL=""
-HOSTNAME_RESOLVING="true"
+HOSTNAME_RESOLVING="$hostname_resolving"
 SHELL_NAME="ssh"
 COPY_COMMAND="scp"
 DEFAULT_DOMAIN="none"
@@ -75,7 +75,7 @@ min_cpu_interval      00:05:00
 processors            UNDEFINED
 qtype                 BATCH INTERACTIVE
 ckpt_list             NONE
-pe_list               make
+pe_list               make smp mpi
 rerun                 FALSE
 slots                 1
 tmpdir                /mnt/galaxyData/tmp
@@ -113,4 +113,30 @@ s_rss                 INFINITY
 h_rss                 INFINITY
 s_vmem                INFINITY
 h_vmem                INFINITY
+"""
+
+SMP_PE = """pe_name            smp
+slots              999
+user_lists         NONE
+xuser_lists        NONE
+start_proc_args    NONE
+stop_proc_args     NONE
+allocation_rule    $pe_slots
+control_slaves     TRUE
+job_is_first_task  FALSE
+urgency_slots      min
+accounting_summary FALSE
+"""
+
+MPI_PE = """pe_name           mpi
+slots             999
+user_lists        NONE
+xuser_lists       NONE
+start_proc_args   /opt/sge/mpi/startmpi.sh $pe_hostfile
+stop_proc_args    /opt/sge/mpi/stopmpi.sh
+allocation_rule   $round_robin
+control_slaves    FALSE
+job_is_first_task TRUE
+urgency_slots     min
+accounting_summary FALSE
 """

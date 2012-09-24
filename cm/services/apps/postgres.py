@@ -40,6 +40,7 @@ class PostgresService( ApplicationService ):
 
             # Check if 'psql_data_dir' exists first; it not, configure PostgreSQL
             if not os.path.exists( psql_data_dir ):
+                log.debug("{0} dir does not exist; will be configuring Postgres".format(psql_data_dir))
                 to_be_configured = True
 
             if to_be_configured:
