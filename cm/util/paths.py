@@ -33,6 +33,7 @@ except Exception, e:
 
 
 def get_path(name, default_path):
+    path = None
     try:
         path = misc.load_yaml_file(USER_DATA_FILE).get(name, None)
         if path is None:

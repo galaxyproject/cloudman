@@ -244,21 +244,8 @@ class Filesystem(DataService):
         return None
 
     def check_and_update_volume(self, device):
-        """
-        Check that the volume used for this file system is actually the volume
-        we have a reference to and update local fields as necessary.
-        """
-        if self.app.cloud_type == "ec2":
-            # filtering w/ boto is supported only with ec2
-            f = {'attachment.device':device, 'attachment.instance-id':self.app.cloud_interface.get_instance_id()}
-            vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
-        else:
-            vols = []
-            all_vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
-            for vol in all_vols:
-                if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id() and \
-                   vol.attach_data.device == device:
-                       vols.append(vol)
+        f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+        vols = self.app.cloud_interface.get_all_volumes(filters=f)
         if len(vols) == 1:
             att_vol = vols[0]
             for vol in self.volumes: # Currently, bc. only 1 vol can be assoc w/ FS, we'll only deal w/ 1 vol

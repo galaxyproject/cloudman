@@ -5,6 +5,7 @@ from cm.clouds.ec2 import EC2Interface
 from cm.clouds.openstack import OSInterface
 from cm.clouds.opennebula import ONInterface
 from cm.clouds.dummy import DummyInterface
+from cm.clouds.eucalyptus import EucaInterface
 
 class CloudConfig(object):
     """ Configuration class that is used as a mediator for support between
@@ -45,6 +46,8 @@ class CloudConfig(object):
             cloud_interface = ONInterface(app=self.app)
         elif cloud_type == 'dummy':
             cloud_interface = DummyInterface(app=self.app)
+        elif cloud_type == 'euca' or cloud_type.lower()=='eucalyptus':
+            cloud_interface = EucaInterface(app=self.app)
         return cloud_interface
         
     

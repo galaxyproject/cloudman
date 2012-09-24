@@ -56,6 +56,7 @@ class CloudInterface(object):
             self.get_user_data()
         self.aws_access_key = self.user_data.get('access_key', None)
         self.aws_secret_key = self.user_data.get('secret_key', None)
+        self.tags = {}
     
     def get_configuration(self):
         """ Return a dict with all the class variables.
