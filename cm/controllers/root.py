@@ -1,7 +1,8 @@
-import logging
 import os
 import re
+import logging
 import subprocess
+from datetime import datetime
 
 from cm.util.json import to_json_string
 from cm.framework import expose
@@ -82,16 +83,20 @@ class CM(BaseController):
         return "Cluster configuration '%s' received and processed." % startup_opt
 
     @expose
-    def get_cluster_type(self):
+    def get_cluster_type(self, trans):
         """
         Get the type of the cluster that's been configured
         """
         return self.app.manager.initial_cluster_type
 
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False):
+    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False,
+            fs_name='galaxyData'):
         if delete_snap:
             delete_snap = True
+        log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
+                "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
+                "will" if delete_snap else "will not"))
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
@@ -107,31 +112,70 @@ class CM(BaseController):
         except Exception, g_ex:
             log.error("Unknown Exception: %s" % g_ex)
             return "Unknown exception. Check the log for details."
-        return self.instance_state_json(trans)
+        return "Initated '{0}' file system expansion".format(fs_name)
 
     @expose
     def update_file_system(self, trans, fs_name):
         self.app.manager.update_file_system(fs_name)
-        return self.instance_state_json(trans)
+        return "Initiated persisiting of '{0}' file system".format(fs_name)
 
     @expose
-    def add_fs(self, trans, bucket_name, bucket_a_key='', bucket_s_key=''):
-        if bucket_name != '':
-            log.debug("Adding a file system from bucket {0}".format(bucket_name))
-            # Clean form input data
-            if bucket_a_key == '':
-                bucket_a_key = None
+    def add_file_system(self, trans, fs_kind, dot=False, persist=False,
+            new_disk_size='', new_vol_fs_name='',
+            vol_id=None, vol_fs_name='',
+            snap_id=None, snap_fs_name='',
+            bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
+            **kwargs):
+        """
+        Decide on the new file system kind and call the appropriate manager method.
+
+        There are four options from which a new file system can be added (the
+        value in parentheses is the expected value of ``fs_kind`` argument for
+        the corresponding option)::
+            * (AWS S3) bucket (bucket)
+            * Existing volume (volume)
+            * Existing snapshot (snapshot)
+            * New volume (new_volume)
+
+        The ``dot`` parameter, if set to ``True``, will mark
+        the new file system to be **deleted on termination**. The ``persist``
+        parameter will, if set to ``True``, add the new file system to the
+        cluster configuration, thus automatically adding it the next time
+        this cluster is started.
+        Note that although both of these two arguments can be set simultaneously,
+        they are conflicting and the ``dot`` parameter will take precedence.
+
+        The rest of the parameters define the details for each file system kind.
+        """
+        log.debug("Wanting to add a file system of kind {0}".format(fs_kind))
+        dot = True if dot == 'on' else False
+        persist = True if persist == 'on' else False
+        if fs_kind == 'bucket':
+            if bucket_name != '':
+                log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
+                # Clean form input data
+                if bucket_a_key == '':
+                    bucket_a_key = None
+                else:
+                    bucket_a_key = bucket_a_key.strip()
+                if bucket_s_key == '':
+                    bucket_s_key = None
+                else:
+                    bucket_s_key = bucket_s_key.strip()
+                self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
             else:
-                bucket_a_key = bucket_a_key.strip()
-            if bucket_s_key == '':
-                bucket_s_key = None
-            else:
-                bucket_s_key = bucket_s_key.strip()
-            self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
+                log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
+        elif fs_kind == 'volume' or fs_kind == 'snapshot':
+                log.debug("Adding '{2}' file system based on an exising {0}, {1}"\
+                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+        elif fs_kind == 'new_volume':
+            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "\
+                "be deleted, of size {1}"\
+                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
         else:
-            log.error("Wanted to add a file system but provided no bucket name.")
-        return "FSACK"
-        # return self.get_all_services_status(trans)
+            log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
+        return "FS_ACK"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -306,13 +350,21 @@ class CM(BaseController):
     @expose
     def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
+        #status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns()
+        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
         snap_status = self.app.manager.snapshot_status()
         status_dict['snapshot'] = {'status' : str(snap_status[0]),
                                    'progress' : str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
+        #status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return to_json_string(status_dict)
+
+    @expose
+    def get_all_filesystems(self, trans):
+        return to_json_string(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
@@ -410,11 +462,25 @@ class CM(BaseController):
             return comment
 
     @expose
-    def manage_service(self, trans, service_name, to_be_started=True):
-        svcs = self.app.manager.get_services(service_name)
+    def manage_service(self, trans, service_name, to_be_started=True, is_filesystem=False):
+        """
+        Manage a CloudMan service identified by ``service_name``. Currently,
+        managing a service means that the service can be started (if
+        ``to_be_started`` argument is set to ``True``) or stopped (the default
+        action). If wanting to manipulate a file system service, set
+        ``is_filesystem`` to ``True`` and set ``service_name`` to be the file
+        system name.
+        """
+        is_filesystem = (is_filesystem == 'True') # convert to boolean
+        to_be_started = (to_be_started == 'True')
+        if is_filesystem:
+            svcs = [s for s in self.app.manager.services if s.svc_type=='Filesystem' \
+                    and s.name==service_name]
+        else:
+            svcs = self.app.manager.get_services(service_name)
         if svcs:
             log.debug("Managing services: %s" % svcs)
-            if to_be_started == "False":
+            if to_be_started == False:
                 for s in svcs:
                     s.remove()
                 return "%s stopped" % service_name
@@ -423,7 +489,10 @@ class CM(BaseController):
                     s.start()
                 return "%s started" % service_name
         else:
-            return "Cannot find %s service." % service_name
+            msg = "Cannot find service '{0}'".format(service_name)
+            #self.app.msgs.warning(msg)
+            log.warning(msg)
+            return msg
 
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
@@ -564,19 +633,34 @@ class CM(BaseController):
         return dns
 
     @expose
+    def static_instance_state_json(self, trans, no_json=False):
+        ret_dict = {'master_ip': self.app.cloud_interface.get_self_public_ip(),
+                    'master_id': self.app.cloud_interface.get_instance_id(),
+                    'ami_id' : self.app.cloud_interface.get_ami(),
+                    'availability_zone' : self.app.cloud_interface.get_zone(),
+                    'key_pair_name' : self.app.cloud_interface.get_key_pair_name(),
+                    'security_groups' : self.app.cloud_interface.get_security_groups(),
+                    'master_host_name': self.app.cloud_interface.get_self_public_hostname()
+                   }
+        if no_json:
+            return ret_dict
+        else:
+            return to_json_string(ret_dict)
+
+    @expose
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns()
         snap_status = self.app.manager.snapshot_status()
-        ret_dict = {'cluster_status':self.app.manager.get_cluster_status(),
-                    'dns':dns,
-                    'instance_status':{'idle': str(len(self.app.manager.get_idle_instances())),
+        ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
+                    'dns': dns,
+                    'instance_status': {'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available' : str(self.app.manager.get_num_available_workers()),
                                         'requested' : str(len(self.app.manager.worker_instances))},
-                    'disk_usage':{'used':str(self.app.manager.disk_used),
+                    'disk_usage': {'used':str(self.app.manager.disk_used),
                                     'total':str(self.app.manager.disk_total),
                                     'pct':str(self.app.manager.disk_pct)},
-                    'data_status':self.app.manager.get_data_status(),
-                    'app_status':self.app.manager.get_app_status(),
+                    'data_status': self.app.manager.get_data_status(),
+                    'app_status': self.app.manager.get_app_status(),
                     'all_fs' : self.app.manager.all_fs_status_array(),
                     'snapshot' : {'status' : str(snap_status[0]),
                                   'progress' : str(snap_status[1])},

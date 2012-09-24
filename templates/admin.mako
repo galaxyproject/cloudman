@@ -77,11 +77,11 @@
             Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
             target='_blank'>${initial_cluster_type}</a>' type of cluster.
         </div>
-        <table width="600px" style="margin:10px 0;">
+        <table width="700px" style="margin:10px 0;">
             <tr style="text-align:left">
-                <th width="15%">Name</th>
-                <th width="30%">Status</th>
-                <th colspan="4"></th>
+                <th width="20%">Service name</th>
+                <th width="15%">Status</th>
+                <th width="65%" colspan="6"></th>
             </tr>
             <tr>
                 <td>Galaxy</td>
@@ -110,13 +110,21 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
-            <tr>
-                <td>File systems</td>
-                <td><span id="filesystem_status">&nbsp;</span></td>
-                <td>No logs</td>
-                <td><a href="#" id="manage_FSs_link">Manage</a></td>
-            </tr>
+            ##<tr>
+            ##    <td>Dummy</td>
+            ##    <td><span id="dummy"></span></td>
+            ##</tr>
         </table>
+        <strong>File systems</strong>
+        ## backbone-managed
+        <div id='fs-details-container'></div>
+        <table id="filesystems-table"></table>
+        <div id='fs-resize-form-container'></div>
+        <div id='fs-add-container'>
+            <div id='fs-add-form'></div>
+            <div id='fs-add-btn'><span class="plus-sign">+</span> Add new</div>
+        </div>
+
         <h3>System controls</h3>
         <div class="help_text">
             Use these controls to administer CloudMan itself as well as the underlying system.
@@ -124,7 +132,10 @@
         <ul class='services_list'>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li>Name of this cluster's bucket: ${bucket_cluster}
-                (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#" target="_blank">access via AWS console</a>)
+                %if cloud_type == 'ec2':
+                    (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#"
+                      target="_blank">access via AWS console</a>)
+                %endif
                 <span class="help_info">
                     <span class="help_link">Bucket info</span>
                     <div class="help_content" style="display: none">
@@ -303,193 +314,20 @@
     ## ****************************************************************************
     ## ******************************** Javascript ********************************
     ## ****************************************************************************
-    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
-    <script type="text/javascript">
-        $(function() {
-            $( "#fs_accordion" ).accordion({
-                autoHeight: false,
-                collapsible: true,
-                active: 1, // Temporary only? - until the top fold is functional
-            });
-        });
-        
-        function hidebox(){
-            $('.box').hide();
-            $('.overlay').hide();
-            $('#overlay').hide();
-        }
-        
-        function update(repeat_update){
-            $.getJSON("${h.url_for(controller='root',action='get_all_services_status')}",
-                function(data){
-                    if (data){
-                        // Get any message data
-                        update_messages(data.messages);
-                        if (data.galaxy_rev != 'N/A') {
-                            // This will always point to galaxy-central but better than nothing?
-                            var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/"
-                            + data.galaxy_rev.split(':')[1] + "' target='_blank'>"
-                            + data.galaxy_rev + '</a>';
-                        } else {
-                            var rev_html = "N/A";
-                        }
-                        if (data.galaxy_dns == '#') {
-                            var galaxy_dns = "Galaxy is currently inaccessible"
-                        } else {
-                            var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>"
-                        }
-                        $('#galaxy_dns').html(galaxy_dns);
-                        $('#galaxy_admins').html(data.galaxy_admins);
-                        $('#galaxy_rev').html(rev_html);
-                        $('#galaxy_status').html(data.Galaxy);
-                        $('#postgres_status').html(data.Postgres);
-                        $('#sge_status').html(data.SGE);
-                        $('#filesystem_status').html(data.Filesystem);
-                        if (data.snapshot.status !== "None"){
-                            $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
-                            $('#update_fs_status').html(" - Wait until the process completes. Status: <i>" +
-                                data.snapshot.status + "</i>");
-                        } else {
-                            $('#update_fs_status').html("");
-                            $('#snapshotoverlay').hide();
-                        }
-                        // Set color for services - `Running` is green, anything else is red
-                        if (data.Galaxy == 'Running') {
-                            $('#galaxy_status').css("color", "green");
-                        }
-                        else {
-                            $('#galaxy_status').css("color", "red");
-                        }
-                        if (data.Postgres == 'Running') {
-                            $('#postgres_status').css("color", "green");
-                        }
-                        else {
-                            $('#postgres_status').css("color", "red");
-                        }
-                        if (data.SGE == 'Running') {
-                            $('#sge_status').css("color", "green");
-                        }
-                        else {
-                            $('#sge_status').css("color", "red");
-                        }
-                        if (data.Filesystem == 'Running') {
-                            $('#filesystem_status').css("color", "green");
-                        }
-                        else {
-                            $('#filesystem_status').css("color", "red");
-                        }
-                        if (data.master_is_exec_host == true) {
-                            $('#master_is_exec_host').html("Switch master not to run jobs");
-                        } else {
-                            $('#master_is_exec_host').html("Switch master to run jobs");
-                        }
-                    }
-            });
-            if (repeat_update == true){
-                // Update service status every 8 seconds
-                window.setTimeout(function(){update(true)}, 8000);
-            }
-        }
-        function handle_clicks() {
-            // Handle action links
-            $(".action").click(function(event) {
-                $('#msg').hide();
-                event.preventDefault();
-                var url = $(this).attr('href');
-                $.get(url, function(data) {
-                    $('#msg').html(data).fadeIn();
-                    clear_msg();
-                });
-                popup();
-            });
-            // Display overlays
-            $('#show_user_data').click(function(event) {
-                $('#msg').hide();
-                $('#overlay').show();
-                event.preventDefault();
-                var url = $(this).attr('href');
-                $.get(url, function(user_data) {
-                    // Pretty-print JSON user data and display in an overlay box
-                    var ud_obj = JSON.parse(user_data)
-                    var ud_str = JSON.stringify(ud_obj, null, 2);
-                    $('#user_data_content').html(ud_str);
-                    $('#user_data').fadeIn('fast');
-                });
-            });
-            $('#manage_FSs_link').click(function(){
-                $('#overlay').show();
-                $('#add_fs_overlay').show();
-                // get_filesystems();
-            });
-            $('#overlay').click(function(){
-                hidebox();
-            });
-            // Force an update of the field on click
-            $('#master_is_exec_host').click(function(){
-                update();
-            });
-        }
-        function popup() {
-            $("#action_initiated").fadeIn("slow").delay(400).fadeOut("slow");
-        }
-        function clear_msg() {
-            // Clear message box 1 minute after the call to this method
-            // FIXME: sometimes, the box gets cleared sooner, issue w/ intermittent clicks?
-            window.setTimeout(function(){$('#msg').hide();}, 60000);
-        }
-        function handle_forms() {
-            // Handle generic forms
-            $('.generic_form').ajaxForm({
-                type: 'POST',
-                dataType: 'json',
-                beforeSubmit: function() {
-                    $('#msg').hide();
-                    popup();
-                },
-                complete: function(data) {
-                    update();
-                    $('#msg').html(data.responseText).fadeIn();
-                    clear_msg();
-                }
-            });
-            // Handle form for adding a file system
-            $('#add_fs_form').ajaxForm({
-                type: 'POST',
-                dataType: 'json',
-                beforeSubmit: function(data){
-                    hidebox();
-                    $('#filesystem_status').html("Adding");
-                    popup();
-                }
-            });
-        }
-        $(document).ready(function() {
-            // Toggle help info boxes
-            $(".help_info span").click(function () {
-                var content_div = $(this).parent().find(".help_content");
-                var help_link = $(this).parent().find(".help_link");
-                if (content_div.is(":hidden")) {
-                    help_link.addClass("help_link_on");
-                    content_div.slideDown("fast");
-                } else {
-                    content_div.slideUp("fast");
-                    help_link.removeClass("help_link_on");
-                }
-            });
-            // Initiate service status updates
-            update(true);
-            // Handle control click events
-            handle_clicks();
-            // Make clearing form fields easier by auto selecting the content
-            $('.form_el').focus(function() {
-                this.select();
-            });
-            // Add event to enable closing of an overlay box
-            $('.boxclose').click(function(){
-                hidebox();
-            });
-            // Handle forms++
-            handle_forms();
-        });
+    <script type='text/javascript'>
+        // Place URLs here so that url_for can be used to generate them
+        var get_all_services_status_url = "${h.url_for(controller='root',action='get_all_services_status')}";
+        var get_all_filesystems_url = "${h.url_for(controller='root',action='get_all_filesystems')}";
+        var manage_service_url = "${h.url_for(controller='root',action='manage_service')}";
+        var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
+        var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
+        var add_fs_url = "${h.url_for(controller='root',action='add_file_system')}";
+        var cloud_type = "${cloud_type}";
     </script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 </%def>

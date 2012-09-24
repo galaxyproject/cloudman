@@ -1227,3 +1227,259 @@ div.volume_expand_popup{
 p.disabled {
     color: #CDCDCD;
 }
+
+#filesystems-table {
+    width: 700px;
+    border-collapse: collapse;
+    /*padding-left: 20px;*/
+}
+.fs-td-10pct {
+    width: 10%;
+}
+.fs-td-15pct {
+    width: 15%;
+}
+.fs-td-20pct{
+    width: 20%;
+}
+.fs-td-spacer{
+    width: 15%;
+}
+.filesystem-tr {
+    text-align:left;
+}
+.filesystem-tr td{
+    padding-bottom: 3px;
+}
+.fs-details-box {
+    display:none;
+    /*float:right;*/
+    position:absolute;
+    margin-left:580px;
+    width: 220px;
+    background-color:#fff;
+    color:#7F7F7F;
+    font-size: 10px;
+    padding: 8px;
+    border:1px solid #ccc;
+    -moz-border-radius:5px;
+    -webkit-border-radius:5px;
+    -khtml-border-radius:5px;
+    -moz-box-shadow: 0 1px 5px #333;
+    -webkit-box-shadow: 0 1px 5px #333;
+    z-index:101;
+}
+.fs-details-box th {
+    text-align: left;
+    color: #5F5F5F;
+    font-weight: bold;
+    width: 80px;
+}
+.fs-details-box-header {
+    padding: 5px 0;
+    font-weight: bold;
+    color: #5F5F5F;
+    font-size: 12px;
+}
+.fs-details-box-close{
+    float:right;
+    width:15px;
+    height:15px;
+    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
+    cursor: pointer;
+}
+.fs-details-box-close:hover{
+    background-image : url(/cloud/static/images/delete_icon_dark.png);
+}
+.fs-resize-form {
+    display:none;
+    width: 694px;
+    background-color:#FEF1B5;
+    padding: 3px;
+    border-top:1px solid #ccc;
+    text-align: justify;
+}
+.td-yellow-bckgd{
+    /*#FEF1B5 -> #FFF5C8 -> #FFF7D6*/
+    background-image: linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
+    background-image: -o-linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
+    background-image: -moz-linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
+    background-image: -webkit-linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
+    background-image: -ms-linear-gradient(left top, rgb(254,241,181) 10%, rgb(255,245,200) 55%, rgb(255,247,214) 78%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        right bottom,
+        color-stop(0.1, rgb(254,241,181)),
+        color-stop(0.55, rgb(255,245,200)),
+        color-stop(0.78, rgb(255,247,214))
+    );
+}
+.td-green-bckgd{
+    /*#B6DE9E -> #CEEFBB -> #D7EFC9*/
+    background-image: linear-gradient(left top, rgb(181,222,158) 10%, rgb(206,239,187) 55%, rgb(215,239,201) 78%);
+    background-image: -o-linear-gradient(left top, rgb(181,222,158) 10%, rgb(206,239,187) 55%, rgb(215,239,201) 78%);
+    background-image: -moz-linear-gradient(left top, rgb(181,222,158) 10%, rgb(206,239,187) 55%, rgb(215,239,201) 78%);
+    background-image: -webkit-linear-gradient(left top, rgb(181,222,158) 10%, rgb(206,239,187) 55%, rgb(215,239,201) 78%);
+    background-image: -ms-linear-gradient(left top, rgb(181,222,158) 10%, rgb(206,239,187) 55%, rgb(215,239,201) 78%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        right bottom,
+        color-stop(0.1, rgb(181,222,158)),
+        color-stop(0.55, rgb(206,239,187)),
+        color-stop(0.78, rgb(215,239,201))
+    );
+}
+.td-red-bckgd{
+    /*#FEC3B5 -> #FFD2C8 -> #FFDED6*/
+    background-image: linear-gradient(left top, rgb(254,196,181) 10%, rgb(255,210,200) 55%, rgb(255,222,214) 78%);
+    background-image: -o-linear-gradient(left top, rgb(254,196,181) 10%, rgb(255,210,200) 55%, rgb(255,222,214) 78%);
+    background-image: -moz-linear-gradient(left top, rgb(254,196,181) 10%, rgb(255,210,200) 55%, rgb(255,222,214) 78%);
+    background-image: -webkit-linear-gradient(left top, rgb(254,196,181) 10%, rgb(255,210,200) 55%, rgb(255,222,214) 78%);
+    background-image: -ms-linear-gradient(left top, rgb(254,196,181) 10%, rgb(255,210,200) 55%, rgb(255,222,214) 78%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        right bottom,
+        color-stop(0.1, rgb(254,196,181)),
+        color-stop(0.55, rgb(255,210,200)),
+        color-stop(0.78, rgb(255,222,214))
+    );
+}
+.td-green-txt{
+    color: #639B41;
+}
+.td-tan-txt{
+    color: #BFB795;
+}
+.td-red-txt{
+    color: #BF3030;
+}
+.icon-button {
+    width: 16px;
+    height: 16px;
+    display: block;
+    float: left;
+    margin-left: 5px;
+    text-indent: 20px;
+    background-repeat: no-repeat;
+    background-position: 0px 0px;
+    padding: 0;
+}
+.fs-remove {
+    background: transparent url(/cloud/static/images/delete_icon.png) no-repeat;
+}
+.fs-remove:hover {
+    background-image : url(/cloud/static/images/delete_icon_red.png);
+}
+.fs-persist{
+    background: transparent url(/cloud/static/images/persist_bw.png) no-repeat;
+}
+.fs-persist:hover {
+    background-image : url(/cloud/static/images/persist.png);
+}
+.fs-resize {
+    background: transparent url(/cloud/static/images/disc_plus_bw.png) no-repeat;
+}
+.fs-resize:hover {
+    background-image : url(/cloud/static/images/disc_plus.png);
+}
+#fs-add-btn {
+    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        left bottom,
+        color-stop(0.02, rgb(255,255,255)),
+        color-stop(0.85, rgb(245,245,245))
+    );
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: #989898;
+    webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+    cursor: default;
+    text-align: center;
+    white-space: nowrap;
+    margin-right: 16px;
+    height: 22px;
+    line-height: 22px;
+    width: 70px;
+    outline: 0;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+#fs-add-btn:hover {
+    color: #5B5B5B;
+    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        left bottom,
+        color-stop(0.02, rgb(255,255,255)),
+        color-stop(0.85, rgb(245,245,245))
+    );
+    border: 1px solid rgba(0, 0, 0, 0.3);
+}
+.fs-add-form {
+    display:none;
+    width: 694px;
+    background-color:#FEF1B5;
+    padding: 3px;
+    border-top:1px solid #ccc;
+}
+#add-fs-submit-btn, #add-fs-dot, #add-fs-persist, #add-bucket-fs-creds{
+    display:none;
+}
+.plus-sign {
+    font-size: 13px;
+}
+.plus-sign:hover {
+    font-size: 13px;
+}
+fieldset {
+    border: 0;
+    padding-left: 0;
+}
+.inline-radio-btns{
+    padding: 5px 10px;
+}
+.inline-radio-btns label{
+    display: inline !important;
+    padding-right: 15px;
+}
+#add-bucket-form, #add-volume-form, #add-snapshot-form, #add-new-volume-form {
+    display: none;
+    border-top: 1px solid #CCC;
+}
+.add-fs-details-form-row{
+    padding: 5px 10px;
+}
+#fs-add-form-close-btn {
+    float:right;
+    width:15px;
+    height:15px;
+    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
+    /*cursor: pointer;*/
+    margin: -5px -7px 0 0;
+}
+#fs-add-form-close-btn:hover {
+    background-image : url(/cloud/static/images/delete_icon_dark.png);
+}
+

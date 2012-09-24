@@ -21,8 +21,9 @@ volume_status = Bunch(
 )
 
 class BlockStorage(object):
-    """ Abstract interface for block storage resources (eg, EBS Volume). Classes
-        managing block storage resources should implement this interface.
+    """
+    Abstract interface for block storage resources (eg, EBS Volume). Classes
+    managing block storage resources should implement this interface.
     """
     def __init__(self, app):
         """
@@ -30,10 +31,10 @@ class BlockStorage(object):
             :param app: The CloudMan application object
         """
         self.app = app
-    
+
     def update(self, bsd):
         """ Update 'self' object reference to point to the argument object 'bsd'
-        
+
         :type bsd: BlockStorage (or its derivation: eg, boto Volume)
         :param bsd: A Block Storage Device object representation
         """

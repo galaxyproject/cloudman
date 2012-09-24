@@ -83,6 +83,7 @@ class ConsoleManager( object ):
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
+        self.nfs_tfs = 0 # transient file system/storage from the master
         self.nfs_sge = 0
         self.get_cert = 0
         self.sge_started = 0
@@ -143,6 +144,12 @@ class ConsoleManager( object ):
             self.nfs_sge = 1
         else:
             self.nfs_sge = -1
+        # Mount master's transient stroage regardless of cluster type
+        ret_code = self.mount_disk(master_ip, '/mnt/transient_nfs')
+        if ret_code == 0:
+            self.nfs_tfs = 1
+        else:
+            self.nfs_tfs = -1
         
         self.console_monitor.send_node_status()
     
@@ -223,7 +230,9 @@ class ConsoleManager( object ):
         
         SGE_config_file = '/tmp/galaxyEC2_configuration.conf'
         f = open( SGE_config_file, 'w' )
-        print >> f, sge_install_template % ( self.app.cloud_interface.get_self_local_hostname(), "", self.app.cloud_interface.get_self_local_hostname() )
+        print >> f, sge_install_template % (self.app.cloud_interface.get_self_local_hostname(),
+                self.app.cloud_interface.get_self_local_hostname(),
+                self.app.cloud_interface.get_self_local_hostname())
         f.close()
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
@@ -339,7 +348,7 @@ class ConsoleMonitor( object ):
         # Gett the system load in the following format:
         # "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
         self.app.manager.load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()
-        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s" \
+        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s | %s" \
             % (self.app.manager.nfs_data,
                self.app.manager.nfs_tools,
                self.app.manager.nfs_indices,
@@ -347,7 +356,8 @@ class ConsoleMonitor( object ):
                self.app.manager.get_cert,
                self.app.manager.sge_started,
                self.app.manager.load,
-               self.app.manager.worker_status)
+               self.app.manager.worker_status,
+               self.app.manager.nfs_tfs)
         log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
     

@@ -6,6 +6,8 @@ import os
 import grp
 import pwd
 import time
+import string
+import commands
 import subprocess
 from glob import glob
 
@@ -66,6 +68,20 @@ class Volume(BlockStorage):
 
     def get_full_name(self):
         return "{vol} ({fs})".format(vol=self.volume_id, fs=self.fs.get_full_name())
+
+    def _get_details(self, details):
+        """
+        Volume-specific details for this file system
+        """
+        details['DoT']      = "Yes" if self.static else "No"
+        details['device']   = self.device
+        details['volume_id']= self.volume_id
+        details['from_snap'] = self.from_snapshot_id
+        details['snapshot_progress'] = self.snapshot_progress
+        details['snapshot_status'] = self.snapshot_status
+        # TODO: keep track of any errors
+        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
+        return details
 
     def update(self, vol_id):
         """ switch to a different boto.ec2.volume.Volume """
@@ -472,10 +488,16 @@ class Volume(BlockStorage):
             return False
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
+            log.debug("Unmounting volume-based FS from {0}".format(mount_point))
             for counter in range(10):
-                if run('/bin/umount -f %s' % mount_point,
+                if run('/bin/umount %s' % mount_point,
                         "Error unmounting file system '%s'" % mount_point,
                         "Successfully unmounted file system '%s'" % mount_point):
+                    # Clean up the system path now that the file system is unmounted
+                    try:
+                        os.rmdir(mount_point)
+                    except OSError, e:
+                        log.error("Error removing unmounted path {0}: {1}".format(mount_point, e))
                     break
                 if counter == 9:
                     log.warning("Could not unmount file system at '%s'" % mount_point)

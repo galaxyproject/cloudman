@@ -1,7 +1,10 @@
 """Galaxy CM master manager"""
 import logging, logging.config, threading, os, time, subprocess, commands, fileinput
 import shutil
+import random
 import datetime as dt
+
+from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
@@ -133,23 +136,27 @@ class ConsoleManager(object):
 
         # Always add SGE service
         self.app.manager.services.append(SGEService(self.app))
-
-        if self.app.LOCALFLAG is True:
-            self.init_cluster(cluster_type='Galaxy')
-
-        # Add PSS service - note that this service runs only after the cluster
+        # Always share instance transient storage over NFS
+        tfs = Filesystem(self.app, 'transient_nfs')
+        tfs.add_transient_storage()
+        self.app.manager.services.append(tfs)
+        # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.app.manager.services.append(PSS(self.app))
-        
+
+        # Check if starting a derived cluster and initialize from share, 
+        # which calls add_preconfigured_services
+        # Note that share_string overrides everything.
         if self.app.ud.has_key("share_string"):
-            # Share string overrides everything.
-            # Initialize from share, which calls add_preconfigured_services
             self.app.manager.init_shared_cluster(self.app.ud['share_string'].strip())
+        # else look if this is a restart of a previously existing cluster
+        # and add appropriate services
         elif not self.add_preconfigured_services():
             return False
         self.manager_started = True
 
         # Check if a previously existing cluster is being recreated or is it a new one
+        self.initial_cluster_type = self.app.ud.get('cluster_type', None)
         if self.initial_cluster_type is not None:
             cc_detail = "Configuring a previously existing cluster of type {0}"\
                 .format(self.initial_cluster_type)
@@ -160,6 +167,16 @@ class ConsoleManager(object):
         return True
 
     def handle_prestart_commands(self):
+        """
+        Inspect the user data key ``master_prestart_commands`` and simply
+        execute any commands provided there.
+
+        For example::
+            master_prestart_commands:
+              - "mkdir -p /mnt/galaxyData/pgsql/"
+              - "mkdir -p /mnt/galaxyData/tmp"
+              - "chown -R galaxy:galaxy /mnt/galaxyData"
+        """
         for command in self.app.ud.get("master_prestart_commands", []):
             misc.run(command)
 
@@ -179,8 +196,7 @@ class ConsoleManager(object):
             # Process the current cluster config
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
-                    log.debug("Adding a previously defined filesystem '{0}' of "\
-                        "kind '{1}'".format(fs['name'], fs['kind']))
+                    err = False
                     filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
@@ -200,8 +216,14 @@ class ConsoleManager(object):
                         a_key = fs.get('access_key', None)
                         s_key = fs.get('secret_key', None)
                         filesystem.add_bucket(fs['name'], a_key, s_key)
-                    self.app.manager.services.append(filesystem)
-                    #self.app.manager.initial_cluster_type = 'Galaxy'
+                    else:
+                        err = True
+                        log.warning("Device kind '{0}' for file system {1} not recognized; "\
+                                "not adding the file system.".format(fs['kind'], fs['name']))
+                    if not err:
+                        log.debug("Adding a previously existing filesystem '{0}' of "\
+                            "kind '{1}'".format(fs['name'], fs['kind']))
+                        self.app.manager.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_name = srvc['name']
@@ -210,16 +232,15 @@ class ConsoleManager(object):
                     processed_service = False
                     if service_name == 'Postgres':
                         self.app.manager.services.append(PostgresService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
                         processed_service = True
                     if service_name == 'Galaxy':
                         self.app.manager.services.append(GalaxyService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
                         processed_service = True
-                    if not processed_service:
-                        log.warning("Could not find service class matching userData service entry: %s" % service_name)
+                    if not processed_service and service_name != 'SGE': # SGE is added by default
+                        log.warning("Could not find service class matching userData service entry: %s"\
+                                % service_name)
             return True
-        except BotoClientError, e:
+        except Exception, e:
             log.error("Error reading existing cluster configuration file: %s" % e)
             self.manager_started = False
             return False
@@ -454,6 +475,12 @@ class ConsoleManager(object):
             return "nodata"
 
     def get_srvc_status(self, srvc):
+        """
+        Get the status a service ``srvc``. If the service is not a recognized as
+        a CloudMan-service, return ``Service not recognized``. If the service is
+        not currently running (i.e., not currently recognized by CloudMan as a
+        service it should be managing), return ``Service not found``.
+        """
         if srvc in ['Galaxy', 'SGE', 'Postgres', 'Filesystem']:
             svcarr = [s for s in self.services if s.svc_type == srvc]
             if len(svcarr) > 0:
@@ -462,15 +489,86 @@ class ConsoleManager(object):
                 return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
+    @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
+        "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
+        "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G"},
+        {"size_used": "33M", "status": "Running", "kind": "Volume",
+        "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
+        "err_msg": None, "snapshot_progress": None, "from_snap": None,
+        "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
+        "DoT": "No", "size": "1014M"}], quiet=True)
+    def get_all_filesystems_status(self):
+        """
+        Get a list and information about each of the file systems currently
+        managed by CloudMan.
+        """
+        fss = []
+        fs_svcs = [s for s in self.services if s.svc_type=='Filesystem']
+        for fs in fs_svcs:
+            fss.append(fs.get_details())
+        return fss
+
+        #return []
+
+        # TEMP only; used to alternate input on the UI
+        #r = random.choice([1, 2, 3])
+        r = 4
+        log.debug("Dummy random #: %s" % r)
+        dummy = [{  "name": "galaxyData",
+                    "status": "Running",
+                    "device": "/dev/sdg1",
+                    "kind": "volume",
+                    "mount_point": "/mnt/galaxyData",
+                    "DoT": False,
+                    "size": "20G",
+                    "size_used": "2G",
+                    "size_pct": "10%",
+                    "error_msg": None,
+                    "volume_id": "vol-dbi23ins"}]
+        if r == 2 or r == 4:
+            dummy.append({"name": "1000genomes", "status": "Removing",
+            "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": "No",
+            "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
+        if r == 3:
+            dummy[0]['status'] = "Adding"
+        if r == 4:
+            dummy.append({"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
+            "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
+            "size": "10G", "size_used": "1.9G", "size_pct": "19%",
+            "error_msg": None, "from_snap": "snap-bdr2whd"})
+            dummy.append({"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
+            "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
+            "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
+            "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
+            dummy.append({"name": "custom", "status": "Available", "device": "/dev/sdg4",
+            "kind": "volume", "mount_point": "/mnt/custom", "DoT": "No",
+            "size": "70G", "NFS_shared": True, "size_used": "5G", "size_pct": "7%",
+            "error_msg": ""})
+        return dummy
+
+    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+        "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
+        """
+        Return a dictionary containing a list of currently running service and
+        their status.
+
+        For example::
+            {"Postgres": "Running", "SGE": "Running", "Galaxy": "Running",
+            "Filesystems": "Running"}
+        """
         status_dict = {}
         for srvc in self.services:
             status_dict[srvc.svc_type] = srvc.state
-        status_dict['galaxy_rev'] = self.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.get_galaxy_admins()
         return status_dict
 
     def get_galaxy_rev(self):
+        """
+        Get the Mercurial revision of the Galaxy instance that's running as a
+        CloudMan-managed service.
+        Return a string with either the revision (e.g., ``5757:963e73d40e24``)
+        or ``N/A`` if unable to get the revision number.
+        """
         cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, paths.P_GALAXY_HOME)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = process.communicate()
@@ -569,12 +667,13 @@ class ConsoleManager(object):
             log.debug( "Error checking for live instances: %s" % e )
         return instances
 
+    @TestFlag([])
     def get_attached_volumes(self):
-        """Get a list of EBS volumes attached to the current instance."""
-        volumes = []
-        if self.app.TESTFLAG is True:
-            return volumes
+        """
+        Get a list of block storage volumes currently attached to this instance.
+        """
         log.debug("Trying to discover any volumes attached to this instance...")
+        attached_volumes = []
         try:
             f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
             volumes = self.app.cloud_interface.get_all_volumes(filters=f)
@@ -647,8 +746,8 @@ class ConsoleManager(object):
         self.cluster_status = cluster_status.TERMINATED
         log.info( "Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
-            "associated with this cluster) from the cloud console." \
-            % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time)))
+            "associated with this cluster) from the %s cloud console." \
+            % (dt.datetime.utcnow(), (dt.datetime.utcnow()-self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
@@ -1235,7 +1334,7 @@ class ConsoleManager(object):
                     log.debug("Removing file system '%s' service as part of the file system update" \
                         % file_system_name)
                     svc.remove()
-                    self.services.remove(svc)
+                    #self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
                     fs = Filesystem(self.app, file_system_name)
                     for snap_id in snap_ids:
@@ -1335,13 +1434,30 @@ class ConsoleManager(object):
                     return True
         return False
 
-    def expand_user_data_volume(self, new_vol_size, snap_description=None, delete_snap=False):
-        # Mark file system as needing to be expanded
+    def expand_user_data_volume(self, new_vol_size, snap_description=None,
+            delete_snap=False, fs_name='galaxyData'):
+        """
+        Mark the file system ``fs_name`` for size expansion. For full details on how
+        this works, take a look at the file system expansion method for the
+        respective file system type.
+        If the underlying file system supports/requires creation of a point-in-time
+        snapshot, setting ``delete_snap`` to ``False`` will retain the snapshot
+        that will be creted during the expansion process under the given cloud account.
+        If the snapshot is to be kept, a brief ``snap_description`` can be provided.
+        """
+        # Mark the file system as needing to be expanded
         svcs = self.get_services('Filesystem')
+        fs_found = False;
         for svc in svcs:
-            if svc.name == 'galaxyData':
-                log.debug("Marking '%s' for expansion to %sGB with snap description '%s'" % (svc.get_full_name(), new_vol_size, snap_description))
-                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description, 'delete_snap': delete_snap}
+            if svc.name == fs_name:
+                fs_found = True
+                log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
+                        % (svc.get_full_name(), new_vol_size, snap_description))
+                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description,
+                        'delete_snap': delete_snap}
+        if not fs_found:
+            log.warning("Could not initiate expansion of {0} file system because the "\
+                    "file system was not found?".format(fs_name))
 
     def get_root_public_key( self ):
         if self.app.TESTFLAG is True:
@@ -1577,19 +1693,21 @@ class ConsoleMonitor( object ):
             cc['tags'] = self.app.cloud_interface.tags # save cloud tags, in case the cloud doesn't support them natively
             for srvc in self.app.manager.services:
                 if srvc.svc_type=='Filesystem':
-                    fs = {}
-                    fs['name'] = srvc.name
-                    fs['mount_point'] = srvc.mount_point
-                    fs['kind'] = srvc.kind
-                    if srvc.kind == 'bucket':
-                        fs['ids'] = [b.bucket_name for b in srvc.buckets]
-                    elif srvc.kind == 'volume':
-                        fs['ids'] = [v.volume_id for v in srvc.volumes]
-                    elif srvc.kind == 'snapshot':
-                        fs['ids'] = [v.from_snapshot_id for v in srvc.volumes]
-                    else:
-                        log.error("Unknown filesystem kind {0}".format(srvc.kind))
-                    fss.append(fs)
+                    # Transient file systems do not get persisted
+                    if srvc.kind != 'transient':
+                        fs = {}
+                        fs['name'] = srvc.name
+                        fs['mount_point'] = srvc.mount_point
+                        fs['kind'] = srvc.kind
+                        if srvc.kind == 'bucket':
+                            fs['ids'] = [b.bucket_name for b in srvc.buckets]
+                        elif srvc.kind == 'volume':
+                            fs['ids'] = [v.volume_id for v in srvc.volumes]
+                        elif srvc.kind == 'snapshot':
+                            fs['ids'] = [v.from_snapshot_id for v in srvc.volumes]
+                        else:
+                            log.error("Unknown filesystem kind {0}".format(srvc.kind))
+                        fss.append(fs)
                 else:
                     s = {}
                     s['name'] = srvc.svc_type
@@ -1598,6 +1716,7 @@ class ConsoleMonitor( object ):
                     svcs.append(s)
             cc['filesystems'] = fss
             cc['services'] = svcs
+            cc['cluster_type'] = self.app.manager.initial_cluster_type
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
@@ -1720,7 +1839,10 @@ class ConsoleMonitor( object ):
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = dt.datetime.utcnow()
                 if service.add():
+                    # FIXME: file systems do not return True on service add
                     added_srvcs = True
+                #else:
+                    #log.debug("Monitor DIDN'T add service {0}?".format(service.get_full_name()))
             # Store cluster conf after all services have been added.
             # NOTE: this flag relies on the assumption service additions are
             # sequential (i.e., monitor waits for the service add call to complete).
@@ -1799,6 +1921,7 @@ class Instance( object ):
         self.nfs_tools = 0
         self.nfs_indices = 0
         self.nfs_sge = 0
+        self.nfs_tfs = 0 # Transient file system, NFS-mounted from the master
         self.get_cert = 0
         self.sge_started = 0
         self.worker_status = 'Pending' # Pending, Wake, Startup, Ready, Stopping, Error
@@ -1923,6 +2046,7 @@ class Instance( object ):
                  'nfs_tools' : self.nfs_tools,
                  'nfs_indices' : self.nfs_indices,
                  'nfs_sge' : self.nfs_sge,
+                 'nfs_tfs' : self.nfs_tfs,
                  'get_cert' : self.get_cert,
                  'sge_started' : self.sge_started,
                  'worker_status' : self.worker_status,
@@ -2274,6 +2398,7 @@ class Instance( object ):
                 self.sge_started = msplit[6]
                 self.load = msplit[7]
                 self.worker_status = msplit[8]
+                self.nfs_tfs = msplit[9]
             elif msg_type == 'NODE_SHUTTING_DOWN':
                 msplit = msg.split( ' | ' )
                 self.worker_status = msplit[1]
