@@ -173,7 +173,7 @@ class Filesystem(DataService):
 
     def check_and_update_volume(self, device):
         f = {'attachment.device': device, 'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-        vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+        vols = self.app.cloud_interface.get_all_volumes(filters=f)
         if len(vols) == 1:
             att_vol = vols[0]
             for vol in self.volumes: # Currently, bc. only 1 vol can be assoc. w/ FS, we'll only deal w/ 1 vol

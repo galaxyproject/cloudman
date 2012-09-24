@@ -290,22 +290,32 @@ class EC2Interface(CloudInterface):
         """ Add tag as key value pair to the `resource` object. The `resource`
         object must be an instance of a cloud object and support tagging.
         """
-        try:
-            log.debug("Adding tag '%s:%s' to resource '%s'" \
-                % (key, value, resource.id if resource.id else resource))
-            resource.add_tag(key, value)
-        except EC2ResponseError, e:
-            log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
+        if not self.tags_not_supported:
+            try:
+                log.debug("Adding tag '%s:%s' to resource '%s'" % (key, value, resource.id if resource.id else resource))
+                resource.add_tag(key, value)
+            except EC2ResponseError, e:
+                log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
+                self.tags_not_supported = True
+        resource_tags = self.tags.get(resource.id, {})
+        resource_tags[key] = value
+        self.tags[resource.id] = resource_tags
     
     def get_tag(self, resource, key):
         """ Get tag on `resource` cloud object. Return None if tag does not exist.
         """
-        try:
-            log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
-            return resource.tags.get(key, None)
-        except EC2ResponseError, e:
-            log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
-            return None
+        value = None
+        if not self.tags_not_supported:
+            try:
+                log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
+                value = resource.tags.get(key, None)
+            except EC2ResponseError, e:
+                log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
+                self.tags_not_supported = True
+        if not value:
+            resource_tags = self.tags.get(resource.id,{})
+            value = resource_tags.get(key)
+        return value    
     
     def run_instances(self, num, instance_type, spot_price=None, **kwargs):
         use_spot = False
@@ -447,4 +457,9 @@ class EC2Interface(CloudInterface):
         # Merge the worker's user data with the master's user data
         worker_ud = dict(self.app.ud.items() + worker_ud.items())
         return worker_ud
+
+    def get_all_volumes(self,volume_ids=None, filters=None):
+        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids, filters=filters)
     
+    def get_all_instances(self,instance_ids=None,filters=None):
+        return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids,filters=filters)

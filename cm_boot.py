@@ -4,13 +4,12 @@ Requires:
     PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
-
+# euca local file
 import logging, sys, os, subprocess, yaml, tarfile, shutil, time, urllib
-from boto.s3.connection import S3Connection
+from urlparse import urlparse
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat, SubdomainCallingFormat
 from boto.s3.key import Key
-from boto.exception import S3ResponseError
-from boto.s3.connection import OrdinaryCallingFormat
-
+from boto.exception import S3ResponseError, BotoServerError
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
@@ -21,21 +20,23 @@ CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'
 PRS_FILENAME = 'post_start_script' # Post start script file name - script name in cluster bucket must matchi this!
-SERVICE_ROOT = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
+AMAZON_S3_URL = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's S3
 DEFAULT_BUCKET_NAME = 'cloudman'
 
-# Logging setup
-formatter = logging.Formatter("[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
-console = logging.StreamHandler() # log to console - used during testing
-# console.setLevel(logging.INFO) # accepts >INFO levels
-console.setFormatter(formatter)
-log_file = logging.FileHandler(os.path.join(LOCAL_PATH, "%s.log" % sys.argv[0]), 'w') # log to a file
-log_file.setLevel(logging.DEBUG) # accepts all levels
-log_file.setFormatter(formatter)
-log = logging.root
-log.addHandler( console )
-log.addHandler( log_file )
-log.setLevel( logging.DEBUG )
+log = None
+def _setup_global_logger():
+    formatter = logging.Formatter("[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
+    console = logging.StreamHandler() # log to console - used during testing
+    # console.setLevel(logging.INFO) # accepts >INFO levels
+    console.setFormatter(formatter)
+    log_file = logging.FileHandler(os.path.join(LOCAL_PATH, "%s.log" % sys.argv[0]), 'w') # log to a file
+    log_file.setLevel(logging.DEBUG) # accepts all levels
+    log_file.setFormatter(formatter)
+    new_logger = logging.root
+    new_logger.addHandler( console )
+    new_logger.addHandler( log_file )
+    new_logger.setLevel( logging.DEBUG )
+    return new_logger
 
 def usage():
     print "Usage: python {0} [restart]".format(sys.argv[0])
@@ -46,7 +47,10 @@ def _run(cmd):
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         log.debug("Successfully ran '%s'" % cmd)
-        return True
+        if stdout:
+            return stdout
+        else:
+            return True
     else:
         log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd, process.returncode, stderr))
         return False
@@ -103,21 +107,53 @@ def _start_nginx():
         _run('rm -rf /mnt/galaxyData')
 
 def _get_s3connection(ud):
-    if 'cloud_type' in ud and ud['cloud_type'] != 'ec2':
+    access_key = ud['access_key']
+    secret_key = ud['secret_key']
+
+    s3_url = ud.get('s3_url', AMAZON_S3_URL)
+    if not 's3_host' in ud: # assuming url implies workalikes
+        if s3_url == AMAZON_S3_URL:
+            log.info('connecting to Amazon S3 at {0}'.format(s3_url))
+        else:
+            log.info('connecting to custom S3 url: {0}'.format(s3_url))
+        url = urlparse(s3_url)
+        if url.scheme == 'https':
+            is_secure = True
+        else:
+            is_secure = False
+        host = url.hostname
+        port = url.port
+        path = url.path
+        if 'amazonaws' in host: # TODO fix if anyone other than Amazon uses subdomains for buckets
+            calling_format = SubdomainCallingFormat()
+        else:
+            calling_format = OrdinaryCallingFormat()
+    else: # submitted pre-parsed S3 URL
         # If the use has specified an alternate s3 host, such as swift (for example),
         # then create an s3 connection using their user data
         log.info("Connecting to a custom Object Store")
-        s3_conn = S3Connection(aws_access_key_id=ud['access_key'],
-                aws_secret_access_key=ud['secret_key'],
-                is_secure=ud['is_secure'],
-                host=ud['s3_host'],
-                port=ud['s3_port'],
-                calling_format=OrdinaryCallingFormat(),
-                path=ud['s3_conn_path'])
-    else:
-        # Use the default Amazon s3 connection
-        log.info("Connecting to Amazon s3")
-        s3_conn = S3Connection(ud['access_key'], ud['secret_key'])
+        is_secure=ud['is_secure']
+        host=ud['s3_host']
+        port=ud['s3_port']
+        calling_format=OrdinaryCallingFormat()
+        path=ud['s3_conn_path']
+
+    # get boto connection
+    s3_conn = None
+    try:
+        s3_conn = S3Connection(
+            aws_access_key_id = access_key,
+            aws_secret_access_key = secret_key,
+            is_secure = is_secure,
+            port = port,
+            host = host,
+            path = path,
+            calling_format = calling_format,
+        )
+        log.debug('Got boto S3 connection')
+    except BotoServerError as e:
+        log.error("Exception getting S3 connection; {0}".format(e))
+        
     return s3_conn
 
 def _get_cm(ud):
@@ -132,32 +168,35 @@ def _get_cm(ud):
         default_bucket_name = DEFAULT_BUCKET_NAME
         log.debug("Using default bucket: {0}".format(default_bucket_name))
     use_object_store = ud.get('use_object_store', True)
-    # Test for existence of user's bucket and download appropriate CM instance
+    s3_conn = None
     if use_object_store and ud.has_key('access_key') and ud.has_key('secret_key'):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3connection(ud)
-            b = None
-            if ud.has_key('bucket_cluster'):
-                b = s3_conn.lookup(ud['bucket_cluster'])
-            if b is not None: # Try to retrieve user's instance of CM
-                log.info("Cluster bucket '%s' found." % b.name)
-                if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                    _write_cm_revision_to_file(s3_conn, b.name)
-                    return True
-            # Retrieve default instance of CM
-            log.info("Could not retrieve CloudMan from cluster bucket; using default CloudMan (%s) from bucket '%s'" \
-                % (CM_REMOTE_FILENAME, default_bucket_name))
-            if _get_file_from_bucket(s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, default_bucket_name)
+    # Test for existence of user's bucket and download appropriate CM instance
+    b = None
+    if s3_conn: # if not use_object_store, then s3_connection never gets attempted
+        if ud.has_key('bucket_cluster'):
+            b = s3_conn.lookup(ud['bucket_cluster'])
+        if b: # Try to retrieve user's instance of CM
+            log.info("Cluster bucket '%s' found." % b.name)
+            if _get_file_from_bucket(s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
+                _write_cm_revision_to_file(s3_conn, b.name)
+                log.info("Restored Cloudman from bucket_cluster %s" % (ud['bucket_cluster']))
                 return True
-    # Default to public repo and wget
-    log.error("Could not retrieve CloudMan from cluster bucket.")
-    url = ud.get('cloudman_repository', False)
-    if not url:
-        url = os.path.join(SERVICE_ROOT, default_bucket_name, CM_REMOTE_FILENAME)
-    log.info("Getting CloudMan from the default repository (using wget) from '%s' and saving it to '%s'" \
-        % (url, local_cm_file))
-    # This assumes the default repository/bucket is readable to anyone w/o authentication
+        # ELSE: Attempt to retrieve default instance of CM from local s3
+        if _get_file_from_bucket(s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
+            log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name))
+            _write_cm_revision_to_file(s3_conn, default_bucket_name)
+            return True
+    # ELSE try from local S3
+    if ud.has_key('s3_url'):
+        url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
+        if _run('wget --output-document=%s %s' % (local_cm_file, url)):
+            log.info("Retrieved Cloudman by url from '%s' and saving it to '%s'" % (url, local_cm_file))
+            return True 
+    # ELSE Default to public Amazon repo and wget via URL
+    url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
+    log.info("Attempting to retrieve from Amazon S3 from %s" % (url))
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
 
 def _write_cm_revision_to_file(s3_conn, bucket_name):
@@ -203,7 +242,6 @@ def _unpack_cm():
         extracted_dir = first_entry.split("/")[0]
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
             shutil.move(os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
-
 
 def _start_cm():
     log.debug("Copying user data file from '%s' to '%s'" % \
@@ -256,6 +294,7 @@ def _fix_etc_hosts():
     """ Without editing /etc/hosts, there are issues with hostname command
         on NeCTAR (and consequently with setting up SGE).
     """
+    # TODO decide if this should be done in ec2autorun instead
     try:
         log.debug("Fixing /etc/hosts on NeCTAR")
         fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
@@ -268,6 +307,8 @@ def _fix_etc_hosts():
         log.error("Troble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
 def main():
+    global log
+    log = _setup_global_logger()
     # _run('easy_install -U boto') # Update boto
     _run('easy_install oca') # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
     _run('easy_install Mako==0.7.0') # required for Galaxy Cloud AMI ami-da58aab3

@@ -3,8 +3,6 @@ import logging, logging.config, threading, os, time, subprocess, commands, filei
 import shutil
 import datetime as dt
 
-from cm.util.bunch import Bunch
-
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
 from cm.services.autoscale import Autoscale
@@ -17,7 +15,7 @@ from cm.services.apps.postgres import PostgresService
 from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, S3ResponseError
+from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -142,7 +140,7 @@ class ConsoleManager(object):
         # Add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.app.manager.services.append(PSS(self.app))
-
+        
         if self.app.ud.has_key("share_string"):
             # Share string overrides everything.
             # Initialize from share, which calls add_preconfigured_services
@@ -221,7 +219,7 @@ class ConsoleManager(object):
                     if not processed_service:
                         log.warning("Could not find service class matching userData service entry: %s" % service_name)
             return True
-        except Exception, e:
+        except BotoClientError, e:
             log.error("Error reading existing cluster configuration file: %s" % e)
             self.manager_started = False
             return False
@@ -309,7 +307,7 @@ class ConsoleManager(object):
                     if not processed_service:
                         log.warning("Could not find service class matching userData service entry: %s" % service_name)
             return True
-        except Exception, e:
+        except (BotoClientError,BotoServerError) as e:
             log.error("Error reading existing cluster configuration file: %s" % e)
             self.manager_started = False
             return False
@@ -376,6 +374,7 @@ class ConsoleManager(object):
 
     def all_fs_status_text(self):
         return []
+    # FIXME: unreachable code
         tr = []
         for key, vol in self.volumes.iteritems():
             if vol[3] is None:
@@ -389,6 +388,7 @@ class ConsoleManager(object):
 
     def all_fs_status_array(self):
         return []
+        # FIXME: unreachable code
         tr = []
         for key, vol in self.volumes.iteritems():
             if vol[3] is None:
@@ -559,8 +559,7 @@ class ConsoleManager(object):
         log.debug("Trying to discover any worker instances associated with this cluster...")
         filters = {'tag:clusterName': self.app.ud['cluster_name'], 'tag:role': 'worker'}
         try:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            reservations = ec2_conn.get_all_instances(filters=filters)
+            reservations = self.app.cloud_interface.get_all_instances(filters=filters)
             for reservation in reservations:
                 if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
                     i = Instance(self.app, inst=reservation.instances[0], m_state=reservation.instances[0].state, reboot_required=True)
@@ -578,8 +577,8 @@ class ConsoleManager(object):
         log.debug("Trying to discover any volumes attached to this instance...")
         try:
             f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-            volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
-        except Exception, e:
+            volumes = self.app.cloud_interface.get_all_volumes(filters=f)
+        except EC2ResponseError, e:
             log.debug( "Error checking for attached volumes: %s" % e )
         log.debug("Attached volumes: %s" % volumes)
         return volumes
@@ -684,11 +683,10 @@ class ConsoleManager(object):
         # Delete any remaining volume(s) assoc. w/ given cluster
         filters = {'tag:clusterName': self.app.ud['cluster_name']}
         try:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            vols = ec2_conn.get_all_volumes(filters=filters)
+            vols = self.app.cloud_interface.get_all_volumes(filters=filters)
             for vol in vols:
                 log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
-                ec2_conn.delete_volume(vol.id)
+                vol.delete()
         except EC2ResponseError, e:
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3
@@ -740,11 +738,11 @@ class ConsoleManager(object):
             #     log.debug( "Idle instances' DNs: %s" % idle_instances_dn )
 
             for idle_instance_dn in idle_instances_dn:
-                 for w_instance in self.worker_instances:
-                     # log.debug("Trying to match worker instance with private IP '%s' to idle "
-                     #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
-                     if w_instance.get_local_hostname() is not None:
-                         if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
+                for w_instance in self.worker_instances:
+                    # log.debug("Trying to match worker instance with private IP '%s' to idle "
+                    #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
+                    if w_instance.get_local_hostname() is not None:
+                        if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
                             # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
                             #     % (w_instance.id, idle_instance_dn))
                             idle_instances.append( w_instance )
@@ -812,7 +810,7 @@ class ConsoleManager(object):
         log.info("Specific reboot of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-               inst.reboot()
+                inst.reboot()
         log.info("Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
 
     def add_instances( self, num_nodes, instance_type='', spot_price=None):
@@ -825,8 +823,7 @@ class ConsoleManager(object):
         instance object in the process. """
         try:
             log.debug("Adding live instance '%s'" % instance_id)
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            reservation = ec2_conn.get_all_instances([instance_id])
+            reservation = self.app.cloud_interface.get_all_instances([instance_id])
             if reservation and len(reservation[0].instances)==1:
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
@@ -834,6 +831,7 @@ class ConsoleManager(object):
                     self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.app.cloud_interface.add_tag(instance, 'role', 'worker') # Default to 'worker' role tag
                     self.worker_instances.append(i)
+                    log.debug('Added instance {0}....'.format(instance_id))
                 else:
                     log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." % (instance_id, instance.state))
                 return True
@@ -1397,8 +1395,7 @@ class ConsoleManager(object):
         if worker_id:
             log.info( "Checking status of instance '%s'" % worker_id )
             try:
-                ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                reservation = ec2_conn.get_all_instances( worker_id.strip() )
+                reservation = self.app.cloud_interface.get_all_instances( worker_id.strip() )
                 if reservation:
                     workers_status[ reservation[0].instances[0].id ] = reservation[0].instances[0].state
             except Exception, e:
@@ -1463,7 +1460,7 @@ class ConsoleManager(object):
         shutil.copy("%s-tmp" % file_name, file_name)
 
     def get_status_dict( self ):
-        public_ip = self.app.cloud_interface.get_self_public_ip();
+        public_ip = self.app.cloud_interface.get_self_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
@@ -1506,14 +1503,11 @@ class ConsoleMonitor( object ):
             # Set 'role' and 'clusterName' tags for the master instance
             try:
                 i_id = self.app.cloud_interface.get_instance_id()
-                ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                ir = ec2_conn.get_all_instances([i_id])
+                ir = self.app.cloud_interface.get_all_instances([i_id])
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'role', self.app.ud['role'])
             except EC2ResponseError, e:
                 log.debug("Error setting 'role' tag: %s" % e)
-            except Exception, e:
-                log.debug("General error setting 'role' tag: %s" % e)
         self.monitor_thread.start()
 
     def shutdown( self ):
@@ -1580,6 +1574,7 @@ class ConsoleMonitor( object ):
             cc = {} # cluster configuration
             svcs = [] # list of services
             fss = [] # list of filesystems
+            cc['tags'] = self.app.cloud_interface.tags # save cloud tags, in case the cloud doesn't support them natively
             for srvc in self.app.manager.services:
                 if srvc.svc_type=='Filesystem':
                     fs = {}
@@ -1640,11 +1635,15 @@ class ConsoleMonitor( object ):
         except:
             pass
         # If not existent, save current boot script cm_boot.py to cluster's bucket
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
+        # BUG: workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
+        # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
+        if 1:
             log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
         # If not existent, save CloudMan source to cluster's bucket, including file's metadata
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
+        # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
+        # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
+        if 1:
             log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
             try:
@@ -1655,7 +1654,9 @@ class ConsoleMonitor( object ):
                 log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful as a reference)
         cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
-        if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
+        # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
+        # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
+        if 1:
             with open(cn_file, 'w'):
                 pass
             if os.path.exists(cn_file):
@@ -1874,9 +1875,8 @@ class Instance( object ):
         if deep is True: # reset the current local instance field
             self.inst = None
         if self.inst is None and self.id is not None:
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
             try:
-                rs = ec2_conn.get_all_instances([self.id])
+                rs = self.app.cloud_interface.get_all_instances([self.id])
                 if len(rs) == 0:
                     log.warning("Instance {0} not found on the cloud?".format(self.id))
                 for r in rs:
@@ -2278,7 +2278,7 @@ class Instance( object ):
                 msplit = msg.split( ' | ' )
                 self.worker_status = msplit[1]
             else: # Catch-all condition
-               log.debug( "Unknown Message: %s" % msg )
+                log.debug( "Unknown Message: %s" % msg )
         else:
             log.error( "Epic Failure, squeue not available?" )
 

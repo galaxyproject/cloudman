@@ -55,7 +55,7 @@ class BlockStorage(object):
         """
         raise NotImplementedError()
     
-    def create(self):
+    def create(self, filesystem=None):
         """ Create the block storage resource represented by this object
         """
         raise NotImplementedError()
@@ -81,7 +81,7 @@ class BlockStorage(object):
         """
         raise NotImplementedError()
     
-    def snapshot(self):
+    def snapshot(self, snap_description=None):
         """ Create a point-in-time snapshot of this block storage resource
         
         :rtype: string
