@@ -231,7 +231,7 @@ class Volume(BlockStorage):
         elif xvds:
             return ( self._increment_device_id(xvds[-1] ), )
         elif sds:
-            return ( self._increment_device_id( sds[-1] ), '/dev/xvda', '/dev/vda' ) 
+            return ( self._increment_device_id( sds[-1] ), '/dev/vda', '/dev/xvda' ) 
         else:
             log.error("Could not determine next available device from {0}".format(devices))
             return None

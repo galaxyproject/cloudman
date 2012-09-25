@@ -9,6 +9,27 @@ from boto.ec2.connection import EC2Connection
 from boto.ec2.regioninfo import RegionInfo
 from boto.exception import EC2ResponseError
 
+## debugging
+import traceback
+class DebugException(Exception):
+    pass
+
+def stacktrace_wrapper(old_method):
+            
+    def _w(self,*args,**kwargs):
+        try:
+            raise DebugException()
+        except DebugException:
+            log.debug('get_all_instances() called. Trace follows...')
+            traceback.print_stack()
+        return old_method(self,*args,**kwargs)
+    
+    return _w
+
+# EC2Connection.get_all_instances = stacktrace_wrapper(EC2Connection.get_all_instances)
+            
+
+
 import logging
 log = logging.getLogger( 'cloudman' )
 
@@ -158,11 +179,18 @@ class EucaInterface(EC2Interface):
         return self.public_hostname
 
     def get_all_instances(self,instance_ids=None, filters=None):
+            
         if isinstance(instance_ids,basestring):
             instance_ids=(instance_ids,)
-        cache_key = repr(instance_ids)
+            cache_key = instance_ids
+        elif instance_ids:
+            cache_key = ','.join(instance_ids)
+        else:
+            cache_key = ''
+            
         # eucalyptus stops responding if you check the same thing too often
         if self._last_instance_check and cache_key in self._instances and time.time() <= self._last_instance_check + self._min_boto_delay:
+            log.debug('Using cached instance information for {0}'.format(str(instance_ids)))
             reservations = self._instances[cache_key]
         else:
             reservations = self.get_ec2_connection().get_all_instances(instance_ids=instance_ids)
@@ -193,8 +221,12 @@ class EucaInterface(EC2Interface):
         # eucalyptus does not allow filters in get_all_volumes
         if isinstance(volume_ids,basestring):
             volume_ids = (volume_ids,)
+            cache_key = volume_ids
+        elif volume_ids:
+            cache_key = ','.join(volume_ids)
+        else:
+            cache_key = ''
 
-        cache_key=repr(volume_ids)
         # eucalyptus stops responding if you check too often
         if self._last_volume_check and cache_key in self._volumes and time.time() <= self._last_volume_check + self._min_boto_delay:
             volumes = self._volumes[cache_key]

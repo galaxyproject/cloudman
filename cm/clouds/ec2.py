@@ -84,7 +84,7 @@ class EC2Interface(CloudInterface):
             i_id = self.get_instance_id()
             ec2_conn = self.get_ec2_connection()
             try:
-                ir = ec2_conn.get_all_instances([i_id])
+                ir = ec2_conn.get_all_instances(i_id)
                 self.instance = ir[0].instances[0]
             except EC2ResponseError, e:
                 log.debug("Error getting instance object: {0}".format(e))
@@ -423,7 +423,7 @@ class EC2Interface(CloudInterface):
             ec2_conn.terminate_instances([instance_id])
             # Make sure the instance was terminated
             time.sleep(3) # First give the middleware a chance to register the termination
-            rs = ec2_conn.get_all_instances([instance_id])
+            rs = ec2_conn.get_all_instances(instance_id)
             if len(rs) == 0 or rs[0].instances[0].state == 'shutting-down' or \
                 rs[0].instances[0].state == 'terminated':
                 return True

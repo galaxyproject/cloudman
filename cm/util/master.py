@@ -922,7 +922,7 @@ class ConsoleManager(object):
         instance object in the process. """
         try:
             log.debug("Adding live instance '%s'" % instance_id)
-            reservation = self.app.cloud_interface.get_all_instances([instance_id])
+            reservation = self.app.cloud_interface.get_all_instances(instance_id)
             if reservation and len(reservation[0].instances)==1:
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
@@ -1619,7 +1619,7 @@ class ConsoleMonitor( object ):
             # Set 'role' and 'clusterName' tags for the master instance
             try:
                 i_id = self.app.cloud_interface.get_instance_id()
-                ir = self.app.cloud_interface.get_all_instances([i_id])
+                ir = self.app.cloud_interface.get_all_instances(i_id)
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'role', self.app.ud['role'])
             except EC2ResponseError, e:
@@ -1999,7 +1999,7 @@ class Instance( object ):
             self.inst = None
         if self.inst is None and self.id is not None:
             try:
-                rs = self.app.cloud_interface.get_all_instances([self.id])
+                rs = self.app.cloud_interface.get_all_instances(self.id)
                 if len(rs) == 0:
                     log.warning("Instance {0} not found on the cloud?".format(self.id))
                 for r in rs:
@@ -2106,7 +2106,7 @@ class Instance( object ):
         """
         if self.is_spot() and not self.spot_was_filled():
             return "'{sid}'".format(sid=self.spot_request_id)
-        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
+        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.app.cloud_interface.get_self_public_ip())
 
     def reboot(self):
         """ Reboot this instance.
@@ -2272,23 +2272,6 @@ class Instance( object ):
                 log.debug("private_ip_address for instance {0} with no instance object not available."\
                     .format(self.get_id()))
         return self.private_ip
-
-    def get_public_ip(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get instance public IP, but TESTFLAG is set. Returning 127.0.0.1")
-            self.public_ip = '127.0.0.1'
-        if self.public_ip is None:
-            inst = self.get_cloud_instance_object()
-            if inst is not None:
-                try:
-                    inst.update()
-                    self.public_ip = inst.ip_address
-                except EC2ResponseError:
-                    log.debug("ip_address for instance {0} not (yet?) available.".format(self.get_id()))
-            else:
-                log.debug("ip_address for instance {0} with no instance object not available."\
-                    .format(self.get_id()))
-        return self.public_ip
 
     def get_local_hostname(self):
         return self.local_hostname
