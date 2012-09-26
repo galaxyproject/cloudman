@@ -282,6 +282,17 @@ String.prototype.toSpaced = function(){
             return {fs_name: this.model.get('name')};
         },
 
+        events: {
+            "click .fs-remove": "triggerRemove",
+        },
+
+        initialize: function(options) {
+            this.vent = options.vent;
+            _.bindAll(this, 'handleRemove');
+            options.vent.bind("confirmFSRemove", this.handleRemove);
+            this.model.bind("change", this.render, this); //why does this not work?
+        },
+
         render: function () {
             // Must clear tooltips; otherwise, following a rerender, the binding
             // element no longer exists and thus the tool tip stays on forever
@@ -299,7 +310,43 @@ String.prototype.toSpaced = function(){
             // Add toopltips
             this.$('a.icon-button').tipsy({gravity: 's', fade: true});
             return this;
-        }
+        },
+
+        triggerRemove: function(event) {
+            event.preventDefault();
+            // Show confirmation dialog
+            args = {vent: this.vent, model: this.model, event: event};
+            var confDialog = new RemoveFSConfView(args);
+            confDialog.render().showModal();
+            //alert("clicked " + this.model.get("name"));
+            //var answer = confirm("clicked" + this.model.get("name"));
+            //if (answer === true) {
+                //this.handleRemove();
+            //}
+        },
+
+        handleRemove: function(model) {
+            // FIXME: For some reason, when invoked once, this method actually
+            // gets called numerous times? The # of times it gets called has to
+            // do with how long it's been since the page as whole was refreshed
+            console.log(model.get('name'));
+            //return false;
+            var el = $('#fs-'+model.get('name')+'-remove');
+            var url = el.attr('href');
+            $.get(url, function(data) {
+                //alert("Success");
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            //.success(function() { alert("Second success"); })
+            //.error(function() { alert("Error"); })
+            //.complete(function() { alert("Complete"); });
+            //popup();
+            //updateFSStatus(model.get('name'), "Removing");
+            model.attributes.status = "Removing";
+            //filesystemList.render();
+        },
+
     });
 
     // Define the form view for resizing a file system
@@ -435,6 +482,40 @@ String.prototype.toSpaced = function(){
         }
     });
 
+    var RemoveFSConfView= Backbone.ModalView.extend({
+        removeFSConfirmationDialogTemplate:
+            '<div class="modal-dialog-header">Remove <%= name %> file system?</div>' +
+            '<div class="modal-dialog-text">Removing this file system will first stop any ' +
+                'services that require this file system. Then, the file system will be ' +
+                'unmounted and the underlying device disconnected from this instance.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
+
+        events: {
+            "click #confirm_fs_remove": "confirmFSRemove",
+            "click .modal-dialog-cancel-button": function(){this.hideModal();}
+        },
+
+        initialize: function(options) {
+            this.vent = options.vent;
+            _.bindAll(this, "render");
+            this.template = _.template(this.removeFSConfirmationDialogTemplate);
+        },
+
+        render: function() {
+            $(this.el).html(this.template(this.model.toJSON()));
+            return this;
+        },
+
+        confirmFSRemove: function() {
+            this.vent.trigger("confirmFSRemove", this.model);
+            this.hideModal();
+        }
+    });
+
+
     // Define the master view, i.e., list of all the file systems
     var FilesystemsView = Backbone.View.extend({
         tableHeaderTemplate: '<tr class="filesystem-tr"><th class="fs-td-20pct">Name</th>' +
@@ -442,8 +523,9 @@ String.prototype.toSpaced = function(){
             '<th class="fs-td-15pct">Controls</td><th colspan="2"></th></tr>',
         el: $("#filesystems-table"),
 
-        initialize: function() {
+        initialize: function(options) {
             // Bind events to actions
+            this.vent = options.vent;
             this.on("click:removeFS", this.handleRemove, this);
             FScollection.on('reset', this.render, this); // Triggered on the initial page load
         },
@@ -466,8 +548,12 @@ String.prototype.toSpaced = function(){
         },
 
         renderFilesystem: function (fs) {
+            // Issue remove event for given model item
+            // (triggered in the model view that unbinds any events for the el)
+            // Add a new item
             var filesystemView = new FilesystemView({
-                model: fs
+                model: fs,
+                vent: this.vent
             });
             this.$el.append(filesystemView.render().el);
             // File system details view
@@ -486,7 +572,7 @@ String.prototype.toSpaced = function(){
 
         // Add UI event handlers
         events: {
-            "click .fs-remove": "triggerRemove",
+            //"click .fs-remove": "triggerRemove",
             "click .fs-persist": "triggerPersist",
             "click .fs-resize": "triggerResize",
         },
@@ -496,10 +582,14 @@ String.prototype.toSpaced = function(){
             this.fsToRemoveID = event.currentTarget.id; // Reference to the element ID of the FS to be remvoed
             this.fsToRemoveTR = $('#'+event.currentTarget.id).parents('tr'); // Reference to tr to be removed
             event.preventDefault();
+            // Show confirmation dialog
+            options = {vent: this.vent, fsToRemoveID: this.fsToRemoveID}
+            var confDialog = new RemoveFSConfView(options);
+            confDialog.render().showModal();
             // Clear any other forms that may be opened before removing a file system.
             // Otherwise, we run the risk of removing the element the form is bound to
-            $('.fs-resize-form-close').trigger('click');
-            this.trigger("click:removeFS");
+            //$('.fs-resize-form-close').trigger('click');
+            //this.trigger("click:removeFS");
         },
 
         handleRemove: function() {
@@ -798,9 +888,7 @@ String.prototype.toSpaced = function(){
     // An app-wide event aggregator object: http://bit.ly/p3nTe6
     var vent = _.extend({}, Backbone.Events);
     // Create an instance of the master view
-    var filesystemList = new FilesystemsView();
-    // Fetch the initial data from the server
-    FScollection.fetch();
+    var filesystemList = new FilesystemsView({vent: vent});
     // Create instances of the add new file system button and form views
     // Also, subscribe those to global events
     // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
@@ -828,7 +916,7 @@ String.prototype.toSpaced = function(){
             // Keep updating the display with the fresh data from the server
             FScollection.fetch();
         }
-        window.setTimeout(function(){updateFS();}, 5000);
+        window.setTimeout(function(){updateFS();}, 10000);
     }
     updateFS();
 } (jQuery));

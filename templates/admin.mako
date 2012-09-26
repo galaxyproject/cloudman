@@ -329,5 +329,6 @@
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/Backbone.ModalDialog.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 </%def>
