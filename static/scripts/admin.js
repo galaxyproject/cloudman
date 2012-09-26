@@ -240,43 +240,14 @@ String.prototype.toSpaced = function(){
         model: Filesystem,
         url: get_all_filesystems_url
     });
-    var FScollection = new Filesystems(); // A container for all Filesystems
 
     // Define an individual file system summary view
-    var FilesystemView = Backbone.View.extend({
-        // Template for rendering an indiviudal file system summary/overview
-        filesystemSummaryTemplate: '<td class="fs-td-20pct"><%= name %></td>' +
-            '<td class="fs-status fs-td-15pct"><%= status %></td>' +
-            '<td class="fs-td-20pct">' +
-            // Only disply usage when the file system is 'Available'
-            '<% if (status === "Available" || status === "Running") { %>' +
-                '<%= size_used %>/<%= size %> (<%= size_pct %>)' +
-            '<% } %></td>' +
-            '<td class="fs-td-15pct">' +
-            // Only disply controls when the file system is 'Available'
-            '<% if (status === "Available" || status === "Running") { %>' +
-                '<a class="fs-remove icon-button" id="fs-<%= name %>-remove" href="' + manage_service_url +
-                '?service_name=<%= name %>&to_be_started=False&is_filesystem=True"' +
-                'title="Remove this file system"></a>' +
-                // It only makes sense to persist DoT, snapshot-based file systems
-                '<% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" \
-                    && DoT === "Yes") { %>' +
-                    '<a class="fs-persist icon-button" id="fs-<%= name %>-persist" href="' +
-                    update_fs_url + '?fs_name=<%= name %>" ' +
-                    'title="Persist file system changes"></a>' +
-                '<% } %>' +
-                // It only makes sense to resize volume-based file systems
-                '<% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>' +
-                    '<a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#"' +
-                    'title="Increase file system size"></a>' +
-                '<% } %>' +
-            '<% } %></td>'+
-            '<td class="fs-td-15pct">' +
-                '<a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>' +
-            '</td>' +
-            '<td class="fs-td-spacer"></td>',
+    var FilesystemView = Backbone.Marionette.ItemView.extend({
         tagName: "tr",
+        template: "#fileSystem-template",
         className: "filesystem-tr",
+        
+        /*
         attributes: function() {
             // Explicitly add file system name as a tag/row attribute
             return {fs_name: this.model.get('name')};
@@ -297,7 +268,7 @@ String.prototype.toSpaced = function(){
             // Must clear tooltips; otherwise, following a rerender, the binding
             // element no longer exists and thus the tool tip stays on forever
             $(".tipsy").remove();
-            var tmpl = _.template(this.filesystemSummaryTemplate);
+            var tmpl = _.template($('#fileSystem-template').html());
             $(this.el).html(tmpl(this.model.toJSON()));
             if (this.model.attributes.status === 'Available' ||
                 this.model.attributes.status === 'Running') {
@@ -346,6 +317,7 @@ String.prototype.toSpaced = function(){
             model.attributes.status = "Removing";
             //filesystemList.render();
         },
+        */
 
     });
 
@@ -448,20 +420,11 @@ String.prototype.toSpaced = function(){
 
     // Define the details popup view for an individual file system
     var FilesystemDetailsView = Backbone.View.extend({
-        filesystemDetailsTemplate: '<a class="fs-details-box-close"></a>' +
-            '<div class="fs-details-box-header">File system information</div>' +
-            '<table>' +
-            '<tr><th>Name:</th><td><%= name %></td>' +
-            '<tr><th>Status:</th><td><%= status %></td>' +
-            '<tr><th>Mount point:</th><td><%= mount_point %></td>' +
-            '<tr><th>Kind:</th><td><%= kind %></td>' +
-            '<tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>' +
-            '<tr><th>Delete on termination:</th><td><%= DoT %></td>',
         tagName: "div",
         className: "fs-details-box",
 
         render: function () {
-            var tmpl = _.template(this.filesystemDetailsTemplate);
+            var tmpl = _.template($('#fs-details-template').html());
             $(this.el).attr('id', "fs-"+this.model.attributes.name+"-details");
             // Build the details table using the 'standard' keys and then add any
             // additional ones that are found in the provided file system's JSON
@@ -517,13 +480,25 @@ String.prototype.toSpaced = function(){
 
 
     // Define the master view, i.e., list of all the file systems
-    var FilesystemsView = Backbone.View.extend({
-        tableHeaderTemplate: '<tr class="filesystem-tr"><th class="fs-td-20pct">Name</th>' +
-            '<th class="fs-td-15pct">Status</th><th class="fs-td-20pct">Usage</th>' +
-            '<th class="fs-td-15pct">Controls</td><th colspan="2"></th></tr>',
-        el: $("#filesystems-table"),
+    var FilesystemsView = Backbone.Marionette.CompositeView.extend({
+        tagName: "table",
+        id: "#filesystems-table",
+        template: "#fileSystems-template",
+        itemView: FilesystemView,
+        
+        appendHtml: function(collectionView, itemView) {
+            collectionView.$("tbody").append(itemView.el);
+        }
 
+        /*
         initialize: function(options) {
+            // Bind the functions 'add' and 'remove' to the view.
+            //_(this).bindAll(this, 'add', 'remove');
+            // An array of all the file system views contained in this master view
+            //this.filesystemViews = [];
+            // Add each file system to the view
+            //this.collection.each(this.add);
+
             // Bind events to actions
             this.vent = options.vent;
             this.on("click:removeFS", this.handleRemove, this);
@@ -539,7 +514,7 @@ String.prototype.toSpaced = function(){
             $('#fs-details-container').empty();
             if (FScollection.models.length > 0) {
                 // Explicitly add the header row
-                this.$el.append(this.tableHeaderTemplate);
+                this.$el.append($('#fileSystems-template').html());
                 // Add all of the file systems, one per row
                 _.each(FScollection.models, function (fs) {
                     that.renderFilesystem(fs);
@@ -643,6 +618,8 @@ String.prototype.toSpaced = function(){
             // Show the new file system resize form
             $('#'+formId).show("blind");
         },
+        
+        */
 
     });
 
@@ -888,7 +865,27 @@ String.prototype.toSpaced = function(){
     // An app-wide event aggregator object: http://bit.ly/p3nTe6
     var vent = _.extend({}, Backbone.Events);
     // Create an instance of the master view
-    var filesystemList = new FilesystemsView({vent: vent});
+    // var filesystemList = new FilesystemsView({vent: vent});
+
+    // Define model collection
+    var FScollection = new Filesystems(); // A container for all Filesystems
+    
+    // Initialize Marionette app
+    MyApp = new Backbone.Marionette.Application();
+
+    MyApp.addRegions({
+        mainRegion: "#filesystems-container"
+    });
+    
+    MyApp.addInitializer(function(options){
+        var filesystemsView = new FilesystemsView({
+            collection: options.filesystems
+    });
+    MyApp.mainRegion.show(filesystemsView);
+    });
+    
+    MyApp.start({filesystems: FScollection});
+    
     // Create instances of the add new file system button and form views
     // Also, subscribe those to global events
     // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
