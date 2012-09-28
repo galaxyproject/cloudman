@@ -117,6 +117,7 @@
         </table>
         <strong>File systems</strong>
         ## backbone-managed
+        <div id="fs-confirmRemove-container"></div>
         <div id='fs-details-container'></div>
         <div id="filesystems-container"></div>
         <div id='fs-resize-form-container'></div>
@@ -337,8 +338,8 @@
         <tbody></tbody>
     </script>
     <script type="text/template" id="fs-details-template">
-    <%text>
-        <a class="fs-details-box-close"></a>
+    <%text filter='trim'>
+        <a class="close"></a>
         <div class="fs-details-box-header">File system information</div>
         <table>
         <tr><th>Name:</th><td><%= name %></td>
@@ -378,6 +379,18 @@
             <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
         </td>
         <td class="fs-td-spacer"></td>
+    </%text>
+    </script>
+    <script type="text/template" id="fs-confirmRemove-template">
+    <%text filter='trim'>
+        <div class="modal-dialog-header">Remove <%= name %> file system?</div>
+        <div class="modal-dialog-text">Removing this file system will first stop any
+            services that require this file system. Then, the file system will be
+            unmounted and the underlying device disconnected from this instance.</div>
+        <div class="modal-dialog-buttons">
+            <button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>
+            <button class="modal-dialog-cancel-button">Cancel</button>
+        </div>
     </%text>
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
