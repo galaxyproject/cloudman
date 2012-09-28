@@ -1252,7 +1252,7 @@ p.disabled {
     padding-bottom: 3px;
 }
 .fs-details-box {
-    display:none;
+/*    display:none;*/
     /*float:right;*/
     position:absolute;
     margin-left:550px;
@@ -1276,14 +1276,14 @@ p.disabled {
     color: #5F5F5F;
     font-size: 16px;
 }
-.fs-details-box-close{
+.close{
     float:right;
     width:15px;
     height:15px;
     background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
     cursor: pointer;
 }
-.fs-details-box-close:hover{
+.close:hover{
     background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
 .fs-resize-form {
@@ -1476,6 +1476,19 @@ fieldset {
 }
 #fs-add-form-close-btn:hover {
     background-image : url(/cloud/static/images/delete_icon_dark.png);
+}
+
+.fs-confirmRemove-box{
+    position: absolute;
+    margin-top: -190px;
+    border: 1px solid #ACACAC;
+    background-color: #fff;
+    -webkit-box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    width: 550px;
+    z-index: 99999;
 }
 .modal-dialog-header{
     color: black;
