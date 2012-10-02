@@ -90,7 +90,7 @@ class OSInterface(EC2Interface):
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
     
-    def get_self_public_ip( self ):
+    def get_public_ip( self ):
         """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
             returns empty so do some monkey patching.
         """
@@ -103,7 +103,7 @@ class OSInterface(EC2Interface):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
                     if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
-                        self.self_public_ip = self.get_self_private_ip()
+                        self.self_public_ip = self.get_private_ip()
                     else:
                         fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
                         self.self_public_ip = fp.read()

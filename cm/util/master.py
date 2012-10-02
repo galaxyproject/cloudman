@@ -633,13 +633,13 @@ class ConsoleManager(object):
             if self.master_exec_host is True or force_removal:
                 self.master_exec_host = False
                 if not sge_svc._remove_instance_from_exec_list(self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_self_private_ip()):
+                        self.app.cloud_interface.get_private_ip()):
                     # If the removal was unseccessful, reset the flag
                     self.master_exec_host = True
             else:
                 self.master_exec_host = True
                 if not sge_svc._add_instance_as_exec_host(self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_self_private_ip()):
+                        self.app.cloud_interface.get_private_ip()):
                     # If the removal was unseccessful, reset the flag
                     self.master_exec_host = False
         else:
@@ -930,6 +930,7 @@ class ConsoleManager(object):
                     self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.app.cloud_interface.add_tag(instance, 'role', 'worker') # Default to 'worker' role tag
                     self.worker_instances.append(i)
+                    i.send_alive_request() # to make sure info like ip-address and hostname are updated
                     log.debug('Added instance {0}....'.format(instance_id))
                 else:
                     log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." % (instance_id, instance.state))
@@ -1576,7 +1577,7 @@ class ConsoleManager(object):
         shutil.copy("%s-tmp" % file_name, file_name)
 
     def get_status_dict( self ):
-        public_ip = self.app.cloud_interface.get_self_public_ip()
+        public_ip = self.app.cloud_interface.get_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
@@ -2106,7 +2107,7 @@ class Instance( object ):
         """
         if self.is_spot() and not self.spot_was_filled():
             return "'{sid}'".format(sid=self.spot_request_id)
-        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.app.cloud_interface.get_self_public_ip())
+        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.app.cloud_interface.get_public_ip())
 
     def reboot(self):
         """ Reboot this instance.
@@ -2199,6 +2200,10 @@ class Instance( object ):
                 self.m_state = instance_states.TERMINATED
         return self.m_state
 
+    @TestFlag(None)
+    def send_alive_request(self):
+        self.app.manager.console_monitor.conn.send( 'ALIVE_REQUEST', self.id 
+                                                    )
     def send_status_check( self ):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2210,7 +2215,7 @@ class Instance( object ):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
         if self.app.TESTFLAG is True:
             return
-        self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_self_private_ip(), self.id )
+        self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id )
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
 
     def update_spot(self, force=False):
@@ -2326,7 +2331,7 @@ class Instance( object ):
                 # Instance is alive and functional. Send master pubkey.
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
-                if self.app.cloud_type == 'openstack':
+                if self.app.cloud_type in ('openstack','eucalyptus'):
                     worker_host_line = '{ip}\t{hostname}\n'.format(ip=self.private_ip, \
                         hostname=self.local_hostname)
                     log.debug("worker_host_line: {0}".format(worker_host_line))
@@ -2346,7 +2351,7 @@ class Instance( object ):
                     % self.id )
                 try:
                     sge_svc = self.app.manager.get_services('SGE')[0]
-                    if sge_svc.add_sge_host(self.get_id(), self.get_private_ip()):
+                    if sge_svc.add_sge_host(self.get_id(), self.local_hostname):
                         # Send a message to worker to start SGE
                         self.send_start_sge()
                         # If there are any bucket-based FSs, tell the worker to add those

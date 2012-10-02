@@ -43,8 +43,8 @@ class PSS(ApplicationService):
         self.app.cloud_interface.get_zone()
         self.app.cloud_interface.get_key_pair_name()
         self.app.cloud_interface.get_security_groups()
-        self.app.cloud_interface.get_self_private_ip()
-        self.app.cloud_interface.get_self_public_ip()
+        self.app.cloud_interface.get_private_ip()
+        self.app.cloud_interface.get_public_ip()
         self.app.cloud_interface.get_local_hostname()
 
     def add(self):

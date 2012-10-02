@@ -230,9 +230,9 @@ class ConsoleManager( object ):
         
         SGE_config_file = '/tmp/galaxyEC2_configuration.conf'
         f = open( SGE_config_file, 'w' )
-        print >> f, sge_install_template % (self.app.cloud_interface.get_self_local_hostname(),
-                self.app.cloud_interface.get_self_local_hostname(),
-                self.app.cloud_interface.get_self_local_hostname())
+        print >> f, sge_install_template % (self.app.cloud_interface.get_local_hostname(),
+                self.app.cloud_interface.get_local_hostname(),
+                self.app.cloud_interface.get_local_hostname())
         f.close()
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
@@ -280,8 +280,8 @@ class ConsoleMonitor( object ):
                 return msg.body
     
     def send_alive_message( self ):
-        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_self_private_ip(), 
-                                                       self.app.cloud_interface.get_self_public_ip(), 
+        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(), 
+                                                       self.app.cloud_interface.get_public_ip(), 
                                                        self.app.cloud_interface.get_zone(), 
                                                        self.app.cloud_interface.get_type(), 
                                                        self.app.cloud_interface.get_ami(),
@@ -311,7 +311,7 @@ class ConsoleMonitor( object ):
                 f = open( "/etc/hosts", 'w' )
                 f.write( "127.0.0.1\tlocalhost\n")
                 f.write( "%s\tubuntu\n" % (self.app.ud['master_ip']))
-                f.write( "%s\tworker-%s\n" % (self.app.cloud_interface.get_self_private_ip(), self.app.cloud_interface.get_instance_id()))
+                f.write( "%s\tworker-%s\n" % (self.app.cloud_interface.get_private_ip(), self.app.cloud_interface.get_instance_id()))
                 f.close()
                 
                 # Restart complete node or only hostname process?
@@ -403,6 +403,8 @@ class ConsoleMonitor( object ):
             fs.add_bucket(bucket_name)
             fs.add()
             log.debug("Worker done adding FS from bucket {0}".format(bucket_name))
+        elif message.startswith('ALIVE_REQUEST'):
+            self.send_alive_message()
         else:
             log.debug("Unknown message '%s'" % message)
     

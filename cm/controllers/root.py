@@ -596,7 +596,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_self_public_hostname(),
+                                   ip=self.app.cloud_interface.get_public_hostname(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],
@@ -626,7 +626,7 @@ class CM(BaseController):
         DNS address if so, `#` otherwise. """
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
-            dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_hostname() )
+            dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
@@ -634,13 +634,13 @@ class CM(BaseController):
 
     @expose
     def static_instance_state_json(self, trans, no_json=False):
-        ret_dict = {'master_ip': self.app.cloud_interface.get_self_public_ip(),
+        ret_dict = {'master_ip': self.app.cloud_interface.get_public_ip(),
                     'master_id': self.app.cloud_interface.get_instance_id(),
                     'ami_id' : self.app.cloud_interface.get_ami(),
                     'availability_zone' : self.app.cloud_interface.get_zone(),
                     'key_pair_name' : self.app.cloud_interface.get_key_pair_name(),
                     'security_groups' : self.app.cloud_interface.get_security_groups(),
-                    'master_host_name': self.app.cloud_interface.get_self_public_hostname()
+                    'master_host_name': self.app.cloud_interface.get_public_hostname()
                    }
         if no_json:
             return ret_dict

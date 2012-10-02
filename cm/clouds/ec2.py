@@ -151,7 +151,7 @@ class EC2Interface(CloudInterface):
                     pass
         return self.key_pair_name
     
-    def get_self_private_ip( self ):
+    def get_private_ip( self ):
         if self.self_private_ip is None:
             if self.app.TESTFLAG is True:
                 log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning '127.0.0.1'")
@@ -188,7 +188,7 @@ class EC2Interface(CloudInterface):
                     pass
         return self.local_hostname
     
-    def get_self_public_hostname( self ):
+    def get_public_hostname( self ):
         if self.self_public_ip is None:
             if self.app.TESTFLAG is True:
                 log.debug("Attempted to get public hostname, but TESTFLAG is set. Returning '127.0.0.1'")
@@ -207,7 +207,7 @@ class EC2Interface(CloudInterface):
                                 
         return self.self_public_ip
     
-    def get_self_public_ip( self ):
+    def get_public_ip( self ):
         if self.self_public_ip is None:
             if self.app.TESTFLAG is True:
                 log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
@@ -451,7 +451,7 @@ class EC2Interface(CloudInterface):
         """
         worker_ud = {}
         worker_ud['role'] = 'worker'
-        worker_ud['master_ip'] = self.get_self_private_ip()
+        worker_ud['master_ip'] = self.get_private_ip()
         worker_ud['master_hostname'] = self.get_local_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
         # Merge the worker's user data with the master's user data
