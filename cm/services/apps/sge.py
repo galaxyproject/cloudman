@@ -95,12 +95,12 @@ class SGEService( ApplicationService ):
     def _get_sge_install_conf(self):
         # Add master as an execution host
         # Additional execution hosts will be added later, as they start
-        exec_nodes = self.app.cloud_interface.get_self_private_ip()
+        exec_nodes = self.app.cloud_interface.get_private_ip()
         sge_install_template = Template(templates.SGE_INSTALL_TEMPLATE)
         sge_params = {
           "cluster_name": "GalaxyEC2",
-          "admin_host_list": self.app.cloud_interface.get_self_private_ip(),
-          "submit_host_list": self.app.cloud_interface.get_self_private_ip(),
+          "admin_host_list": self.app.cloud_interface.get_private_ip(),
+          "submit_host_list": self.app.cloud_interface.get_private_ip(),
           "exec_host_list": exec_nodes,
           "hostname_resolving": "true",
         }
@@ -313,8 +313,8 @@ class SGEService( ApplicationService ):
         log.debug("Composing SGE's @allhosts group config file {0}:".format(filename))
         if self.app.manager.master_exec_host:
             log.debug(" - adding master instance; IP: {0}"\
-                .format(self.app.cloud_interface.get_self_private_ip()))
-            ahl.append(self.app.cloud_interface.get_self_private_ip())
+                .format(self.app.cloud_interface.get_private_ip()))
+            ahl.append(self.app.cloud_interface.get_private_ip())
         else:
             log.debug(" - master is marked as non-exec host and will not be included in @allhosts file")
         # Add worker instances, excluding the one being removed

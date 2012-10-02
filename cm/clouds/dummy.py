@@ -69,10 +69,10 @@ class DummyInterface(CloudInterface):
     def get_key_pair_name( self ):
         pass
     
-    def get_self_private_ip( self ):
+    def get_private_ip( self ):
         return self._getIpAddress('eth0')
     
-    def get_self_public_ip( self ):
+    def get_public_ip( self ):
         pass
     
     def get_fqdn(self):

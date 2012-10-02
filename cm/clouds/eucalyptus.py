@@ -147,9 +147,9 @@ class EucaInterface(EC2Interface):
             self.ec2_url = self.user_data.get('ec2_url',None)
         return self.user_data
 
-    def get_self_local_hostname(self):
+    def get_local_hostname(self):
         # Currently, Eucalyptus meta-data/local-hostname returns the IP address, not the hostname. Pull from system hostname instead
-        super(EucaInterface,self).get_self_local_hostname()
+        super(EucaInterface,self).get_local_hostname()
         if self.local_hostname:
             toks = self.local_hostname.split('.')
             if len(toks) == 4:
@@ -163,9 +163,9 @@ class EucaInterface(EC2Interface):
                 self.local_hostname = socket.gethostname()
         return self.local_hostname
         
-    def get_self_public_hostname(self):
+    def get_public_hostname(self):
         # Eucalyptus meta-data/public-hostname return the IP address. Fake it, assuming that it will be ip-NUM-NUM-NUM-NUM
-        super(EucaInterface,self).get_self_public_hostname()
+        super(EucaInterface,self).get_public_hostname()
         if self.public_hostname:
             toks = self.public_hostname.split('.')
             if len(toks) == 4:
