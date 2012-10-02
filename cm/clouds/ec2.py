@@ -334,12 +334,12 @@ class EC2Interface(CloudInterface):
         else:
             self._run_ondemand_instances(num, instance_type, spot_price, worker_ud)
         
-    def _run_ondemand_instances(self, num, instance_type, spot_price, worker_ud):
+    def _run_ondemand_instances(self, num, instance_type, spot_price, worker_ud, min_num=1):
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
-              "image_id='{iid}', min_count=1, max_count='{num}', key_name='{key}', "
+              "image_id='{iid}', min_count='{min_num}, max_count='{num}', key_name='{key}', "
               "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
-              .format(iid=self.get_ami(), num=num, key=self.get_key_pair_name(), \
+              .format(iid=self.get_ami(), min_num=min_num, num=num, key=self.get_key_pair_name(), \
               sgs=", ".join(self.get_security_groups()), ud=worker_ud_str, type=instance_type, \
               zone=self.get_zone()))
         try:
@@ -347,7 +347,7 @@ class EC2Interface(CloudInterface):
             reservation = None
             ec2_conn = self.get_ec2_connection()
             reservation = ec2_conn.run_instances( image_id=self.get_ami(),
-                                                  min_count=1,
+                                                  min_count=min_num,
                                                   max_count=num,
                                                   key_name=self.get_key_pair_name(),
                                                   security_groups=self.get_security_groups(),

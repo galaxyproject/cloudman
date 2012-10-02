@@ -178,6 +178,20 @@ class EucaInterface(EC2Interface):
                 self.public_hostname = 'ip-%s' % '-'.join(toks)
         return self.public_hostname
 
+    def run_instances(self, num, instance_type, spot_price=None, **kwargs):
+        use_spot = False
+        if spot_price is not None:
+            log.warning('Eucalyptus does not support spot instances -- submitting normal request')
+        log.info("Adding {0} instance(s)".format(num))
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to start instance(s), but TESTFLAG is set.")
+            return
+        worker_ud = self._compose_worker_user_data()
+        # log.debug( "Worker user data: %s " % worker_ud )
+        if instance_type == '':
+            instance_type = self.get_type()
+        self._run_ondemand_instances(num, instance_type, spot_price, worker_ud, min_num=num) # eucalyptus only starts min_num instances
+
     def get_all_instances(self,instance_ids=None, filters=None):
             
         if isinstance(instance_ids,basestring):
