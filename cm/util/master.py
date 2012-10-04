@@ -201,8 +201,11 @@ class ConsoleManager(object):
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
                     if fs['kind'] == 'volume':
-                        for vol_id in fs['ids']:
-                            filesystem.add_volume(vol_id=vol_id)
+                        if 'ids' not in fs and 'size' in fs:
+                            filesystem.add_volume(size=fs['size'])
+                        else:    
+                            for vol_id in fs['ids']:
+                                filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
                         for snap in fs['ids']:
                             # Check if an already attached volume maps to this snapshot
