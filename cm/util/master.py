@@ -1748,7 +1748,7 @@ class ConsoleMonitor( object ):
             galaxy_svc = self.app.manager.get_services('Galaxy')[0]
             if galaxy_svc.running():
                 for f_name in ['universe_wsgi.ini', 'tool_conf.xml', 'tool_data_table_conf.xml']:
-                    if (not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
+                    if (os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
                        (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))):
                         log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
                         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
