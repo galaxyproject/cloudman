@@ -1252,43 +1252,38 @@ p.disabled {
     padding-bottom: 3px;
 }
 .fs-details-box {
-    display:none;
+/*    display:none;*/
     /*float:right;*/
     position:absolute;
-    margin-left:580px;
-    width: 220px;
+    margin-left:550px;
+    width: 250px;
     background-color:#fff;
     color:#7F7F7F;
-    font-size: 10px;
-    padding: 8px;
+    font-size: 11px;
+    padding: 15px;
     border:1px solid #ccc;
-    -moz-border-radius:5px;
-    -webkit-border-radius:5px;
-    -khtml-border-radius:5px;
-    -moz-box-shadow: 0 1px 5px #333;
-    -webkit-box-shadow: 0 1px 5px #333;
+    -webkit-box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
     z-index:101;
 }
 .fs-details-box th {
     text-align: left;
     color: #5F5F5F;
-    font-weight: bold;
+    font-weight: normal;
     width: 80px;
 }
 .fs-details-box-header {
     padding: 5px 0;
-    font-weight: bold;
     color: #5F5F5F;
-    font-size: 12px;
+    font-size: 16px;
 }
-.fs-details-box-close{
+.close{
     float:right;
     width:15px;
     height:15px;
     background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
     cursor: pointer;
 }
-.fs-details-box-close:hover{
+.close:hover{
     background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
 .fs-resize-form {
@@ -1483,3 +1478,107 @@ fieldset {
     background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
 
+.fs-confirmRemove-box{
+    position: absolute;
+    margin-top: -190px;
+    border: 1px solid #ACACAC;
+    background-color: #fff;
+    -webkit-box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 0px 15px 4px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    width: 550px;
+    z-index: 99999;
+}
+.modal-dialog-header{
+    color: black;
+    cursor: default;
+    font-size: 16px;
+    font-weight: normal;
+    line-height: 24px;
+}
+.modal-dialog-text{
+    font-size: 13px;
+    margin: 1em 0;
+}
+.modal-dialog-buttons{
+    margin-top: 1em;
+}
+.modal-dialog-buttons button{
+    cursor: default;
+    font-size: 11px;
+    font-weight: bold;
+    height: 29px;
+    line-height: 27px;
+    margin: 0 16px 0 0;
+    min-width: 72px;
+    outline: 0;
+    padding: 0 8px;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+}
+.modal-dialog-ok-button{
+    background-image: linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
+    background-image: -o-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
+    background-image: -moz-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
+    background-image: -webkit-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
+    background-image: -ms-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left bottom,
+        left top,
+        color-stop(0.75, rgb(70,70,70)),
+        color-stop(0.33, rgb(51,51,51))
+    );
+    border: 1px solid #A8A8A8;
+    color: white;
+    font-weight: normal;
+}
+.modal-dialog-ok-button:hover{
+    background-image: linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
+    background-image: -o-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
+    background-image: -moz-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
+    background-image: -webkit-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
+    background-image: -ms-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left bottom,
+        left top,
+        color-stop(0.75, rgb(79,79,79)),
+        color-stop(0.33, rgb(59,59,59))
+    );
+    border: 1px solid #7E7E7E;
+}
+.modal-dialog-cancel-button{
+    -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+    background-color: #F8F8F8;
+    background-image: -webkit-linear-gradient(top,#F8F8F8,#F1F1F1);
+    background-image: -moz-linear-gradient(top,#F8F8F8,#F1F1F1);
+    background-image: -ms-linear-gradient(top,#F8F8F8,#F1F1F1);
+    background-image: -o-linear-gradient(top,#F8F8F8,#F1F1F1);
+    background-image: linear-gradient(top,#F8F8F8,#F1F1F1);
+    border: 1px solid #C6C6C6;
+    color: #333;
+}
+.modal-dialog-cancel-button:hover{
+    color: #5B5B5B;
+    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
+
+    background-image: -webkit-gradient(
+        linear,
+        left top,
+        left bottom,
+        color-stop(0.02, rgb(255,255,255)),
+        color-stop(0.85, rgb(245,245,245))
+    );
+    border: 1px solid rgba(0, 0, 0, 0.3);
+}

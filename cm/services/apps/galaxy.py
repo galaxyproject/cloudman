@@ -103,7 +103,7 @@ class GalaxyService(ApplicationService):
                 # try:
                 #     subprocess.call( "sed 's/cd `dirname $0`/cd `dirname $0`; export TEMP=\/mnt\/galaxyData\/tmp/; export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0' %s/run.sh > %s/run.sh.custom" % (self.galaxy_home, self.galaxy_home), shell=True )
                 #     misc.run("cd %s; sed 's/pyhton/python -ES/g' run.sh.custom > run.sh" % self.galaxy_home, "Failed to adjust run.sh", "Successfully adjusted run.sh")
-                #     # shutil.copy( self.galaxy_home + '/run.sh.custom', self.galaxy_home + '/run.sh' )
+                #     shutil.copy( self.galaxy_home + '/run.sh.custom', self.galaxy_home + '/run.sh' )
                 #     os.chown( self.galaxy_home + '/run.sh', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 # except Exception, e:
                 #     log.debug("Problem customizing Galaxy's run.sh: %s" % e)

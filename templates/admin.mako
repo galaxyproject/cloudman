@@ -117,8 +117,9 @@
         </table>
         <strong>File systems</strong>
         ## backbone-managed
+        <div id="fs-confirmRemove-container"></div>
         <div id='fs-details-container'></div>
-        <table id="filesystems-table"></table>
+        <div id="filesystems-container"></div>
         <div id='fs-resize-form-container'></div>
         <div id='fs-add-container'>
             <div id='fs-add-form'></div>
@@ -324,10 +325,80 @@
         var add_fs_url = "${h.url_for(controller='root',action='add_file_system')}";
         var cloud_type = "${cloud_type}";
     </script>
+    <script type="text/template" id="fileSystems-template">
+        <thead>
+            <tr class="filesystem-tr">
+                <th class="fs-td-20pct">Name</th>
+                <th class="fs-td-15pct">Status</th>
+                <th class="fs-td-20pct">Usage</th>
+                <th class="fs-td-15pct">Controls</td>
+                <th colspan="2"></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </script>
+    <script type="text/template" id="fs-details-template">
+    <%text filter='trim'>
+        <a class="close"></a>
+        <div class="fs-details-box-header">File system information</div>
+        <table>
+        <tr><th>Name:</th><td><%= name %></td>
+        <tr><th>Status:</th><td><%= status %></td>
+        <tr><th>Mount point:</th><td><%= mount_point %></td>
+        <tr><th>Kind:</th><td><%= kind %></td>
+        <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
+        <tr><th>Delete on termination:</th><td><%= DoT %></td>
+    </%text>
+    </script>
+    <script type="text/template" id="fileSystem-template">
+    <%text filter='trim'>
+        <td class="fs-td-20pct"><%= name %></td>
+        <td class="fs-status fs-td-15pct"><%= status %></td>
+        <td class="fs-td-20pct">
+        <!-- // Only disply usage when the file system is 'Available' -->
+        <% if (status === "Available" || status === "Running") { %>
+            <%= size_used %>/<%= size %> (<%= size_pct %>)
+        <% } %></td>
+        <td class="fs-td-15pct">
+        <!-- Only display controls when the file system is 'Available' -->
+        <% if (status === "Available" || status === "Running") { %>
+            <a class="fs-remove icon-button" id="fs-<%= name %>-remove" 
+                href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
+                title="Remove this file system"></a>
+            <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
+            <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
+                <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
+                    href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
+            <% } %>
+            <!-- // It only makes sense to resize volume-based file systems -->
+            <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
+                <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
+            <% } %>
+        <% } %></td>
+        <td class="fs-td-15pct">
+            <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
+        </td>
+        <td class="fs-td-spacer"></td>
+    </%text>
+    </script>
+    <script type="text/template" id="fs-confirmRemove-template">
+    <%text filter='trim'>
+        <div class="modal-dialog-header">Remove <%= name %> file system?</div>
+        <div class="modal-dialog-text">Removing this file system will first stop any
+            services that require this file system. Then, the file system will be
+            unmounted and the underlying device disconnected from this instance.</div>
+        <div class="modal-dialog-buttons">
+            <button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>
+            <button class="modal-dialog-cancel-button">Cancel</button>
+        </div>
+    </%text>
+    </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/backbone.marionette.js')}"></script>
+    <script type='text/javascript' src="${h.url_for('/static/scripts/Backbone.ModalDialog.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 </%def>
