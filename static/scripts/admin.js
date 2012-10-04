@@ -138,7 +138,8 @@ function handle_clicks() {
     });
     // Handle click on 'Details' of an individual file system
     // TODO: this should be translated to a backbone event
-    $('table').on('click', 'a.fs-details', function() {
+    /*
+    $('table').on('click', 'a.fs-detailss', function() {
         // Make sure any other details boxes are closed before opening a new one
         if ($('.fs-details-box').is(':visible')) {
             $('.fs-details-box-close').trigger('click');
@@ -156,7 +157,7 @@ function handle_clicks() {
             });
         }();
         return false; // prevent page autoscroll to the top
-    });
+    });*/
 }
 function handle_forms() {
     // Handle generic forms
@@ -240,53 +241,101 @@ String.prototype.toSpaced = function(){
         model: Filesystem,
         url: get_all_filesystems_url
     });
-    var FScollection = new Filesystems(); // A container for all Filesystems
 
     // Define an individual file system summary view
-    var FilesystemView = Backbone.View.extend({
-        // Template for rendering an indiviudal file system summary/overview
-        filesystemSummaryTemplate: '<td class="fs-td-20pct"><%= name %></td>' +
-            '<td class="fs-status fs-td-15pct"><%= status %></td>' +
-            '<td class="fs-td-20pct">' +
-            // Only disply usage when the file system is 'Available'
-            '<% if (status === "Available" || status === "Running") { %>' +
-                '<%= size_used %>/<%= size %> (<%= size_pct %>)' +
-            '<% } %></td>' +
-            '<td class="fs-td-15pct">' +
-            // Only disply controls when the file system is 'Available'
-            '<% if (status === "Available" || status === "Running") { %>' +
-                '<a class="fs-remove icon-button" id="fs-<%= name %>-remove" href="' + manage_service_url +
-                '?service_name=<%= name %>&to_be_started=False&is_filesystem=True"' +
-                'title="Remove this file system"></a>' +
-                // It only makes sense to persist DoT, snapshot-based file systems
-                '<% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" \
-                    && DoT === "Yes") { %>' +
-                    '<a class="fs-persist icon-button" id="fs-<%= name %>-persist" href="' +
-                    update_fs_url + '?fs_name=<%= name %>" ' +
-                    'title="Persist file system changes"></a>' +
-                '<% } %>' +
-                // It only makes sense to resize volume-based file systems
-                '<% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>' +
-                    '<a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#"' +
-                    'title="Increase file system size"></a>' +
-                '<% } %>' +
-            '<% } %></td>'+
-            '<td class="fs-td-15pct">' +
-                '<a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>' +
-            '</td>' +
-            '<td class="fs-td-spacer"></td>',
+    var FilesystemView = Backbone.Marionette.ItemView.extend({
         tagName: "tr",
+        template: "#fileSystem-template",
         className: "filesystem-tr",
+
+        events: {
+            "click .fs-remove": "triggerRemove",
+            "click .fs-details": "showDetails",
+        },
+
+        initialize: function() {
+            //CMApp.vent.bind("fs:confirmFSRemove", this.handleRemove);
+        },
+
+        onRender: function() {
+            // Must clear tooltips; otherwise, following a rerender, the binding
+            // element no longer exists and thus the tool tip stays on forever
+            $(".tipsy").remove();
+            // Add state CSS
+            if (this.model.attributes.status === 'Available' ||
+                this.model.attributes.status === 'Running') {
+                this.$el.find('.fs-status').addClass("td-green-txt");
+            } else if (this.model.attributes.status === 'Error') {
+                this.$el.find('.fs-status').addClass("td-red-txt");
+            } else {
+                this.$el.find('.fs-status').addClass("td-tan-txt");
+            }
+            // Add toopltips
+            this.$('a.icon-button').tipsy({gravity: 's', fade: true});
+        },
+
+        triggerRemove: function(event) {
+            event.preventDefault();
+            console.log("triggered FS " + this.model.get('name') + " removal");
+            this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
+            // Show confirmation dialog
+            var filesystemRemoveConfirmationView =
+                new FilesystemRemoveConfirmationView({model: this.model});
+            CMApp.fsConfirmRemove.show(filesystemRemoveConfirmationView);
+            var that = this;
+            (function () {
+                CMApp.vent.on("fs:FSRemoveAction", function(action){
+                    if (action === 'remove') {
+                        console.log("Closure handling removal of FS " + that.model.get('name'));
+                    }
+                    that.$el.animate({backgroundColor: 'transparent'}, "fast");
+                });
+            })();
+        },
+
+        handleRemove: function(model) {
+            console.log("Handling removal of FS " + model.get('name'));
+        },
+
+        showDetails: function(event) {
+            event.preventDefault();
+            // Before displaying a new details box, close any others
+            CMApp.vent.trigger("fs:detailsClose");
+            this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
+            var detailsView = new FilesystemDetailsView({model: this.model});
+            CMApp.fsDetails.show(detailsView);
+            // Add a hide event on the 'close' button
+            // Need to use closure here to keep a reference to the highlighted tr
+            var that = this;
+            (function () {
+                CMApp.vent.on("fs:detailsClose", function(){
+                    that.$el.animate({backgroundColor: 'transparent'}, "fast");
+                });
+            })();
+        },
+
+        /*
         attributes: function() {
             // Explicitly add file system name as a tag/row attribute
             return {fs_name: this.model.get('name')};
+        },
+
+        events: {
+            "click .fs-remove": "triggerRemove",
+        },
+
+        initialize: function(options) {
+            this.vent = options.vent;
+            _.bindAll(this, 'handleRemove');
+            options.vent.bind("confirmFSRemove", this.handleRemove);
+            this.model.bind("change", this.render, this); //why does this not work?
         },
 
         render: function () {
             // Must clear tooltips; otherwise, following a rerender, the binding
             // element no longer exists and thus the tool tip stays on forever
             $(".tipsy").remove();
-            var tmpl = _.template(this.filesystemSummaryTemplate);
+            var tmpl = _.template($('#fileSystem-template').html());
             $(this.el).html(tmpl(this.model.toJSON()));
             if (this.model.attributes.status === 'Available' ||
                 this.model.attributes.status === 'Running') {
@@ -299,7 +348,44 @@ String.prototype.toSpaced = function(){
             // Add toopltips
             this.$('a.icon-button').tipsy({gravity: 's', fade: true});
             return this;
-        }
+        },
+
+        triggerRemove: function(event) {
+            event.preventDefault();
+            // Show confirmation dialog
+            args = {vent: this.vent, model: this.model, event: event};
+            var confDialog = new RemoveFSConfView(args);
+            confDialog.render().showModal();
+            //alert("clicked " + this.model.get("name"));
+            //var answer = confirm("clicked" + this.model.get("name"));
+            //if (answer === true) {
+                //this.handleRemove();
+            //}
+        },
+
+        handleRemove: function(model) {
+            // FIXME: For some reason, when invoked once, this method actually
+            // gets called numerous times? The # of times it gets called has to
+            // do with how long it's been since the page as whole was refreshed
+            console.log(model.get('name'));
+            //return false;
+            var el = $('#fs-'+model.get('name')+'-remove');
+            var url = el.attr('href');
+            $.get(url, function(data) {
+                //alert("Success");
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            //.success(function() { alert("Second success"); })
+            //.error(function() { alert("Error"); })
+            //.complete(function() { alert("Complete"); });
+            //popup();
+            //updateFSStatus(model.get('name'), "Removing");
+            model.attributes.status = "Removing";
+            //filesystemList.render();
+        },
+        */
+
     });
 
     // Define the form view for resizing a file system
@@ -400,50 +486,69 @@ String.prototype.toSpaced = function(){
     });
 
     // Define the details popup view for an individual file system
-    var FilesystemDetailsView = Backbone.View.extend({
-        filesystemDetailsTemplate: '<a class="fs-details-box-close"></a>' +
-            '<div class="fs-details-box-header">File system information</div>' +
-            '<table>' +
-            '<tr><th>Name:</th><td><%= name %></td>' +
-            '<tr><th>Status:</th><td><%= status %></td>' +
-            '<tr><th>Mount point:</th><td><%= mount_point %></td>' +
-            '<tr><th>Kind:</th><td><%= kind %></td>' +
-            '<tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>' +
-            '<tr><th>Delete on termination:</th><td><%= DoT %></td>',
-        tagName: "div",
-        className: "fs-details-box",
+    var FilesystemDetailsView = Backbone.Marionette.ItemView.extend({
+        template: "#fs-details-template",
+        className: "fs-details-box modal-box",
 
-        render: function () {
-            var tmpl = _.template(this.filesystemDetailsTemplate);
-            $(this.el).attr('id', "fs-"+this.model.attributes.name+"-details");
-            // Build the details table using the 'standard' keys and then add any
-            // additional ones that are found in the provided file system's JSON
-            html = tmpl(this.model.toJSON())
-            standard_keys = ['name', 'status', 'mount_point', 'kind',
-                'size', 'size_used', 'size_pct', 'DoT'];
-            for (key in this.model.attributes) {
-                if ($.inArray(key, standard_keys) === -1) {
-                    if (this.model.get(key) != null) {
-                        html += '<tr><th>'+key.toSpaced().toProperCase()+':</th><td>' +
-                            this.model.get(key)+'</td>';
-                    }
-                }
-            };
-            html += '</table>';
-            $(this.el).html(html);
-            return this;
+        events: {
+            "click .close": "hideDetails",
+        },
+
+        hideDetails: function() {
+            CMApp.vent.trigger("fs:detailsClose");
+            CMApp.fsDetails.close();
         }
     });
 
-    // Define the master view, i.e., list of all the file systems
-    var FilesystemsView = Backbone.View.extend({
-        tableHeaderTemplate: '<tr class="filesystem-tr"><th class="fs-td-20pct">Name</th>' +
-            '<th class="fs-td-15pct">Status</th><th class="fs-td-20pct">Usage</th>' +
-            '<th class="fs-td-15pct">Controls</td><th colspan="2"></th></tr>',
-        el: $("#filesystems-table"),
+    // Define the confirmation popup before removing a file system
+    var FilesystemRemoveConfirmationView= Backbone.Marionette.ItemView.extend({
+        template: "#fs-confirmRemove-template",
+        className: "fs-confirmRemove-box modal-box",
 
-        initialize: function() {
+        events: {
+            "click #confirm_fs_remove": "confirmFSRemove",
+            "click .modal-dialog-cancel-button": "cancelFSRemove",
+        },
+
+        //initialize: function() {
+            //_.bindAll(this, "render");
+        //},
+        cancelFSRemove: function() {
+            console.log("Canceling FS " + this.model.get('name') + " removal");
+            CMApp.vent.trigger("fs:FSRemoveAction", "cancel");
+            CMApp.fsConfirmRemove.close();
+        },
+
+        confirmFSRemove: function() {
+            console.log("Confirming FS " + this.model.get('name') + " removal");
+            CMApp.vent.trigger("fs:FSRemoveAction", 'remove');
+            CMApp.fsConfirmRemove.close();
+        }
+    });
+
+
+    // Define the master view, i.e., list of all the file systems
+    var FilesystemsView = Backbone.Marionette.CompositeView.extend({
+        template: "#fileSystems-template",
+        tagName: "table",
+        id: "filesystems-table",
+        itemView: FilesystemView,
+
+        appendHtml: function(collectionView, itemView) {
+            collectionView.$("tbody").append(itemView.el);
+        }
+
+        /*
+        initialize: function(options) {
+            // Bind the functions 'add' and 'remove' to the view.
+            //_(this).bindAll(this, 'add', 'remove');
+            // An array of all the file system views contained in this master view
+            //this.filesystemViews = [];
+            // Add each file system to the view
+            //this.collection.each(this.add);
+
             // Bind events to actions
+            this.vent = options.vent;
             this.on("click:removeFS", this.handleRemove, this);
             FScollection.on('reset', this.render, this); // Triggered on the initial page load
         },
@@ -457,7 +562,7 @@ String.prototype.toSpaced = function(){
             $('#fs-details-container').empty();
             if (FScollection.models.length > 0) {
                 // Explicitly add the header row
-                this.$el.append(this.tableHeaderTemplate);
+                this.$el.append($('#fileSystems-template').html());
                 // Add all of the file systems, one per row
                 _.each(FScollection.models, function (fs) {
                     that.renderFilesystem(fs);
@@ -466,8 +571,12 @@ String.prototype.toSpaced = function(){
         },
 
         renderFilesystem: function (fs) {
+            // Issue remove event for given model item
+            // (triggered in the model view that unbinds any events for the el)
+            // Add a new item
             var filesystemView = new FilesystemView({
-                model: fs
+                model: fs,
+                vent: this.vent
             });
             this.$el.append(filesystemView.render().el);
             // File system details view
@@ -486,7 +595,7 @@ String.prototype.toSpaced = function(){
 
         // Add UI event handlers
         events: {
-            "click .fs-remove": "triggerRemove",
+            //"click .fs-remove": "triggerRemove",
             "click .fs-persist": "triggerPersist",
             "click .fs-resize": "triggerResize",
         },
@@ -496,10 +605,14 @@ String.prototype.toSpaced = function(){
             this.fsToRemoveID = event.currentTarget.id; // Reference to the element ID of the FS to be remvoed
             this.fsToRemoveTR = $('#'+event.currentTarget.id).parents('tr'); // Reference to tr to be removed
             event.preventDefault();
+            // Show confirmation dialog
+            options = {vent: this.vent, fsToRemoveID: this.fsToRemoveID}
+            var confDialog = new RemoveFSConfView(options);
+            confDialog.render().showModal();
             // Clear any other forms that may be opened before removing a file system.
             // Otherwise, we run the risk of removing the element the form is bound to
-            $('.fs-resize-form-close').trigger('click');
-            this.trigger("click:removeFS");
+            //$('.fs-resize-form-close').trigger('click');
+            //this.trigger("click:removeFS");
         },
 
         handleRemove: function() {
@@ -553,6 +666,8 @@ String.prototype.toSpaced = function(){
             // Show the new file system resize form
             $('#'+formId).show("blind");
         },
+        
+        */
 
     });
 
@@ -798,9 +913,26 @@ String.prototype.toSpaced = function(){
     // An app-wide event aggregator object: http://bit.ly/p3nTe6
     var vent = _.extend({}, Backbone.Events);
     // Create an instance of the master view
-    var filesystemList = new FilesystemsView();
-    // Fetch the initial data from the server
-    FScollection.fetch();
+    // var filesystemList = new FilesystemsView({vent: vent});
+
+    // Define model collection
+    var FScollection = new Filesystems(); // A container for all Filesystems
+
+    // Initialize Marionette app
+    CMApp = new Backbone.Marionette.Application();
+    CMApp.addRegions({
+        mainRegion: "#filesystems-container",
+        fsDetails: "#fs-details-container",
+        fsConfirmRemove: "#fs-confirmRemove-container",
+    });
+    CMApp.addInitializer(function(options){
+        var filesystemsView = new FilesystemsView({
+            collection: options.filesystems
+        });
+        CMApp.mainRegion.show(filesystemsView);
+    });
+    CMApp.start({filesystems: FScollection});
+
     // Create instances of the add new file system button and form views
     // Also, subscribe those to global events
     // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
@@ -824,11 +956,11 @@ String.prototype.toSpaced = function(){
         // does not function: conceptually, a file system may dissapear so what
         // to display; also, the UI gets rendered w/ each refresh so it's would
         // have to be handled differently (maybe one day)
-        if (!$('.fs-details-box').is(':visible') && !$('.fs-resize-form').is(':visible')) {
+        if (!$('.modal-box').is(':visible') && !$('.fs-resize-form').is(':visible')) {
             // Keep updating the display with the fresh data from the server
             FScollection.fetch();
         }
-        window.setTimeout(function(){updateFS();}, 5000);
+        window.setTimeout(function(){updateFS();}, 10000);
     }
     updateFS();
 } (jQuery));

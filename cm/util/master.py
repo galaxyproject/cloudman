@@ -544,8 +544,8 @@ class ConsoleManager(object):
             "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
             "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
             dummy.append({"name": "custom", "status": "Available", "device": "/dev/sdg4",
-            "kind": "volume", "mount_point": "/mnt/custom", "DoT": "No",
-            "size": "70G", "NFS_shared": True, "size_used": "5G", "size_pct": "7%",
+            "kind": "Volume", "mount_point": "/mnt/custom", "DoT": "No",
+            "size": "70G", "NFS_shared": True, "size_used": "53G", "size_pct": "7%",
             "error_msg": ""})
         return dummy
 
