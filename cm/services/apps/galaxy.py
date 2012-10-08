@@ -131,25 +131,29 @@ class GalaxyService(ApplicationService):
                 #     f.write('export PATH=/mnt/galaxyTools/tools/bin:/mnt/galaxyTools/tools/pkg/fastx_toolkit_0.0.13:/mnt/galaxyTools/tools/pkg/bowtie-0.12.5:/mnt/galaxyTools/tools/pkg/samtools-0.1.7_x86_64-linux:/mnt/galaxyTools/tools/pkg/gnuplot-4.4.0/bin:/opt/PostgreSQL/8.4/bin:$PATH\n')
                 # os.chown(self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                 self.configured = True
-                
             if self.state != service_states.RUNNING:
                 log.info( "Starting Galaxy..." )
                 # Make sure admin users get added
                 self.add_galaxy_admin_users()
-                log.debug('%s - galaxy -c "export SGE_ROOT=%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, paths.P_SGE_ROOT))
-                env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
-                if not misc.run('%s - galaxy -c "%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, env_exports), "Error invoking Galaxy", "Successfully initiated Galaxy start."):
+                start_command = self.galaxy_run_command("--daemon")
+                log.debug(start_command)
+                if not misc.run(start_command, "Error invoking Galaxy", "Successfully initiated Galaxy start."):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
             else:
                 log.debug("Galaxy already running.")
         else:
             log.info( "Shutting down Galaxy..." )
-            if misc.run('%s - galaxy -c "sh $GALAXY_HOME/run.sh --stop-daemon"' % paths.P_SU, "Error stopping Galaxy", "Successfully stopped Galaxy."):
+            if misc.run(self.galaxy_run_command("--stop-daemon"), "Error stopping Galaxy", "Successfully stopped Galaxy."):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 subprocess.call( 'mv $GALAXY_HOME/paster.log $GALAXY_HOME/paster.log.%s' % datetime.utcnow().strftime('%H_%M'), shell=True )
-    
+
+    def galaxy_run_command(self, args):
+        env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
+        run_command = '%s - galaxy -c "%s; sh $GALAXY_HOME/run.sh %s"' % (paths.P_SU, env_exports, args)
+        return run_command
+
     def status(self):
         """Check if Galaxy daemon is running and the UI is accessible."""
         old_state = self.state
