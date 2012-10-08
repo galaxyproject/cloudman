@@ -10,6 +10,7 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat
+import base64
 
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
@@ -80,7 +81,7 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
         log.error("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
         return False
 
-def _start_nginx():
+def _start_nginx(ud):
     log.info("<< Starting nginx >>")
     # Because nginx needs the uplaod directory to start properly, create it now.
     # However, because user data will be mounted after boot and because given
@@ -91,6 +92,7 @@ def _start_nginx():
     # url = 'http://userwww.service.emory.edu/~eafgan/content/nginx.conf'
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
+    _configure_nginx(ud)
     rmdir = False # Flag to indicate if a dir should be deleted
     if not os.path.exists('/mnt/galaxyData/upload_store'):
         rmdir = True
@@ -101,6 +103,20 @@ def _start_nginx():
         _run('/opt/galaxy/sbin/nginx')
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
+
+def _configure_nginx(ud):
+    # User specified nginx.conf file, can be specified as
+    # url or base64 encoded plain-text.
+    nginx_conf = ud.get("nginx_conf_contents", None)
+    if nginx_conf:
+        nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
+        if nginx_conf.startswith("http"):
+            log.info("Fetching nginx conf from %s" % nginx_conf)
+            _run("wget --output-document='%s' '%s'" % (nginx_conf_path, nginx_conf))
+        else:
+            log.info("Writing out nginx.conf file base64 encoded in user-data:")
+            with open(nginx_conf_path, "w") as output:
+                output.write(base64.b64decode(nginx_conf))
 
 def _get_s3connection(ud):
     if 'cloud_type' in ud and ud['cloud_type'] != 'ec2':
@@ -282,7 +298,7 @@ def main():
     if not ud.has_key('no_start'):
         if ud.get('cloud_name', '').lower() == 'nectar':
             _fix_etc_hosts()
-        _start_nginx()
+        _start_nginx(ud)
         _start(ud)
         # _post_start_hook(ud) # Execution of this script is moved into CloudMan, at the end of config
     log.info("---> %s done <---" % sys.argv[0])
