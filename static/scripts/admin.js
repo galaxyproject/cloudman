@@ -254,8 +254,8 @@ String.prototype.toSpaced = function(){
         },
 
         initialize: function() {
-            //CMApp.vent.bind("fs:confirmFSRemove", this.handleRemove);
-        },
+            this.model.bind("change", this.render, this); // watch for any model changes
+       },
 
         onRender: function() {
             // Must clear tooltips; otherwise, following a rerender, the binding
@@ -276,43 +276,49 @@ String.prototype.toSpaced = function(){
 
         triggerRemove: function(event) {
             event.preventDefault();
-            console.log("triggered FS " + this.model.get('name') + " removal");
-            this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
-            // Show confirmation dialog
+            this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
+            // Show a modal confirmation dialog
             var filesystemRemoveConfirmationView =
                 new FilesystemRemoveConfirmationView({model: this.model});
-            CMApp.fsConfirmRemove.show(filesystemRemoveConfirmationView);
+            // CMApp.fsConfirmRemove.show(filesystemRemoveConfirmationView);
+            filesystemRemoveConfirmationView.render().showModal();
+            // Listen for the modal dialog's action event and act accordingly
             var that = this;
-            (function () {
-                CMApp.vent.on("fs:FSRemoveAction", function(action){
-                    if (action === 'remove') {
-                        console.log("Closure handling removal of FS " + that.model.get('name'));
-                    }
-                    that.$el.animate({backgroundColor: 'transparent'}, "fast");
-                });
-            })();
+            filesystemRemoveConfirmationView.on('fs:removeFS', function(){
+                    that.handleRemove();
+            });
+            // closeModalWindow is automatically triggered by Backbone.ModalView
+            filesystemRemoveConfirmationView.on('closeModalWindow', function(){
+                that.$el.animate({backgroundColor: 'transparent'}, "slow");
+            });
         },
 
-        handleRemove: function(model) {
-            console.log("Handling removal of FS " + model.get('name'));
+        handleRemove: function() {
+            url = this.$el.find('a.fs-remove').attr('href');
+            $.get(url, function(data) {
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            this.model.attributes.status = 'Removing';
+            this.model.save();
         },
 
         showDetails: function(event) {
             event.preventDefault();
-            // Before displaying a new details box, close any others
+            // Before displaying a new details box, close any others and clear tr
             CMApp.vent.trigger("fs:detailsClose");
+            // Highlight the file system for which the details are being shown
             this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
             var detailsView = new FilesystemDetailsView({model: this.model});
             CMApp.fsDetails.show(detailsView);
-            // Add a hide event on the 'close' button
-            // Need to use closure here to keep a reference to the highlighted tr
+            // Listen for a hide event on the 'close' button to remove the tr highlight
             var that = this;
             (function () {
                 CMApp.vent.on("fs:detailsClose", function(){
                     that.$el.animate({backgroundColor: 'transparent'}, "fast");
                 });
             })();
-        },
+       },
 
         /*
         attributes: function() {
@@ -500,32 +506,37 @@ String.prototype.toSpaced = function(){
         }
     });
 
-    // Define the confirmation popup before removing a file system
-    var FilesystemRemoveConfirmationView= Backbone.Marionette.ItemView.extend({
-        template: "#fs-confirmRemove-template",
-        className: "fs-confirmRemove-box modal-box",
+    var FilesystemRemoveConfirmationView = Backbone.ModalView.extend({
+        removeFSConfirmationDialogTemplate:
+            '<div class="modal-dialog-header">Remove <%= name %> file system?</div>' +
+            '<div class="modal-dialog-text">Removing this file system will first stop any ' +
+                'services that require this file system. Then, the file system will be ' +
+                'unmounted and the underlying device disconnected from this instance.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
 
         events: {
             "click #confirm_fs_remove": "confirmFSRemove",
-            "click .modal-dialog-cancel-button": "cancelFSRemove",
+            "click .modal-dialog-cancel-button": function(){this.hideModal();}
         },
 
-        //initialize: function() {
-            //_.bindAll(this, "render");
-        //},
-        cancelFSRemove: function() {
-            console.log("Canceling FS " + this.model.get('name') + " removal");
-            CMApp.vent.trigger("fs:FSRemoveAction", "cancel");
-            CMApp.fsConfirmRemove.close();
+        initialize: function() {
+            // TODO: move the template out of the .js file
+            this.template = _.template(this.removeFSConfirmationDialogTemplate);
+        },
+
+        render: function() {
+            $(this.el).html(this.template(this.model.toJSON()));
+            return this;
         },
 
         confirmFSRemove: function() {
-            console.log("Confirming FS " + this.model.get('name') + " removal");
-            CMApp.vent.trigger("fs:FSRemoveAction", 'remove');
-            CMApp.fsConfirmRemove.close();
+            this.trigger('fs:removeFS');
+            this.hideModal();
         }
     });
-
 
     // Define the master view, i.e., list of all the file systems
     var FilesystemsView = Backbone.Marionette.CompositeView.extend({
@@ -666,7 +677,7 @@ String.prototype.toSpaced = function(){
             // Show the new file system resize form
             $('#'+formId).show("blind");
         },
-        
+
         */
 
     });
