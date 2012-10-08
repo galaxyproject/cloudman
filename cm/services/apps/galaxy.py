@@ -69,6 +69,9 @@ class GalaxyService(ApplicationService):
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
                 self.add_galaxy_admin_users()
                 self.add_dynamic_galaxy_options()
+                # TODO: Pick better name
+                if self.app.ud.get("configure_multiple_galaxy_processes", False):
+                    self.configure_multiple_galaxy_processes()
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
                 self._attempt_chown_galaxy_if_exists(universe_wsgi_path)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
@@ -210,12 +213,38 @@ class GalaxyService(ApplicationService):
     def get_galaxy_conf_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None)
 
+    def configure_multiple_galaxy_processes(self):
+        if not self.has_config_dir():
+            log.debug("Must specify a galaxy configuration directory (via galaxy_conf_dir) in order to create a multiple Galaxy processes.")
+        web_thread_count = int(self.app.ud.get("web_thread_count", 1))
+        handler_thread_count = int(self.app.ud.get("handler_thread_count", 1))
+        [self.add_server_process(i, "web", 8080) for i in range(web_thread_count)]
+        handlers = [self.add_server_process(i, "handler", 9080) for i in range(handler_thread_count)]
+        self.add_server_process(0, "manager", 8079)
+        self.add_universe_option("job_manager", "manager")
+        self.add_universe_option("job_handlers", ",".join(handlers))
+
+    def add_server_process(self, index, prefix, initial_port):
+        server_options = {"use": "egg:Paste#http",
+                          "port": initial_port + index,
+                          "use_threadpool": True,
+                          "threadpool_workers": self.app.get("threadpool_workers", "7")
+                          }
+        server_name = "%s%d" % (prefix, index)
+        self.add_universe_options(server_options, "server_%s" % server_name, section="server:%s" % server_name)
+        return server_name
+
     def add_universe_option(self, name, value, section="app:main"):
+        options = {name: value}
+        self.add_universe_options(options, name, section)
+
+    def add_universe_options(self, options, description, section="app:main"):
         prefix = self.app.ud.get("option_priority", "400")
         conf_dir = self.get_galaxy_conf_dir()
-        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
+        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, description)
         conf_file = os.path.join(conf_dir, conf_file_name)
-        open(conf_file, "w").write("[%s]\n%s=%s" % (section, name, value))
+        props_str = "\n".join(["%s=%s" % (k, v) for k, v in options.iteritems()])
+        open(conf_file, "w").write("[%s]\n%s" % (section, props_str))
 
     def add_dynamic_galaxy_options(self):
         if not self.has_config_dir():
