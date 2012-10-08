@@ -45,6 +45,10 @@ class GalaxyService(ApplicationService):
             return
         os.putenv( "GALAXY_HOME", self.galaxy_home )
         os.putenv( "TEMP", '/mnt/galaxyData/tmp' )
+        # Setup configuration directory for galaxy if galaxy_conf_dir specified 
+        # in user-data.
+        if self.has_config_dir():
+            self.setup_config_dir()
         if to_be_started:
             self.status()
             if not self.configured:
@@ -191,9 +195,24 @@ class GalaxyService(ApplicationService):
     def has_config_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None) is not None
 
+    def setup_config_dir(self):
+        conf_dir = self.get_galaxy_conf_dir()
+        # If config dir does not exist, create it and put default
+        # galaxy properties in with low priority.
+        if not os.path.exists(conf_dir):
+            os.makedirs(conf_dir)
+            defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini.sample")
+            defaults_destination = os.path.join(conf_dir, "010_universe_wsgi_defaults.ini")
+            os.symlink(defaults_source, defaults_destination)
+        # This will ensure galaxy's run.sh file picks up the config dir.
+        os.putenv("GALAXY_UNIVERSE_CONFIG_DIR", conf_dir)
+
+    def get_galaxy_conf_dir(self):
+        return self.app.ud.get("galaxy_conf_dir", None)
+
     def add_universe_option(self, name, value, section="app:main"):
         prefix = self.app.ud.get("option_priority", "400")
-        conf_dir = self.app.ud["galaxy_conf_dir"]
+        conf_dir = self.get_galaxy_conf_dir()
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
         conf_file = os.path.join(conf_dir, conf_file_name)
         open(conf_file, "w").write("[%s]\n%s=%s" % (section, name, value))
