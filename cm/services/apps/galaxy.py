@@ -145,12 +145,9 @@ class GalaxyService(ApplicationService):
         old_state = self.state
         if self._check_daemon('galaxy'):
             # log.debug("\tGalaxy daemon running. Checking if UI is accessible.")
-            dns = "http://127.0.0.1:8080"
-            try:
-                urllib2.urlopen(dns)
-                # log.debug("\tGalaxy daemon running and the UI is accessible.")
+            if self._is_galaxy_running():
                 self.state = service_states.RUNNING
-            except:
+            else:
                 log.debug("\tGalaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
         elif self.state==service_states.SHUTTING_DOWN or \
@@ -180,10 +177,21 @@ class GalaxyService(ApplicationService):
             # Force cluster configuration state update on status change
             self.app.manager.console_monitor.store_cluster_config()
 
+    def _is_galaxy_running(self):
+        dns = "http://127.0.0.1:8080"
+        running_error_codes = [403]  # Error codes that indicate Galaxy is running
+        try:
+            urllib2.urlopen(dns)
+            return True
+        except urllib2.HTTPError, e:
+            return e.code in running_error_codes
+        except:
+            return False
+
     def has_config_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None) is not None
 
-    def add_universe_option(self, name, value, section="[app:main]"):
+    def add_universe_option(self, name, value, section="app:main"):
         prefix = self.app.ud.get("option_priority", "400")
         conf_dir = self.app.ud["galaxy_conf_dir"]
         conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, name)
