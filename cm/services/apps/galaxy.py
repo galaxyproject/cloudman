@@ -18,6 +18,8 @@ class GalaxyService(ApplicationService):
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         self.svc_type = "Galaxy"
         self.configured = False # Indicates if the environment for running Galaxy has been configured
+        # Environment variables to set before executing galaxy's run.sh
+        self.env_vars = {"SGE_ROOT": paths.P_SGE_ROOT}
         self.reqs = {'Postgres': None,
                      'Filesystem': 'galaxyData',
                      'Filesystem': 'galaxyIndices',
@@ -135,7 +137,8 @@ class GalaxyService(ApplicationService):
                 # Make sure admin users get added
                 self.add_galaxy_admin_users()
                 log.debug('%s - galaxy -c "export SGE_ROOT=%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, paths.P_SGE_ROOT))
-                if not misc.run('%s - galaxy -c "export SGE_ROOT=%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, paths.P_SGE_ROOT), "Error invoking Galaxy", "Successfully initiated Galaxy start."):
+                env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
+                if not misc.run('%s - galaxy -c "%s; sh $GALAXY_HOME/run.sh --daemon"' % (paths.P_SU, env_exports), "Error invoking Galaxy", "Successfully initiated Galaxy start."):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
             else:
@@ -208,7 +211,7 @@ class GalaxyService(ApplicationService):
             defaults_destination = os.path.join(conf_dir, "010_universe_wsgi_defaults.ini")
             os.symlink(defaults_source, defaults_destination)
         # This will ensure galaxy's run.sh file picks up the config dir.
-        os.putenv("GALAXY_UNIVERSE_CONFIG_DIR", conf_dir)
+        self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
 
     def get_galaxy_conf_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None)
@@ -223,12 +226,13 @@ class GalaxyService(ApplicationService):
         self.add_server_process(0, "manager", 8079)
         self.add_universe_option("job_manager", "manager")
         self.add_universe_option("job_handlers", ",".join(handlers))
+        self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
 
     def add_server_process(self, index, prefix, initial_port):
         server_options = {"use": "egg:Paste#http",
                           "port": initial_port + index,
                           "use_threadpool": True,
-                          "threadpool_workers": self.app.get("threadpool_workers", "7")
+                          "threadpool_workers": self.app.ud.get("threadpool_workers", "7")
                           }
         server_name = "%s%d" % (prefix, index)
         self.add_universe_options(server_options, "server_%s" % server_name, section="server:%s" % server_name)
