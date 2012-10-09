@@ -11,6 +11,7 @@ from boto.s3.key import Key
 from boto.exception import S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat
 import base64
+import re
 
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
@@ -108,8 +109,8 @@ def _configure_nginx(ud):
     # User specified nginx.conf file, can be specified as
     # url or base64 encoded plain-text.
     nginx_conf = ud.get("nginx_conf_contents", None)
+    nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
     if nginx_conf:
-        nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
         if nginx_conf.startswith("http"):
             log.info("Fetching nginx conf from %s" % nginx_conf)
             _run("wget --output-document='%s' '%s'" % (nginx_conf_path, nginx_conf))
@@ -117,6 +118,20 @@ def _configure_nginx(ud):
             log.info("Writing out nginx.conf file base64 encoded in user-data:")
             with open(nginx_conf_path, "w") as output:
                 output.write(base64.b64decode(nginx_conf))
+    reconfigure_nginx = ud.get("reconfigure_nginx", True)
+    if reconfigure_nginx:
+        _reconfigure_nginx(ud, nginx_conf_path)
+
+def _reconfigure_nginx(ud, nginx_conf_path):
+    configure_multiple_galaxy_processes = ud.get("configure_multiple_galaxy_processes", False)
+    web_threads = ud.get("web_threads", 1)
+    if configure_multiple_galaxy_processes and web_threads > 1:
+        ports = [8080 + i for i in range(web_threads)]
+        servers = ["server localhost:%d;" % port for port in ports]
+        upstream_galaxy_app_conf = "upstream galaxy_app { %s } " % "".join(servers)
+        nginx_conf = open(nginx_conf_path, "r").read()
+        new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}", upstream_galaxy_app_conf, nginx_conf)
+        open(nginx_conf_path, "w").write(new_nginx_conf)
 
 def _get_s3connection(ud):
     if 'cloud_type' in ud and ud['cloud_type'] != 'ec2':
