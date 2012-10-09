@@ -237,7 +237,7 @@ class GalaxyService(ApplicationService):
         [self.add_server_process(i, "web", 8080) for i in range(web_thread_count)]
         handlers = [self.add_server_process(i, "handler", 9080) for i in range(handler_thread_count)]
         self.add_server_process(0, "manager", 8079)
-        self.add_universe_option("job_manager", "manager")
+        self.add_universe_option("job_manager", "manager0")
         self.add_universe_option("job_handlers", ",".join(handlers))
         self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
 
@@ -246,7 +246,7 @@ class GalaxyService(ApplicationService):
         # and one or more processes can fail to start because it "failed" to create
         # said directories (because another process created them first). This hack staggers
         # the process starts in an attempt to circumvent this problem.
-        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 15/\" %s/run.sh" % self.galaxy_home
+        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 10/\" %s/run.sh" % self.galaxy_home
         misc.run(patch_run_sh_command)
 
     def add_server_process(self, index, prefix, initial_port):
