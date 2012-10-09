@@ -246,7 +246,7 @@ class GalaxyService(ApplicationService):
         # and one or more processes can fail to start because it "failed" to create
         # said directories (because another process created them first). This hack staggers
         # the process starts in an attempt to circumvent this problem.
-        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 15/\" %s/run.sh" % P.GALAXY_HOME
+        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 15/\" %s/run.sh" % self.galaxy_home
         misc.run(patch_run_sh_command)
 
     def add_server_process(self, index, prefix, initial_port):
