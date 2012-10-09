@@ -241,6 +241,14 @@ class GalaxyService(ApplicationService):
         self.add_universe_option("job_handlers", ",".join(handlers))
         self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
 
+        # HACK: Galaxy has a known problem when starting from a fresh configuration
+        # in multiple process mode. Each process attempts to create the same directories
+        # and one or more processes can fail to start because it "failed" to create
+        # said directories (because another process created them first). This hack staggers
+        # the process starts in an attempt to circumvent this problem.
+        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 15/\" %s/run.sh" % P.GALAXY_HOME
+        misc.run(patch_run_sh_command)
+
     def add_server_process(self, index, prefix, initial_port):
         port = initial_port + index
         server_options = {"use": "egg:Paste#http",
