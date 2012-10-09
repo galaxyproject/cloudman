@@ -56,7 +56,7 @@ class ApplicationService( Service ):
         elif service == 'sge':
             pid_file = '%s/qmaster.pid' % paths.P_SGE_CELL
         elif service == 'galaxy':
-            pid_file = '%s/paster.pid' % paths.P_GALAXY_HOME
+            pid_file = '%s/main.pid' % paths.P_GALAXY_HOME
         else:
             return -1
         # log.debug("\tChecking pid file '%s' for service '%s'" % (pid_file, service))

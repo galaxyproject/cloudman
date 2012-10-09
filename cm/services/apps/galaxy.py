@@ -74,6 +74,13 @@ class GalaxyService(ApplicationService):
                 # TODO: Pick better name
                 if self.app.ud.get("configure_multiple_galaxy_processes", False):
                     self.configure_multiple_galaxy_processes()
+                    self.extra_daemon_args = ""
+                else:
+                    # Instead of sticking with default paster.pid and paster.log, explictly
+                    # set pid and log file to main.pid and main.log to bring single process
+                    # case inline with defaults for for multiple process case (i.e. when 
+                    # GALAXY_RUN_ALL is set and multiple servers are defined).
+                    self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
                 self._attempt_chown_galaxy_if_exists(universe_wsgi_path)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
@@ -135,7 +142,7 @@ class GalaxyService(ApplicationService):
                 log.info( "Starting Galaxy..." )
                 # Make sure admin users get added
                 self.add_galaxy_admin_users()
-                start_command = self.galaxy_run_command("--daemon")
+                start_command = self.galaxy_run_command("%s --daemon" % self.extra_daemon_args)
                 log.debug(start_command)
                 if not misc.run(start_command, "Error invoking Galaxy", "Successfully initiated Galaxy start."):
                     self.state = service_states.ERROR
@@ -147,7 +154,8 @@ class GalaxyService(ApplicationService):
             if misc.run(self.galaxy_run_command("--stop-daemon"), "Error stopping Galaxy", "Successfully stopped Galaxy."):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
-                subprocess.call( 'mv $GALAXY_HOME/paster.log $GALAXY_HOME/paster.log.%s' % datetime.utcnow().strftime('%H_%M'), shell=True )
+                # Move all log files
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
 
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
