@@ -222,7 +222,8 @@ class GalaxyService(ApplicationService):
 
     def configure_multiple_galaxy_processes(self):
         if not self.has_config_dir():
-            log.debug("Must specify a galaxy configuration directory (via galaxy_conf_dir) in order to create a multiple Galaxy processes.")
+            log.warn("Must specify a galaxy configuration directory (via galaxy_conf_dir) in order to create a multiple Galaxy processes.")
+            return
         web_thread_count = int(self.app.ud.get("web_thread_count", 1))
         handler_thread_count = int(self.app.ud.get("handler_thread_count", 1))
         [self.add_server_process(i, "web", 8080) for i in range(web_thread_count)]
@@ -233,12 +234,17 @@ class GalaxyService(ApplicationService):
         self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
 
     def add_server_process(self, index, prefix, initial_port):
+        port = initial_port + index
         server_options = {"use": "egg:Paste#http",
-                          "port": initial_port + index,
+                          "port": port,
                           "use_threadpool": True,
                           "threadpool_workers": self.app.ud.get("threadpool_workers", "7")
                           }
         server_name = "%s%d" % (prefix, index)
+        if port == 8080:
+            # Special case, server on port 8080 must be called main unless we want
+            # to start deleting chunks of universe_wsgi.ini.
+            server_name = "main"
         self.add_universe_options(server_options, "server_%s" % server_name, section="server:%s" % server_name)
         return server_name
 
