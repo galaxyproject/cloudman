@@ -283,7 +283,7 @@ class CM(BaseController):
         # Choose log file path based on service name
         log = "No '%s' log available." % service_name
         if service_name == 'Galaxy':
-            log_file = os.path.join(paths.P_GALAXY_HOME, 'paster.log')
+            log_file = os.path.join(paths.P_GALAXY_HOME, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
         elif service_name == 'SGE':
