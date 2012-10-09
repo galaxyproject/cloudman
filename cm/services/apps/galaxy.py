@@ -1,4 +1,5 @@
 import os, urllib2, shutil, subprocess, pwd, grp
+import shutil
 from datetime import datetime
 
 from cm.services.apps import ApplicationService
@@ -219,9 +220,18 @@ class GalaxyService(ApplicationService):
         # galaxy properties in with low priority.
         if not os.path.exists(conf_dir):
             os.makedirs(conf_dir)
-            defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini.sample")
             defaults_destination = os.path.join(conf_dir, "010_universe_wsgi_defaults.ini")
-            os.symlink(defaults_source, defaults_destination)
+            universe_wsgi = os.path.join(self.galaxy_home, "universe_wsgi.ini")
+            if not os.path.exists(universe_wsgi):
+                # Fresh install, take the oppertunity to just link in defaults
+                defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini.sample")
+                os.symlink(defaults_source, defaults_destination)
+            else:
+                # CloudMan has previously been run without the galaxy_conf_dir
+                # option enabled. Users may have made modifications to universe_wsgi.ini
+                # that I guess we should preserve for backward compatibility.
+                defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini")
+                shutil.copyfile(defaults_source, defaults_destination)
         # This will ensure galaxy's run.sh file picks up the config dir.
         self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
 
