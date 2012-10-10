@@ -984,7 +984,7 @@ class ConsoleManager(object):
             snaps_file = 'cm_snaps.yaml'
             snaps = None
             # Get a list of auto-mount/default/read-only/reference data sources
-            if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+            if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
                 snaps_file = misc.load_yaml_file(snaps_file)
                 snaps = snaps_file['static_filesystems']
             # Turn those data sources into file systems
@@ -1745,6 +1745,10 @@ class ConsoleMonitor( object ):
         bucket (do so only if they are not already there).
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        if not s3_conn:
+            # s3_conn will be None is use_object_store is False, in this case just skip this
+            # function.
+            return
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's bucket
