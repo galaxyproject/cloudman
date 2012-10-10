@@ -1,6 +1,6 @@
-body 
+body
 {
-    font: 75% verdana, "Bitstream Vera Sans", geneva, arial, helvetica, helve, sans-serif; 
+    font: 75% verdana, "Bitstream Vera Sans", geneva, arial, helvetica, helve, sans-serif;
     background: #FFFFFF;
     color: #303030;
     background-image: url(base_bg.png);
@@ -14,7 +14,7 @@ a:link, a:visited, a:active
     color: #303030;
 }
 
-h1, h2, h3, h4 
+h1, h2, h3, h4
 {
     color: #023858;
     /*text-shadow: #bbb 2px 2px 1px;*/
@@ -268,7 +268,7 @@ div.form-row-input > input{max-width:300px;}
     -moz-border-radius: 3px;
     -webkit-border-radius: 3px;
     -khtml-border-radius: 3px;
-    
+
 }
 .help_content a{
     color: #9D9E9E;
@@ -570,7 +570,7 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 }
 
 #log_container_header {
-	background-color: #D0D2D3; 
+	background-color: #D0D2D3;
     margin: 0;
 	padding: 5px;
 	-moz-border-radius:10px 10px 10px 10px;
@@ -616,7 +616,7 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 	height: 200px;
 	width:690px;
 	overflow: auto;
-	background-color: #f5f6f6; 
+	background-color: #f5f6f6;
 	-moz-border-radius:0px 0px 10px 10px;
     -webkit-border-bottom-left-radius: 10px;
     -webkit-border-bottom-right-radius: 10px;
@@ -636,7 +636,7 @@ div.report
 }
 
 div.reportTitle
-{ 
+{
   font-weight: bold;
   padding: 5px;
   padding-left: 10px;
@@ -659,7 +659,7 @@ div.reportParamHelp a
 }
 
 div.reportBody
-{ 
+{
   background: #FFFFFF;
   background-repeat: repeat-x;
   background-position: top;
@@ -689,11 +689,11 @@ div.reportDisabled {
 }
 
 div.reportHelp
-{ 
+{
 }
 
 div.reportHelpBody
-{ 
+{
 	width: 100%;
 	overflow: auto;
 }
@@ -705,7 +705,7 @@ div.titleRow {
     padding-bottom: 0.25em;
 }
 
-div.report-row 
+div.report-row
 {
     margin-bottom: 1em;
 }
@@ -747,7 +747,7 @@ div.report-row label
     -khtml-border-radius: 5px;
     -moz-box-shadow: 0 1px 5px #333;
     -webkit-box-shadow: 0 1px 5px #333;
-    
+
     clear:both;
 }
 
@@ -789,28 +789,28 @@ div.report-row label
     background-position: 10px 10px;
 }
 
-.warningmessage 
+.warningmessage
 {
     background-image: url(/cloud/static/images/warn_message_icon.png);
     border-color: #AAAA66;
     background-color: #FFFFCC;
 }
 
-.donemessage 
+.donemessage
 {
     background-image: url(done_message_icon.png);
     border-color: #66AA66;
     background-color: #CCFFCC;
 }
 
-.infomessage 
+.infomessage
 {
     background-image: url(info_message_icon.png);
     border-color: #6666AA;
     background-color: #CCCCFF;
 }
 
-.welcomeBlue 
+.welcomeBlue
 {
     padding-left: 10px;
     border-color: #6666AA;
@@ -818,7 +818,7 @@ div.report-row label
     background-image: none;
 }
 
-.welcomeRed 
+.welcomeRed
 {
     padding-left: 10px;
     border-color: #AA6666;
@@ -826,7 +826,7 @@ div.report-row label
     background-image: none;
 }
 
-.errormessagesmall, .warningmessagesmall, .donemessagesmall, .infomessagesmall 
+.errormessagesmall, .warningmessagesmall, .donemessagesmall, .infomessagesmall
 {
     padding: 5px;
     padding-left: 25px;
@@ -859,10 +859,10 @@ div.report-row label
     background-color: #CCCCFF;
 }
 
-.ok_bgr 
-{ 
-	background: #AEFF5E; 
-	border: 1px #76EC00 solid; 
+.ok_bgr
+{
+	background: #AEFF5E;
+	border: 1px #76EC00 solid;
 	border-color: #66CC00 #66CC00 #66CC00 #66CC00;
 }
 
@@ -873,12 +873,12 @@ div.report-row label
     background: url(error_small.png) no-repeat;
 }
 
-.warningmark 
+.warningmark
 {
     background-image: url(warn_small.png);
 }
 
-.donemark 
+.donemark
 {
     background-image: url(ok_small.png);
 }
@@ -907,7 +907,7 @@ table.colored td
 }
 
 table.colored tr.header
-{ 
+{
   background: #EBD9B2;
   background-image: url(report_title_bg.png);
   background-repeat: repeat-x;
@@ -916,7 +916,7 @@ table.colored tr.header
   font-weight: bold;
 }
 table.colored tr.headernew
-{ 
+{
   background: #ADD8E6;
   background-repeat: repeat-x;
   background-position: top;
@@ -924,7 +924,7 @@ table.colored tr.headernew
   font-weight: bold;
 }
 table.colored tr.headerwaiting
-{ 
+{
   background: #FF6600;
   background-repeat: repeat-x;
   background-position: top;
@@ -932,7 +932,7 @@ table.colored tr.headerwaiting
   font-weight: bold;
 }
 table.colored tr.headerqueued
-{ 
+{
   background: #EE82EE;
   background-repeat: repeat-x;
   background-position: top;
@@ -940,7 +940,7 @@ table.colored tr.headerqueued
   font-weight: bold;
 }
 table.colored tr.headerrunning
-{ 
+{
   background: #FFFF00;
   background-repeat: repeat-x;
   background-position: top;
@@ -948,7 +948,7 @@ table.colored tr.headerrunning
   font-weight: bold;
 }
 table.colored tr.headererror
-{ 
+{
   background: #FF0000;
   background-repeat: repeat-x;
   background-position: top;
@@ -956,7 +956,7 @@ table.colored tr.headererror
   font-weight: bold;
 }
 table.colored tr.headerdeleted
-{ 
+{
   background: #9900FF;
   background-repeat: repeat-x;
   background-position: top;
@@ -964,7 +964,7 @@ table.colored tr.headerdeleted
   font-weight: bold;
 }
 table.colored tr.headerok
-{ 
+{
   background: #008000;
   background-repeat: repeat-x;
   background-position: top;
@@ -972,7 +972,7 @@ table.colored tr.headerok
   font-weight: bold;
 }
 table.colored tr.headerupload
-{ 
+{
   background: #336699;
   background-repeat: repeat-x;
   background-position: top;
@@ -980,7 +980,7 @@ table.colored tr.headerupload
   font-weight: bold;
 }
 table.colored tr.headerunknown
-{ 
+{
   background: #FF6666;
   background-repeat: repeat-x;
   background-position: top;
@@ -988,12 +988,12 @@ table.colored tr.headerunknown
   font-weight: bold;
 }
 table.colored tr
-{ 
+{
   background: white;
 }
 
 table.colored tr.odd_row
-{ 
+{
   background: #FFFF99;
 }
 
@@ -1005,7 +1005,7 @@ div.debug
     border: solid #FFFF33 1px;
     color: black;
 }
-    
+
 #footer {
   display: none;
 }
@@ -1196,17 +1196,17 @@ div.volume_expand_popup{
 }
 
 .LV_valid_field,
-    input.LV_valid_field:hover, 
+    input.LV_valid_field:hover,
     input.LV_valid_field:active,
-    textarea.LV_valid_field:hover, 
+    textarea.LV_valid_field:hover,
     textarea.LV_valid_field:active {
 /*    border: 1px solid #00CC00;*/
 }
 
-.LV_invalid_field, 
-    input.LV_invalid_field:hover, 
+.LV_invalid_field,
+    input.LV_invalid_field:hover,
     input.LV_invalid_field:active,
-    textarea.LV_invalid_field:hover, 
+    textarea.LV_invalid_field:hover,
     textarea.LV_invalid_field:active {
 /*    border: 1px solid #CC0000;*/
 }
@@ -1287,7 +1287,6 @@ p.disabled {
     background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
 .fs-resize-form {
-    display:none;
     width: 694px;
     background-color:#FEF1B5;
     padding: 3px;

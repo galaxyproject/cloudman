@@ -117,7 +117,6 @@
         </table>
         <strong>File systems</strong>
         ## backbone-managed
-        <div id="fs-confirmRemove-container"></div>
         <div id='fs-details-container'></div>
         <div id="filesystems-container"></div>
         <div id='fs-resize-form-container'></div>
@@ -360,7 +359,7 @@
             <%= size_used %>/<%= size %> (<%= size_pct %>)
         <% } %></td>
         <td class="fs-td-15pct">
-        <!-- Only display controls when the file system is 'Available' -->
+        <!-- // Only display controls when the file system is 'Available' -->
         <% if (status === "Available" || status === "Running") { %>
             <a class="fs-remove icon-button" id="fs-<%= name %>-remove"
                 href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
@@ -379,6 +378,42 @@
             <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
         </td>
         <td class="fs-td-spacer"></td>
+    </%text>
+    </script>
+    <script type="text/template" id="fs-resize-template">
+    <%text filter='trim'>
+        <div class="form-row">
+            Through this form you may increase the disk space available to this file system.
+            Any services using this file system <b>WILL BE STOPPED</b>
+            until the new disk is ready, at which point they will all be restarted. Note
+            that This may result in failure of any jobs currently running. Note that the new
+            disk size <b>must be larger</b> than the current disk size.
+            <p>During this process, a snapshot of your data volume will be created,
+            which can optionally be left in your account. If you decide to leave the
+            snapshot for reference, you may also provide a brief note that will later
+            be visible in the snapshot's description.</p>
+        </div>
+        <div class="form-row">
+            <label>New disk size (minimum <span id="du-inc"><%= size %></span>B,
+            maximum 1000GB)</label>
+            <div id="permanent_storage_size" class="form-row-input">
+                <input type="text" name="new_vol_size" id="new_vol_size"
+                placeholder="Greater than <%= size %>B" size="25">
+            </div>
+            <label>Note</label>
+            <div id="permanent_storage_size" class="form-row-input">
+                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value=""
+                placeholder="Optional snapshot description" size="50"><br/>
+            </div>
+            <label>or delete the created snapshot after filesystem resizing?</label>
+            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked,
+            the created snapshot will not be kept
+            <div class="form-row">
+                <input type="submit" value="Resize <%= name %> file system"/>
+                or <a class="fs-resize-form-close" href="#">cancel</a>
+            </div>
+            <input name="fs_name" type="text" hidden="Yes" value="<%= name %>" />
+        </div>
     </%text>
     </script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
