@@ -1005,9 +1005,8 @@ class ConsoleManager(object):
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.services.append(fs)
-            # Add a file system for user's data now (OpenNebula and dummy clouds
-            # do not support volumes yet so skip those)
-            if self.app.cloud_type not in ['opennebula', 'dummy']:
+            # Add a file system for user's data
+            if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
             self.services.append(PostgresService(self.app))
