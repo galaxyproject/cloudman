@@ -124,7 +124,7 @@ def _configure_nginx(ud):
 
 def _reconfigure_nginx(ud, nginx_conf_path):
     configure_multiple_galaxy_processes = ud.get("configure_multiple_galaxy_processes", False)
-    web_threads = ud.get("web_threads", 1)
+    web_threads = ud.get("web_thread_count", 1)
     if configure_multiple_galaxy_processes and web_threads > 1:
         ports = [8080 + i for i in range(web_threads)]
         servers = ["server localhost:%d;" % port for port in ports]
