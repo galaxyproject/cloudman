@@ -799,7 +799,8 @@ class ConsoleManager(object):
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
+        if s3_conn:
+            misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
 
     def clean(self):
         """ Clean the system as if it was freshly booted. All services are shut down
