@@ -144,7 +144,7 @@ class ConsoleManager(object):
         # type has been selected and all of the services are in RUNNING state
         self.app.manager.services.append(PSS(self.app))
 
-        # Check if starting a derived cluster and initialize from share, 
+        # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
         if self.app.ud.has_key("share_string"):
