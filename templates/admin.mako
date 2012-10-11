@@ -409,7 +409,7 @@
             <input type="checkbox" name="delete_snap" id="delete_snap"> If checked,
             the created snapshot will not be kept
             <div class="form-row">
-                <input type="submit" value="Resize <%= name %> file system"/>
+                <input type="submit" class="fs-form-submit-button" value="Resize <%= name %> file system"/>
                 or <a class="fs-resize-form-close" href="#">cancel</a>
             </div>
             <input name="fs_name" type="text" hidden="Yes" value="<%= name %>" />

@@ -251,7 +251,8 @@ String.prototype.toSpaced = function(){
         events: {
             "click .fs-remove": "triggerRemove",
             "click .fs-details": "showDetails",
-            "click .fs-resize": "triggerResize"
+            "click .fs-resize": "triggerResize",
+            "click .fs-persist": "triggerPersist"
         },
 
         initialize: function() {
@@ -285,7 +286,7 @@ String.prototype.toSpaced = function(){
             // Listen for the modal dialog's action event and act accordingly
             var that = this;
             filesystemRemoveConfirmationView.on('fs:removeFS', function(){
-                    that.handleRemove();
+                that.handleRemove();
             });
             // closeModalWindow is automatically triggered by Backbone.ModalView
             filesystemRemoveConfirmationView.on('closeModalWindow', function(){
@@ -318,28 +319,55 @@ String.prototype.toSpaced = function(){
                     that.$el.animate({backgroundColor: 'transparent'}, "fast");
                 });
             })();
-       },
+        },
 
-      triggerResize: function(){
+        triggerResize: function(event){
+            event.preventDefault();
+            // Show the form only if not already shown
+            if ($('#fs-resize-form-container').html() === ""){
+                this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
+                var filesystemResizeFormView = new FilesystemResizeFormView({model: this.model});
+                CMApp.fsResizeRegion.show(filesystemResizeFormView);
+                // item:before:close is automatically triggered by backbone.Marionette
+                var that = this;
+                filesystemResizeFormView.on('item:before:close', function(){
+                    that.$el.animate({backgroundColor: 'transparent'}, "slow");
+                });
+                // Update model state on the resizing event
+                filesystemResizeFormView.on("fs:resizing", function(){
+                    that.model.attributes.status = "Resizing";
+                    that.model.save();
+                });
+            }
+        },
+
+        triggerPersist: function(event){
             event.preventDefault();
             this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
-            var filesystemResizeFormView = new FilesystemResizeFormView({model: this.model});
-            CMApp.fsResizeRegion.show(filesystemResizeFormView);
-            // item:before:close is automatically triggered by backbone.Marionette
+            // Show a modal confirmation dialog
+            var filesystemPersistConfirmationView =
+                new FilesystemPersistConfirmationView({model: this.model});
+            filesystemPersistConfirmationView.render().showModal();
+            // Listen for the modal dialog's action event and act accordingly
             var that = this;
-            filesystemResizeFormView.on('item:before:close', function(){
+            filesystemPersistConfirmationView.on('fs:persistFS', function(){
+                that.handlePersist();
+            });
+            // closeModalWindow is automatically triggered by Backbone.ModalView
+            filesystemPersistConfirmationView.on('closeModalWindow', function(){
                 that.$el.animate({backgroundColor: 'transparent'}, "slow");
             });
-            // Update model state on the resizing event
-            filesystemResizeFormView.on("fs:resizing", function(){
-                that.model.attributes.status = "Resizing";
-                that.model.save();
-            })
-       },
+        },
 
-      handleResize: function(){
-            return false;
-      }
+        handlePersist: function(){
+            url = this.$el.find('a.fs-persist').attr('href');
+            $.get(url, function(data) {
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            this.model.attributes.status = 'Persisting';
+            this.model.save();
+        }
     });
 
     // Define the form view for resizing a file system
@@ -394,26 +422,24 @@ String.prototype.toSpaced = function(){
         }
     });
 
-    // Define the view for displaying a confirmation dialog before removing a FS
-    var FilesystemRemoveConfirmationView = Backbone.ModalView.extend({
-        removeFSConfirmationDialogTemplate:
-            '<div class="modal-dialog-header">Remove <%= name %> file system?</div>' +
-            '<div class="modal-dialog-text">Removing this file system will first stop any ' +
-                'services that require this file system. Then, the file system will be ' +
-                'unmounted and the underlying device disconnected from this instance.</div>' +
+    // Base ModalConfirmationDialogView - other confirmation views should inherit from this one
+    var ModalConfirmationDialogView = Backbone.ModalView.extend({
+        template:
+            '<div class="modal-dialog-header">Are you sure?</div>' +
+            '<div class="modal-dialog-text">Clicking on the <i>Confirm</i> button ' +
+                'will initiate the requested action.</div>' +
             '<div class="modal-dialog-buttons">' +
-                '<button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-ok-button">Confirm</button>' +
                 '<button class="modal-dialog-cancel-button">Cancel</button>' +
             '</div>',
 
         events: {
-            "click #confirm_fs_remove": "confirmFSRemove",
+            "click .modal-dialog-ok-button": "confirm",
             "click .modal-dialog-cancel-button": function(){this.hideModal();}
         },
 
         initialize: function() {
-            // TODO: move the template out of the .js file
-            this.template = _.template(this.removeFSConfirmationDialogTemplate);
+            this.template = _.template(this.template);
         },
 
         render: function() {
@@ -421,8 +447,51 @@ String.prototype.toSpaced = function(){
             return this;
         },
 
-        confirmFSRemove: function() {
+        confirm: function() {
+            this.trigger("modal-dialog-ok");
+            this.hideModal();
+        }
+    });
+
+    // Define the view for displaying a confirmation dialog before removing a FS
+    var FilesystemRemoveConfirmationView = ModalConfirmationDialogView.extend({
+        template:
+            '<div class="modal-dialog-header">Remove <i><%= name %></i> file system?</div>' +
+            '<div class="modal-dialog-text">Removing this file system will first stop any ' +
+                'services that require this file system. Then, the file system will be ' +
+                'unmounted and the underlying device disconnected from this instance.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_action" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
+
+        confirm: function() {
             this.trigger('fs:removeFS');
+            this.hideModal();
+        }
+    });
+
+    // Define the view for displaying a confirmation dialog before persisting changes to a FS
+    var FilesystemPersistConfirmationView = ModalConfirmationDialogView.extend({
+        template:
+            '<div class="modal-dialog-header">Persist <i><%= name %></i> file system changes?</div>' +
+            '<div class="modal-dialog-text"><p>If you have made changes to the ' +
+                '<i><%= name %></i> file system and would like to persist the changes ' +
+                'across cluster invocations, it is required to persist those ' +
+                'changes. </p><i>What will happen next?</i></br>' +
+                'Persisting file system changes requires that any services running on the ' +
+                'file system be stopped and the file system unmounted. Then, a ' +
+                'snapshot of the underlying volume will be created and any services ' +
+                'running on the file system started back up. Note that depending ' +
+                'on the amount of changes you have made to the file system, this ' +
+                'process may take a while.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_persist" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
+
+        confirm: function() {
+            this.trigger('fs:persistFS');
             this.hideModal();
         }
     });
@@ -437,19 +506,6 @@ String.prototype.toSpaced = function(){
         appendHtml: function(collectionView, itemView) {
             collectionView.$("tbody").append(itemView.el);
         }
-
-        /*triggerPersist: function(event) {
-            event.preventDefault();
-            var el = $('#'+event.currentTarget.id);
-            var url = el.attr('href');
-            $.get(url, function(data) {
-                $('#msg').html(data).fadeIn();
-                clear_msg();
-            });
-            popup();
-            updateFSStatus(el.parents('.filesystem-tr').attr('fs_name'), "Updating");
-        },
-        */
 
     });
 
@@ -542,7 +598,7 @@ String.prototype.toSpaced = function(){
                 'and thus automatically added the next this this cluster is started</label>' +
             '</div>' +
             '<div id="add-fs-submit-btn" class="add-fs-details-form-row">' +
-                '<input type="submit" value="Add new file system"/>' +
+                '<input type="submit" class="fs-form-submit-button" value="Add new file system"/>' +
                 'or <a class="fs-add-form-close" href="#">cancel</a>' +
             '</div>' +
             '</div>',
