@@ -85,7 +85,7 @@ class PSS(ApplicationService):
         else:
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = None
-            if self.app.ud.has_key('bucket_cluster'):
+            if s3_conn and self.app.ud.has_key('bucket_cluster'):
                 b = s3_conn.lookup(self.app.ud['bucket_cluster'])
             if b is not None: # Check if an existing cluster has a stored post start script
                 log.debug("Cluster bucket '%s' found; looking for post start script '%s'" \
@@ -119,6 +119,8 @@ class PSS(ApplicationService):
             and it not older than the local one.
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        if not s3_conn:
+            return
         pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
         if misc.file_in_bucket_older_than_local(s3_conn,
                                                 self.app.ud['bucket_cluster'],
