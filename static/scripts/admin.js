@@ -125,39 +125,12 @@ function handle_clicks() {
             $('#user_data').fadeIn('fast');
         });
     });
-    //$('#manage_FSs_link').click(function(){
-        //$('#overlay').show();
-        //$('#add_fs_overlay').show();
-        // get_filesystems();
-    //});
     // Clicking the semi-transparent overlay clears any overlays
     $('body').on('click', 'div.overlay', function() { hidebox();});
     // Force an update of the field on click
     $('#master_is_exec_host').click(function(){
         update();
     });
-    // Handle click on 'Details' of an individual file system
-    // TODO: this should be translated to a backbone event
-    /*
-    $('table').on('click', 'a.fs-detailss', function() {
-        // Make sure any other details boxes are closed before opening a new one
-        if ($('.fs-details-box').is(':visible')) {
-            $('.fs-details-box-close').trigger('click');
-        }
-        var elid = $(this).attr('details-box'); // Get the element ID of the clicked FS
-        var tr = $(this).parents('tr'); // Keep reference to the highlighted tr
-        tr.animate({backgroundColor: '#FEF1B5'}, 'slow');
-        $("#"+elid).show("fold");
-        // Add a hide event on the 'close' button
-        // Need to use closure here to keep a reference to the highlighted tr
-        var closer = function () {
-            $("#"+elid).on('click', "a.fs-details-box-close", function() {
-                $("#"+elid).hide();
-                $(tr).animate({backgroundColor: 'transparent'}, 'slow');
-            });
-        }();
-        return false; // prevent page autoscroll to the top
-    });*/
 }
 function handle_forms() {
     // Handle generic forms
@@ -225,6 +198,36 @@ String.prototype.toSpaced = function(){
 	return this.replace(/(\_[a-z])/g, function($1){return $1.toUpperCase().replace('_',' ');});
 };
 
+// Convert form data to JS object
+// http://stackoverflow.com/questions/1184624/convert-form-data-to-js-object-with-jquery
+jQuery.fn.serializeObject = function() {
+  var arrayData, objectData;
+  arrayData = this.serializeArray();
+  objectData = {};
+
+  $.each(arrayData, function() {
+    var value;
+
+    if (this.value != null) {
+      value = this.value;
+    } else {
+      value = '';
+    }
+
+    if (objectData[this.name] != null) {
+      if (!objectData[this.name].push) {
+        objectData[this.name] = [objectData[this.name]];
+      }
+
+      objectData[this.name].push(value);
+    } else {
+      objectData[this.name] = value;
+    }
+  });
+
+  return objectData;
+};
+
 // Backbone.js components
 (function ($) {
 
@@ -232,7 +235,11 @@ String.prototype.toSpaced = function(){
     var Filesystem = Backbone.Model.extend({
         defaults: {
             id: null,
-            status: 'Unavailable'
+            status: 'Unavailable',
+            size_used: 'N/A',
+            size_pct: 'N/A',
+            size: 'N/A',
+            DoT: 'N/A'
         }
     });
 
@@ -683,17 +690,42 @@ String.prototype.toSpaced = function(){
             event.preventDefault();
             var el = $('#'+event.currentTarget.id);
             var url = el.attr('action');
+            // Based on the kind of the new file system, get the name
+            var fs_kind = $('input[type=radio]:checked', el).val();
+            var form_obj = el.serializeObject();
+            switch(fs_kind) {
+                case "bucket":
+                    var new_fs_name = form_obj.bucket_fs_name;
+                    break;
+                case "volume":
+                    var new_fs_name = form_obj.vol_fs_name;
+                    break;
+                case "snapshot":
+                    var new_fs_name = form_obj.snap_fs_name;
+                    break;
+                case "new_volume":
+                    var new_fs_name = form_obj.new_vol_fs_name;
+                    break;
+                default:
+                    var new_fs_name = "Unknown";
+            }
+            if (form_obj.dot === 'on'){
+                var dot = 'Yes';
+            } else {
+                var dot = 'No';
+            }
+            // Make the POST request
             $.post(url, el.serialize(),
                 function(data) {
                     $('#msg').html(data).fadeIn();
                     clear_msg();
             });
-            popup();
             // Hide the resize form
             this.formElToClose = el;
             this.closeForm();
-            // TODO: Update status
-            //updateFSStatus(fsName, "Resizing");
+            // Add this file system to the collection to be shown on the UI
+            FScollection.add({name: new_fs_name, status: 'Adding', kind: fs_kind,
+                mount_point: '/mnt/'+new_fs_name, DoT: dot});
         },
 
         triggerFormClose: function(event) {
@@ -748,11 +780,6 @@ String.prototype.toSpaced = function(){
 
     // --- Driver code ---
 
-    // An app-wide event aggregator object: http://bit.ly/p3nTe6
-    var vent = _.extend({}, Backbone.Events);
-    // Create an instance of the master view
-    // var filesystemList = new FilesystemsView({vent: vent});
-
     // Define model collection
     var FScollection = new Filesystems(); // A container for all Filesystems
 
@@ -771,10 +798,12 @@ String.prototype.toSpaced = function(){
     });
     CMApp.start({filesystems: FScollection});
 
+    // An app-wide event aggregator object: http://bit.ly/p3nTe6
+    var vent = _.extend({}, Backbone.Events);
     // Create instances of the add new file system button and form views
     // Also, subscribe those to global events
     // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
-    var addFilesystemBtnView= new AddFilesystemBtnView({vent: vent});
+    var addFilesystemBtnView = new AddFilesystemBtnView({vent: vent});
     var addFilesystemFormView = new AddFilesystemFormView({vent: vent});
     $('#fs-add-form').html(addFilesystemFormView.render().el);
 

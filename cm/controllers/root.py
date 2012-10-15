@@ -175,7 +175,7 @@ class CM(BaseController):
                 .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
-        return "FS_ACK"
+        return "Initiated file system addition"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
