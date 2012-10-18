@@ -16,7 +16,7 @@ class SGEService( ApplicationService ):
         super(SGEService, self).__init__(app)
         self.svc_type = "SGE"
         self.hosts = []
-    
+
     def start(self):
         self.state = service_states.STARTING
         if self.unpack_sge():
@@ -24,7 +24,7 @@ class SGEService( ApplicationService ):
         else:
             log.error("Error adding service '%s'" % self.svc_type)
             self.state = service_states.ERROR
-    
+
     def remove(self):
         # TODO write something to clean up SGE in the case of restarts?
         log.info("Removing SGE service")
@@ -32,10 +32,10 @@ class SGEService( ApplicationService ):
         for inst in self.app.manager.worker_instances:
             if not inst.is_spot() or inst.spot_was_filled():
                 self.remove_sge_host(inst.get_id(), inst.get_private_ip())
-        
+
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master")
         self.state = service_states.SHUT_DOWN
-    
+
     def clean(self):
         """ Stop SGE and clean up the system as if SGE was never installed. Useful for CloudMan restarts."""
         self.remove()
@@ -56,7 +56,7 @@ class SGEService( ApplicationService ):
             if d1!=-1 or d2!=-1:
                 with open(paths.LOGIN_SHELL_SCRIPT, 'w') as f:
                     f.writelines(lines)
-    
+
     def unpack_sge( self ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to get volumes, but TESTFLAG is set." )
@@ -122,7 +122,7 @@ class SGEService( ApplicationService ):
             print >> f, self._get_sge_install_conf()
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
         log.debug("Created SGE install template as file '%s'" % SGE_config_file)
-        # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
+        # Check if /lib64/libc.so.6 exists - it's required by SGE but on
         # Ubuntu 11.04 the location and name of the library have changed
         if not os.path.exists('/lib64/libc.so.6'):
             if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
@@ -159,7 +159,7 @@ class SGEService( ApplicationService ):
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
             return True
         return False
-    
+
     def _fix_util_arch(self):
         # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
@@ -170,35 +170,35 @@ class SGEService( ApplicationService ):
                                                              "      [23].[260].*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
         misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
-        # Ensure lines starting with 127.0.1. are not included in /etc/hosts 
+        # Ensure lines starting with 127.0.1. are not included in /etc/hosts
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init
         # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
         misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
-    
+
     def add_sge_host(self, inst_id, inst_private_ip):
         """ Add the instance into the SGE cluster. This implies adding the instance
             as an administrative host and a execution host.
-            
+
             :type inst_id: string
             :param inst_id: ID of the instance. This value is used only in the print
                             statements.
-            
+
             :type inst_private_ip: string
             :param inst_private_ip: IP address of the instance to add to SGE.
-                                    This needs to be the IP address visible to the 
+                                    This needs to be the IP address visible to the
                                     other nodes in the cluster (ie, private IP).
         """
         # TODO: Should check to ensure SGE_ROOT mounted on worker
         time.sleep(10) # Wait in hope that SGE processed last host addition
         log.debug("Adding instance {0} w/ private IP {1} to SGE".format(inst_id, inst_private_ip))
-        
+
         #== Add instance as SGE administrative host
         self._add_instance_as_admin_host(inst_id, inst_private_ip)
-        
+
         #== Add instance as SGE execution host
         return self._add_instance_as_exec_host(inst_id, inst_private_ip)
-    
+
     def _add_instance_as_admin_host(self, inst_id, inst_private_ip):
         log.info("Adding instance {0} as SGE administrative host.".format(inst_id))
         stderr = stdout = None
@@ -220,7 +220,7 @@ class SGEService( ApplicationService ):
             log.debug("Adding instance {0} SGE administrative host stderr (private IP: {1}): {2}"\
                 .format(inst_id, inst_private_ip, stderr))
         return error
-    
+
     def _add_instance_as_exec_host(self, inst_id, inst_private_ip):
         error = False
         # Check if host is already in the exec host list
@@ -260,9 +260,9 @@ class SGEService( ApplicationService ):
                     % (inst_id, inst_private_ip, stdout))
                 log.debug("Adding instance '%s' SGE execution host stderr (private IP: '%s'): '%s'" \
                     % (inst_id, inst_private_ip, stderr))
-        
+
         #== Add given instance's hostname to @allhosts
-        # Check if instance is already in allhosts file and do not recreate the 
+        # Check if instance is already in allhosts file and do not recreate the
         # file if so.
         # Additional documentation: allhosts file can be generated by Cloudman
         # each time an instance is added or removed. The file is generetd based
@@ -288,15 +288,15 @@ class SGEService( ApplicationService ):
                 error = True
         else:
             log.info("Instance '%s' IP is already in SGE's @allhosts" % inst_id)
-        
+
         # On instance reboot, SGE might have already been configured for a given
         # instance and this method will fail along the way although the instance
         # will still operate within SGE so don't explicitly state it was added.
         if error is False:
             log.info("Successfully added instance '%s' to SGE" % inst_id)
-        
+
         return True
-    
+
     def stop_sge(self):
         log.info("Stopping SGE.")
         for inst in self.app.manager.worker_instances:
@@ -304,7 +304,7 @@ class SGEService( ApplicationService ):
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' \
             % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", \
             "Successfully stopped SGE master.")
-    
+
     def write_allhosts_file(self, filename = '/tmp/ah', to_add = None, to_remove = None):
         ahl = []
         log.debug("to_add: '%s'" % to_add)
@@ -327,11 +327,11 @@ class SGEService( ApplicationService ):
                 else:
                     log.debug(" - instance with IP '%s' marked for removal so not adding it " \
                         "(instance state: '%s')" % (inst.get_private_ip(), inst.worker_status))
-            
+
         # For comparisson purposes, make sure all elements are lower case
         for i in range(len(ahl)):
             ahl[i] = ahl[i].lower()
-        
+
         # Now reasemble and save to file 'filename'
         if len(ahl) > 0:
             new_allhosts = 'group_name @allhosts \n'+'hostlist ' + ' \\\n\t '.join(ahl) + ' \\\n'
@@ -342,38 +342,50 @@ class SGEService( ApplicationService ):
         f.close()
         log.debug("new_allhosts:\n%s" % new_allhosts)
         log.debug("New SGE @allhosts file written successfully to %s." % filename)
-    
+
     def remove_sge_host(self, inst_id, inst_private_ip):
         """ Remove the instance from being tracked/controlled by SGE. This implies
             removing the instance form being an administrative host and a execution
             host.
-            
+
             :type inst_id: string
             :param inst_id: ID of the instance. This value is used only in the print
                             statements.
-            
+
             :type inst_private_ip: string
             :param inst_private_ip: IP address of the instance to remove from SGE.
-                                    This needs to be the IP address visible to the 
+                                    This needs to be the IP address visible to the
                                     other nodes in the cluster (ie, private IP).
         """
         log.info("Removing instance {0} from SGE".format(inst_id))
         self._remove_instance_from_admin_list(inst_id, inst_private_ip)
         return self._remove_instance_from_exec_list(inst_id, inst_private_ip)
-    
+
     def _remove_instance_from_admin_list(self, inst_id, inst_private_ip):
+        """
+        Remove instance ``inst_id`` from SGE's administrative host list.
+        """
         log.debug("Removing instance {0} from SGE administrative host list".format(inst_id))
         return subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
             '%s/bin/lx24-amd64/qconf -dh %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst_private_ip), \
             shell=True)
-    
+
     def _remove_instance_from_exec_list(self, inst_id, inst_private_ip):
+        """
+        Remove instance ``inst_id`` with the provided private IP from SGE's
+        execution host list. If the removal was detected as being successful,
+        return ``True``, else return ``False``.
+        """
+        if not inst_private_ip:
+            log.warning("Got empty private IP for instance {0}; cannot remove it "\
+                "from SGE's execution host list!".format(inst_id))
+            return False
         log.debug("Removing instance '%s' with FQDN '%s' from SGE execution host list (including @allhosts)"\
             % (inst_id, inst_private_ip))
         now = datetime.datetime.utcnow()
         ah_file = '/tmp/ah_remove_' + now.strftime("%H_%M_%S")
         self.write_allhosts_file(filename=ah_file, to_remove=inst_private_ip)
-        
+
         ret_code = subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
             '%s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), shell=True)
         if ret_code == 0:
@@ -381,7 +393,7 @@ class SGEService( ApplicationService ):
         else:
             log.debug("Problems updating @allhosts aimed at removing '%s'; process returned code '%s'" \
                 % (inst_id, ret_code))
-        
+
         proc = subprocess.Popen('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
             '%s/bin/lx24-amd64/qconf -de %s' % (paths.P_SGE_ROOT,paths.P_SGE_ROOT, inst_private_ip), \
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -404,17 +416,16 @@ class SGEService( ApplicationService ):
             log.debug("Failed to remove instance '%s' with FQDN '%s' from SGE execution host list: %s" \
                 % (inst_id, inst_private_ip, stderr))
             return False
-    
+
     def check_sge(self):
-        """Check if SGE qmaster is running and a sample job can be successfully run.
-        
-        :rtype: bool
-        :return: True if the daemon is running and a sample job can be run,
-                 False otherwise.
+        """
+        Check if SGE qmaster is running and qstat returns at least one node
+        (assuming one should be available based on the current state of the
+        cluster). If so, return ``True``, ``False`` otherwise.
         """
         qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
             . %s/default/common/settings.sh; \
-            %s/bin/lx24-amd64/qstat -f | grep all.q"' 
+            %s/bin/lx24-amd64/qstat -f | grep all.q"'
             % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT))
         qstat_out = qstat_out.split('\n')
         cleaned_qstat_out = []
@@ -431,8 +442,15 @@ class SGEService( ApplicationService ):
         else:
             log.warning("\tNo machines available to test SGE (qstat: %s)." % cleaned_qstat_out)
             return False
-    
+
     def status(self):
+        """
+        Check and update the status of SGE service. If the service state is
+        ``SHUTTING_DOWN``, ``SHUT_DOWN``, ``UNSTARTED``, or ``WAITING_FOR_USER_ACTION``,
+        the method doesn't do anything. Otherwise, it updates service status (see
+        ``check_sge``) by setting ``self.state``, whose value is always the method's
+        return value.
+        """
         if self.state==service_states.SHUTTING_DOWN or \
            self.state==service_states.SHUT_DOWN or \
            self.state==service_states.UNSTARTED or \
@@ -444,4 +462,4 @@ class SGEService( ApplicationService ):
         elif self.state!=service_states.STARTING:
             log.error("SGE error; SGE not runnnig")
             self.state = service_states.ERROR
-    
+        return self.state
