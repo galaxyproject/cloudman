@@ -31,10 +31,10 @@ class ConsoleManager(object):
         self.root_pub_key = None
         self.cluster_status = cluster_status.STARTING
         self.num_workers_requested = 0 # Number of worker nodes requested by user
-        # The actual number of worker nodes (note: this is a list of Instance objects)
-        # (beause get_worker_instances currenlty depends on tags, which is only
+        # The actual worker nodes (note: this is a list of Instance objects)
+        # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
-        # This initialization is applicable only for restarting the cluster)
+        # This initialization is applicable only when restarting a cluster.
         self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
         self.disk_total = "0"
         self.disk_used = "0"
@@ -1926,7 +1926,7 @@ class Instance( object ):
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
-        self.nfs_sge = 0
+        self.nfs_sge = 0:w
         self.nfs_tfs = 0 # Transient file system, NFS-mounted from the master
         self.get_cert = 0
         self.sge_started = 0

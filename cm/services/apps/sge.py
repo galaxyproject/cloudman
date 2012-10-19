@@ -320,7 +320,10 @@ class SGEService( ApplicationService ):
         # Add worker instances, excluding the one being removed
         for inst in self.app.manager.worker_instances:
             if not inst.is_spot() or inst.spot_was_filled():
-                if inst.get_private_ip() != to_remove and inst.get_private_ip() is not None:
+                if inst.get_private_ip() != to_remove and \
+                   inst.worker_status != 'Stopping' and \
+                   inst.worker_status != 'Error' and \
+                   inst.get_private_ip() is not None:
                     log.debug(" - adding instance with IP '%s' (instance state: '%s')" \
                         % (inst.get_private_ip(), inst.worker_status))
                     ahl.append(inst.get_private_ip())
