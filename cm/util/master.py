@@ -1926,7 +1926,7 @@ class Instance( object ):
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
-        self.nfs_sge = 0:w
+        self.nfs_sge = 0
         self.nfs_tfs = 0 # Transient file system, NFS-mounted from the master
         self.get_cert = 0
         self.sge_started = 0
