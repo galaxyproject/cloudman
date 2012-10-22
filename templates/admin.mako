@@ -354,25 +354,28 @@
         <td class="fs-td-20pct"><%= name %></td>
         <td class="fs-status fs-td-15pct"><%= status %></td>
         <td class="fs-td-20pct">
-        <!-- // Only disply usage when the file system is 'Available' -->
+        <!-- // Only display usage when the file system is 'Available' -->
         <% if (status === "Available" || status === "Running") { %>
             <%= size_used %>/<%= size %> (<%= size_pct %>)
         <% } %></td>
         <td class="fs-td-15pct">
-        <!-- // Only display controls when the file system is 'Available' -->
-        <% if (status === "Available" || status === "Running") { %>
+            <!-- // Enable removal while a file system is 'Available' or 'Error' -->
+            <% if (status === "Available" || status === "Running" || status === 'Error') { %>
             <a class="fs-remove icon-button" id="fs-<%= name %>-remove"
                 href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
                 title="Remove this file system"></a>
-            <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
-            <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
-                <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
-                    href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
             <% } %>
-            <!-- // It only makes sense to resize volume-based file systems -->
-            <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
-                <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
-            <% } %>
+            <!--// Only display additional controls when the file system is 'Available'-->
+            <% if (status === "Available" || status === "Running") { %>
+                <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
+                <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
+                    <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
+                        href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
+                <% } %>
+                <!-- // It only makes sense to resize volume-based file systems -->
+                <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
+                    <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
+                <% } %>
         <% } %></td>
         <td class="fs-td-15pct">
             <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
