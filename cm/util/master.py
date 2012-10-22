@@ -1375,10 +1375,10 @@ class ConsoleManager(object):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
 
-    def add_fs(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
-        log.info("Adding a file system from bucket {0} (w/ creds {1}:{2})"\
-            .format(bucket_name, bucket_a_key, bucket_s_key))
-        fs = Filesystem(self.app, bucket_name)
+    def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None):
+        log.info("Adding a file system {3} from bucket {0} (w/ creds {1}:{2})"\
+            .format(bucket_name, bucket_a_key, bucket_s_key, fs_name))
+        fs = Filesystem(self.app, fs_name or bucket_name)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same

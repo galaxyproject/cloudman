@@ -5,7 +5,6 @@ import os
 import urllib2
 
 from cm.util import misc
-from cm.util import paths
 from cm.util.misc import _if_not_installed
 from cm.util.decorators import TestFlag
 
@@ -30,7 +29,7 @@ class Bucket(object):
         self.fs = filesystem # Filesystem that the bucket represents
         self.app = self.fs.app # A local reference to app (used by @TestFlag)
         self.bucket_name = bucket_name
-        self.mount_point = os.path.join(paths.P_MOUNT_ROOT, bucket_name)
+        self.mount_point = self.fs.mount_point
         if a_key is None:
             self.a_key = self.app.ud.get('access_key', None)
             self.s_key = self.app.ud.get('secret_key', None)
@@ -105,7 +104,7 @@ class Bucket(object):
     def mount(self):
         """
         Mount the bucket as a local file system, making it available at
-        ``/mnt/<bucket_name>``
+        ``self.fs.mount_point`` (which is typically ``/mnt/filesystem_name``)
         """
         try:
             if os.path.exists(self.mount_point):
@@ -120,7 +119,7 @@ class Bucket(object):
                 ok = misc.run(mount_cmd)
                 if ok is True:
                     msg = "Done adding bucket {0} as a local file system. The bucket can now be "\
-                        "accessed at /mnt/{0}".format(self.bucket_name)
+                        "accessed at {1}".format(self.bucket_name, self.mount_point)
                 else:
                     msg = "Seems to have run into a problem adding bucket {0} as a local file "\
                             "system.".format(self.bucket_name)
@@ -130,7 +129,7 @@ class Bucket(object):
             else:
                 log.error("Cannot compose command line for mounting bucket {0}".format(self.bucket_name))
         except Exception, e:
-            log.error("Trouble mounting bucket {0} as file system to {1}: {2}"\
+            log.error("Trouble mounting bucket {0} as a file system at {1}: {2}"\
                 .format(self.bucket_name, self.mount_point, e))
         return False
 
