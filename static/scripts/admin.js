@@ -552,7 +552,7 @@ jQuery.fn.serializeObject = function() {
                     '<p> It appears you are not running on the AWS cloud. CloudMan supports '+
                     'using only buckets from AWS S3. So, if the bucket you are trying to ' +
                     'use is NOT PUBLIC, you must provide the AWS credentials that can be ' +
-                    'used to access this bucket. If the bucket you are trying to use' +
+                    'used to access this bucket. If the bucket you are trying to use ' +
                     'IS PUBLIC, leave below fields empty.</p>' +
                     '<table><tr>' +
                         '<td><label for"bucket_a_key">AWS access key: </label></td>' +
