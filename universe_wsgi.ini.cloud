@@ -143,7 +143,7 @@ tool_path = tools
 tool_dependency_dir = /mnt/galaxyTools/tools
 
 # Enable automatic polling of relative tool sheds to see if any updates
-# are available for installed repositories.  Ideally only one Galaxy 
+# are available for installed repositories.  Ideally only one Galaxy
 # server process should be able to check for repository updates.  The
 # setting for hours_between_check should be an integer between 1 and 24.
 #enable_tool_shed_check = False
@@ -170,7 +170,7 @@ job_working_directory = /mnt/galaxyData/tmp/job_working_directory
 # directory.
 cluster_files_directory = /mnt/galaxyData/tmp/pbs
 
-# External service types config file, defines what types of external_services configurations 
+# External service types config file, defines what types of external_services configurations
 # are available in Galaxy.
 #external_service_type_config_file = external_service_types_conf.xml
 
@@ -316,12 +316,12 @@ nginx_x_accel_redirect_base = /_x_accel_redirect
 # Configuration for this is complex and explained in detail in the
 # documentation linked above.  The upload store is a temporary directory in
 # which files uploaded by the upload module will be placed.
-nginx_upload_store = True
+nginx_upload_store = /mnt/galaxyData/upload_store
 
 # This value overrides the action set on the file upload form, e.g. the web
 # path where the nginx_upload_module has been configured to intercept upload
 # requests.
-nginx_upload_path = /mnt/galaxyData/upload_store
+nginx_upload_path = /_upload
 
 # -- Logging and Debugging
 
@@ -406,7 +406,7 @@ library_import_dir = /mnt/galaxyData/library_import_dir
 # if testing shows that Galaxy is able to create files using these formats.
 # Specific formats can be disabled with this option, separate more than one
 # format with commas.  Available formats are currently 'zip', 'gz', and 'bz2'.
-#disable_library_comptypes = 
+#disable_library_comptypes =
 
 # Some sequencer integration features in beta allow you to automatically
 # transfer datasets.  This is done using a lightweight transfer manager which
@@ -691,9 +691,9 @@ default_cluster_job_runner = drmaa:///
 cluster_job_queue_workers = 3
 
 # These options are only used when using file staging with PBS.
-#pbs_application_server = 
-#pbs_stage_path = 
-#pbs_dataset_server = 
+#pbs_application_server =
+#pbs_stage_path =
+#pbs_dataset_server =
 
 # This option allows users to see the full path of datasets via the "View
 # Details" option in the history.  Administrators can always see this.
@@ -718,7 +718,7 @@ cluster_job_queue_workers = 3
 
 [galaxy:tool_runners]
 
-# If not listed here, a tool will run with the runner defined with 
+# If not listed here, a tool will run with the runner defined with
 # default_cluster_job_runner.  These overrides for local:/// are done because
 # these tools can fetch data from remote sites, which may not be suitable to
 # run on a cluster (if it does not have access to the Internet, for example).
@@ -734,11 +734,11 @@ upload1 = local:///
 
 # ---- Galaxy Message Queue -------------------------------------------------
 
-# Galaxy uses AMQ protocol to receive messages from external sources like 
+# Galaxy uses AMQ protocol to receive messages from external sources like
 # bar code scanners. Galaxy has been tested against RabbitMQ AMQP implementation.
-# For Galaxy to receive messages from a message queue the RabbitMQ server has 
+# For Galaxy to receive messages from a message queue the RabbitMQ server has
 # to be set up with a user account and other parameters listed below. The 'host'
-# and 'port' fields should point to where the RabbitMQ server is running. 
+# and 'port' fields should point to where the RabbitMQ server is running.
 
 [galaxy_amqp]
 
