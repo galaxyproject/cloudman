@@ -1765,7 +1765,7 @@ class ConsoleMonitor( object ):
         # Ensure Galaxy config files are stored in the cluster's bucket,
         # but only after Galaxy has been configured and is running (this ensures
         # that the configuration files get loaded from proper S3 bucket rather
-        # than potentially being owerwritten by files that might exist on the snap)
+        # than potentially being overwritten by files that might exist on the snap)
         try:
             galaxy_svc = self.app.manager.get_services('Galaxy')[0]
             if galaxy_svc.running():
