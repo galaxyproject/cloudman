@@ -810,7 +810,8 @@ class ConsoleManager(object):
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
+        if s3_conn:
+            misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
 
     def clean(self):
         """ Clean the system as if it was freshly booted. All services are shut down
@@ -995,7 +996,7 @@ class ConsoleManager(object):
             snaps_file = 'cm_snaps.yaml'
             snaps = None
             # Get a list of auto-mount/default/read-only/reference data sources
-            if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+            if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
                 snaps_file = misc.load_yaml_file(snaps_file)
                 snaps = snaps_file['static_filesystems']
             # Turn those data sources into file systems
@@ -1016,9 +1017,8 @@ class ConsoleManager(object):
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.services.append(fs)
-            # Add a file system for user's data now (OpenNebula and dummy clouds
-            # do not support volumes yet so skip those)
-            if self.app.cloud_type not in ['opennebula', 'dummy']:
+            # Add a file system for user's data
+            if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
             self.services.append(PostgresService(self.app))
@@ -1757,6 +1757,10 @@ class ConsoleMonitor( object ):
         bucket (do so only if they are not already there).
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        if not s3_conn:
+            # s3_conn will be None is use_object_store is False, in this case just skip this
+            # function.
+            return
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's bucket
