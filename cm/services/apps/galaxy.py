@@ -12,7 +12,7 @@ log = logging.getLogger('cloudman')
 
 
 class GalaxyService(ApplicationService):
-    
+
     def __init__(self, app):
         super(GalaxyService, self).__init__(app)
         self.galaxy_home = paths.P_GALAXY_HOME
@@ -25,33 +25,43 @@ class GalaxyService(ApplicationService):
                      'Filesystem': 'galaxyData',
                      'Filesystem': 'galaxyIndices',
                      'Filesystem': 'galaxyTools'}
-    
+
     def start(self):
         self.manage_galaxy(True)
         self.status()
-    
+
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
         self.state = service_states.SHUTTING_DOWN
         self.last_state_change_time = datetime.utcnow()
         self.manage_galaxy(False)
-    
+
     def restart(self):
         log.info('Restarting Galaxy service')
         self.remove()
         self.status()
         self.start()
-    
+
     def manage_galaxy( self, to_be_started=True ):
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
             return
         os.putenv( "GALAXY_HOME", self.galaxy_home )
         os.putenv( "TEMP", '/mnt/galaxyData/tmp' )
-        # Setup configuration directory for galaxy if galaxy_conf_dir specified 
+        # Setup configuration directory for galaxy if galaxy_conf_dir specified
         # in user-data.
         if self.has_config_dir():
             self.setup_config_dir()
+        # TODO: Pick better name
+        if self.app.ud.get("configure_multiple_galaxy_processes", False):
+            self.configure_multiple_galaxy_processes()
+            self.extra_daemon_args = ""
+        else:
+            # Instead of sticking with default paster.pid and paster.log, explicitly
+            # set pid and log file to ``main.pid`` and ``main.log`` to bring single
+            # process case inline with defaults for for multiple process case (i.e.
+            # when GALAXY_RUN_ALL is set and multiple servers are defined).
+            self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
         if to_be_started:
             self.status()
             if not self.configured:
@@ -70,18 +80,7 @@ class GalaxyService(ApplicationService):
                     log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
                     log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
                     misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
-                self.add_galaxy_admin_users()
                 self.add_dynamic_galaxy_options()
-                # TODO: Pick better name
-                if self.app.ud.get("configure_multiple_galaxy_processes", False):
-                    self.configure_multiple_galaxy_processes()
-                    self.extra_daemon_args = ""
-                else:
-                    # Instead of sticking with default paster.pid and paster.log, explictly
-                    # set pid and log file to main.pid and main.log to bring single process
-                    # case inline with defaults for for multiple process case (i.e. when 
-                    # GALAXY_RUN_ALL is set and multiple servers are defined).
-                    self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
                 universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
                 self._attempt_chown_galaxy_if_exists(universe_wsgi_path)
                 if not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
@@ -101,9 +100,9 @@ class GalaxyService(ApplicationService):
                         self._attempt_chown_galaxy(self.galaxy_home + '/tool_data_table_conf.xml')
                 except:
                     pass
-                # 
+                #
                 #===============================================================
-                
+
                 # Make sure the temporary job_working_directory exists on user data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % paths.P_GALAXY_DATA):
                     os.makedirs('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
@@ -152,7 +151,8 @@ class GalaxyService(ApplicationService):
                 log.debug("Galaxy already running.")
         else:
             log.info( "Shutting down Galaxy..." )
-            if misc.run(self.galaxy_run_command("--stop-daemon"), "Error stopping Galaxy", "Successfully stopped Galaxy."):
+            stop_command = self.galaxy_run_command("%s --stop-daemon" % self.extra_daemon_args)
+            if misc.run(stop_command):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 # Move all log files
