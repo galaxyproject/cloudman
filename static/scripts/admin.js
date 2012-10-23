@@ -721,6 +721,9 @@ jQuery.fn.serializeObject = function() {
                     clear_msg();
             });
             // Hide the resize form
+            if ($('#add-bucket-fs-creds').is(':visible')){
+                $('#add-bucket-fs-creds').hide();
+            }
             this.formElToClose = el;
             this.closeForm();
             // Add this file system to the collection to be shown on the UI
