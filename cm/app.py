@@ -33,6 +33,9 @@ class UniverseApplication( object ):
         self.ud = self.cloud_interface.get_user_data()
         # From user data determine if object store (S3) should be used.
         self.use_object_store = self.ud.get("use_object_store", True)
+        # From user data determine if block storage (EBS/nova-volume) should be used.
+        # (OpenNebula and dummy clouds do not support volumes yet so skip those)
+        self.use_volumes = self.ud.get("use_volumes", self.cloud_type not in ['opennebula', 'dummy'])
         # Read config file and check for errors
         self.config = config.Configuration( **kwargs )
         self.config.check()
