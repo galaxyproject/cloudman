@@ -1,5 +1,4 @@
 import os, urllib2, shutil, subprocess, pwd, grp
-import shutil
 from datetime import datetime
 
 from cm.services.apps import ApplicationService
@@ -111,7 +110,7 @@ class GalaxyService(ApplicationService):
                 misc.run('/etc/init.d/proftpd start', 'Failed to start FTP server', "Started FTP server")
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE DATA TABLES
                 if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):
-                    shutil.copy('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc', '%s/tool-data/sam_fa_indices.loc' % paths.P_GALAXY_HOME)
+                    shutil.copy('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc', '%s/tool-data/sam_fa_indices.loc' % self.galaxy_home)
                 # Ensure the environment is setup for running Galaxy
                 # This can also be setup on the tools snapshot and thus avoid these patches
                 # try:
