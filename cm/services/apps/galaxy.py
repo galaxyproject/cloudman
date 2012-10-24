@@ -73,41 +73,37 @@ class GalaxyService(ApplicationService):
                     self.last_state_change_time = datetime.utcnow()
                     return False
                 # Retrieve config files from a persistent data repository (i.e., S3)
-                if s3_conn and not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' ):
-                    log.debug("Did not get Galaxy configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                    log.debug("Trying to retrieve latest one (universe_wsgi.ini.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'universe_wsgi.ini.cloud', self.galaxy_home + '/universe_wsgi.ini' )
+                if s3_conn:
+                    for f_name in ['universe_wsgi.ini',
+                                   'tool_conf.xml',
+                                   'tool_data_table_conf.xml',
+                                   'shed_tool_conf.xml']:
+                        if not misc.get_file_from_bucket(s3_conn,
+                            self.app.ud['bucket_cluser'],
+                            '{0}.cloud'.format(f_name),
+                            os.path.join(self.galaxy_home, f_name)):
+                            # We did not get the config file from cluster's bucket;
+                            # get one from the default bucket
+                            log.debug("Did not get Galaxy configuration file " +
+                                "'{0}' from cluster bucket '{1}'".format(f_name,
+                                self.app.ud['bucket_cluster']))
+                            log.debug("Trying to retrieve one ({0}.cloud) " +
+                                "from the default '{1}' bucket.".format(f_name,
+                                self.app.ud['bucket_default']))
+                            local_file = os.path.join(self.galaxy_home, f_name)
+                            misc.get_file_from_bucket(s3_conn,
+                                self.app.ud['bucket_default'],
+                                '{0}.cloud'.format(f_name), local_file)
+                            self._attempt_chown_galaxy_if_exists(local_file)
                 self.add_dynamic_galaxy_options()
-                universe_wsgi_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
-                self._attempt_chown_galaxy_if_exists(universe_wsgi_path)
-                if s3_conn and not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' ):
-                    log.debug("Did not get Galaxy tool configuration file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                    log.debug("Trying to retrieve latest one (tool_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_conf.xml.cloud', self.galaxy_home + '/tool_conf.xml' )
-                tool_conf_path = os.path.join(self.galaxy_home, "tool_conf.xml")
-                self._attempt_chown_galaxy_if_exists(tool_conf_path)
-                if s3_conn and not misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_cluster'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' ):
-                    log.debug("Did not get Galaxy tool_data_table_conf.xml.cloud file from cluster bucket '%s'" % self.app.ud['bucket_cluster'])
-                    log.debug("Trying to retrieve latest one (tool_data_table_conf.xml.cloud) from '%s' bucket..." % self.app.ud['bucket_default'])
-                    misc.get_file_from_bucket( s3_conn, self.app.ud['bucket_default'], 'tool_data_table_conf.xml.cloud', self.galaxy_home + '/tool_data_table_conf.xml.cloud' )
-                try:
-                    tool_data_table_conf_path = os.path.join(self.galaxy_home, 'tool_data_table_conf.xml.cloud')
-                    if os.path.exists(tool_data_table_conf_path):
-                        shutil.copy(tool_data_table_conf_path, '%s/tool_data_table_conf.xml' % self.galaxy_home)
-                        self._attempt_chown_galaxy(self.galaxy_home + '/tool_data_table_conf.xml')
-                except:
-                    pass
-                #
-                #===============================================================
-
                 # Make sure the temporary job_working_directory exists on user data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % paths.P_GALAXY_DATA):
                     os.makedirs('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
                 self._attempt_chown_galaxy('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
-                # Setup environemnt for the FTP server and start it
+                # Setup environment for the FTP server and start it
                 if not os.path.exists('%s/tmp/ftp' % paths.P_GALAXY_DATA):
                     os.makedirs('%s/tmp/ftp' % paths.P_GALAXY_DATA)
-                misc.run('/etc/init.d/proftpd start', 'Failed to start FTP server', "Started FTP server")
+                misc.run('/etc/init.d/proftpd start')
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE DATA TABLES
                 if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):
                     shutil.copy('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc', '%s/tool-data/sam_fa_indices.loc' % self.galaxy_home)
@@ -115,7 +111,7 @@ class GalaxyService(ApplicationService):
                 # This can also be setup on the tools snapshot and thus avoid these patches
                 # try:
                 #     subprocess.call( "sed 's/cd `dirname $0`/cd `dirname $0`; export TEMP=\/mnt\/galaxyData\/tmp/; export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0' %s/run.sh > %s/run.sh.custom" % (self.galaxy_home, self.galaxy_home), shell=True )
-                #     misc.run("cd %s; sed 's/pyhton/python -ES/g' run.sh.custom > run.sh" % self.galaxy_home, "Failed to adjust run.sh", "Successfully adjusted run.sh")
+                #     misc.run("cd %s; sed 's/python/python -ES/g' run.sh.custom > run.sh" % self.galaxy_home, "Failed to adjust run.sh", "Successfully adjusted run.sh")
                 #     shutil.copy( self.galaxy_home + '/run.sh.custom', self.galaxy_home + '/run.sh' )
                 #     os.chown( self.galaxy_home + '/run.sh', pwd.getpwnam( "galaxy" )[2], grp.getgrnam( "galaxy" )[2] )
                 # except Exception, e:
