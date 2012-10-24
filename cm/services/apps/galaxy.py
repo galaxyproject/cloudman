@@ -79,7 +79,7 @@ class GalaxyService(ApplicationService):
                                    'tool_data_table_conf.xml',
                                    'shed_tool_conf.xml']:
                         if not misc.get_file_from_bucket(s3_conn,
-                            self.app.ud['bucket_cluser'],
+                            self.app.ud['bucket_cluster'],
                             '{0}.cloud'.format(f_name),
                             os.path.join(self.galaxy_home, f_name)):
                             # We did not get the config file from cluster's bucket;
