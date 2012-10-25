@@ -156,7 +156,7 @@ class ConsoleManager(object):
         self.manager_started = True
 
         # Check if a previously existing cluster is being recreated or if it is a new one
-        if self.initial_cluster_type is not None: # this can get set by _handle_old_cluster_conf_format
+        if not self.initial_cluster_type: # this can get set by _handle_old_cluster_conf_format
             self.initial_cluster_type = self.app.ud.get('cluster_type', None)
             if self.initial_cluster_type is not None:
                 cc_detail = "Configuring a previously existing cluster of type {0}"\
