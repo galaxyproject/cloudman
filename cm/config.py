@@ -92,7 +92,7 @@ def configure_logging( config ):
     """
     # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
     format = config.get( "log_format",
-        "{0}\t{1}\t{2}:{3:12}\t{4}"\
+        "{0}\t{1}\t{2}:{3:13}\t{4}"\
         .format("%(asctime)s", "%(levelname)s", "%(module)s", "%(lineno)d", "%(message)s"))
     level = logging._levelNames[ config.get( "log_level", "DEBUG" ) ]
     destination = config.get( "log_destination", "stdout" )

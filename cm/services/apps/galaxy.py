@@ -160,11 +160,11 @@ class GalaxyService(ApplicationService):
         """Check if Galaxy daemon is running and the UI is accessible."""
         old_state = self.state
         if self._check_daemon('galaxy'):
-            # log.debug("\tGalaxy daemon running. Checking if UI is accessible.")
+            # log.debug("Galaxy daemon running. Checking if UI is accessible.")
             if self._is_galaxy_running():
                 self.state = service_states.RUNNING
             else:
-                log.debug("\tGalaxy UI does not seem to be accessible.")
+                log.debug("Galaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
         elif self.state==service_states.SHUTTING_DOWN or \
              self.state==service_states.SHUT_DOWN or \
@@ -182,7 +182,7 @@ class GalaxyService(ApplicationService):
                 # as if starting the Galaxy proces has failed.
                 pass
             else:
-                log.error("\tGalaxy daemon not running.")
+                log.error("Galaxy daemon not running.")
                 self.state = service_states.ERROR
         if old_state != self.state:
             log.info("Galaxy service state changed from '%s' to '%s'" % (old_state, self.state))
