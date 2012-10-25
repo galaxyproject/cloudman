@@ -1,10 +1,7 @@
 """Galaxy CM master manager"""
 import logging, logging.config, threading, os, time, subprocess, commands, fileinput
 import shutil
-import random
 import datetime as dt
-
-from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
@@ -528,14 +525,14 @@ class ConsoleManager(object):
                     "device": "/dev/sdg1",
                     "kind": "volume",
                     "mount_point": "/mnt/galaxyData",
-                    "DoT": False,
+                    "DoT": "No",
                     "size": "20G",
                     "size_used": "2G",
-                    "size_pct": "10%",
+                    "size_pct": "90%",
                     "error_msg": None,
                     "volume_id": "vol-dbi23ins"}]
         if r == 2 or r == 4:
-            dummy.append({"name": "1000genomes", "status": "Removing",
+            dummy.append({"name": "1000g", "status": "Removing", "bucket_name": "1000genomes",
             "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": "No",
             "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
         if r == 3:

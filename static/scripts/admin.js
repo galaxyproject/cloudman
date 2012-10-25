@@ -264,7 +264,13 @@ jQuery.fn.serializeObject = function() {
 
         initialize: function() {
             this.model.bind("change", this.render, this); // watch for any model changes
-       },
+            this.on("item:before:render", this.onBeforeRender);
+        },
+
+        onBeforeRender: function() {
+            // Strip % sign from the value so meter tag can display it
+            this.model.attributes.size_pct = this.model.attributes.size_pct.match(/\d+/g);
+        },
 
         onRender: function() {
             // Must clear tooltips; otherwise, following a rerender, the binding
@@ -281,6 +287,8 @@ jQuery.fn.serializeObject = function() {
             }
             // Add toopltips
             this.$('a.icon-button').tipsy({gravity: 's', fade: true});
+            // Return the % symbol that was removed above in ``onBeforeRender`` method
+            this.model.attributes.size_pct = this.model.attributes.size_pct + "%";
         },
 
         triggerRemove: function(event) {

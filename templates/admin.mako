@@ -342,9 +342,23 @@
         <div class="fs-details-box-header">File system information</div>
         <table>
         <tr><th>Name:</th><td><%= name %></td>
+        <% if (typeof(bucket_name) != "undefined" && typeof(bucket_name) != 'object') {
+            // There's a bucket_name input field defined on the page so must guard from it above
+        %>
+            <tr><th>Bucket name:</th><td><%= bucket_name %></td>
+        <% } %>
         <tr><th>Status:</th><td><%= status %></td>
         <tr><th>Mount point:</th><td><%= mount_point %></td>
         <tr><th>Kind:</th><td><%= kind %></td>
+        <% if (typeof(volume_id) != "undefined") { %>
+            <tr><th>Volume:</th><td><%= volume_id %></td>
+        <% } %>
+        <% if (typeof(device) != "undefined") { %>
+            <tr><th>Device:</th><td><%= device %></td>
+        <% } %>
+        <% if (typeof(from_snap) != "undefined") { %>
+            <tr><th>From snapshot:</th><td><%= from_snap %></td>
+        <% } %>
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
     </%text>
@@ -356,7 +370,9 @@
         <td class="fs-td-20pct">
         <!-- // Only display usage when the file system is 'Available' -->
         <% if (status === "Available" || status === "Running") { %>
-            <%= size_used %>/<%= size %> (<%= size_pct %>)
+            <meter min="0" max="100" value="<%= size_pct %>" high="85">
+                <%= size_used %>/<%= size %> (<%= size_pct %>)
+            </meter>
         <% } %></td>
         <td class="fs-td-15pct">
             <!-- // Enable removal while a file system is 'Available' or 'Error' -->

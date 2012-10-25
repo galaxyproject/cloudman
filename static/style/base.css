@@ -25,7 +25,9 @@ hr
     border: none;
     border-bottom: dotted #303030 1px;
 }
-
+meter{
+    width: 100%;
+}
 div.form-row{padding:5px 10px;}
 div.form-row label{font-weight:bold;display:block;margin-bottom:.2em;}
 div.form-row-input{width:300px;}
