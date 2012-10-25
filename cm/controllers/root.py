@@ -496,16 +496,17 @@ class CM(BaseController):
             return msg
 
     @expose
-    def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
+    def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None):
         if self.app.manager.get_services('Autoscale'):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
             log.debug("Turning autoscaling ON")
             if self.check_as_vals(as_min, as_max):
-                self.app.manager.start_autoscaling(int(as_min), int(as_max), as_instance_type)
+                self.app.manager.start_autoscaling(int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). " +
+                    "Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services('Autoscale'):
 
             return to_json_string({'running' : True,
