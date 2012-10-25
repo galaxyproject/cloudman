@@ -155,7 +155,7 @@ tool_dependency_dir = /mnt/galaxyTools/tools
 #tool_data_path = tool-data
 
 # Directory where chrom len files are kept, currently mainly used by trackster
-#len_file_path = tool-data/shared/ucsc/chrom
+len_file_path = /mnt/galaxyIndices/len
 
 # Datatypes config file, defines what data (file) types are available in
 # Galaxy.
