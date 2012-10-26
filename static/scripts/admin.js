@@ -268,8 +268,10 @@ jQuery.fn.serializeObject = function() {
         },
 
         onBeforeRender: function() {
-            // Strip % sign from the value so meter tag can display it
-            this.model.attributes.size_pct = this.model.attributes.size_pct.match(/\d+/g);
+            // Strip the % sign from the value so meter tag can display it
+            if (this.model.attributes.size_pct != null) {
+                this.model.attributes.size_pct = this.model.attributes.size_pct.match(/\d+/g);
+            }
         },
 
         onRender: function() {
@@ -288,7 +290,9 @@ jQuery.fn.serializeObject = function() {
             // Add toopltips
             this.$('a.icon-button').tipsy({gravity: 's', fade: true});
             // Return the % symbol that was removed above in ``onBeforeRender`` method
-            this.model.attributes.size_pct = this.model.attributes.size_pct + "%";
+            if (this.model.attributes.size_pct != null) {
+                this.model.attributes.size_pct = this.model.attributes.size_pct + "%";
+            }
         },
 
         triggerRemove: function(event) {
