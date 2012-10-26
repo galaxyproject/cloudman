@@ -165,33 +165,6 @@
                     </div>
                 </span>
             </li>
-            %if filesystems:
-                <li>Persist changes to file system:
-                    %for fs in filesystems:
-                        %if fs != 'galaxyData':
-                            <a class='action' id="update_fs" href="${h.url_for(controller='root', action='update_file_system')}?fs_name=${fs}">
-                                ${fs}</a>,
-                        %endif
-                    %endfor
-                    <span class="help_info">
-                        <span class="help_link">What will this do?</span>
-                        <div class="help_content" style="display: none">
-                            If you have made changes to any of the available
-                            file systems and would like to persist the changes
-                            across cluster invocations, click on the name of the
-                            desired file system and the cluster configuration
-                            will be updated (all of the file systems are
-                            mounted on the system unter /mnt/[file system name]).
-                            Note that depending on the amount of changes made to
-                            the underlying file system, this process may take a
-                            long time. Also note that the user data file system cannot
-                            be persistent through this method (it makes no logical
-                            sense - use Share-an-instance functionality instead).
-                        </div>
-                    </span>
-                    <span id='update_fs_status' style='color: #5CBBFF'>&nbsp;</span>
-                </li>
-            %endif
             <li>
                 <a class='action' href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
                 <span class="help_info">
