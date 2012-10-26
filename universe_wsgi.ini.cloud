@@ -399,7 +399,7 @@ library_import_dir = /mnt/galaxyData/library_import_dir
 # added to a library.  Set to True to enable.  Please note the security
 # implication that this will give Galaxy Admins access to anything your Galaxy
 # user has access to.
-#allow_library_path_paste = False
+allow_library_path_paste = True
 
 # Users may choose to download multiple files from a library in an archive.  By
 # default, Galaxy allows users to select from a few different archive formats
