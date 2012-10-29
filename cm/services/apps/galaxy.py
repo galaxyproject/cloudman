@@ -88,7 +88,7 @@ class GalaxyService(ApplicationService):
                             log.debug("Did not get Galaxy configuration file " +
                                 "'{0}' from cluster bucket '{1}'".format(f_name,
                                 self.app.ud['bucket_cluster']))
-                            log.debug("Trying to retrieve one ({0}.cloud) " +
+                            log.debug("Trying to retrieve one ({0}.cloud) "\
                                 "from the default '{1}' bucket.".format(f_name,
                                 self.app.ud['bucket_default']))
                             local_file = os.path.join(self.galaxy_home, f_name)
