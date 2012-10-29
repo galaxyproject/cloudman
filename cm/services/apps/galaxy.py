@@ -77,7 +77,8 @@ class GalaxyService(ApplicationService):
                     for f_name in ['universe_wsgi.ini',
                                    'tool_conf.xml',
                                    'tool_data_table_conf.xml',
-                                   'shed_tool_conf.xml']:
+                                   'shed_tool_conf.xml',
+                                   'datatypes_conf.xml']:
                         if not misc.get_file_from_bucket(s3_conn,
                             self.app.ud['bucket_cluster'],
                             '{0}.cloud'.format(f_name),
