@@ -99,15 +99,18 @@ class PostgresService( ApplicationService ):
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (to_be_started, self.state))
         elif not to_be_started:
-            # Stop PostgreSQL database
-            log.info( "Stopping PostgreSQL..." )
-            self.state = service_states.SHUTTING_DOWN
-            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
-                self.state = service_states.SHUT_DOWN
+            # Stop only if currently running
+            if self.state==service_states.RUNNING:
+                # Stop PostgreSQL database
+                log.info( "Stopping PostgreSQL..." )
+                self.state = service_states.SHUTTING_DOWN
+                if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
+                    self.state = service_states.SHUT_DOWN
+                else:
+                    self.state = service_states.ERROR
+                    return False
             else:
-                self.state = service_states.ERROR
-                return False
-
+                log.debug("PostgreSQL not running so not stopping it.")
         return True
 
     def check_postgres(self):
