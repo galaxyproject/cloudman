@@ -51,7 +51,7 @@ class PSS(ApplicationService):
         if not self.already_ran and self.app.manager.initial_cluster_type is not None:
             log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
             self.state = service_states.STARTING
-            # If there is a service other than self that is not running, return. 
+            # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
             for srvc in self.app.manager.services:
                 if srvc != self and not srvc.running():
@@ -74,7 +74,7 @@ class PSS(ApplicationService):
         log.debug("%s service prerequisites OK (i.e., all other services running), " \
             "checking if %s was provided..." % (self.svc_type, self.pss_filename))
         local_pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
-        # Check user data first to allow owerwriting of a potentially existing script
+        # Check user data first to allow overwriting of a potentially existing script
         if self.pss_url:
             # This assumes the provided URL is readable to anyone w/o authentication
             # First check if the file actually exists
@@ -101,8 +101,8 @@ class PSS(ApplicationService):
         else:
             log.debug("%s does not exist or could not be downloaded; continuing without running it." \
                 % self.svc_type)
-        # Prime bject with instance data (because this may take a while
-        # on some clouds, do so in a seprate thread)
+        # Prime the object with instance data (because this may take a while
+        # on some clouds, do so in a separate thread)
         threading.Thread(target=self._prime_data).start()
         self.state = service_states.SHUT_DOWN
         log.debug("%s service done and marked as '%s'" % (self.svc_type, self.state))
@@ -110,7 +110,7 @@ class PSS(ApplicationService):
             # On master, remove the service upon completion (PSS runs only once)
             self.remove()
         self.already_ran = True
-        # Once this serivce is complete, it's safe to assume the cluster is READY
+        # Once this service is complete, it's safe to assume the cluster is READY
         self.app.manager.cluster_status = cluster_status.READY
 
     def save_to_bucket(self):

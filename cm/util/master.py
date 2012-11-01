@@ -188,6 +188,7 @@ class ConsoleManager(object):
         previously defined cluster services.
         """
         log.debug("Checking for and adding any previously defined cluster services")
+        self.cluster_status = cluster_status.STARTING
         try:
             attached_volumes = self.get_attached_volumes()
             # Test if deprecated cluster config is used and handle it
