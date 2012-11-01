@@ -4,6 +4,7 @@ import datetime as dt
 
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
+from cm.util.manager import BaseConsoleManager
 from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
 
@@ -72,7 +73,8 @@ worker_states = Bunch(
     ERROR = 'Error'
 )
 
-class ConsoleManager( object ):
+class ConsoleManager(BaseConsoleManager):
+    node_type = "worker"
     def __init__( self, app ):
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
@@ -91,6 +93,7 @@ class ConsoleManager( object ):
         self.load = 0
     
     def start( self ):
+        self._handle_prestart_commands()
         self.mount_nfs( self.app.ud['master_ip'] )
     
     def shutdown( self, delete_cluster=None ):
