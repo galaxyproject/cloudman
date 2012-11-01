@@ -105,19 +105,25 @@ def _start_nginx(ud):
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
 
+def _write_conf_file(contents_descriptor, path):
+    destination_directory = os.path.dirname(path)
+    if not os.path.exists(destination_directory):
+        os.makedirs(destination_directory)
+    if contents_descriptor.startswith("http") or contents_descriptor.startswith("ftp"):
+        log.info("Fetching file from %s" % contents_descriptor)
+        _run("wget --output-document='%s' '%s'" % (contents_descriptor, path))
+    else:
+        log.info("Writing out configuration file encoded in user-data:")
+        with open(path, "w") as output:
+            output.write(base64.b64decode(contents_descriptor))    
+
 def _configure_nginx(ud):
     # User specified nginx.conf file, can be specified as
     # url or base64 encoded plain-text.
     nginx_conf = ud.get("nginx_conf_contents", None)
     nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
     if nginx_conf:
-        if nginx_conf.startswith("http"):
-            log.info("Fetching nginx conf from %s" % nginx_conf)
-            _run("wget --output-document='%s' '%s'" % (nginx_conf_path, nginx_conf))
-        else:
-            log.info("Writing out nginx.conf file base64 encoded in user-data:")
-            with open(nginx_conf_path, "w") as output:
-                output.write(base64.b64decode(nginx_conf))
+        _write_conf_file(nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get("reconfigure_nginx", True)
     if reconfigure_nginx:
         _reconfigure_nginx(ud, nginx_conf_path)
@@ -310,6 +316,14 @@ def main():
             sys.exit(0)
         else:
             usage()
+    # Currently using this to configure nginx SSL, but it could be used
+    # to configure anything really.
+    conf_files = ud.get('conf_files', [])
+    for conf_file_obj in conf_files:
+        path = conf_file_obj.get('path')
+        content = conf_file_obj.get('content')
+        _write_conf_file(content, path)
+
     if not ud.has_key('no_start'):
         if ud.get('cloud_name', '').lower() == 'nectar':
             _fix_etc_hosts()
