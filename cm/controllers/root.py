@@ -2,7 +2,7 @@ import os
 import re
 import logging
 import subprocess
-from datetime import datetime
+# from datetime import datetime
 
 from cm.util.json import to_json_string
 from cm.framework import expose
@@ -10,6 +10,7 @@ from cm.base.controller import BaseController
 from cm.services import service_states
 from cm.util.bunch import BunchToo
 import cm.util.paths as paths
+from cm.util.decorators import TestFlag
 
 log = logging.getLogger( 'cloudman' )
 
@@ -33,6 +34,54 @@ class CM(BaseController):
                                         CM_url = CM_url,
                                         cloud_type = self.app.ud.get('cloud_type', 'ec2'),
                                         cloud_name = self.app.ud.get('cloud_name', 'amazon').lower())
+
+    @expose
+    @TestFlag({})
+    def initialize_cluster(self, trans, startup_opt, pss=None, shared_bucket=None):
+        """
+        Call this method if the current cluster has not yet been initialized to
+        initialize it. This method should be called only once.
+
+        For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
+        ``SGE``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
+        an integer value for the ``pss`` argument, which will set the initial size
+        of the persistent storage associated with this cluster. If ``Shared_cluster``
+        ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
+        must be provided, which will then be used to derive this cluster from
+        the shared one.
+        """
+        if self.app.manager.initial_cluster_type is None:
+            if startup_opt == "SGE":
+                self.app.manager.init_cluster(startup_opt)
+                return self.instance_state_json(trans)
+            if startup_opt == "Galaxy" or startup_opt == "Data":
+                # Initialize form on the main UI contains two fields named ``pss``,
+                # which arrive as a list so pull out the actual storage size value
+                if isinstance(pss, list):
+                    ss = None
+                    for x in pss:
+                        if x:
+                            ss = x
+                    pss = ss
+                if pss and pss.isdigit():
+                    pss = int(pss)
+                    self.app.manager.init_cluster(startup_opt, pss)
+                    return self.instance_state_json(trans)
+                else:
+                    msg = "Wrong or no value provided for the persistent "\
+                        "storage size: '{0}'".format(pss)
+            elif startup_opt == "Shared_cluster":
+                if shared_bucket:
+                    # TODO: Check the format of the share string
+                    self.app.manager.init_shared_cluster(shared_bucket.strip())
+                    return self.instance_state_json(trans)
+                else:
+                    msg = "For a shared cluster, you must provide shared bucket "\
+                        "name; cluster configuration not set."
+        else:
+            msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
+        log.warning(msg)
+        return msg
 
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
@@ -62,25 +111,6 @@ class CM(BaseController):
     @expose
     def minibar(self, trans):
         return trans.fill_template('mini_control.mako')
-
-    @expose
-    def initialize_cluster(self, trans, g_pss=None, d_pss=None, startup_opt=None, shared_bucket=None):
-        if self.app.manager.initial_cluster_type is None:
-            pss = None
-            if startup_opt == "Galaxy" or startup_opt == "Data" or startup_opt == "SGE":
-                if g_pss is not None and g_pss.isdigit():
-                    pss = int(g_pss)
-                elif d_pss is not None and d_pss.isdigit():
-                    pss = int(d_pss)
-                self.app.manager.init_cluster(startup_opt, pss)
-            elif startup_opt == "Shared_cluster":
-                if shared_bucket is not None:
-                    self.app.manager.init_shared_cluster(shared_bucket.strip())
-                else:
-                    return "Must provide shared bucket name; cluster configuration not set."
-        else:
-            return "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
-        return "Cluster configuration '%s' received and processed." % startup_opt
 
     @expose
     def get_cluster_type(self, trans):

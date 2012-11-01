@@ -371,7 +371,7 @@ vertical-align: top;
                     <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
                     Specify the initial storage size (in Gigabytes):
                 </p>
-                <input style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <input style="margin-left:20px" type="text" name="pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
             % else:
                 <p class='disabled'>
                     <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" disabled='true'>
@@ -381,7 +381,7 @@ vertical-align: top;
                     so see the available cluster configuration options.
                     <br/>Specify the initial storage size (in Gigabytes):
                 </p>
-                <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <input disabled='true' style="margin-left:20px" type="text" name="pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
             % endif
         </div>
         <div id='extra_startup_options'>
@@ -400,7 +400,7 @@ vertical-align: top;
                     <b>Data Cluster</b>: a persistent data volume and SGE.
                     Specify the initial storage size (in Gigabytes):
                 </p>
-                <input style="margin-left:20px"  type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
+                <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
             </div>
 
             <div class="form-row">
@@ -883,9 +883,9 @@ $(document).ready(function() {
         dataType: 'json',
         beforeSubmit: function(data){
             cluster_status = "STARTING";
-            hidebox();
         },
         success: function( data ) {
+            hidebox();
             update_ui(data);
         }
     });
