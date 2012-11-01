@@ -5,6 +5,7 @@ import datetime as dt
 
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
+from cm.util.manager import BaseConsoleManager
 from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
@@ -19,7 +20,8 @@ from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
-class ConsoleManager(object):
+class ConsoleManager(BaseConsoleManager):
+    node_type = "master"
     def __init__(self, app):
         self.startup_time = dt.datetime.utcnow()
         log.debug( "Initializing console manager - cluster start time: %s" % self.startup_time)
@@ -129,7 +131,7 @@ class ConsoleManager(object):
         """
         log.debug("ud at manager start: %s" % self.app.ud)
 
-        self.handle_prestart_commands()
+        self._handle_prestart_commands()
 
         # Always add SGE service
         self.services.append(SGEService(self.app))
