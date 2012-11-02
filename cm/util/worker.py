@@ -119,45 +119,35 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Attempted to mount NFS, but TESTFLAG is set.")
             return
         log.info( "Mounting NFS directories from master with IP address: %s..." % master_ip )
-        
+        # Build list of mounts based on cluster type
+        mount_points = []
         if self.cluster_type == 'Galaxy':
-            ret_code = self.mount_disk(master_ip, paths.P_GALAXY_TOOLS)
-            if ret_code == 0:
-                self.nfs_tools = 1
-            else:
-                self.nfs_tools = -1
-            
-            ret_code = self.mount_disk(master_ip, paths.P_GALAXY_INDICES)
-            if ret_code == 0:
-                self.nfs_indices = 1
-            else:
-                self.nfs_indices = -1
-            
-        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            ret_code = self.mount_disk(master_ip, paths.P_GALAXY_DATA)
-            if ret_code == 0:
-                self.nfs_data = 1
-            else:
-                self.nfs_data = -1
-        
-        # Mount SGE regardless of cluster type
-        ret_code = self.mount_disk(master_ip, paths.P_SGE_ROOT)
-        if ret_code == 0:
-            self.nfs_sge = 1
-        else:
-            self.nfs_sge = -1
-        # Mount master's transient stroage regardless of cluster type
-        ret_code = self.mount_disk(master_ip, '/mnt/transient_nfs')
-        if ret_code == 0:
-            self.nfs_tfs = 1
-        else:
-            self.nfs_tfs = -1
+            mount_points.append(('nfs_tools', paths.P_GALAXY_TOOLS))
+            mount_points.append(('nfs_indices', paths.P_GALAXY_INDICES))
 
-        for extra_mount in self._get_extra_nfs_mounts():
-            self.mount_disk(master_ip, extra_mount)
+        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
+            mount_points.append(('nfs_data', paths.P_GALAXY_DATA))
+
+        # Mount SGE regardless of cluster type
+        mount_points.append(('nfs_sge', paths.P_SGE_ROOT))
+
+        # Mount master's transient stroage regardless of cluster type
+        mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+
+        for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
+            mount_points.append(('extra_mount_%d' % i, extra_mount))
+
+        # For each main mount point, mount it and set status based on label
+        for (label, path) in mount_points:
+            do_mount = self.app.ud.get('mount_%s' % label, True)
+            if not do_mount:
+                continue
+            ret_code = self.mount_disk(master_ip, path)
+            status = 1 if ret_code == 0 else -1
+            setattr(self, label, status)
 
         self.console_monitor.send_node_status()
-    
+
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
