@@ -256,7 +256,10 @@ class ConsoleManager(BaseConsoleManager):
         
         self.console_monitor.send_node_status()
         return ret_code
-    
+
+    def _get_extra_nfs_mounts(self):
+        return self.app.ud.get('extra_nfs_mounts', [])
+
 
 class ConsoleMonitor( object ):
     def __init__( self, app):
@@ -457,6 +460,3 @@ class ConsoleMonitor( object ):
         self.running = False
         self.sleeper.wake()
         log.info( "Console manager stopped" )
-    
-    def _get_extra_nfs_mounts(self):
-        return self.app.ud.get('extra_nfs_mounts', [])
