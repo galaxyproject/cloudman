@@ -69,6 +69,9 @@ class OSInterface(EC2Interface):
         return ec2_conn
     
     def get_s3_connection(self):
+        # TODO: Port this use_object_store logic to other clouds as well
+        if self.app and not self.app.use_object_store:
+            return None
         if self.s3_conn == None:
             log.debug("Establishing a boto Swift connection.")
             try:

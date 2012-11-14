@@ -162,7 +162,8 @@ class CM(BaseController):
                     bucket_s_key = None
                 else:
                     bucket_s_key = bucket_s_key.strip()
-                self.app.manager.add_fs(bucket_name.strip(), bucket_a_key, bucket_s_key)
+                self.app.manager.add_fs(bucket_name.strip(), bucket_fs_name.strip(),
+                    bucket_a_key, bucket_s_key)
             else:
                 log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
@@ -175,7 +176,7 @@ class CM(BaseController):
                 .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
-        return "FS_ACK"
+        return "Initiated file system addition"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -283,7 +284,7 @@ class CM(BaseController):
         # Choose log file path based on service name
         log = "No '%s' log available." % service_name
         if service_name == 'Galaxy':
-            log_file = os.path.join(paths.P_GALAXY_HOME, 'paster.log')
+            log_file = os.path.join(paths.P_GALAXY_HOME, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
         elif service_name == 'SGE':
@@ -495,16 +496,17 @@ class CM(BaseController):
             return msg
 
     @expose
-    def toggle_autoscaling(self, trans, as_min=None, as_max=None, as_instance_type=None):
+    def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None):
         if self.app.manager.get_services('Autoscale'):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
             log.debug("Turning autoscaling ON")
             if self.check_as_vals(as_min, as_max):
-                self.app.manager.start_autoscaling(int(as_min), int(as_max), as_instance_type)
+                self.app.manager.start_autoscaling(int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). " +
+                    "Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services('Autoscale'):
 
             return to_json_string({'running' : True,

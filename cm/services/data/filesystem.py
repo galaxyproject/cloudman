@@ -10,6 +10,7 @@ from datetime import datetime
 
 from boto.exception import EC2ResponseError
 
+from cm.util import paths
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.services import service_states
@@ -40,7 +41,7 @@ class Filesystem(DataService):
         self.size_pct = None  # Used percentage of this file system
         self.dirty = False
         self.kind = None # Choice of 'snapshot', 'volume', 'bucket', or 'transient'
-        self.mount_point = mount_point if mount_point is not None else '/mnt/%s' % self.name
+        self.mount_point = mount_point if mount_point is not None else os.path.join(paths.P_MOUNT_ROOT, self.name)
         self.grow = None # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
                          # the file system; use following dict structure:
                          # {'new_size': <size>, 'snap_desc': <snapshot description>}
@@ -431,8 +432,9 @@ class Filesystem(DataService):
                         self.state = service_states.RUNNING
                         self._update_size()
                     else:
-                        log.error("STATUS CHECK: Retrieved mount path '%s' does not match "
-                            "expected path '%s'" % (mnt_location[1], self.mount_point))
+                        log.error("STATUS CHECK [FS %s]: Retrieved mount path '%s' does not match "
+                            "expected path '%s'" % (self.get_full_name(), mnt_location[1],
+                            self.mount_point))
                         self.state = service_states.ERROR
                 except Exception, e:
                     log.error("STATUS CHECK: Exception checking status of FS '%s': %s" % (self.name, e))
@@ -466,6 +468,14 @@ class Filesystem(DataService):
         """
         log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
             .format(name=bucket_name, fs=self.get_full_name()))
+        a_thread = threading.Thread(target=self.__add_bucket,
+            args=(bucket_name, bucket_a_key, bucket_s_key))
+        a_thread.start()
+
+    def __add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
+        """
+        Do the actual adding of a bucket (intended to be called as a separate thread).
+        """
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
 
     def add_transient_storage(self):

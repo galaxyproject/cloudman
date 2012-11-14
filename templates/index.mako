@@ -12,14 +12,14 @@ vertical-align: top;
     <div id="main_text">
         %if initial_cluster_type is None:
             Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this cloud cluster and the services provided within. 
-            If this is your first time running this cluster, you will need to select an initial data volume 
-            size. Once the data store is configured, default services will start and you will be able to add 
+            This application allows you to manage this cloud cluster and the services provided within.
+            If this is your first time running this cluster, you will need to select an initial data volume
+            size. Once the data store is configured, default services will start and you will be able to add
             and remove additional services as well as 'worker' nodes on which jobs are run.
         %else:
             Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this instance cloud cluster and the services 
-            provided within. Your previous data store has been reconnected.  Once the cluster has initialized, 
+            This application allows you to manage this instance cloud cluster and the services
+            provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
             use the controls below to manage services provided by the application.
         %endif
     </div>
@@ -56,7 +56,7 @@ vertical-align: top;
                 ## Select available instance types based on cloud name
                 <%include file="clouds/${cloud_name}/instance_types.mako" />
             </div>
-            ## Spot instaces work only for the AWS cloud
+            ## Spot instances work only for the AWS cloud
             %if cloud_type == 'ec2':
                 <div class="form-row">
                     <input type="checkbox" id="use_spot" />
@@ -135,9 +135,9 @@ vertical-align: top;
     <form id="expand_user_data_volume" name="expand_user_data_volume" class="generic_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
         <div class="form-row">
         Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
-        <b>WILL BE STOPPED</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy 
+        <b>WILL BE STOPPED</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy
         jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-        <p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account. 
+        <p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account.
         If you decide to leave the snapshot for reference, you may also provide a brief note that will later be visible in
         the snapshot's description.</p>
         </div>
@@ -167,10 +167,10 @@ vertical-align: top;
 <div id="snapshot_status_box" class="box">
     <h2>Volume Manipulation In Progress</h2>
     <div class="form-row">
-        <p>Creating a snapshot of the cluster's data volume is in progress. All 
-        of the cluster services have been stopped for the time being and will resume 
-        automatically upon completion of the process.<br/>This message should go 
-        away after the process completes but if it does not, try refreshing the 
+        <p>Creating a snapshot of the cluster's data volume is in progress. All
+        of the cluster services have been stopped for the time being and will resume
+        automatically upon completion of the process.<br/>This message should go
+        away after the process completes but if it does not, try refreshing the
         page then.</p>
     </div>
     <div class="form-row">
@@ -182,7 +182,7 @@ vertical-align: top;
 <div id="reboot_status_box" class="box">
     <h2>Reboot In Progress</h2>
     <div class="form-row">
-        <p>This page should reload automatically when the reboot is complete. 
+        <p>This page should reload automatically when the reboot is complete.
         However, if it does not after approximately 5 minutes, reload it manually.</p>
     </div>
 </div>
@@ -231,22 +231,22 @@ vertical-align: top;
     <h2>Autoscaling Configuration</h2>
     <form id="turn_autoscaling_on_form" class="autoscaling_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
         <div class="form-row">
-            <p>Autoscaling attempts to automate the elasticity offered by cloud computing for this 
-            particular cluster. <b>Once turned on, autoscaling takes over the control over the size 
+            <p>Autoscaling attempts to automate the elasticity offered by cloud computing for this
+            particular cluster. <b>Once turned on, autoscaling takes over the control over the size
             of your cluster.</b></p>
             <p>
-            Autoscaling is simple, just specify the cluster size limits you want to want to work within 
-            and use your cluster as you normally do.  The cluster will not automatically shrink to less 
-            than the minimum number of worker nodes you specify and it will never grow larger than the 
+            Autoscaling is simple, just specify the cluster size limits you want to want to work within
+            and use your cluster as you normally do.  The cluster will not automatically shrink to less
+            than the minimum number of worker nodes you specify and it will never grow larger than the
             maximum number of worker nodes you specify.
             </p>
             <p>
             While respecting the set limits, if there are more jobs than the cluster can comfortably process at
             a given time autoscaling will automatically add compute nodes; if there are cluster nodes
-            sitting idle at the end of an hour autoscaling will terminate those nodes reducing the size 
+            sitting idle at the end of an hour autoscaling will terminate those nodes reducing the size
             of the cluster and  your cost.
             </p>
-            <p>Once turned on, the cluster size limits respected by autoscaling can be adjusted or 
+            <p>Once turned on, the cluster size limits respected by autoscaling can be adjusted or
             autoscaling can be turned off.</p>
             <div class="form-row">
                 <label>Minimum number of nodes to maintain:</label>
@@ -259,17 +259,8 @@ vertical-align: top;
                 </div>
                 <label>Type of Nodes(s):</label>
                 <div id="instance_type" class="form-row-input">
-                    <select name="as_instance_type" id="as_instance_type">
-                        <option value=''>Same as Master</option>
-                        <option value='t1.micro'>Micro</option>
-                        <option value='m1.large'>Large</option>
-                        <option value='m1.xlarge'>Extra Large</option>
-                        <option value='m2.xlarge'>High-Memory Extra Large</option>
-                        <option value='m2.2xlarge'>High-Memory Double Extra Large</option>
-                        <option value='m2.4xlarge'>High-Memory Quadruple Extra Large</option>
-                        ## <option value='c1.medium'>High-CPU Medium</option>
-                        <option value='c1.xlarge'>High-CPU Extra Large</option>
-                    </select>
+                    ## Select available instance types based on cloud name
+                    <%include file="clouds/${cloud_name}/instance_types.mako" />
                 </div>
                 <br/><div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
             </div>
@@ -281,9 +272,9 @@ vertical-align: top;
     <h2>Adjust Autoscaling Configuration</h2>
     <form id="adjust_autoscaling_form" class="autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
         <div class="form-row">
-            Adjust the number of instances autoscaling should maintain for this cluster. 
-            <p>NOTE: <b>If there are no idle nodes to remove</b>, although the maximum 
-            limit may be higher than the number of available nodes, autoscaling will wait 
+            Adjust the number of instances autoscaling should maintain for this cluster.
+            <p>NOTE: <b>If there are no idle nodes to remove</b>, although the maximum
+            limit may be higher than the number of available nodes, autoscaling will wait
             until the nodes become idle to terminate them.
             <div class="form-row">
                 <label>Minimum number of nodes to maintain:</label>
@@ -310,22 +301,22 @@ vertical-align: top;
         <h3><a href="#">Share-an-instance</a></h3>
         <div><form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
             <div class="form-row">
-                <p><b>This form allows you to share this cluster instance, at its current state, 
-                with others.</b> You can make the instance public or share it with specific 
+                <p><b>This form allows you to share this cluster instance, at its current state,
+                with others.</b> You can make the instance public or share it with specific
                 users by providing their account information below.<br/>
-                You may also share the instance with yourself by specifying your own 
-                credentials, which will have the effect of saving the instance at 
+                You may also share the instance with yourself by specifying your own
+                credentials, which will have the effect of saving the instance at
                 its current state.</p>
-                <p><b>While setting up an instance to be shared, all currently running 
-                cluster services will be stopped.</b> Then, a snapshot of your data 
+                <p><b>While setting up an instance to be shared, all currently running
+                cluster services will be stopped.</b> Then, a snapshot of your data
                 volume and a folder in your cluster's bucket will be created
                 (under 'shared/[current date and time]); this folder will contain
-                your cluster's current configuration. The created snapshot 
+                your cluster's current configuration. The created snapshot
                 and the folder will be given READ permissions to the users
                 you choose (or make it public). This will enable those users to instantiate
-                their own instances of the given cluster instance. This implies that you will 
-                only be paying for the created snapshot while users deriving a cluster from 
-                yours will incur costs for running the actual cluster. After the sharing 
+                their own instances of the given cluster instance. This implies that you will
+                only be paying for the created snapshot while users deriving a cluster from
+                yours will incur costs for running the actual cluster. After the sharing
                 process is complete, services on your cluster will automatically resume.</p>
                 <div class="form-row">
                     <div id="public_private">
@@ -336,7 +327,7 @@ vertical-align: top;
                         <div id="add_user">
                             <h4>Specific user permissions:</h4>
                             <p><strong>Both fields must be provided for each of the users.</strong><br/>
-                            These numbers can be obtained from the bottom of the 
+                            These numbers can be obtained from the bottom of the
                             AWS Security Credentials page, under <i>Account Identifiers</i> section.</p>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS account numbers:</span>
                                 <input type="text" id="user_ids" name="user_ids" size="40" value="" />
@@ -356,7 +347,7 @@ vertical-align: top;
 </div>
 <div class="box" id="del_scf_popup">
     <h2>Delete shared cluster instance confirmation</h2>
-    <div>Are you sure you want to delete shared cluster instance under 
+    <div>Are you sure you want to delete shared cluster instance under
     <i><span id="scf_txt">&nbsp;</span></i>
     and the corresponding snapshot with ID <i><span id="scf_snap">&nbsp;</span></i>?<br/>
     <p>This action cannot be undone.</p></div>
@@ -391,7 +382,7 @@ vertical-align: top;
                     <br/>Specify the initial storage size (in Gigabytes):
                 </p>
                 <input disabled='true' style="margin-left:20px" type="text" name="g_pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
-            % endif             
+            % endif
         </div>
         <div id='extra_startup_options'>
             <div class="form-row">
@@ -406,12 +397,12 @@ vertical-align: top;
 
             <div class="form-row">
                 <p><input id="data-cluster" type="radio" name="startup_opt" value="Data">
-                    <b>Data Cluster</b>: a persistent data volume and SGE. 
+                    <b>Data Cluster</b>: a persistent data volume and SGE.
                     Specify the initial storage size (in Gigabytes):
                 </p>
                 <input style="margin-left:20px"  type="text" name="d_pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
             </div>
-            
+
             <div class="form-row">
                 <p><input type="radio" name="startup_opt" value="SGE">
                 <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
@@ -483,7 +474,7 @@ function hidebox(){
     $('#power_off').hide();
     $('#overlay').hide();
 }
- 
+
 function scrollLog(){
     if ($("#log_container_body").attr("scrollHeight") <= ($("#log_container_body").scrollTop() + $("#log_container_body").height() + 100)){
         $('#log_container_body').animate({
@@ -662,7 +653,7 @@ function show_confirm(scf, snap_id){
     $('#scf_snap').text(snap_id);
     // FIXME: Need to have an individual element ID for each of the shared instances
     $('#del_scf_conf').click(function(){
-        $.get("${h.url_for(controller='root',action='delete_shared_instance')}", 
+        $.get("${h.url_for(controller='root',action='delete_shared_instance')}",
             {'shared_instance_folder': scf, 'snap_id': snap_id},
             function(){
                 $('#del_scf_popup').hide();
@@ -754,14 +745,14 @@ function shutting_down() {
 $(document).ready(function() {
     var initial_cluster_type = '${initial_cluster_type}';
     var permanent_storage_size = ${permanent_storage_size};
-    
+
     $('#shared_visibility').click(function() {
         $('#user_permissions').show();
         $('#user_ids').val("");
         $('#cannonical_ids').val("");
     });
     $('#public_visibility').click(function() {$('#user_permissions').hide();});
-    
+
     $('#stop-button').click(function(){
         if ($(this).hasClass('ab_disabled')){
             return;
@@ -838,7 +829,7 @@ $(document).ready(function() {
             $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
             $('#log_container_body').slideUp('fast', function(){
                 $('#log_container_header').removeClass('clicked');
-            });   
+            });
         }
         return false;
     });
@@ -851,7 +842,7 @@ $(document).ready(function() {
         },
         success: function( data ) {
             update_ui(data);
-        }        
+        }
     });
 
     $('.autoscaling_form').ajaxForm( {
@@ -910,7 +901,7 @@ $(document).ready(function() {
             update_ui(data);
         }
     });
-    
+
     $('#update_reboot_now').click(function(){
         $('#reboot_overlay').show();
         $('#reboot_status_box').show();
@@ -923,7 +914,7 @@ $(document).ready(function() {
                 }
             });
     });
-    
+
     $('#update_cm').click(function(){
         $.getJSON("${h.url_for(controller='root',action='update_users_CM')}",
             function(data){
@@ -961,19 +952,19 @@ $(document).ready(function() {
     }
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
-    
+
     var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
     autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
     autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    
+
     $('#as_min').change(function(){
         autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
     });
     $('#as_max').change(function(){
         autoscaling_min_bound.validations[0].params.maximum = $('#as_max').val();
     });
-    
+
     // FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
     var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
     autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
@@ -985,15 +976,15 @@ $(document).ready(function() {
     $('#as_max_adj').change(function(){
         autoscaling_min_bound_adj.validations[0].params.maximum = $('#as_max_adj').val();
     });
-    
-    
+
+
     if (initial_cluster_type === 'None') {
         toggleVolDialog();
     }
     // Add tooltips
     $('#share_a_cluster').tipsy({gravity: 'w', fade: true});
     $('#expand_vol').tipsy({gravity: 'w', fade: true});
-    
+
     // Enable onclick events for the option in the initial cluster configuration box
     $('#g_pss').focus(function() {
         $('#galaxy-cluster').attr('checked', 'checked');
@@ -1004,7 +995,7 @@ $(document).ready(function() {
     $('#d_pss').focus(function() {
         $('#data-cluster').attr('checked', 'checked');
     });
-    
+
     // Initiate the update calls
     update(true);
 });

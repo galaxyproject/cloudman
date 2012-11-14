@@ -48,7 +48,7 @@ Backbone.ModalView =
         events:
             {
             },
-       
+
         showModalBlanket:
             function()
             {
@@ -254,7 +254,7 @@ Backbone.ModalView =
 				var centreY = $(window).height() / 2;
                 var centreX = $(window).width() / 2;
                 var modalContainer = this.ensureModalContainer( this.options.targetContainer).empty();
-		
+
 		        $el.addClass( "modal");
 
                 var coords = {
@@ -366,7 +366,7 @@ Backbone.ModalView =
 
                 var animateProperties = {opacity:1};
                 var modalOffset = modalContainer.offset();
-                    
+
                 if( this.options.slideFromAbove)
                 {
                     modalContainer.css({"top": (modalOffset.top - this.options.slideDistance) + "px"});
