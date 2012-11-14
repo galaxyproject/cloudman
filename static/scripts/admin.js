@@ -125,39 +125,12 @@ function handle_clicks() {
             $('#user_data').fadeIn('fast');
         });
     });
-    //$('#manage_FSs_link').click(function(){
-        //$('#overlay').show();
-        //$('#add_fs_overlay').show();
-        // get_filesystems();
-    //});
     // Clicking the semi-transparent overlay clears any overlays
     $('body').on('click', 'div.overlay', function() { hidebox();});
     // Force an update of the field on click
     $('#master_is_exec_host').click(function(){
         update();
     });
-    // Handle click on 'Details' of an individual file system
-    // TODO: this should be translated to a backbone event
-    /*
-    $('table').on('click', 'a.fs-detailss', function() {
-        // Make sure any other details boxes are closed before opening a new one
-        if ($('.fs-details-box').is(':visible')) {
-            $('.fs-details-box-close').trigger('click');
-        }
-        var elid = $(this).attr('details-box'); // Get the element ID of the clicked FS
-        var tr = $(this).parents('tr'); // Keep reference to the highlighted tr
-        tr.animate({backgroundColor: '#FEF1B5'}, 'slow');
-        $("#"+elid).show("fold");
-        // Add a hide event on the 'close' button
-        // Need to use closure here to keep a reference to the highlighted tr
-        var closer = function () {
-            $("#"+elid).on('click', "a.fs-details-box-close", function() {
-                $("#"+elid).hide();
-                $(tr).animate({backgroundColor: 'transparent'}, 'slow');
-            });
-        }();
-        return false; // prevent page autoscroll to the top
-    });*/
 }
 function handle_forms() {
     // Handle generic forms
@@ -225,6 +198,36 @@ String.prototype.toSpaced = function(){
 	return this.replace(/(\_[a-z])/g, function($1){return $1.toUpperCase().replace('_',' ');});
 };
 
+// Convert form data to JS object
+// http://stackoverflow.com/questions/1184624/convert-form-data-to-js-object-with-jquery
+jQuery.fn.serializeObject = function() {
+  var arrayData, objectData;
+  arrayData = this.serializeArray();
+  objectData = {};
+
+  $.each(arrayData, function() {
+    var value;
+
+    if (this.value != null) {
+      value = this.value;
+    } else {
+      value = '';
+    }
+
+    if (objectData[this.name] != null) {
+      if (!objectData[this.name].push) {
+        objectData[this.name] = [objectData[this.name]];
+      }
+
+      objectData[this.name].push(value);
+    } else {
+      objectData[this.name] = value;
+    }
+  });
+
+  return objectData;
+};
+
 // Backbone.js components
 (function ($) {
 
@@ -232,7 +235,11 @@ String.prototype.toSpaced = function(){
     var Filesystem = Backbone.Model.extend({
         defaults: {
             id: null,
-            status: 'Unavailable'
+            status: 'Unavailable',
+            size_used: 'N/A',
+            size_pct: 'N/A',
+            size: 'N/A',
+            DoT: 'N/A'
         }
     });
 
@@ -251,10 +258,20 @@ String.prototype.toSpaced = function(){
         events: {
             "click .fs-remove": "triggerRemove",
             "click .fs-details": "showDetails",
+            "click .fs-resize": "triggerResize",
+            "click .fs-persist": "triggerPersist"
         },
 
         initialize: function() {
-            //CMApp.vent.bind("fs:confirmFSRemove", this.handleRemove);
+            this.model.bind("change", this.render, this); // watch for any model changes
+            this.on("item:before:render", this.onBeforeRender);
+        },
+
+        onBeforeRender: function() {
+            // Strip the % sign from the value so meter tag can display it
+            if (this.model.attributes.size_pct != null) {
+                this.model.attributes.size_pct = this.model.attributes.size_pct.match(/\d+/g);
+            }
         },
 
         onRender: function() {
@@ -272,40 +289,49 @@ String.prototype.toSpaced = function(){
             }
             // Add toopltips
             this.$('a.icon-button').tipsy({gravity: 's', fade: true});
+            // Return the % symbol that was removed above in ``onBeforeRender`` method
+            if (this.model.attributes.size_pct != null) {
+                this.model.attributes.size_pct = this.model.attributes.size_pct + "%";
+            }
         },
 
         triggerRemove: function(event) {
             event.preventDefault();
-            console.log("triggered FS " + this.model.get('name') + " removal");
-            this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
-            // Show confirmation dialog
+            this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
+            // Show a modal confirmation dialog
             var filesystemRemoveConfirmationView =
                 new FilesystemRemoveConfirmationView({model: this.model});
-            CMApp.fsConfirmRemove.show(filesystemRemoveConfirmationView);
+            filesystemRemoveConfirmationView.render().showModal();
+            // Listen for the modal dialog's action event and act accordingly
             var that = this;
-            (function () {
-                CMApp.vent.on("fs:FSRemoveAction", function(action){
-                    if (action === 'remove') {
-                        console.log("Closure handling removal of FS " + that.model.get('name'));
-                    }
-                    that.$el.animate({backgroundColor: 'transparent'}, "fast");
-                });
-            })();
+            filesystemRemoveConfirmationView.on('fs:removeFS', function(){
+                that.handleRemove();
+            });
+            // closeModalWindow is automatically triggered by Backbone.ModalView
+            filesystemRemoveConfirmationView.on('closeModalWindow', function(){
+                that.$el.animate({backgroundColor: 'transparent'}, "slow");
+            });
         },
 
-        handleRemove: function(model) {
-            console.log("Handling removal of FS " + model.get('name'));
+        handleRemove: function() {
+            url = this.$el.find('a.fs-remove').attr('href');
+            $.get(url, function(data) {
+                $('#msg').html(data).fadeIn();
+                clear_msg();
+            });
+            this.model.attributes.status = 'Removing';
+            this.model.save();
         },
 
         showDetails: function(event) {
             event.preventDefault();
-            // Before displaying a new details box, close any others
+            // Before displaying a new details box, close any others and clear tr
             CMApp.vent.trigger("fs:detailsClose");
+            // Highlight the file system for which the details are being shown
             this.$el.animate({backgroundColor: '#FEF1B5'}, "fast");
             var detailsView = new FilesystemDetailsView({model: this.model});
             CMApp.fsDetails.show(detailsView);
-            // Add a hide event on the 'close' button
-            // Need to use closure here to keep a reference to the highlighted tr
+            // Listen for a hide event on the 'close' button to remove the tr highlight
             var that = this;
             (function () {
                 CMApp.vent.on("fs:detailsClose", function(){
@@ -314,174 +340,89 @@ String.prototype.toSpaced = function(){
             })();
         },
 
-        /*
-        attributes: function() {
-            // Explicitly add file system name as a tag/row attribute
-            return {fs_name: this.model.get('name')};
-        },
-
-        events: {
-            "click .fs-remove": "triggerRemove",
-        },
-
-        initialize: function(options) {
-            this.vent = options.vent;
-            _.bindAll(this, 'handleRemove');
-            options.vent.bind("confirmFSRemove", this.handleRemove);
-            this.model.bind("change", this.render, this); //why does this not work?
-        },
-
-        render: function () {
-            // Must clear tooltips; otherwise, following a rerender, the binding
-            // element no longer exists and thus the tool tip stays on forever
-            $(".tipsy").remove();
-            var tmpl = _.template($('#fileSystem-template').html());
-            $(this.el).html(tmpl(this.model.toJSON()));
-            if (this.model.attributes.status === 'Available' ||
-                this.model.attributes.status === 'Running') {
-                $(this.el).find('.fs-status').addClass("td-green-txt");
-            } else if (this.model.attributes.status === 'Error') {
-                $(this.el).find('.fs-status').addClass("td-red-txt");
-            } else {
-                $(this.el).find('.fs-status').addClass("td-tan-txt");
-            }
-            // Add toopltips
-            this.$('a.icon-button').tipsy({gravity: 's', fade: true});
-            return this;
-        },
-
-        triggerRemove: function(event) {
+        triggerResize: function(event){
             event.preventDefault();
-            // Show confirmation dialog
-            args = {vent: this.vent, model: this.model, event: event};
-            var confDialog = new RemoveFSConfView(args);
-            confDialog.render().showModal();
-            //alert("clicked " + this.model.get("name"));
-            //var answer = confirm("clicked" + this.model.get("name"));
-            //if (answer === true) {
-                //this.handleRemove();
-            //}
+            // Show the form only if not already shown
+            if ($('#fs-resize-form-container').html() === ""){
+                this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
+                var filesystemResizeFormView = new FilesystemResizeFormView({model: this.model});
+                CMApp.fsResizeRegion.show(filesystemResizeFormView);
+                // item:before:close is automatically triggered by backbone.Marionette
+                var that = this;
+                filesystemResizeFormView.on('item:before:close', function(){
+                    that.$el.animate({backgroundColor: 'transparent'}, "slow");
+                });
+                // Update model state on the resizing event
+                filesystemResizeFormView.on("fs:resizing", function(){
+                    that.model.attributes.status = "Resizing";
+                    that.model.save();
+                });
+            }
         },
 
-        handleRemove: function(model) {
-            // FIXME: For some reason, when invoked once, this method actually
-            // gets called numerous times? The # of times it gets called has to
-            // do with how long it's been since the page as whole was refreshed
-            console.log(model.get('name'));
-            //return false;
-            var el = $('#fs-'+model.get('name')+'-remove');
-            var url = el.attr('href');
+        triggerPersist: function(event){
+            event.preventDefault();
+            this.$el.css({backgroundColor: '#FEF1B5'}, "fast");
+            // Show a modal confirmation dialog
+            var filesystemPersistConfirmationView =
+                new FilesystemPersistConfirmationView({model: this.model});
+            filesystemPersistConfirmationView.render().showModal();
+            // Listen for the modal dialog's action event and act accordingly
+            var that = this;
+            filesystemPersistConfirmationView.on('fs:persistFS', function(){
+                that.handlePersist();
+            });
+            // closeModalWindow is automatically triggered by Backbone.ModalView
+            filesystemPersistConfirmationView.on('closeModalWindow', function(){
+                that.$el.animate({backgroundColor: 'transparent'}, "slow");
+            });
+        },
+
+        handlePersist: function(){
+            url = this.$el.find('a.fs-persist').attr('href');
             $.get(url, function(data) {
-                //alert("Success");
                 $('#msg').html(data).fadeIn();
                 clear_msg();
             });
-            //.success(function() { alert("Second success"); })
-            //.error(function() { alert("Error"); })
-            //.complete(function() { alert("Complete"); });
-            //popup();
-            //updateFSStatus(model.get('name'), "Removing");
-            model.attributes.status = "Removing";
-            //filesystemList.render();
-        },
-        */
-
+            this.model.attributes.status = 'Persisting';
+            this.model.save();
+        }
     });
 
     // Define the form view for resizing a file system
-    var FilesystemResizeFormView = Backbone.View.extend({
-        fsResizeFormTemplate:
-            '<div class="form-row">' +
-            'Through this form you may increase the disk space available to this file system. ' +
-            'Any services using this file system <b>WILL BE STOPPED</b> ' +
-            'until the new disk is ready, at which point they will all be restarted. Note ' +
-            'that This may result in failure of any jobs currently running. Note that the new ' +
-            'disk size <b>must be larger</b> than the current disk size.'+
-            '<p>During this process, a snapshot of your data volume will be created, ' +
-            'which can optionally be left in your account. If you decide to leave the ' +
-            'snapshot for reference, you may also provide a brief note that will later ' +
-            'be visible in the snapshot\'s description.</p>' +
-            '</div>' +
-            '<div class="form-row">' +
-                '<label>New disk size (minimum <span id="du-inc"><%= size %></span>B, ' +
-                'maximum 1000GB)</label>' +
-                '<div id="permanent_storage_size" class="form-row-input">' +
-                    '<input type="text" name="new_vol_size" id="new_vol_size" '+
-                    'placeholder="Greater than <%= size %>B" size="25">' +
-                '</div>' +
-                '<label>Note</label>' +
-                '<div id="permanent_storage_size" class="form-row-input">' +
-                    '<input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" ' +
-                    'placeholder="Optional snapshot description" size="50"><br/>' +
-                '</div>' +
-                '<label>or delete the created snapshot after filesystem resizing?</label>' +
-                '<input type="checkbox" name="delete_snap" id="delete_snap"> If checked, ' +
-                'the created snapshot will not be kept' +
-                '<div class="form-row">' +
-                    '<input type="submit" value="Resize <%= name %> file system"/>' +
-                    'or <a class="fs-resize-form-close" href="#">cancel</a>' +
-                '</div>' +
-                '<input name="fs_name" type="text" hidden="Yes" value="<%= name %>" />' +
-            '</div>',
-        tagName: "form",
+    var FilesystemResizeFormView = Backbone.Marionette.ItemView.extend({
+        template: "#fs-resize-template",
         className: "fs-resize-form",
-
-        initialize: function() {
-            this.on("click:closeForm", this.closeForm, this);
-        },
+        tagName: "form",
 
         events: {
-            "submit": "handleResize",
             "click .fs-resize-form-close": "triggerFormClose",
+            "submit": "handleResize"
         },
 
-        render: function() {
-            var tmpl = _.template(this.fsResizeFormTemplate);
-            $(this.el).attr('id', "fs-"+this.model.attributes.name+"-resize-form");
-            $(this.el).attr('action', resize_fs_url);
-            $(this.el).attr('method', 'post');
-            $(this.el).html(tmpl(this.model.toJSON()));
-            return this;
+        initialize: function() {
+            // Add the form element attributes
+            this.$el.attr('action', resize_fs_url);
+            this.$el.attr('method', 'post');
+        },
+
+        triggerFormClose: function(event) {
+            event.preventDefault();
+            this.close();
         },
 
         handleResize: function(event) {
-            // Issues the resize request to the back end
             event.preventDefault();
-            var el = $('#'+event.currentTarget.id);
-            var url = el.attr('action');
-            $.post(url, el.serialize(),
+            // Issue POST request
+            var url = this.$el.attr('action');
+            $.post(url, this.$el.serialize(),
                 function(data) {
                     $('#msg').html(data).fadeIn();
                     clear_msg();
             });
-            popup();
-            // Hide the resize form
-            this.formElToClose = el;
-            this.closeForm();
-            // Update status
-            formId = el.attr('id');
-            fsName = formId.split('-')[1]; // assumes form id is 'fs-<fs_name>-resize-form'
-            updateFSStatus(fsName, "Resizing");
-        },
-
-        triggerFormClose: function(event) {
-            // Capture the form element and trigger actual form closing
-            event.preventDefault();
-            this.formElToClose = $(event.currentTarget).parents('form');
-            this.trigger("click:closeForm");
-        },
-
-        closeForm: function() {
-            // Close the visible file system resize form
-            if (this.formElToClose.is(':visible')) {
-                // Hide resize form
-                this.formElToClose.hide("blind");
-                // Remove the highlight from the file system table row
-                formId = this.formElToClose.attr('id');
-                fsName = formId.split('-')[1]; // assumes form id is 'fs-<fs_name>-resize-form'
-                var tr = $('tr[fs_name='+fsName+']');
-                $(tr).animate({backgroundColor: 'transparent'}, 'slow');
-            }
+            // Trigger event for the model update
+            this.trigger('fs:resizing');
+            this.close();
         }
     });
 
@@ -500,32 +441,79 @@ String.prototype.toSpaced = function(){
         }
     });
 
-    // Define the confirmation popup before removing a file system
-    var FilesystemRemoveConfirmationView= Backbone.Marionette.ItemView.extend({
-        template: "#fs-confirmRemove-template",
-        className: "fs-confirmRemove-box modal-box",
+    // Base ModalConfirmationDialogView - other confirmation views should inherit from this one
+    var ModalConfirmationDialogView = Backbone.ModalView.extend({
+        template:
+            '<div class="modal-dialog-header">Are you sure?</div>' +
+            '<div class="modal-dialog-text">Clicking on the <i>Confirm</i> button ' +
+                'will initiate the requested action.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
 
         events: {
-            "click #confirm_fs_remove": "confirmFSRemove",
-            "click .modal-dialog-cancel-button": "cancelFSRemove",
+            "click .modal-dialog-ok-button": "confirm",
+            "click .modal-dialog-cancel-button": function(){this.hideModal();}
         },
 
-        //initialize: function() {
-            //_.bindAll(this, "render");
-        //},
-        cancelFSRemove: function() {
-            console.log("Canceling FS " + this.model.get('name') + " removal");
-            CMApp.vent.trigger("fs:FSRemoveAction", "cancel");
-            CMApp.fsConfirmRemove.close();
+        initialize: function() {
+            this.template = _.template(this.template);
         },
 
-        confirmFSRemove: function() {
-            console.log("Confirming FS " + this.model.get('name') + " removal");
-            CMApp.vent.trigger("fs:FSRemoveAction", 'remove');
-            CMApp.fsConfirmRemove.close();
+        render: function() {
+            $(this.el).html(this.template(this.model.toJSON()));
+            return this;
+        },
+
+        confirm: function() {
+            this.trigger("modal-dialog-ok");
+            this.hideModal();
         }
     });
 
+    // Define the view for displaying a confirmation dialog before removing a FS
+    var FilesystemRemoveConfirmationView = ModalConfirmationDialogView.extend({
+        template:
+            '<div class="modal-dialog-header">Remove <i><%= name %></i> file system?</div>' +
+            '<div class="modal-dialog-text">Removing this file system will first stop any ' +
+                'services that require this file system. Then, the file system will be ' +
+                'unmounted and the underlying device disconnected from this instance.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_action" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
+
+        confirm: function() {
+            this.trigger('fs:removeFS');
+            this.hideModal();
+        }
+    });
+
+    // Define the view for displaying a confirmation dialog before persisting changes to a FS
+    var FilesystemPersistConfirmationView = ModalConfirmationDialogView.extend({
+        template:
+            '<div class="modal-dialog-header">Persist <i><%= name %></i> file system changes?</div>' +
+            '<div class="modal-dialog-text"><p>If you have made changes to the ' +
+                '<i><%= name %></i> file system and would like to persist the changes ' +
+                'across cluster invocations, it is required to persist those ' +
+                'changes. </p><i>What will happen next?</i></br>' +
+                'Persisting file system changes requires that any services running on the ' +
+                'file system be stopped and the file system unmounted. Then, a ' +
+                'snapshot of the underlying volume will be created and any services ' +
+                'running on the file system started back up. Note that depending ' +
+                'on the amount of changes you have made to the file system, this ' +
+                'process may take a while.</div>' +
+            '<div class="modal-dialog-buttons">' +
+                '<button id="confirm_fs_persist" class="modal-dialog-ok-button">Confirm</button>' +
+                '<button class="modal-dialog-cancel-button">Cancel</button>' +
+            '</div>',
+
+        confirm: function() {
+            this.trigger('fs:persistFS');
+            this.hideModal();
+        }
+    });
 
     // Define the master view, i.e., list of all the file systems
     var FilesystemsView = Backbone.Marionette.CompositeView.extend({
@@ -537,137 +525,6 @@ String.prototype.toSpaced = function(){
         appendHtml: function(collectionView, itemView) {
             collectionView.$("tbody").append(itemView.el);
         }
-
-        /*
-        initialize: function(options) {
-            // Bind the functions 'add' and 'remove' to the view.
-            //_(this).bindAll(this, 'add', 'remove');
-            // An array of all the file system views contained in this master view
-            //this.filesystemViews = [];
-            // Add each file system to the view
-            //this.collection.each(this.add);
-
-            // Bind events to actions
-            this.vent = options.vent;
-            this.on("click:removeFS", this.handleRemove, this);
-            FScollection.on('reset', this.render, this); // Triggered on the initial page load
-        },
-
-        render: function () {
-            var that = this;
-            // Clear the current list; otherwise, the list just grows indefinitely
-            // FIXME: I don't think this will work once FS can be added from the client side?
-            //        Just add an argument from the update method?
-            $(this.el).empty();
-            $('#fs-details-container').empty();
-            if (FScollection.models.length > 0) {
-                // Explicitly add the header row
-                this.$el.append($('#fileSystems-template').html());
-                // Add all of the file systems, one per row
-                _.each(FScollection.models, function (fs) {
-                    that.renderFilesystem(fs);
-                }, this);
-            }
-        },
-
-        renderFilesystem: function (fs) {
-            // Issue remove event for given model item
-            // (triggered in the model view that unbinds any events for the el)
-            // Add a new item
-            var filesystemView = new FilesystemView({
-                model: fs,
-                vent: this.vent
-            });
-            this.$el.append(filesystemView.render().el);
-            // File system details view
-            var filesystemDetailsView = new FilesystemDetailsView({
-                model: fs
-            });
-            $('#fs-details-container').append(filesystemDetailsView.render().el);
-
-            // File system resize form view
-            var filesystemResizeFormView= new FilesystemResizeFormView({
-                model: fs
-            });
-            $('#fs-resize-form-container').append(filesystemResizeFormView.render().el);
-
-        },
-
-        // Add UI event handlers
-        events: {
-            //"click .fs-remove": "triggerRemove",
-            "click .fs-persist": "triggerPersist",
-            "click .fs-resize": "triggerResize",
-        },
-
-        triggerRemove: function (event) {
-            // Is this trigger necessary? Why can't the click just be handled in this method?
-            this.fsToRemoveID = event.currentTarget.id; // Reference to the element ID of the FS to be remvoed
-            this.fsToRemoveTR = $('#'+event.currentTarget.id).parents('tr'); // Reference to tr to be removed
-            event.preventDefault();
-            // Show confirmation dialog
-            options = {vent: this.vent, fsToRemoveID: this.fsToRemoveID}
-            var confDialog = new RemoveFSConfView(options);
-            confDialog.render().showModal();
-            // Clear any other forms that may be opened before removing a file system.
-            // Otherwise, we run the risk of removing the element the form is bound to
-            //$('.fs-resize-form-close').trigger('click');
-            //this.trigger("click:removeFS");
-        },
-
-        handleRemove: function() {
-            var el = $('#'+this.fsToRemoveID);
-            var url = el.attr('href');
-            $.get(url, function(data) {
-                //alert("Success");
-                $('#msg').html(data).fadeIn();
-                clear_msg();
-            });
-            //.success(function() { alert("Second success"); })
-            //.error(function() { alert("Error"); })
-            //.complete(function() { alert("Complete"); });
-            popup();
-            updateFSStatus(this.fsToRemoveTR.attr('fs_name'), "Removing");
-        },
-
-        triggerPersist: function(event) {
-            event.preventDefault();
-            var el = $('#'+event.currentTarget.id);
-            var url = el.attr('href');
-            $.get(url, function(data) {
-                $('#msg').html(data).fadeIn();
-                clear_msg();
-            });
-            popup();
-            updateFSStatus(el.parents('.filesystem-tr').attr('fs_name'), "Updating");
-        },
-
-        triggerResize: function(event) {
-            event.preventDefault();
-            var el = $('#'+event.currentTarget.id);
-            var formId = el.attr('id') + '-form';
-            // Close any other 'resize' forms
-            if ($('.fs-resize-form').is(':visible')) {
-                $('.fs-resize-form-close').trigger('click');
-                // Don't 'reopen' the same form, just close it
-                var reopen = false;
-                $('.fs-resize-form').each(function() {
-                    if ($(this).is(':visible') && $(this)[0] === $('#'+formId)[0]) {
-                        reopen = true;
-                    }
-                });
-                if (reopen === true) {
-                    return false;
-                }
-            }
-            // Highlight the fs table row
-            var tr = el.parents('tr');
-            tr.animate({backgroundColor: '#FEF1B5'}, 'slow');
-            // Show the new file system resize form
-            $('#'+formId).show("blind");
-        },
-        
-        */
 
     });
 
@@ -707,7 +564,7 @@ String.prototype.toSpaced = function(){
                     '<p> It appears you are not running on the AWS cloud. CloudMan supports '+
                     'using only buckets from AWS S3. So, if the bucket you are trying to ' +
                     'use is NOT PUBLIC, you must provide the AWS credentials that can be ' +
-                    'used to access this bucket. If the bucket you are trying to use' +
+                    'used to access this bucket. If the bucket you are trying to use ' +
                     'IS PUBLIC, leave below fields empty.</p>' +
                     '<table><tr>' +
                         '<td><label for"bucket_a_key">AWS access key: </label></td>' +
@@ -760,7 +617,7 @@ String.prototype.toSpaced = function(){
                 'and thus automatically added the next this this cluster is started</label>' +
             '</div>' +
             '<div id="add-fs-submit-btn" class="add-fs-details-form-row">' +
-                '<input type="submit" value="Add new file system"/>' +
+                '<input type="submit" class="fs-form-submit-button" value="Add new file system"/>' +
                 'or <a class="fs-add-form-close" href="#">cancel</a>' +
             '</div>' +
             '</div>',
@@ -845,17 +702,45 @@ String.prototype.toSpaced = function(){
             event.preventDefault();
             var el = $('#'+event.currentTarget.id);
             var url = el.attr('action');
+            // Based on the kind of the new file system, get the name
+            var fs_kind = $('input[type=radio]:checked', el).val();
+            var form_obj = el.serializeObject();
+            switch(fs_kind) {
+                case "bucket":
+                    var new_fs_name = form_obj.bucket_fs_name;
+                    break;
+                case "volume":
+                    var new_fs_name = form_obj.vol_fs_name;
+                    break;
+                case "snapshot":
+                    var new_fs_name = form_obj.snap_fs_name;
+                    break;
+                case "new_volume":
+                    var new_fs_name = form_obj.new_vol_fs_name;
+                    break;
+                default:
+                    var new_fs_name = "Unknown";
+            }
+            if (form_obj.dot === 'on'){
+                var dot = 'Yes';
+            } else {
+                var dot = 'No';
+            }
+            // Make the POST request
             $.post(url, el.serialize(),
                 function(data) {
                     $('#msg').html(data).fadeIn();
                     clear_msg();
             });
-            popup();
             // Hide the resize form
+            if ($('#add-bucket-fs-creds').is(':visible')){
+                $('#add-bucket-fs-creds').hide();
+            }
             this.formElToClose = el;
             this.closeForm();
-            // TODO: Update status
-            //updateFSStatus(fsName, "Resizing");
+            // Add this file system to the collection to be shown on the UI
+            FScollection.add({name: new_fs_name, status: 'Adding', kind: fs_kind,
+                mount_point: '/mnt/'+new_fs_name, DoT: dot});
         },
 
         triggerFormClose: function(event) {
@@ -910,11 +795,6 @@ String.prototype.toSpaced = function(){
 
     // --- Driver code ---
 
-    // An app-wide event aggregator object: http://bit.ly/p3nTe6
-    var vent = _.extend({}, Backbone.Events);
-    // Create an instance of the master view
-    // var filesystemList = new FilesystemsView({vent: vent});
-
     // Define model collection
     var FScollection = new Filesystems(); // A container for all Filesystems
 
@@ -923,7 +803,7 @@ String.prototype.toSpaced = function(){
     CMApp.addRegions({
         mainRegion: "#filesystems-container",
         fsDetails: "#fs-details-container",
-        fsConfirmRemove: "#fs-confirmRemove-container",
+        fsResizeRegion: "#fs-resize-form-container"
     });
     CMApp.addInitializer(function(options){
         var filesystemsView = new FilesystemsView({
@@ -933,10 +813,12 @@ String.prototype.toSpaced = function(){
     });
     CMApp.start({filesystems: FScollection});
 
+    // An app-wide event aggregator object: http://bit.ly/p3nTe6
+    var vent = _.extend({}, Backbone.Events);
     // Create instances of the add new file system button and form views
     // Also, subscribe those to global events
     // TODO: Improve global event triggering? http://bit.ly/AlZ3EJ
-    var addFilesystemBtnView= new AddFilesystemBtnView({vent: vent});
+    var addFilesystemBtnView = new AddFilesystemBtnView({vent: vent});
     var addFilesystemFormView = new AddFilesystemFormView({vent: vent});
     $('#fs-add-form').html(addFilesystemFormView.render().el);
 

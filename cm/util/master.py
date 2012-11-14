@@ -1,13 +1,11 @@
 """Galaxy CM master manager"""
 import logging, logging.config, threading, os, time, subprocess, commands, fileinput
 import shutil
-import random
 import datetime as dt
-
-from cm.util.bunch import Bunch
 
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
+from cm.util.manager import BaseConsoleManager
 from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
@@ -22,7 +20,8 @@ from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S
 
 log = logging.getLogger('cloudman')
 
-class ConsoleManager(object):
+class ConsoleManager(BaseConsoleManager):
+    node_type = "master"
     def __init__(self, app):
         self.startup_time = dt.datetime.utcnow()
         log.debug( "Initializing console manager - cluster start time: %s" % self.startup_time)
@@ -31,10 +30,10 @@ class ConsoleManager(object):
         self.root_pub_key = None
         self.cluster_status = cluster_status.STARTING
         self.num_workers_requested = 0 # Number of worker nodes requested by user
-        # The actual number of worker nodes (note: this is a list of Instance objects)
-        # (beause get_worker_instances currenlty depends on tags, which is only
+        # The actual worker nodes (note: this is a list of Instance objects)
+        # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
-        # This initialization is applicable only for restarting the cluster)
+        # This initialization is applicable only when restarting a cluster.
         self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
         self.disk_total = "0"
         self.disk_used = "0"
@@ -132,37 +131,41 @@ class ConsoleManager(object):
         """
         log.debug("ud at manager start: %s" % self.app.ud)
 
-        self.handle_prestart_commands()
+        self._handle_prestart_commands()
 
         # Always add SGE service
-        self.app.manager.services.append(SGEService(self.app))
+        self.services.append(SGEService(self.app))
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs')
         tfs.add_transient_storage()
-        self.app.manager.services.append(tfs)
+        self.services.append(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.app.manager.services.append(PSS(self.app))
+        self.services.append(PSS(self.app))
 
-        # Check if starting a derived cluster and initialize from share, 
+        # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
         if self.app.ud.has_key("share_string"):
-            self.app.manager.init_shared_cluster(self.app.ud['share_string'].strip())
+            self.init_shared_cluster(self.app.ud['share_string'].strip())
         # else look if this is a restart of a previously existing cluster
         # and add appropriate services
         elif not self.add_preconfigured_services():
             return False
         self.manager_started = True
 
-        # Check if a previously existing cluster is being recreated or is it a new one
-        self.initial_cluster_type = self.app.ud.get('cluster_type', None)
-        if self.initial_cluster_type is not None:
-            cc_detail = "Configuring a previously existing cluster of type {0}"\
-                .format(self.initial_cluster_type)
+        # Check if a previously existing cluster is being recreated or if it is a new one
+        if not self.initial_cluster_type: # this can get set by _handle_old_cluster_conf_format
+            self.initial_cluster_type = self.app.ud.get('cluster_type', None)
+            if self.initial_cluster_type is not None:
+                cc_detail = "Configuring a previously existing cluster of type {0}"\
+                    .format(self.initial_cluster_type)
+            else:
+                cc_detail = "This is a new cluster; waiting to configure the type."
+                self.cluster_status = cluster_status.WAITING
         else:
-            cc_detail = "This is a new cluster; waiting to configure the type."
-            self.cluster_status = cluster_status.WAITING
+            cc_detail = "Configuring an old existing cluster of type {0}"\
+                .format(self.initial_cluster_type)
         log.info("Completed the initial cluster startup process. {0}".format(cc_detail))
         return True
 
@@ -189,11 +192,12 @@ class ConsoleManager(object):
         log.debug("Checking for and adding any previously defined cluster services")
         try:
             attached_volumes = self.get_attached_volumes()
-            # Test if depricated cluster config is used and handle it
+            # Test if deprecated cluster config is used and handle it
             if "static_filesystems" in self.app.ud or "data_filesystems" in self.app.ud:
-                log.debug("Handling depricated cluster config")
+                log.debug("Handling deprecated cluster config")
                 return self._handle_old_cluster_conf_format(attached_volumes)
             # Process the current cluster config
+            log.debug("Processing existing cluster config")
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
@@ -220,13 +224,15 @@ class ConsoleManager(object):
                         s_key = fs.get('secret_key', None)
                         filesystem.add_bucket(fs['name'], a_key, s_key)
                     else:
+                        # TODO: try to do some introspection on the device ID
+                        # to guess the kind before err
                         err = True
                         log.warning("Device kind '{0}' for file system {1} not recognized; "\
                                 "not adding the file system.".format(fs['kind'], fs['name']))
                     if not err:
                         log.debug("Adding a previously existing filesystem '{0}' of "\
                             "kind '{1}'".format(fs['name'], fs['kind']))
-                        self.app.manager.services.append(filesystem)
+                        self.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_name = srvc['name']
@@ -234,10 +240,10 @@ class ConsoleManager(object):
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
                     if service_name == 'Postgres':
-                        self.app.manager.services.append(PostgresService(self.app))
+                        self.services.append(PostgresService(self.app))
                         processed_service = True
                     if service_name == 'Galaxy':
-                        self.app.manager.services.append(GalaxyService(self.app))
+                        self.services.append(GalaxyService(self.app))
                         processed_service = True
                     if not processed_service and service_name != 'SGE': # SGE is added by default
                         log.warning("Could not find service class matching userData service entry: %s"\
@@ -292,7 +298,7 @@ class ConsoleManager(object):
             s3_conn = self.app.cloud_interface.get_s3_connection()
             misc.copy_file_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['bucket_cluster'],
                     'persistent_data.yaml', 'persistent_data-deprecated.yaml', validate=False)
-            # Process the deprecated confgiuration now
+            # Process the deprecated configuration now
             if "static_filesystems" in self.app.ud:
                 for vol in self.app.ud['static_filesystems']:
                     fs = Filesystem(self.app, vol['filesystem'])
@@ -304,16 +310,16 @@ class ConsoleManager(object):
                     else:
                         fs.add_volume(size=vol['size'], from_snapshot_id=vol['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % vol['filesystem'])
-                    self.app.manager.services.append(fs)
-                    self.app.manager.initial_cluster_type = 'Galaxy'
+                    self.services.append(fs)
+                    self.initial_cluster_type = 'Galaxy'
             if "data_filesystems" in self.app.ud:
                 for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
                     log.debug("Adding a previously existing data filesystem: '%s'" % fs)
                     fs = Filesystem(self.app, fs)
                     for vol in vol_array:
                         fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
-                    self.app.manager.services.append(fs)
-                    self.app.manager.initial_cluster_type = 'Data'
+                    self.services.append(fs)
+                    self.initial_cluster_type = 'Data'
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_name = srvc['service']
@@ -321,15 +327,19 @@ class ConsoleManager(object):
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
                     if service_name == 'Postgres':
-                        self.app.manager.services.append(PostgresService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
+                        self.services.append(PostgresService(self.app))
+                        self.initial_cluster_type = 'Galaxy'
                         processed_service = True
+                        log.debug("Processed adding service 'Postgres'")
                     if service_name == 'Galaxy':
-                        self.app.manager.services.append(GalaxyService(self.app))
-                        self.app.manager.initial_cluster_type = 'Galaxy'
+                        self.services.append(GalaxyService(self.app))
+                        self.initial_cluster_type = 'Galaxy'
                         processed_service = True
+                        log.debug("Processed adding service 'Galaxy'")
+                    if service_name == 'SGE':
+                        processed_service = True # SGE gets added by default
                     if not processed_service:
-                        log.warning("Could not find service class matching userData service entry: %s" % service_name)
+                        log.warning("Could not find service class matching service entry '%s'?" % service_name)
             return True
         except (BotoClientError,BotoServerError) as e:
             log.error("Error reading existing cluster configuration file: %s" % e)
@@ -339,7 +349,7 @@ class ConsoleManager(object):
     def start_autoscaling(self, as_min, as_max, instance_type):
         as_svc = self.get_services('Autoscale')
         if not as_svc:
-            self.app.manager.services.append(Autoscale(self.app, as_min, as_max, instance_type))
+            self.services.append(Autoscale(self.app, as_min, as_max, instance_type))
         else:
             log.debug("Autoscaling is already on.")
         as_svc = self.get_services('Autoscale')
@@ -348,7 +358,7 @@ class ConsoleManager(object):
     def stop_autoscaling(self):
         as_svc = self.get_services('Autoscale')
         if as_svc:
-            self.app.manager.services.remove(as_svc[0])
+            self.services.remove(as_svc[0])
         else:
             log.debug("Not stopping autoscaling because it is not on.")
 
@@ -522,14 +532,14 @@ class ConsoleManager(object):
                     "device": "/dev/sdg1",
                     "kind": "volume",
                     "mount_point": "/mnt/galaxyData",
-                    "DoT": False,
+                    "DoT": "No",
                     "size": "20G",
                     "size_used": "2G",
-                    "size_pct": "10%",
+                    "size_pct": "90%",
                     "error_msg": None,
                     "volume_id": "vol-dbi23ins"}]
         if r == 2 or r == 4:
-            dummy.append({"name": "1000genomes", "status": "Removing",
+            dummy.append({"name": "1000g", "status": "Removing", "bucket_name": "1000genomes",
             "kind": "bucket", "mount_point": "/mnt/100genomes", "DoT": "No",
             "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
         if r == 3:
@@ -793,7 +803,8 @@ class ConsoleManager(object):
             log.error("Error deleting volume %s: %s" % (vol.id, e))
         # Delete cluster bucket on S3
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
+        if s3_conn:
+            misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
 
     def clean(self):
         """ Clean the system as if it was freshly booted. All services are shut down
@@ -971,7 +982,7 @@ class ConsoleManager(object):
             log.debug("Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
             return
         self.cluster_status = cluster_status.STARTING
-        self.app.manager.initial_cluster_type = cluster_type
+        self.initial_cluster_type = cluster_type
         log.info("Initializing a '%s' cluster." % cluster_type)
         if cluster_type == 'Galaxy':
             # Static data - get snapshot IDs from the default bucket and add respective file systems
@@ -979,7 +990,7 @@ class ConsoleManager(object):
             snaps_file = 'cm_snaps.yaml'
             snaps = None
             # Get a list of auto-mount/default/read-only/reference data sources
-            if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+            if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
                 snaps_file = misc.load_yaml_file(snaps_file)
                 snaps = snaps_file['static_filesystems']
             # Turn those data sources into file systems
@@ -1000,9 +1011,8 @@ class ConsoleManager(object):
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.services.append(fs)
-            # Add a file system for user's data now (OpenNebula and dummy clouds
-            # do not support volumes yet so skip those)
-            if self.app.cloud_type not in ['opennebula', 'dummy']:
+            # Add a file system for user's data
+            if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
             self.services.append(PostgresService(self.app))
@@ -1114,7 +1124,7 @@ class ConsoleManager(object):
 
         # Initiate snapshot of the galaxyData file system
         snap_ids=[]
-        svcs = self.app.manager.get_services('Filesystem')
+        svcs = self.get_services('Filesystem')
         for svc in svcs:
             if svc.name == 'galaxyData':
                 snap_ids = svc.snapshot(snap_description="CloudMan share-a-cluster %s; %s" \
@@ -1325,7 +1335,7 @@ class ConsoleManager(object):
 
         # Initiate snapshot of the specified file system
         snap_ids=[]
-        svcs = self.app.manager.get_services('Filesystem')
+        svcs = self.get_services('Filesystem')
         found_fs_name = False # Flag to ensure provided fs name was actually found
         for svc in svcs:
             if svc.name == file_system_name:
@@ -1359,10 +1369,10 @@ class ConsoleManager(object):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
 
-    def add_fs(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
-        log.info("Adding a file system from bucket {0} (w/ creds {1}:{2})"\
-            .format(bucket_name, bucket_a_key, bucket_s_key))
-        fs = Filesystem(self.app, bucket_name)
+    def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None):
+        log.info("Adding a file system {3} from bucket {0} (w/ creds {1}:{2})"\
+            .format(bucket_name, bucket_a_key, bucket_s_key, fs_name))
+        fs = Filesystem(self.app, fs_name or bucket_name)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same
@@ -1522,7 +1532,7 @@ class ConsoleManager(object):
                 log.error( "Error while updating instance '%s' status: %s" % ( worker_id, e ) )
         else:
             logging.info( "Checking status of all worker nodes... " )
-            for w_instance in self.app.manager.worker_instances:
+            for w_instance in self.worker_instances:
                 workers_status[ w_instance.id ] = w_instance.get_m_state()
         return workers_status
 
@@ -1738,6 +1748,10 @@ class ConsoleMonitor( object ):
         bucket (do so only if they are not already there).
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        if not s3_conn:
+            # s3_conn will be None is use_object_store is False, in this case just skip this
+            # function.
+            return
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's bucket
@@ -1746,12 +1760,16 @@ class ConsoleMonitor( object ):
         # Ensure Galaxy config files are stored in the cluster's bucket,
         # but only after Galaxy has been configured and is running (this ensures
         # that the configuration files get loaded from proper S3 bucket rather
-        # than potentially being owerwritten by files that might exist on the snap)
+        # than potentially being overwritten by files that might exist on the snap)
         try:
             galaxy_svc = self.app.manager.get_services('Galaxy')[0]
             if galaxy_svc.running():
-                for f_name in ['universe_wsgi.ini', 'tool_conf.xml', 'tool_data_table_conf.xml']:
-                    if (os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
+                for f_name in ['universe_wsgi.ini',
+                               'tool_conf.xml',
+                               'tool_data_table_conf.xml',
+                               'shed_tool_conf.xml',
+                               'datatypes_conf.xml']:
+                    if (not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
                        (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))):
                         log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
                         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
@@ -2110,7 +2128,7 @@ class Instance( object ):
         """
         if self.is_spot() and not self.spot_was_filled():
             return "'{sid}'".format(sid=self.spot_request_id)
-        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.app.cloud_interface.get_public_ip())
+        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
 
     def reboot(self):
         """ Reboot this instance.
@@ -2280,6 +2298,23 @@ class Instance( object ):
                 log.debug("private_ip_address for instance {0} with no instance object not available."\
                     .format(self.get_id()))
         return self.private_ip
+
+    def get_public_ip(self):
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to get instance public IP, but TESTFLAG is set. Returning 127.0.0.1")
+            self.public_ip = '127.0.0.1'
+        if self.public_ip is None:
+            inst = self.get_cloud_instance_object()
+            if inst is not None:
+                try:
+                    inst.update()
+                    self.public_ip = inst.ip_address
+                except EC2ResponseError:
+                    log.debug("ip_address for instance {0} not (yet?) available.".format(self.get_id()))
+            else:
+                log.debug("ip_address for instance {0} with no instance object not available."\
+                    .format(self.get_id()))
+        return self.public_ip
 
     def get_local_hostname(self):
         return self.local_hostname

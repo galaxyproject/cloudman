@@ -50,11 +50,11 @@ class Service( object):
                         if svc_name is not None and svc.name==svc_name:
                             # log.debug("Service %s:%s running: %s" % (svc.svc_type, svc.name, svc.running()))
                             if not svc.running():
-                                failed_prereqs.append(svc.svc_type)
+                                failed_prereqs.append(svc.get_full_name())
                         else:
                             # log.debug("Service %s running: %s" % (svc.svc_type, svc.running()))
                             if not svc.running():
-                                failed_prereqs.append(svc.svc_type)
+                                failed_prereqs.append(svc.get_full_name())
             if len(failed_prereqs) == 0:
                 log.info("{0} prerequisites OK; starting the service".format(self.get_full_name()))
                 self.start()

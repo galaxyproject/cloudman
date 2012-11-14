@@ -15,7 +15,7 @@ class PostgresService( ApplicationService ):
         self.svc_type = "Postgres"
         self.psql_port = paths.C_PSQL_PORT
         self.reqs = {'Filesystem': 'galaxyData'}
-        
+
     def start(self):
         self.state = service_states.STARTING
         self.manage_postgres(True)
@@ -24,7 +24,7 @@ class PostgresService( ApplicationService ):
         log.info("Removing '%s' service" % self.svc_type)
         self.state = service_states.SHUTTING_DOWN
         self.manage_postgres(False)
-    
+
     def manage_postgres( self, to_be_started=True ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to manage Postgres, but TESTFLAG is set." )
@@ -45,7 +45,7 @@ class PostgresService( ApplicationService ):
 
             if to_be_configured:
                 log.info( "Configuring PostgreSQL with a database for Galaxy..." )
-                cont = True # Flag to indicate if previous operation completed successfully 
+                cont = True # Flag to indicate if previous operation completed successfully
                 # Make Galaxy database directory
                 if os.path.exists(paths.P_GALAXY_DATA) and not os.path.exists(psql_data_dir):
                     cont = misc.run('mkdir -p %s' % psql_data_dir, "Error creating Galaxy database cluster dir", "Successfully created Galaxy database cluster dir")
@@ -76,7 +76,7 @@ class PostgresService( ApplicationService ):
                     log.debug( "Creating PostgreSQL database as 'galaxy' user..." )
                     cont = misc.run('%s - galaxy -c "%s/createdb -p %s galaxy"' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating 'galaxy' database", "Successfully created 'galaxy' database")
                 # Now create role and permissons for galaxyftp user on the created 'galaxy' database
-                if cont: 
+                if cont:
                     log.debug( "Creating role for 'galaxyftp' user in PostgreSQL..." )
                     cont = misc.run('%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxyftp LOGIN PASSWORD \'fu5yOj2sn\'\\\" "' % (paths.P_SU, paths.P_PG_HOME, self.psql_port), "Error creating role for 'galaxyftp' user", "Successfully created role for 'galaxyftp' user" )
                 else:
@@ -99,20 +99,23 @@ class PostgresService( ApplicationService ):
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (to_be_started, self.state))
         elif not to_be_started:
-            # Stop PostgreSQL database
-            log.info( "Stopping PostgreSQL..." )
-            self.state = service_states.SHUTTING_DOWN
-            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
-                self.state = service_states.SHUT_DOWN
+            # Stop only if currently running
+            if self.state==service_states.RUNNING:
+                # Stop PostgreSQL database
+                log.info( "Stopping PostgreSQL..." )
+                self.state = service_states.SHUTTING_DOWN
+                if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
+                    self.state = service_states.SHUT_DOWN
+                else:
+                    self.state = service_states.ERROR
+                    return False
             else:
-                self.state = service_states.ERROR
-                return False
-                
+                log.debug("PostgreSQL not running so not stopping it.")
         return True
-    
+
     def check_postgres(self):
         """Check if PostgreSQL server is running and if 'galaxy' database exists.
-        
+
         :rtype: bool
         :return: True if the server is running and 'galaxy' database exists,
                  False otherwise.
@@ -128,7 +131,7 @@ class PostgresService( ApplicationService ):
                 # log.debug("\tPostgreSQL daemon OK, 'galaxy' database exists.")
                 return True
             else:
-                log.warning("\tPostgreSQL daemon OK, 'galaxy' database does NOT exist: %s" % dbs)
+                log.warning("PostgreSQL daemon OK, 'galaxy' database does NOT exist: %s" % dbs)
                 return False
         elif not os.path.exists( paths.P_PSQL_DIR ):
             log.warning("PostgreSQL data directory '%s' does not exist (yet?)" % paths.P_PSQL_DIR)
@@ -136,11 +139,11 @@ class PostgresService( ApplicationService ):
             # mark service as not-attempted yet (i.e., status: None)
             return None
         else:
-            log.error("\tPostgreSQL daemon NOT running.")
+            log.error("PostgreSQL daemon NOT running.")
             return False
-    
+
     def status(self):
         if self.state != service_states.SHUT_DOWN:
             if self.check_postgres():
                 self.state = service_states.RUNNING
-    
+

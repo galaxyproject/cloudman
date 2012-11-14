@@ -30,7 +30,7 @@
                         Add Galaxy admin users to Galaxy. This action simply
                         adds users' emails to Galaxy's universe_wsgi.ini file
                         and does not check of the users exist or register new
-                        users. Note that this action implies restarting Galaxy. 
+                        users. Note that this action implies restarting Galaxy.
                     </div>
                 </span>
                 <form class="generic_form" action="${h.url_for(controller='root', action='add_galaxy_admin_users')}" method="post">
@@ -57,7 +57,7 @@
                         changes.<br />This action will:
                         <ol>
                             <li>Stop Galaxy service</li>
-                            <li>Pull and apply any changes from the provided repository. 
+                            <li>Pull and apply any changes from the provided repository.
                             If there are conflicts during the merge, local changes
                             will be preserved.</li>
                             <li>Call Galaxy database migration script</li>
@@ -117,7 +117,6 @@
         </table>
         <strong>File systems</strong>
         ## backbone-managed
-        <div id="fs-confirmRemove-container"></div>
         <div id='fs-details-container'></div>
         <div id="filesystems-container"></div>
         <div id='fs-resize-form-container'></div>
@@ -146,7 +145,7 @@
                         repository is stored under your cloud account and is accessible
                         only with your credentials. <br/>
                         In the context of AWS, S3 acts as a persistent data repository where
-                        all the data is stored in an S3 bucket. The name of the bucket 
+                        all the data is stored in an S3 bucket. The name of the bucket
                         provided here corresponds to the current cluster and is provided
                         simply as a reference.
                     </div>
@@ -155,44 +154,17 @@
             <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
             </li>
             <li>
-                <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a> 
+                <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        By default, the master instance running all the services is also configured to 
+                        By default, the master instance running all the services is also configured to
                         execute jobs. You may toggle this functionality here. Note that if job execution
                         on the master is disabled, at least one worker instance will be required to
                         run any jobs.
                     </div>
                 </span>
             </li>
-            %if filesystems:
-                <li>Persist changes to file system:
-                    %for fs in filesystems:
-                        %if fs != 'galaxyData':
-                            <a class='action' id="update_fs" href="${h.url_for(controller='root', action='update_file_system')}?fs_name=${fs}">
-                                ${fs}</a>,
-                        %endif
-                    %endfor
-                    <span class="help_info">
-                        <span class="help_link">What will this do?</span>
-                        <div class="help_content" style="display: none">
-                            If you have made changes to any of the available 
-                            file systems and would like to persist the changes
-                            across cluster invocations, click on the name of the
-                            desired file system and the cluster configuration
-                            will be updated (all of the file systems are 
-                            mounted on the system unter /mnt/[file system name]).
-                            Note that depending on the amount of changes made to 
-                            the underlying file system, this process may take a
-                            long time. Also note that the user data file system cannot
-                            be persistent through this method (it makes no logical
-                            sense - use Share-an-instance functionality instead).
-                        </div>
-                    </span>
-                    <span id='update_fs_status' style='color: #5CBBFF'>&nbsp;</span>
-                </li>
-            %endif
             <li>
                 <a class='action' href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
                 <span class="help_info">
@@ -224,7 +196,7 @@
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        Try to (re)start CloudMan service monitor thread, which is 
+                        Try to (re)start CloudMan service monitor thread, which is
                         responsible for monitoring the status of all of the other
                         services. This should only be used if the CloudMan user
                         interface becomes unresponsive or during debugging.
@@ -343,9 +315,23 @@
         <div class="fs-details-box-header">File system information</div>
         <table>
         <tr><th>Name:</th><td><%= name %></td>
+        <% if (typeof(bucket_name) != "undefined" && typeof(bucket_name) != 'object') {
+            // There's a bucket_name input field defined on the page so must guard from it above
+        %>
+            <tr><th>Bucket name:</th><td><%= bucket_name %></td>
+        <% } %>
         <tr><th>Status:</th><td><%= status %></td>
         <tr><th>Mount point:</th><td><%= mount_point %></td>
         <tr><th>Kind:</th><td><%= kind %></td>
+        <% if (typeof(volume_id) != "undefined") { %>
+            <tr><th>Volume:</th><td><%= volume_id %></td>
+        <% } %>
+        <% if (typeof(device) != "undefined") { %>
+            <tr><th>Device:</th><td><%= device %></td>
+        <% } %>
+        <% if (typeof(from_snap) != "undefined") { %>
+            <tr><th>From snapshot:</th><td><%= from_snap %></td>
+        <% } %>
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
     </%text>
@@ -355,25 +341,30 @@
         <td class="fs-td-20pct"><%= name %></td>
         <td class="fs-status fs-td-15pct"><%= status %></td>
         <td class="fs-td-20pct">
-        <!-- // Only disply usage when the file system is 'Available' -->
+        <!-- // Only display usage when the file system is 'Available' -->
         <% if (status === "Available" || status === "Running") { %>
-            <%= size_used %>/<%= size %> (<%= size_pct %>)
+            <meter min="0" max="100" value="<%= size_pct %>" high="85">
+                <%= size_used %>/<%= size %> (<%= size_pct %>)
+            </meter>
         <% } %></td>
         <td class="fs-td-15pct">
-        <!-- Only display controls when the file system is 'Available' -->
-        <% if (status === "Available" || status === "Running") { %>
-            <a class="fs-remove icon-button" id="fs-<%= name %>-remove" 
+            <!-- // Enable removal while a file system is 'Available' or 'Error' -->
+            <% if (status === "Available" || status === "Running" || status === 'Error') { %>
+            <a class="fs-remove icon-button" id="fs-<%= name %>-remove"
                 href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
                 title="Remove this file system"></a>
-            <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
-            <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
-                <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
-                    href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
             <% } %>
-            <!-- // It only makes sense to resize volume-based file systems -->
-            <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
-                <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
-            <% } %>
+            <!--// Only display additional controls when the file system is 'Available'-->
+            <% if (status === "Available" || status === "Running") { %>
+                <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
+                <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
+                    <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
+                        href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
+                <% } %>
+                <!-- // It only makes sense to resize volume-based file systems -->
+                <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
+                    <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
+                <% } %>
         <% } %></td>
         <td class="fs-td-15pct">
             <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
@@ -381,15 +372,39 @@
         <td class="fs-td-spacer"></td>
     </%text>
     </script>
-    <script type="text/template" id="fs-confirmRemove-template">
+    <script type="text/template" id="fs-resize-template">
     <%text filter='trim'>
-        <div class="modal-dialog-header">Remove <%= name %> file system?</div>
-        <div class="modal-dialog-text">Removing this file system will first stop any
-            services that require this file system. Then, the file system will be
-            unmounted and the underlying device disconnected from this instance.</div>
-        <div class="modal-dialog-buttons">
-            <button id="confirm_fs_remove" class="modal-dialog-ok-button">Confirm</button>
-            <button class="modal-dialog-cancel-button">Cancel</button>
+        <div class="form-row">
+            Through this form you may increase the disk space available to this file system.
+            Any services using this file system <b>WILL BE STOPPED</b>
+            until the new disk is ready, at which point they will all be restarted. Note
+            that This may result in failure of any jobs currently running. Note that the new
+            disk size <b>must be larger</b> than the current disk size.
+            <p>During this process, a snapshot of your data volume will be created,
+            which can optionally be left in your account. If you decide to leave the
+            snapshot for reference, you may also provide a brief note that will later
+            be visible in the snapshot's description.</p>
+        </div>
+        <div class="form-row">
+            <label>New disk size (minimum <span id="du-inc"><%= size %></span>B,
+            maximum 1000GB)</label>
+            <div id="permanent_storage_size" class="form-row-input">
+                <input type="text" name="new_vol_size" id="new_vol_size"
+                placeholder="Greater than <%= size %>B" size="25">
+            </div>
+            <label>Note</label>
+            <div id="permanent_storage_size" class="form-row-input">
+                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value=""
+                placeholder="Optional snapshot description" size="50"><br/>
+            </div>
+            <label>or delete the created snapshot after filesystem resizing?</label>
+            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked,
+            the created snapshot will not be kept
+            <div class="form-row">
+                <input type="submit" class="fs-form-submit-button" value="Resize <%= name %> file system"/>
+                or <a class="fs-resize-form-close" href="#">cancel</a>
+            </div>
+            <input name="fs_name" type="text" hidden="Yes" value="<%= name %>" />
         </div>
     </%text>
     </script>

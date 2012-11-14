@@ -12,14 +12,14 @@ def resolve_path( path, root ):
     if not( os.path.isabs( path ) ):
         path = os.path.join( root, path )
     return path
-      
+
 class ConfigurationError( Exception ):
     pass
 
 class Configuration( object ):
     def __init__( self, **kwargs ):
         self.config_dict = kwargs
-        self.root = kwargs.get( 'root_dir', '.' )                   
+        self.root = kwargs.get( 'root_dir', '.' )
         # Where dataset files are stored
         self.id_secret = kwargs.get( "id_secret", "USING THE DEFAULT IS NOT SECURE!" )
         self.use_remote_user = string_as_bool( kwargs.get( "use_remote_user", "False" ) )
@@ -46,7 +46,7 @@ class Configuration( object ):
         # of apps (available under key 'apps'). This config file allows CloudMan
         # to integrate native and custom support for additional applications.
         # The dict contains default values for backward combatibility.
-        self.ic = {'apps': ['cloudman', 'galaxy']} 
+        self.ic = {'apps': ['cloudman', 'galaxy']}
         if os.path.exists(paths.IMAGE_CONF_SUPPORT_FILE):
             self.ic = misc.load_yaml_file(paths.IMAGE_CONF_SUPPORT_FILE)
         # Logger is not configured yet so print
@@ -91,7 +91,9 @@ def configure_logging( config ):
     config.
     """
     # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
-    format = config.get( "log_format", "[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
+    format = config.get( "log_format",
+        "{0}\t{1}\t{2}:{3:13}\t{4}"\
+        .format("%(asctime)s", "%(levelname)s", "%(module)s", "%(lineno)d", "%(message)s"))
     level = logging._levelNames[ config.get( "log_level", "DEBUG" ) ]
     destination = config.get( "log_destination", "stdout" )
     log.info( "Logging at '%s' level to '%s'" % ( level, destination ) )
@@ -103,7 +105,7 @@ def configure_logging( config ):
     if level <= logging.DEBUG:
         logging.getLogger( "paste.httpserver.ThreadPool" ).setLevel( logging.WARN )
     # Remove old handlers
-    for h in root.handlers[:]: 
+    for h in root.handlers[:]:
         root.removeHandler(h)
     # Create handler
     if destination == "stdout":
@@ -111,9 +113,9 @@ def configure_logging( config ):
     else:
         handler = logging.FileHandler( destination )
     # Create formatter
-    formatter = logging.Formatter( format )    
+    formatter = logging.Formatter( format )
     # Hook everything up
     handler.setFormatter( formatter )
     root.addHandler( handler )
-    
-    
+
+

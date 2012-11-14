@@ -33,7 +33,12 @@ except Exception, e:
 
 
 def get_path(name, default_path):
-    path = None
+    """
+    Get a file system path where a service with the given ``name`` resides/runs
+    as defined in the user data. For example, to use a custom path for Galaxy,
+    set ``galaxy_home: /my/custom/path/to/galaxy`` in the user data. If the custom
+    path is not provided, just return the ``default_path``.
+    """
     try:
         path = misc.load_yaml_file(USER_DATA_FILE).get(name, None)
         if path is None:
@@ -45,7 +50,6 @@ def get_path(name, default_path):
     if not path:
         path = default_path
     return path
-
 
 P_MOUNT_ROOT = "/mnt"
 P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))

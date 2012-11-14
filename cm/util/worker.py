@@ -4,6 +4,7 @@ import datetime as dt
 
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
+from cm.util.manager import BaseConsoleManager
 from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
 
@@ -72,7 +73,8 @@ worker_states = Bunch(
     ERROR = 'Error'
 )
 
-class ConsoleManager( object ):
+class ConsoleManager(BaseConsoleManager):
+    node_type = "worker"
     def __init__( self, app ):
         self.app = app
         self.console_monitor = ConsoleMonitor( self.app )
@@ -91,6 +93,7 @@ class ConsoleManager( object ):
         self.load = 0
     
     def start( self ):
+        self._handle_prestart_commands()
         self.mount_nfs( self.app.ud['master_ip'] )
         misc.add_to_etc_hosts(self.app.ud['master_hostname'], self.app.ud['master_ip'])
     
@@ -117,58 +120,52 @@ class ConsoleManager( object ):
             log.debug("Attempted to mount NFS, but TESTFLAG is set.")
             return
         log.info( "Mounting NFS directories from master with IP address: %s..." % master_ip )
-        
+        # Build list of mounts based on cluster type
+        mount_points = []
         if self.cluster_type == 'Galaxy':
-            ret_code = self.mount_disk(master_ip, '/mnt/galaxyTools')
-            if ret_code == 0:
-                self.nfs_tools = 1
-            else:
-                self.nfs_tools = -1
-            
-            ret_code = self.mount_disk(master_ip, '/mnt/galaxyIndices')
-            if ret_code == 0:
-                self.nfs_indices = 1
-            else:
-                self.nfs_indices = -1
-            
+            mount_points.append(('nfs_tools', paths.P_GALAXY_TOOLS))
+            mount_points.append(('nfs_indices', paths.P_GALAXY_INDICES))
+
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            ret_code = self.mount_disk(master_ip, '/mnt/galaxyData')
-            if ret_code == 0:
-                self.nfs_data = 1
-            else:
-                self.nfs_data = -1
-        
+            mount_points.append(('nfs_data', paths.P_GALAXY_DATA))
+
         # Mount SGE regardless of cluster type
-        ret_code = self.mount_disk(master_ip, '/opt/sge')
-        if ret_code == 0:
-            self.nfs_sge = 1
-        else:
-            self.nfs_sge = -1
+        mount_points.append(('nfs_sge', paths.P_SGE_ROOT))
+
         # Mount master's transient stroage regardless of cluster type
-        ret_code = self.mount_disk(master_ip, '/mnt/transient_nfs')
-        if ret_code == 0:
-            self.nfs_tfs = 1
-        else:
-            self.nfs_tfs = -1
-        
+        mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+
+        for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
+            mount_points.append(('extra_mount_%d' % i, extra_mount))
+
+        # For each main mount point, mount it and set status based on label
+        for (label, path) in mount_points:
+            do_mount = self.app.ud.get('mount_%s' % label, True)
+            if not do_mount:
+                continue
+            ret_code = self.mount_disk(master_ip, path)
+            status = 1 if ret_code == 0 else -1
+            setattr(self, label, status)
+
         self.console_monitor.send_node_status()
-    
+
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            ret_code = subprocess.call( "umount -lf /mnt/galaxyData", shell=True )
-            log.debug( "Process unmounting '/mnt/galaxyData' returned code '%s'" % ret_code )
-        
+            self._umount(paths.P_GALAXY_DATA)
+
         if self.cluster_type == 'Galaxy':
-            ret_code = subprocess.call( "umount -lf /mnt/galaxyTools", shell=True )
-            log.debug( "Process unmounting '/mnt/galaxyTools' returned code '%s'" % ret_code )
-        
-            ret_code = subprocess.call( "umount -lf /mnt/galaxyIndices", shell=True )
-            log.debug( "Process unmounting '/mnt/galaxyIndices' returned code '%s'" % ret_code )
-        
-        ret_code = subprocess.call( "umount -lf %s" % paths.P_SGE_ROOT, shell=True )
-        log.debug( "Process unmounting '%s' returned code '%s'" % (paths.P_SGE_ROOT, ret_code) )
-    
+            self._umount(paths.P_GALAXY_TOOLS)
+            self._umount(paths.P_GALAXY_INDICES)
+
+        self._umount(paths.P_SGE_ROOT)
+        for extra_mount in self._get_extra_nfs_mounts():
+            self._umount(extra_mount)
+
+    def _umount(self, path):
+        ret_code = subprocess.call("umount -lf '%s'" % path, shell=True)
+        log.debug("Process unmounting '%s' returned code '%s'" % (path, ret_code))
+
     def get_host_cert(self ):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to get host cert, but TESTFLAG is set.")
@@ -250,7 +247,10 @@ class ConsoleManager( object ):
         
         self.console_monitor.send_node_status()
         return ret_code
-    
+
+    def _get_extra_nfs_mounts(self):
+        return self.app.ud.get('extra_nfs_mounts', [])
+
 
 class ConsoleMonitor( object ):
     def __init__( self, app):
@@ -453,4 +453,3 @@ class ConsoleMonitor( object ):
         self.running = False
         self.sleeper.wake()
         log.info( "Console manager stopped" )
-    

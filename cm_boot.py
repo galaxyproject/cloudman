@@ -10,6 +10,8 @@ from urlparse import urlparse
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat, SubdomainCallingFormat
 from boto.s3.key import Key
 from boto.exception import S3ResponseError, BotoServerError
+import base64
+import re
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
@@ -84,7 +86,7 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
         log.error("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
         return False
 
-def _start_nginx():
+def _start_nginx(ud):
     log.info("<< Starting nginx >>")
     # Because nginx needs the uplaod directory to start properly, create it now.
     # However, because user data will be mounted after boot and because given
@@ -95,6 +97,7 @@ def _start_nginx():
     # url = 'http://userwww.service.emory.edu/~eafgan/content/nginx.conf'
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
+    _configure_nginx(ud)
     rmdir = False # Flag to indicate if a dir should be deleted
     if not os.path.exists('/mnt/galaxyData/upload_store'):
         rmdir = True
@@ -105,6 +108,40 @@ def _start_nginx():
         _run('/opt/galaxy/sbin/nginx')
     if rmdir: 
         _run('rm -rf /mnt/galaxyData')
+
+def _write_conf_file(contents_descriptor, path):
+    destination_directory = os.path.dirname(path)
+    if not os.path.exists(destination_directory):
+        os.makedirs(destination_directory)
+    if contents_descriptor.startswith("http") or contents_descriptor.startswith("ftp"):
+        log.info("Fetching file from %s" % contents_descriptor)
+        _run("wget --output-document='%s' '%s'" % (contents_descriptor, path))
+    else:
+        log.info("Writing out configuration file encoded in user-data:")
+        with open(path, "w") as output:
+            output.write(base64.b64decode(contents_descriptor))    
+
+def _configure_nginx(ud):
+    # User specified nginx.conf file, can be specified as
+    # url or base64 encoded plain-text.
+    nginx_conf = ud.get("nginx_conf_contents", None)
+    nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
+    if nginx_conf:
+        _write_conf_file(nginx_conf, nginx_conf_path)
+    reconfigure_nginx = ud.get("reconfigure_nginx", True)
+    if reconfigure_nginx:
+        _reconfigure_nginx(ud, nginx_conf_path)
+
+def _reconfigure_nginx(ud, nginx_conf_path):
+    configure_multiple_galaxy_processes = ud.get("configure_multiple_galaxy_processes", False)
+    web_threads = ud.get("web_thread_count", 1)
+    if configure_multiple_galaxy_processes and web_threads > 1:
+        ports = [8080 + i for i in range(web_threads)]
+        servers = ["server localhost:%d;" % port for port in ports]
+        upstream_galaxy_app_conf = "upstream galaxy_app { %s } " % "".join(servers)
+        nginx_conf = open(nginx_conf_path, "r").read()
+        new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}", upstream_galaxy_app_conf, nginx_conf)
+        open(nginx_conf_path, "w").write(new_nginx_conf)
 
 def _get_s3connection(ud):
     access_key = ud['access_key']
@@ -320,10 +357,18 @@ def main():
             sys.exit(0)
         else:
             usage()
+    # Currently using this to configure nginx SSL, but it could be used
+    # to configure anything really.
+    conf_files = ud.get('conf_files', [])
+    for conf_file_obj in conf_files:
+        path = conf_file_obj.get('path')
+        content = conf_file_obj.get('content')
+        _write_conf_file(content, path)
+
     if not ud.has_key('no_start'):
         if ud.get('cloud_name', '').lower() == 'nectar':
             _fix_etc_hosts()
-        _start_nginx()
+        _start_nginx(ud)
         _start(ud)
         # _post_start_hook(ud) # Execution of this script is moved into CloudMan, at the end of config
     log.info("---> %s done <---" % sys.argv[0])
