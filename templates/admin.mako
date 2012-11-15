@@ -110,6 +110,15 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
+            <tr>
+                <td>Galaxy Reports</td>
+                <td><span id="galaxy_reports_status">&nbsp;</span></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=GalaxyReports">Log</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=GalaxyReports" target="_blank">Restart</a></td>
+            </tr>
+
             ##<tr>
             ##    <td>Dummy</td>
             ##    <td><span id="dummy"></span></td>

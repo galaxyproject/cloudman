@@ -29,12 +29,11 @@ class ApplicationService( Service ):
         else:
             # Check if given PID is actually still running
             alive_daemon_pid = None
+            system_service = service
             # Galaxy deamon is named 'paster' so handle this special case
-            if service == 'galaxy':
-                service = 'python'
-            alive_daemon_pid = commands.getoutput("ps -o comm,pid -p %s | grep %s | awk '{print $2}'" % (daemon_pid, service))
-            if service == 'python':
-                service = 'galaxy'
+            if service in ['galaxy', 'galaxy_reports']:
+                system_service = 'python'
+            alive_daemon_pid = commands.getoutput("ps -o comm,pid -p %s | grep %s | awk '{print $2}'" % (daemon_pid, system_service))
             if alive_daemon_pid == daemon_pid:
                 # log.debug("'%s' daemon is running with PID: %s" % (service, daemon_pid))
                 return True
@@ -57,6 +56,8 @@ class ApplicationService( Service ):
             pid_file = '%s/qmaster.pid' % paths.P_SGE_CELL
         elif service == 'galaxy':
             pid_file = '%s/main.pid' % paths.P_GALAXY_HOME
+        elif service == 'galaxy_reports':
+            pid_file = '%s/reports_webapp.pid' % paths.P_GALAXY_HOME
         else:
             return -1
         # log.debug("Checking pid file '%s' for service '%s'" % (pid_file, service))
