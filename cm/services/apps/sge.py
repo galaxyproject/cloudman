@@ -163,11 +163,13 @@ class SGEService( ApplicationService ):
     def _fix_util_arch(self):
         # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
-        # Support 3.0 & 3.2 kernels in Ubuntu 11.10 & 12.04
+        # Support 3.0, 3.2, 3.5 kernels in Ubuntu 11.10 & 12.04 & 12.10
+        # Future proof it a bit to work with new 3.x kernels as they
+        # come online
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "   2.[46].*)",
-                                                             "   [23].[2460].*)")
+                                                             "   [23].[24567890].*)")
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "      2.6.*)",
-                                                             "      [23].[260].*)")
+                                                             "      [23].[24567890].*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
         misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts
