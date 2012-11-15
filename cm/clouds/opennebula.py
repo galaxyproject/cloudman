@@ -85,12 +85,12 @@ class ONInterface(CloudInterface):
     def get_key_pair_name( self ):
         pass
     
-    def get_self_private_ip( self ):
+    def get_private_ip( self ):
         # TODO: Change this to the masters IP
         log.debug("Asking for private IP")
         return self._getIpAddress('eth1')
     
-    def get_self_public_ip( self ):
+    def get_public_ip( self ):
         # TODO: Change this to the masters IP
         log.debug("Asking for public IP")
         return self._getIpAddress('eth0')
@@ -147,7 +147,7 @@ class ONInterface(CloudInterface):
                 # local machine hwaddr = 00:22:64:ae:3d:fd
                 # TODO
                 if self._getMacAddress('eth0') != '00:22:64:ae:3d:fd':
-                #if int(self.get_self_private_ip().split('.')[2]) == int(self.bridge):
+                #if int(self.get_private_ip().split('.')[2]) == int(self.bridge):
                     ret_code = subprocess.call( 'sudo telinit 6', shell=True )
 
                 

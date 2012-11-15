@@ -39,6 +39,7 @@ def get_path(name, default_path):
     set ``galaxy_home: /my/custom/path/to/galaxy`` in the user data. If the custom
     path is not provided, just return the ``default_path``.
     """
+    path = None
     try:
         path = misc.load_yaml_file(USER_DATA_FILE).get(name, None)
         if path is None:

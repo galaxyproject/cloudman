@@ -95,12 +95,12 @@ class SGEService( ApplicationService ):
     def _get_sge_install_conf(self):
         # Add master as an execution host
         # Additional execution hosts will be added later, as they start
-        exec_nodes = self.app.cloud_interface.get_self_private_ip()
+        exec_nodes = self.app.cloud_interface.get_private_ip()
         sge_install_template = Template(templates.SGE_INSTALL_TEMPLATE)
         sge_params = {
           "cluster_name": "GalaxyEC2",
-          "admin_host_list": self.app.cloud_interface.get_self_private_ip(),
-          "submit_host_list": self.app.cloud_interface.get_self_private_ip(),
+          "admin_host_list": self.app.cloud_interface.get_private_ip(),
+          "submit_host_list": self.app.cloud_interface.get_private_ip(),
           "exec_host_list": exec_nodes,
           "hostname_resolving": "true",
         }
@@ -163,11 +163,13 @@ class SGEService( ApplicationService ):
     def _fix_util_arch(self):
         # Prevent 'Unexpected operator' to show up at shell login (SGE bug on Ubuntu)
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
-        # Support 3.0 & 3.2 kernels in Ubuntu 11.10 & 12.04
+        # Support 3.0, 3.2, 3.5 kernels in Ubuntu 11.10 & 12.04 & 12.10
+        # Future proof it a bit to work with new 3.x kernels as they
+        # come online
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "   2.[46].*)",
-                                                             "   [23].[2460].*)")
+                                                             "   [23].[24567890].*)")
         misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "      2.6.*)",
-                                                             "      [23].[260].*)")
+                                                             "      [23].[24567890].*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
         misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts
@@ -284,7 +286,7 @@ class SGEService( ApplicationService ):
                 '%s/bin/lx24-amd64/qconf -Mhgrp %s' \
                 % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), \
                 "Problems updating @allhosts aimed at adding '%s'" % inst_id, \
-                "Successfully updated @allhosts to add '%s' with IP '%s'" % (inst_id, inst_private_ip)):
+                "Successfully updated @allhosts to add '%s' with address '%s'" % (inst_id, inst_private_ip)):
                 error = True
         else:
             log.info("Instance '%s' IP is already in SGE's @allhosts" % inst_id)
@@ -313,8 +315,8 @@ class SGEService( ApplicationService ):
         log.debug("Composing SGE's @allhosts group config file {0}:".format(filename))
         if self.app.manager.master_exec_host:
             log.debug(" - adding master instance; IP: {0}"\
-                .format(self.app.cloud_interface.get_self_private_ip()))
-            ahl.append(self.app.cloud_interface.get_self_private_ip())
+                .format(self.app.cloud_interface.get_private_ip()))
+            ahl.append(self.app.cloud_interface.get_private_ip())
         else:
             log.debug(" - master is marked as non-exec host and will not be included in @allhosts file")
         # Add worker instances, excluding the one being removed
