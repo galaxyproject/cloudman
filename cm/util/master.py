@@ -12,6 +12,7 @@ from cm.services.data.filesystem import Filesystem
 from cm.services.apps.pss import PSS
 from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
+from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
 from cm.util.decorators import TestFlag
 
@@ -19,6 +20,8 @@ import cm.util.paths as paths
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
+
+APP_SERVICES = {'Galaxy': GalaxyService, 'Postgres': PostgresService, 'GalaxyReports': GalaxyReportsService}
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -236,11 +239,9 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    if service_name == 'Postgres':
-                        self.services.append(PostgresService(self.app))
-                        processed_service = True
-                    if service_name == 'Galaxy':
-                        self.services.append(GalaxyService(self.app))
+                    service_class = APP_SERVICES.get(service_name, None)
+                    if service_class:
+                        self.services.append(service_class(self.app))
                         processed_service = True
                     if not processed_service and service_name != 'SGE': # SGE is added by default
                         log.warning("Could not find service class matching userData service entry: %s"\
@@ -323,16 +324,13 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    if service_name == 'Postgres':
-                        self.services.append(PostgresService(self.app))
-                        self.initial_cluster_type = 'Galaxy'
+                    service_class = APP_SERVICES.get(service_name, None)
+                    if service_class:
+                        self.services.append(service_class(self.app))
+                        if service_name in ['Postgres', 'Galaxy']:
+                            self.initial_cluster_type = 'Galaxy'
                         processed_service = True
-                        log.debug("Processed adding service 'Postgres'")
-                    if service_name == 'Galaxy':
-                        self.services.append(GalaxyService(self.app))
-                        self.initial_cluster_type = 'Galaxy'
-                        processed_service = True
-                        log.debug("Processed adding service 'Galaxy'")
+                        log.debug("Processed adding service '%s'" % service_name)
                     if service_name == 'SGE':
                         processed_service = True # SGE gets added by default
                     if not processed_service:
