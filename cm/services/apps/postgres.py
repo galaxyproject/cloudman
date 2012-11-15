@@ -22,7 +22,7 @@ class PostgresService( ApplicationService ):
 
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
-        self.state = service_states.SHUTTING_DOWN
+        # self.state = service_states.SHUTTING_DOWN
         self.manage_postgres(False)
 
     def manage_postgres( self, to_be_started=True ):

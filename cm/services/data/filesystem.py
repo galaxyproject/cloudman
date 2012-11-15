@@ -245,10 +245,7 @@ class Filesystem(DataService):
         return None
 
     def check_and_update_volume(self, device):
-        """
-        Check that the volume used for this file system is actually the volume
-        we have a reference to and update local fields as necessary.
-        """
+        # TODO: Abstract filtering into the cloud interface classes
         if self.app.cloud_type == "ec2":
             # filtering w/ boto is supported only with ec2
             f = {'attachment.device':device, 'attachment.instance-id':self.app.cloud_interface.get_instance_id()}

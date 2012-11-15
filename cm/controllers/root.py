@@ -336,7 +336,7 @@ class CM(BaseController):
             else:
                 log_file = os.path.join(paths.P_SGE_CELL, 'messages')
         elif service_name == 'CloudMan':
-                log_file = "paster.log"
+            log_file = "paster.log"
         # Set log length
         if num_lines:
             if show == 'more':
@@ -369,9 +369,9 @@ class CM(BaseController):
         """
         a_string_type = type ( a_string )
         if a_string_type is str:
-           return unicode( a_string, 'utf-8' )
+            return unicode( a_string, 'utf-8' )
         elif a_string_type is unicode:
-           return a_string
+            return a_string
 
     @expose
     def get_srvc_status(self, trans, srvc):
@@ -473,9 +473,9 @@ class CM(BaseController):
             # Test if provided values are in email format and remove non-email formatted ones
             admins_list_check = admins_list
             for admin in admins_list_check:
-                 m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
-                 if not m:
-                     admins_list.remove(admin)
+                m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
+                if not m:
+                    admins_list.remove(admin)
             # Get a handle to Galaxy service and add admins
             svcs = self.app.manager.get_services('Galaxy')
             if len(svcs)>0 and len(admins_list)>0:
@@ -571,9 +571,9 @@ class CM(BaseController):
         """ Check if limits for autoscaling are acceptable."""
         if as_min is not None and as_min.isdigit() and int(as_min)>=0 and int(as_min)<20 and \
            as_max is not None and as_max.isdigit() and int(as_max)>=int(as_min) and int(as_max)<20:
-           return True
+            return True
         else:
-           return False
+            return False
 
     @expose
     def share_a_cluster(self, trans, visibility, user_ids="", cannonical_ids=""):
@@ -628,7 +628,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_self_public_ip(),
+                                   ip=self.app.cloud_interface.get_public_hostname(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],
@@ -658,7 +658,7 @@ class CM(BaseController):
         DNS address if so, `#` otherwise. """
         g_s = self.app.manager.get_services('Galaxy')
         if g_s and g_s[0].state == service_states.RUNNING:
-            dns = 'http://%s' % str( self.app.cloud_interface.get_self_public_hostname() )
+            dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
@@ -666,13 +666,13 @@ class CM(BaseController):
 
     @expose
     def static_instance_state_json(self, trans, no_json=False):
-        ret_dict = {'master_ip': self.app.cloud_interface.get_self_public_ip(),
+        ret_dict = {'master_ip': self.app.cloud_interface.get_public_ip(),
                     'master_id': self.app.cloud_interface.get_instance_id(),
                     'ami_id' : self.app.cloud_interface.get_ami(),
                     'availability_zone' : self.app.cloud_interface.get_zone(),
                     'key_pair_name' : self.app.cloud_interface.get_key_pair_name(),
                     'security_groups' : self.app.cloud_interface.get_security_groups(),
-                    'master_host_name': self.app.cloud_interface.get_self_public_hostname()
+                    'master_host_name': self.app.cloud_interface.get_public_hostname()
                    }
         if no_json:
             return ret_dict
