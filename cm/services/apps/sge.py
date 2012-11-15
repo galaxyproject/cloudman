@@ -284,7 +284,7 @@ class SGEService( ApplicationService ):
                 '%s/bin/lx24-amd64/qconf -Mhgrp %s' \
                 % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), \
                 "Problems updating @allhosts aimed at adding '%s'" % inst_id, \
-                "Successfully updated @allhosts to add '%s' with IP '%s'" % (inst_id, inst_private_ip)):
+                "Successfully updated @allhosts to add '%s' with address '%s'" % (inst_id, inst_private_ip)):
                 error = True
         else:
             log.info("Instance '%s' IP is already in SGE's @allhosts" % inst_id)

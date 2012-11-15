@@ -207,7 +207,7 @@ class ConsoleManager(BaseConsoleManager):
                     if fs['kind'] == 'volume':
                         if 'ids' not in fs and 'size' in fs:
                             filesystem.add_volume(size=fs['size'])
-                        else:    
+                        else:
                             for vol_id in fs['ids']:
                                 filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
@@ -687,13 +687,21 @@ class ConsoleManager(BaseConsoleManager):
         """
         log.debug("Trying to discover any volumes attached to this instance...")
         attached_volumes = []
+        # TODO: Abstract filtering into the cloud interface classes
         try:
-            f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
-            volumes = self.app.cloud_interface.get_all_volumes(filters=f)
+            if self.app.cloud_type == 'ec2':
+                # filtering w/ boto is supported only with ec2
+                f = {'attachment.instance-id': self.app.cloud_interface.get_instance_id()}
+                attached_volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            else:
+                volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+                for vol in volumes:
+                    if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
+                        attached_volumes.append(vol)
         except EC2ResponseError, e:
             log.debug( "Error checking for attached volumes: %s" % e )
-        log.debug("Attached volumes: %s" % volumes)
-        return volumes
+        log.debug("Attached volumes: %s" % attached_volumes)
+        return attached_volumes
 
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True,
                 sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
@@ -793,14 +801,16 @@ class ConsoleManager(BaseConsoleManager):
     def delete_cluster(self):
         log.info("All services shut down; deleting this cluster.")
         # Delete any remaining volume(s) assoc. w/ given cluster
-        filters = {'tag:clusterName': self.app.ud['cluster_name']}
         try:
-            vols = self.app.cloud_interface.get_all_volumes(filters=filters)
-            for vol in vols:
-                log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
-                vol.delete()
+            # TODO: Fix filtering for non-ec2 clouds
+            if self.app.cloud_type == 'ec2':
+                filters = {'tag:clusterName': self.app.ud['cluster_name']}
+                vols = self.app.cloud_interface.get_all_volumes(filters=filters)
+                for vol in vols:
+                    log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                    vol.delete()
         except EC2ResponseError, e:
-            log.error("Error deleting volume %s: %s" % (vol.id, e))
+            log.error("Error deleting a volume: %s" % e)
         # Delete cluster bucket on S3
         s3_conn = self.app.cloud_interface.get_s3_connection()
         if s3_conn:
@@ -913,7 +923,10 @@ class ConsoleManager(BaseConsoleManager):
                         # (print all lines except the one w/ instance IP back to the file)
                         if not inst.private_ip in line:
                             print line
-                inst.terminate()
+                try:
+                    inst.terminate()
+                except EC2ResponseError, e:
+                    log.error("Trouble terminating instance '{0}': {1}".format(instance_id, e))
         log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
 
     def reboot_instance(self, instance_id=''):
@@ -1628,6 +1641,10 @@ class ConsoleMonitor( object ):
         self.monitor_thread = threading.Thread( target=self.__monitor )
 
     def start( self ):
+        """
+        Start the monitor thread, which monitors and manages all the services
+        visible to CloudMan.
+        """
         self.last_state_change_time = dt.datetime.utcnow()
         if not self.app.TESTFLAG:
             # Set 'role' and 'clusterName' tags for the master instance
@@ -1636,8 +1653,8 @@ class ConsoleMonitor( object ):
                 ir = self.app.cloud_interface.get_all_instances(i_id)
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(ir[0].instances[0], 'role', self.app.ud['role'])
-            except EC2ResponseError, e:
-                log.debug("Error setting 'role' tag: %s" % e)
+            except Exception, e:
+                log.debug("Error setting tags on the master instance: %s" % e)
         self.monitor_thread.start()
 
     def shutdown( self ):
@@ -1769,7 +1786,7 @@ class ConsoleMonitor( object ):
                                'tool_data_table_conf.xml',
                                'shed_tool_conf.xml',
                                'datatypes_conf.xml']:
-                    if (not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name) and os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
+                    if (os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
                        (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))):
                         log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
                         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
@@ -2223,7 +2240,7 @@ class Instance( object ):
 
     @TestFlag(None)
     def send_alive_request(self):
-        self.app.manager.console_monitor.conn.send( 'ALIVE_REQUEST', self.id 
+        self.app.manager.console_monitor.conn.send( 'ALIVE_REQUEST', self.id
                                                     )
     def send_status_check( self ):
         # log.debug("\tMT: Sending STATUS_CHECK message" )

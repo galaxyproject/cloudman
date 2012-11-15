@@ -67,6 +67,10 @@ class Volume(BlockStorage):
             return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
 
     def get_full_name(self):
+        """
+        Returns a string specifying the volume ID and name of the file system
+        this volume belongs to.
+        """
         return "{vol} ({fs})".format(vol=self.volume_id, fs=self.fs.get_full_name())
 
     def _get_details(self, details):
@@ -84,10 +88,12 @@ class Volume(BlockStorage):
         return details
 
     def update(self, vol_id):
-        """ switch to a different boto.ec2.volume.Volume """
+        """
+        Switch to a different boto.ec2.volume.Volume
+        """
         log.debug('vol_id = {0} ({1})'.format(vol_id, type(vol_id)))
-        if isinstance(vol_id,basestring):
-            vols = self.app.cloud_interface.get_all_volumes( volume_ids=(vol_id, ))
+        if isinstance(vol_id, basestring):
+            vols = self.app.cloud_interface.get_all_volumes(volume_ids=(vol_id, ))
             if not vols:
                 log.error('Attempting to connect to a non-existent volume {0}'.format(vol_id))
             vol = vols[0]
@@ -108,20 +114,30 @@ class Volume(BlockStorage):
 
     @property
     def volume_id(self):
+        """
+        Returns the cloud ID for this volume.
+        """
         if self.volume:
             return self.volume.id
         else:
             return None
-    
+
     @property
     def attach_device(self):
+        """
+        Returns the device this volume is attached as, as reported by the cloud middleware.
+        """
         if self.volume:
+            self.volume.update()
             return self.volume.attach_data.device
         else:
             return None
-    
+
     @property
     def status(self):
+        """
+        Returns the current status of this volume, as reported by the cloud middleware.
+        """
         if not self.volume:
             # no volume active
             status = volume_status.NONE
@@ -143,34 +159,51 @@ class Volume(BlockStorage):
                 status = volume_status.NONE
         return status
 
-    def wait_for_status(self,status,timeout=120):
-        """Wait for timeout seconds, or until the volume reaches a desired status
-        Returns false if it never hit the request status before timeout"""
+    def wait_for_status(self, status, timeout=-1):
+        """
+        Wait for ``timeout`` seconds, or until the volume reaches a desired status
+        Returns ``False`` if it never hit the request status before timeout.
+        If ``timeout`` is set to ``-1``, wait until the desired status is reached.
+        Note that this may potentially be forever.
+        """
         if self.status == volume_status.NONE:
             log.debug('Attempted to wait for a status ({0} ) on a non-existent volume'.format(status))
             return False # no volume means not worth waiting
         else:
-            start_time=time.time()
-            checks = 10
+            start_time = time.time()
             end_time = start_time + timeout
-            wait_time = float(timeout)/checks
-            while time.time() <= end_time:
+            if timeout == -1:
+                checks = "infinite"
+                wait_time = 5
+                wait_forever = True
+            else:
+                checks = 10
+                wait_time = float(timeout)/checks
+                wait_forever = False
+            while wait_forever or time.time() <= end_time:
                 if self.status == status:
-                    log.debug('Volume {0} has reached status {1}'.format(self.volume_id,status))
+                    log.debug('Volume {0} ({1}) has reached status {1}'.format(self.volume_id,
+                        self.fs.get_full_name(), status))
                     return True
                 else:
-                    log.debug('Waiting for volume {0} (status {1}) to reach status {2}. Remaining checks: {3}'.format(self.volume_id,self.status,status,checks))
-                    checks -= 1
+                    log.debug('Waiting for volume {0} (status "{1}"; {2}) to reach status "{3}". '
+                        'Remaining checks: {4}'.format(self.volume_id, self.status,
+                        self.fs.get_full_name(), status, checks))
+                    if timeout != -1:
+                        checks -= 1
                     time.sleep(wait_time)
-            log.debug('Wait for volume {0} to reach status {1} timed out. Current status {2}'.format(self.volume_id,status,self.status))
+            log.debug('Wait for volume {0} ({1}) to reach status {2} timed out. Current status {3}.'\
+                .format(self.volume_id, self.fs.get_full_name(), status, self.status))
             return False
 
-
     def create(self, filesystem=None):
+        """
+        Create a new volume.
+        """
         if not self.size and not self.from_snapshot_id:
             log.error('Cannot add a volume without a size or snapshot ID')
             return None
-        
+
         if self.status == volume_status.NONE:
             try:
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
@@ -194,6 +227,9 @@ class Volume(BlockStorage):
             log.error("Error adding tags to volume: %s" % e)
 
     def delete(self):
+        """
+        Delete this volume.
+        """
         try:
             volume_id = self.volume_id
             self.volume.delete()
@@ -205,20 +241,50 @@ class Volume(BlockStorage):
     # attachment helper methods
 
     def _get_device_list(self):
+        """
+        Get a list of system devices as an iterable list of strings.
+        """
         return frozenset(glob('/dev/*d[a-z]'))
 
-    def _increment_device_id(self,device_id):
-        new_id = device_id[0:-1] + chr(ord(device_id[-1])+1)
+    def _increment_device_id(self, device_id):
+        """
+        Increment the system ``device_id`` to the next letter in alphabet.
+        For example, providing ``/dev/vdc`` as the ``device_id``,
+        returns ``/dev/vdd``.
+
+        There is an AWS-specific customization in this method; namely, AWS
+        allows devices to be attached as /dev/sdf through /dev/sdp
+        Subsequently, those devices are visible under /dev/xvd[f-p]. So, if
+        ``/dev/xvd?`` is provided as the ``device_id``, replace the device
+        base with ``/dev/sd`` and ensure the last letter of the device is
+        never smaller than ``f``. For example, given ``/dev/xvdb`` as the
+        ``device_id``, return ``/dev/sdf``; given ``/dev/xvdg``, return
+        ``/dev/sdh``.
+        """
+        base = device_id[0:-1]
+        letter = device_id[-1]
+        # AWS-specific munging
+        if base == '/dev/xvd':
+            base = '/dev/sd'
+        if letter < 'f':
+            letter = 'e'
+        # Get the next device in line
+        new_id = base + chr(ord(letter)+1)
         return new_id
 
-    def _get_likely_next_devices(self,devices=None):
-        """Returns a list of possible devices to attempt to attempt to connect to.
-        If using virtio, then the devices get attached as /dev/vd?.
-        Newer ubuntu kernels might get devices attached as /dev/xvd?.
-        Otherwise, it'll probably get attached as /dev/sd?
-        If either /dev/vd? or /dev/xvd? devices exist, then we know to use the next of those.
-        Otherwise, test /dev/sd?, /dev/xvd?, then /dev/vd?
-        This is so totally not thread-safe. If other devices get attached externally, the device id may already be in use when we get there."""
+    def _get_likely_next_devices(self, devices=None):
+        """
+        Returns a list of possible devices to attempt to attempt to attach to.
+
+        If using virtio, then the devices get attached as ``/dev/vd?``.
+        Newer Ubuntu kernels might get devices attached as ``/dev/xvd?``.
+        Otherwise, it'll probably get attached as ``/dev/sd?``
+        If either ``/dev/vd?`` or ``/dev/xvd?`` devices exist, then we know to
+        use the next of those. Otherwise, test ``/dev/sd?``, ``/dev/xvd?``, then ``/dev/vd?``.
+
+        **This is so totally not thread-safe.** If other devices get attached externally,
+        the device id may already be in use when we get there.
+        """
         if not devices:
             devices = self._get_device_list()
         device_map = map(lambda x:(x.split('/')[-1], x), devices)  # create a dict of id:/dev/id from devices
@@ -231,16 +297,21 @@ class Volume(BlockStorage):
         elif xvds:
             return ( self._increment_device_id(xvds[-1] ), )
         elif sds:
-            return ( self._increment_device_id( sds[-1] ), '/dev/vda', '/dev/xvda' ) 
+            return ( self._increment_device_id( sds[-1] ), '/dev/vda', '/dev/xvda' )
         else:
             log.error("Could not determine next available device from {0}".format(devices))
             return None
 
     def _do_attach(self, attach_device):
+        """
+        Do the actual process of attaching this volume to the current instance.
+        Returns the current status of the volume.
+        """
         try:
             if attach_device is not None:
-                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" % (self.volume_id,  self.app.cloud_interface.get_instance_id(), attach_device))
-                self.volume.attach(self.app.cloud_interface.get_instance_id(),attach_device)
+                log.debug("Attaching volume '%s' to instance '%s' as device '%s'" %
+                    (self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device))
+                self.volume.attach(self.app.cloud_interface.get_instance_id(), attach_device)
             else:
                 log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
                 return False
@@ -265,8 +336,9 @@ class Volume(BlockStorage):
         Try it for some time.
         Returns the attached device path, or None if it can't attach
         """
-        log.debug('Starting Volume.attach. volume {0}'.format(self.volume_id,self.app.cloud_interface.get_instance_id()))
-        # bail if the volume is doesn't exist, or is already attached
+        log.debug('Starting volume.attach for volume {0} ({1})'.format(self.volume_id,
+            self.fs.get_full_name()))
+        # Bail if the volume doesn't exist, or is already attached
         if self.status == volume_status.NONE or self.status == volume_status.DELETING:
             log.error('Attempt to attach non-existent volume {0}'.format(self.volume_id))
             return None
@@ -274,14 +346,14 @@ class Volume(BlockStorage):
             log.debug('Volume {0} already attached')
             return self.device
 
-        # wait for the volume to become available
+        # Wait for the volume to become available
         if self.from_snapshot_id and  self.status == volume_status.CREATING:
             # Eucalyptus can take an inordinate amount of time to create a volume from a snapshot
-            log.warning("Waiting for volume to be created from a snapshot...") 
-            if not self.wait_for_status(volume_status.AVAILABLE,timeout=600): 
+            log.warning("Waiting for volume to be created from a snapshot...")
+            if not self.wait_for_status(volume_status.AVAILABLE,timeout=600):
                 log.error('Volume never reached available from creating status. Status is {0}'.format(self.status))
         elif self.status != volume_status.AVAILABLE:
-            if not self.wait_for_status(volume_status.AVAILABLE, timeout=60):
+            if not self.wait_for_status(volume_status.AVAILABLE):
                 log.error('Volume never became available to attach. Status is {0}'.format(self.status))
                 return None
 
@@ -291,7 +363,7 @@ class Volume(BlockStorage):
             log.debug('Before attach, devices = {0}'.format(' '.join(pre_devices)))
             if self._do_attach(attempted_device):
                 if self.wait_for_status(volume_status.ATTACHED):
-                    time.sleep(30) # give a few seconds for the device to show up in the OS
+                    time.sleep(10) # give a few seconds for the device to show up in the OS
                     post_devices = self._get_device_list()
                     log.debug('After attach, devices = {0}'.format(' '.join(post_devices)))
                     new_devices = post_devices - pre_devices
@@ -343,6 +415,10 @@ class Volume(BlockStorage):
         return True
 
     def snapshot(self, snap_description=None):
+        """
+        Crete a point-in-time snapshot of the current volume, optionally specifying
+        a description for the snapshot.
+        """
         log.info("Initiating creation of a snapshot for the volume '%s'" % self.volume_id)
         try:
             snapshot = self.volume.create_snapshot(description=snap_description)
@@ -367,6 +443,10 @@ class Volume(BlockStorage):
             return None
 
     def get_from_snap_id(self):
+        """
+        Returns the ID of the snapshot this volume was created from, ``None``
+        of the volume was not created from a snapshot.
+        """
         return self.from_snapshot_id
 
     def add(self):
