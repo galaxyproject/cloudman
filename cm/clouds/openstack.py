@@ -12,12 +12,13 @@ log = logging.getLogger('cloudman')
 
 
 class OSInterface(EC2Interface):
-    
+
     def __init__(self, app=None):
         super(OSInterface, self).__init__()
         self.app = app
+        self.tags_supported = False
         self.set_configuration()
-    
+
     def set_configuration(self):
         super(OSInterface, self).set_configuration()
         # Cloud details gotten from the user data
@@ -30,7 +31,7 @@ class OSInterface(EC2Interface):
         self.s3_port = self.user_data.get('s3_port', None)
         self.s3_conn_path = self.user_data.get('s3_conn_path', None)
         self.calling_format = OrdinaryCallingFormat()
-    
+
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
@@ -52,7 +53,7 @@ class OSInterface(EC2Interface):
             except Exception, e:
                 log.error(e)
         return self.ec2_conn
-    
+
     def _get_default_ec2_conn(self, region=None):
         ec2_conn = None
         try:
@@ -67,7 +68,7 @@ class OSInterface(EC2Interface):
         except EC2ResponseError, e:
             log.error("Trouble creating a Nova connection: {0}".format(e))
         return ec2_conn
-    
+
     def get_s3_connection(self):
         # TODO: Port this use_object_store logic to other clouds as well
         if self.app and not self.app.use_object_store:
@@ -92,7 +93,7 @@ class OSInterface(EC2Interface):
             except Exception, e:
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
-    
+
     def get_public_ip( self ):
         """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
             returns empty so do some monkey patching.
@@ -117,15 +118,15 @@ class OSInterface(EC2Interface):
                     log.error ( "Error retrieving FQDN: %s" % e )
 
         return self.self_public_ip
-    
-    
+
+
     def add_tag(self, resource, key, value):
         log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not " \
             "support tags".format(key=key, value=value, resource=resource))
         pass
-    
+
     def get_tag(self, resource, key):
         log.debug("Would get tag {key} from resource {resource} but OpenStack does not support tags" \
             .format(key=key, resource=resource))
         pass
-    
+

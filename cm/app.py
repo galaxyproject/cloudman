@@ -15,10 +15,10 @@ class CMLogHandler(logging.Handler):
         # self.formatter = logging.Formatter("[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
         self.setFormatter(self.formatter)
         self.logmessages = []
-    
+
     def emit(self, record):
         self.logmessages.append(self.formatter.format(record))
-    
+
 
 class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
@@ -47,7 +47,7 @@ class UniverseApplication( object ):
         else:
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
-        
+
         if self.ud.has_key("localflag"):
             self.LOCALFLAG = bool(self.ud['localflag'])
             self.logger.setLevel(logging.DEBUG)
@@ -58,14 +58,14 @@ class UniverseApplication( object ):
         config.configure_logging(self.config)
         log.debug( "Initializing app" )
         log.debug("Running on '{0}' type of cloud.".format(self.cloud_type))
-        
+
         # App-wide object to store messages that need to travel between the back-end
-        # and the UI. 
+        # and the UI.
         # TODO: Ideally, this should be stored some form of more persistent
         # medium (eg, database, file, session) and used as a simple module (vs. object)
         # but that's hopefully still forthcoming.
         self.msgs = messages.Messages()
-        
+
         # Check that we actually got user creds in user data and inform user
         if not ('access_key' in self.ud or 'secret_key' in self.ud):
             self.msgs.error("No access credentials provided in user data. "
@@ -90,9 +90,9 @@ class UniverseApplication( object ):
             self.manager.console_monitor.start()
         else:
             log.error("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
-    
+
     def shutdown(self, delete_cluster=False):
         if self.manager:
             self.manager.shutdown(delete_cluster=delete_cluster)
-    
-    
+
+

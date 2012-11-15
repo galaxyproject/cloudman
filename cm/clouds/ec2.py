@@ -16,12 +16,13 @@ log = logging.getLogger( 'cloudman' )
 
 
 class EC2Interface(CloudInterface):
-    
+
     def __init__(self, app=None):
         super(EC2Interface, self).__init__()
         self.app = app
+        self.tags_supported = True
         self.set_configuration()
-    
+
     def get_ami( self ):
         if self.ami is None:
             if self.app.TESTFLAG is True:
@@ -39,7 +40,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.ami
-    
+
     @TestFlag('something.good')
     def get_type( self ):
         if self.instance_type is None:
@@ -54,7 +55,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.instance_type
-    
+
     def get_instance_id( self ):
         if self.instance_id is None:
             if self.app.TESTFLAG is True:
@@ -73,7 +74,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.instance_id
-    
+
     def get_instance_object(self):
         log.debug("Getting instance object: %s" % self.instance)
         if self.instance is None:
@@ -91,7 +92,7 @@ class EC2Interface(CloudInterface):
             except Exception, e:
                 log.debug("Error retrieving instance object: {0}".format(e))
         return self.instance
-    
+
     def get_zone( self ):
         if self.zone is None:
             if self.app.TESTFLAG is True:
@@ -110,7 +111,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.zone
-    
+
     def get_security_groups( self ):
         if self.security_groups is None:
             if self.app.TESTFLAG is True:
@@ -130,7 +131,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.security_groups
-    
+
     def get_key_pair_name( self ):
         if self.key_pair_name is None:
             if self.app.TESTFLAG is True:
@@ -150,7 +151,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.key_pair_name
-    
+
     def get_private_ip( self ):
         if self.self_private_ip is None:
             if self.app.TESTFLAG is True:
@@ -169,7 +170,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.self_private_ip
-    
+
     def get_local_hostname(self):
         if self.local_hostname is None:
             if self.app.TESTFLAG is True:
@@ -187,7 +188,7 @@ class EC2Interface(CloudInterface):
                 except IOError:
                     pass
         return self.local_hostname
-    
+
     def get_public_hostname( self ):
         if self.self_public_ip is None:
             if self.app.TESTFLAG is True:
@@ -204,9 +205,9 @@ class EC2Interface(CloudInterface):
                         break
                 except Exception, e:
                     log.error ( "Error retrieving FQDN: %s" % e )
-                                
+
         return self.self_public_ip
-    
+
     def get_public_ip( self ):
         if self.self_public_ip is None:
             if self.app.TESTFLAG is True:
@@ -223,9 +224,9 @@ class EC2Interface(CloudInterface):
                         break
                 except Exception, e:
                     log.error ( "Error retrieving FQDN: %s" % e )
-                                
+
         return self.self_public_ip
-    
+
     def get_fqdn(self):
         log.debug( "Retrieving FQDN" )
         if self.fqdn == None:
@@ -234,7 +235,7 @@ class EC2Interface(CloudInterface):
             except IOError:
                 pass
         return self.fqdn
-    
+
     def get_ec2_connection( self ):
         if self.ec2_conn == None:
             try:
@@ -268,7 +269,7 @@ class EC2Interface(CloudInterface):
             except Exception, e:
                 log.error(e)
         return self.ec2_conn
-    
+
     def get_s3_connection( self ):
         # log.debug( 'Getting boto S3 connection' )
         if self.s3_conn == None:
@@ -285,38 +286,38 @@ class EC2Interface(CloudInterface):
             except Exception, e:
                 log.error(e)
         return self.s3_conn
-    
+
     def add_tag(self, resource, key, value):
         """ Add tag as key value pair to the `resource` object. The `resource`
         object must be an instance of a cloud object and support tagging.
         """
-        if not self.tags_not_supported:
+        if self.tags_supported:
             try:
                 log.debug("Adding tag '%s:%s' to resource '%s'" % (key, value, resource.id if resource.id else resource))
                 resource.add_tag(key, value)
             except EC2ResponseError, e:
                 log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
-                self.tags_not_supported = True
+                self.tags_supported = False
         resource_tags = self.tags.get(resource.id, {})
         resource_tags[key] = value
         self.tags[resource.id] = resource_tags
-    
+
     def get_tag(self, resource, key):
         """ Get tag on `resource` cloud object. Return None if tag does not exist.
         """
         value = None
-        if not self.tags_not_supported:
+        if self.tags_supported:
             try:
                 log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
                 value = resource.tags.get(key, None)
             except EC2ResponseError, e:
                 log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
-                self.tags_not_supported = True
+                self.tags_supported = False
         if not value:
             resource_tags = self.tags.get(resource.id,{})
             value = resource_tags.get(key)
-        return value    
-    
+        return value
+
     def run_instances(self, num, instance_type, spot_price=None, **kwargs):
         use_spot = False
         if spot_price is not None:
@@ -333,11 +334,11 @@ class EC2Interface(CloudInterface):
             self._make_spot_request(num, instance_type, spot_price, worker_ud)
         else:
             self._run_ondemand_instances(num, instance_type, spot_price, worker_ud)
-        
+
     def _run_ondemand_instances(self, num, instance_type, spot_price, worker_ud, min_num=1):
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
-              "image_id='{iid}', min_count='{min_num}, max_count='{num}', key_name='{key}', "
+              "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
               "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
               .format(iid=self.get_ami(), min_num=min_num, num=num, key=self.get_key_pair_name(), \
               sgs=", ".join(self.get_security_groups()), ud=worker_ud_str, type=instance_type, \
@@ -375,7 +376,7 @@ class EC2Interface(CloudInterface):
             log.error( err )
             return False
         log.debug( "Started %s instance(s)" % num )
-    
+
     def _make_spot_request(self, num, instance_type, price, worker_ud):
         worker_ud_str = "\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         log.debug("Making a Spot request with the following command: "
@@ -407,7 +408,7 @@ class EC2Interface(CloudInterface):
         except Exception, e:
             log.error("An error when making a spot request: {0}".format(e))
             return False
-    
+
     def terminate_instance(self, instance_id, spot_request_id=None):
         inst_terminated = request_canceled = True
         if instance_id is not None:
@@ -415,7 +416,7 @@ class EC2Interface(CloudInterface):
         if spot_request_id is not None:
             request_canceled = self._cancel_spot_request(spot_request_id)
         return (inst_terminated and request_canceled)
-        
+
     def _terminate_instance(self, instance_id):
         ec2_conn = self.get_ec2_connection()
         try:
@@ -432,10 +433,10 @@ class EC2Interface(CloudInterface):
                 return True
             else:
                 log.error("EC2 exception terminating instance '%s': %s" % (instance_id, e))
-        except Exception, e:
-            log.error("Exception terminating instance %s: %s" % (instance_id, e))
+        except Exception, ex:
+            log.error("Exception terminating instance %s: %s" % (instance_id, ex))
         return False
-    
+
     def _cancel_spot_request(self, request_id):
         ec2_conn = self.get_ec2_connection()
         try:
@@ -445,9 +446,10 @@ class EC2Interface(CloudInterface):
         except EC2ResponseError, e:
             log.error("Trouble cancelling spot request {0}: {1}".format(request_id, e))
             return False
-    
+
     def _compose_worker_user_data(self):
-        """ Compose worker instance user data.
+        """
+        Compose worker instance user data.
         """
         worker_ud = {}
         worker_ud['role'] = 'worker'
@@ -458,8 +460,52 @@ class EC2Interface(CloudInterface):
         worker_ud = dict(self.app.ud.items() + worker_ud.items())
         return worker_ud
 
-    def get_all_volumes(self,volume_ids=None, filters=None):
+    def get_all_volumes(self, volume_ids=None, filters=None):
+        """
+        Get all Volumes associated with the current credentials.
+
+        :type volume_ids: list
+        :param volume_ids: Optional list of volume IDs.  If this list
+                           is present, only the volumes associated with
+                           these volume IDs will be returned.
+
+        :type filters: dict
+        :param filters: Optional filters that can be used to limit
+                        the results returned.  Filters are provided
+                        in the form of a dictionary consisting of
+                        filter names as the key and filter values
+                        as the value. The set of allowable filter
+                        names/values is dependent on the request
+                        being performed. Check the EC2 API guide
+                        for details.
+
+        :rtype: list of :class:`boto.ec2.volume.Volume`
+        :return: The requested Volume objects
+        """
+        if not isinstance(volume_ids, list):
+            volume_ids = [volume_ids]
         return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids, filters=filters)
-    
-    def get_all_instances(self,instance_ids=None,filters=None):
-        return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids,filters=filters)
+
+    def get_all_instances(self, instance_ids=None, filters=None):
+        """
+        Retrieve all the instances associated with current credentials.
+
+        :type instance_ids: list
+        :param instance_ids: Optional list of strings of instance IDs.
+                             If this list if present, only the instances
+                             associated instance IDs will be returned.
+
+        :type filters: dict
+        :param filters: Optional filters that can be used to limit the
+                        results returned. Filters are provided in the form of a
+                        dictionary consisting of filter names as the key and
+                        filter values as the value. The set of allowable filter
+                        names/values is dependent on the request being performed.
+                        Check the EC2 API guide for details.
+
+        :rtype: list
+        :return: A list of  :class:`boto.ec2.instance.Reservation`
+        """
+        if not isinstance(instance_ids, list):
+            instance_ids = [instance_ids]
+        return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids, filters=filters)

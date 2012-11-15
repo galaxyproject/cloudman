@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Requires: 
+Requires:
     PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
@@ -73,7 +73,7 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
     try:
         b = s3_conn.get_bucket(bucket_name)
         k = Key(b, remote_filename)
-    
+
         log.debug("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name))
         if k.exists():
             k.get_contents_to_filename(local_filename)
@@ -90,9 +90,9 @@ def _start_nginx(ud):
     log.info("<< Starting nginx >>")
     # Because nginx needs the uplaod directory to start properly, create it now.
     # However, because user data will be mounted after boot and because given
-    # directory already exists on the user's data disk, must remove it after 
+    # directory already exists on the user's data disk, must remove it after
     # nginx starts
-    # In case an nginx configuration file different than the one on the image needs to be included 
+    # In case an nginx configuration file different than the one on the image needs to be included
     # local_nginx_conf_file = '/opt/galaxy/conf/nginx.conf'
     # url = 'http://userwww.service.emory.edu/~eafgan/content/nginx.conf'
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
@@ -106,7 +106,7 @@ def _start_nginx(ud):
         _run('/etc/init.d/apache2 stop')
         _run('/etc/init.d/tntnet stop') # On Ubuntu 12.04, this server also starts?
         _run('/opt/galaxy/sbin/nginx')
-    if rmdir: 
+    if rmdir:
         _run('rm -rf /mnt/galaxyData')
 
 def _write_conf_file(contents_descriptor, path):
@@ -119,7 +119,7 @@ def _write_conf_file(contents_descriptor, path):
     else:
         log.info("Writing out configuration file encoded in user-data:")
         with open(path, "w") as output:
-            output.write(base64.b64decode(contents_descriptor))    
+            output.write(base64.b64decode(contents_descriptor))
 
 def _configure_nginx(ud):
     # User specified nginx.conf file, can be specified as
@@ -148,7 +148,8 @@ def _get_s3connection(ud):
     secret_key = ud['secret_key']
 
     s3_url = ud.get('s3_url', AMAZON_S3_URL)
-    if not 's3_host' in ud: # assuming url implies workalikes
+    cloud_type = ud.get('cloud_type', 'ec2')
+    if cloud_type in ['ec2', 'eucalyptus']:
         if s3_url == AMAZON_S3_URL:
             log.info('connecting to Amazon S3 at {0}'.format(s3_url))
         else:
@@ -190,7 +191,7 @@ def _get_s3connection(ud):
         log.debug('Got boto S3 connection')
     except BotoServerError as e:
         log.error("Exception getting S3 connection; {0}".format(e))
-        
+
     return s3_conn
 
 def _get_cm(ud):
@@ -230,14 +231,14 @@ def _get_cm(ud):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
         if _run('wget --output-document=%s %s' % (local_cm_file, url)):
             log.info("Retrieved Cloudman by url from '%s' and saving it to '%s'" % (url, local_cm_file))
-            return True 
+            return True
     # ELSE Default to public Amazon repo and wget via URL
     url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
     log.info("Attempting to retrieve from Amazon S3 from %s" % (url))
     return _run('wget --output-document=%s %s' % (local_cm_file, url))
 
 def _write_cm_revision_to_file(s3_conn, bucket_name):
-    """ Get the revision number associated with the CM_REMOTE_FILENAME and save 
+    """ Get the revision number associated with the CM_REMOTE_FILENAME and save
     it locally to CM_REV_FILENAME """
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
         rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME, 'revision')
@@ -248,8 +249,9 @@ def _write_cm_revision_to_file(s3_conn, bucket_name):
             rev_file.write('9999999')
 
 def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
-    """ Get metadata value for the given key. If bucket or remote_filename is not 
-    found, the method returns None.    
+    """
+    Get ``metadata_key`` value for the given key. If ``bucket_name`` or
+    ``remote_filename`` is not found, the method returns ``None``.
     """
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
     b = None
@@ -257,14 +259,14 @@ def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
         try:
             b = conn.get_bucket( bucket_name )
             break
-        except S3ResponseError: 
+        except S3ResponseError:
             log.debug ( "Bucket '%s' not found, attempt %s/5" % ( bucket_name, i+1 ) )
             time.sleep(2)
     if b is not None:
         k = b.get_key(remote_filename)
         if k and metadata_key:
             return k.get_metadata(metadata_key)
-    return None 
+    return None
 
 def _unpack_cm():
     local_path = os.path.join(CM_HOME, CM_LOCAL_FILENAME)

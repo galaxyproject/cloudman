@@ -15,7 +15,7 @@ class DebugException(Exception):
     pass
 
 def stacktrace_wrapper(old_method):
-            
+
     def _w(self,*args,**kwargs):
         try:
             raise DebugException()
@@ -23,11 +23,11 @@ def stacktrace_wrapper(old_method):
             log.debug('get_all_instances() called. Trace follows...')
             traceback.print_stack()
         return old_method(self,*args,**kwargs)
-    
+
     return _w
 
 # EC2Connection.get_all_instances = stacktrace_wrapper(EC2Connection.get_all_instances)
-            
+
 
 
 import logging
@@ -42,15 +42,14 @@ class EucaInterface(EC2Interface):
     """
         A specialization of cm.clouds.ec2 allowing use of private Eucalyptus clouds.
         User data should also include keys s3_url and ec2_url to declare where the connection
-        should be made to.    
+        should be made to.
     """
     def __init__(self, app=None):
         if not app:
             app = _DummyApp()
         super(EucaInterface, self).__init__()
         self.app = app
-        self.tags_not_supported = True
-        self.tags = {}
+        self.tags_supported = False
         self.local_hostname = None
         self.public_hostname = None
         self._min_boto_delay = 2
@@ -80,7 +79,7 @@ class EucaInterface(EC2Interface):
                     zone = self.get_zone()
                     region = RegionInfo(name=zone,endpoint=host)
                     self.ec2_conn = EC2Connection(
-                                             aws_access_key_id = self.aws_access_key, 
+                                             aws_access_key_id = self.aws_access_key,
                                              aws_secret_access_key = self.aws_secret_key,
                                              is_secure = is_secure,
                                              host = host,
@@ -98,12 +97,12 @@ class EucaInterface(EC2Interface):
                         self.ec2_conn = False
                 except Exception, e:
                     log.error(e) # to match interface for Ec2Interface
-                    
+
             else:
                 super(EucaInterface,self).get_ec2_connection() # default to ec2 connection
         return self.ec2_conn
 
-    
+
     def get_s3_connection(self):
         log.debug( 'Getting boto S3 connection' )
         if self.s3_conn == None:
@@ -157,12 +156,12 @@ class EucaInterface(EC2Interface):
                 if len(r) == 4:
                     log.debug('local hostname ({0}) appears to be an IP address.'.format(self.local_hostname))
                     self.local_hostname = None
-                    
+
             if not self.local_hostname:
                 log.debug('Fetching hostname from local system hostname()')
                 self.local_hostname = socket.gethostname()
         return self.local_hostname
-        
+
     def get_public_hostname(self):
         # Eucalyptus meta-data/public-hostname return the IP address. Fake it, assuming that it will be ip-NUM-NUM-NUM-NUM
         super(EucaInterface,self).get_public_hostname()
@@ -172,7 +171,7 @@ class EucaInterface(EC2Interface):
                 r = filter(lambda x: int(x) < 256 and x > 0, toks)
                 if len(r) == 4:
                     self.public_hostname = None
-                    
+
             if not self.public_hostname:
                 log.debug('Faking local hostname based on IP address {0}'.format('.'.join(toks)))
                 self.public_hostname = 'ip-%s' % '-'.join(toks)
@@ -193,7 +192,7 @@ class EucaInterface(EC2Interface):
         self._run_ondemand_instances(num, instance_type, spot_price, worker_ud, min_num=num) # eucalyptus only starts min_num instances
 
     def get_all_instances(self,instance_ids=None, filters=None):
-            
+
         if isinstance(instance_ids,basestring):
             instance_ids=(instance_ids,)
             cache_key = instance_ids
@@ -201,7 +200,7 @@ class EucaInterface(EC2Interface):
             cache_key = ','.join(instance_ids)
         else:
             cache_key = ''
-            
+
         # eucalyptus stops responding if you check the same thing too often
         if self._last_instance_check and cache_key in self._instances and time.time() <= self._last_instance_check + self._min_boto_delay:
             log.debug('Using cached instance information for {0}'.format(str(instance_ids)))
@@ -228,9 +227,9 @@ class EucaInterface(EC2Interface):
                 else:
                     log.error('Could not filter instance on unknown filter key {0}'.format(key))
         res = [ i for i in reservations if i not in excluded]
-        
+
         return res
-    
+
     def get_all_volumes(self,volume_ids=None, filters=None):
         # eucalyptus does not allow filters in get_all_volumes
         if isinstance(volume_ids,basestring):
@@ -275,4 +274,4 @@ class EucaInterface(EC2Interface):
         vols = [v for v in volumes if v not in excluded_vols]
         # log.debug("(get_all_volumes) Returning volumes: {0}".format(vols))
         return vols
-            
+
