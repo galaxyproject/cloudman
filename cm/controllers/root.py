@@ -337,6 +337,8 @@ class CM(BaseController):
                 log_file = os.path.join(paths.P_SGE_CELL, 'messages')
         elif service_name == 'CloudMan':
             log_file = "paster.log"
+        elif service_name == 'GalaxyReports':
+            log_file = os.path.join(paths.P_GALAXY_HOME, 'reports_webapp.log')
         # Set log length
         if num_lines:
             if show == 'more':
@@ -493,7 +495,7 @@ class CM(BaseController):
             return comment
 
     @expose
-    def manage_service(self, trans, service_name, to_be_started=True, is_filesystem=False):
+    def manage_service(self, trans, service_name, to_be_started='True', is_filesystem=False):
         """
         Manage a CloudMan service identified by ``service_name``. Currently,
         managing a service means that the service can be started (if
