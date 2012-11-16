@@ -12,6 +12,20 @@ function hidebox(){
     $('#overlay').hide();
 }
 
+function update_application_status(id, content) {
+    $(id).html(content);
+    // Set color for services - `Running`: green, 'Error': red; anything else is tan
+    if (content === 'Running') {
+        $(id).css("color", "#639B41");
+    }
+    else if (content === 'Error') {
+        $(id).css("color", "#BF3030");
+    }
+    else {
+        $(id).css("color", "#BFB795");
+    }
+}
+
 function update(repeat_update){
     $.getJSON(get_all_services_status_url,
         function(data){
@@ -34,9 +48,10 @@ function update(repeat_update){
                 $('#galaxy_dns').html(galaxy_dns);
                 $('#galaxy_admins').html(data.galaxy_admins);
                 $('#galaxy_rev').html(rev_html);
-                $('#galaxy_status').html(data.Galaxy);
-                $('#postgres_status').html(data.Postgres);
-                $('#sge_status').html(data.SGE);
+                update_application_status("#galaxy_status", data.Galaxy);
+                update_application_status("#postgres_status", data.Postgres);
+                update_application_status("#sge_status", data.SGE);
+                update_application_status("#galaxy_reports_status", data.GalaxyReports);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
@@ -46,38 +61,6 @@ function update(repeat_update){
                     $('#update_fs_status').html("");
                     $('#snapshotoverlay').hide();
                 }
-                // Set color for services - `Running`: green, 'Error': red; anything else is tan
-                // Galaxy
-                if (data.Galaxy === 'Running') {
-                    $('#galaxy_status').css("color", "#639B41");
-                }
-                else if (data.Galaxy === 'Error') {
-                    $('#galaxy_status').css("color", "#BF3030");
-                }
-                else {
-                    $('#galaxy_status').css("color", "#BFB795");
-                }
-                // Postgres
-                if (data.Postgres === 'Running') {
-                    $('#postgres_status').css("color", "#639B41");
-                }
-                else if (data.Postgres === 'Error') {
-                    $('#postgres_status').css("color", "#BF3030");
-                }
-                else {
-                    $('#postgres_status').css("color", "#BFB795");
-                }
-                // SGE
-                if (data.SGE === 'Running') {
-                    $('#sge_status').css("color", "#639B41");
-                }
-                else if (data.SGE === 'Error') {
-                    $('#sge_status').css("color", "#BF3030");
-                }
-                else {
-                    $('#sge_status').css("color", "#BFB795");
-                }
-
                 if (data.master_is_exec_host === true) {
                     $('#master_is_exec_host').html("Switch master not to run jobs");
                 } else {
