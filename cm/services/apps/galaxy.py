@@ -150,7 +150,7 @@ class GalaxyService(ApplicationService):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 # Move all log files
-                subprocess.call("bash -c 'for f in $GALAXY_HOME/*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
 
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
@@ -210,24 +210,28 @@ class GalaxyService(ApplicationService):
 
     def setup_config_dir(self):
         conf_dir = self.get_galaxy_conf_dir()
+        GalaxyService.initialize_galaxy_config_dir(conf_dir, 'universe_wsgi.ini')
+        # This will ensure galaxy's run.sh file picks up the config dir.
+        self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
+
+    @staticmethod
+    def initialize_galaxy_config_dir(conf_dir, defaults_name):
         # If config dir does not exist, create it and put default
-        # galaxy properties in with low priority.
+        # properties in with low priority.
         if not os.path.exists(conf_dir):
             os.makedirs(conf_dir)
-            defaults_destination = os.path.join(conf_dir, "010_universe_wsgi_defaults.ini")
-            universe_wsgi = os.path.join(self.galaxy_home, "universe_wsgi.ini")
+            defaults_destination = os.path.join(conf_dir, "010_%s" % defaults_name)
+            universe_wsgi = os.path.join(paths.P_GALAXY_HOME, defaults_name)
             if not os.path.exists(universe_wsgi):
                 # Fresh install, take the oppertunity to just link in defaults
-                defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini.sample")
+                defaults_source = os.path.join(paths.P_GALAXY_HOME, "%s.sample" % defaults_name)
                 os.symlink(defaults_source, defaults_destination)
             else:
                 # CloudMan has previously been run without the galaxy_conf_dir
                 # option enabled. Users may have made modifications to universe_wsgi.ini
                 # that I guess we should preserve for backward compatibility.
-                defaults_source = os.path.join(self.galaxy_home, "universe_wsgi.ini")
+                defaults_source = os.path.join(paths.P_GALAXY_HOME, defaults_name)
                 shutil.copyfile(defaults_source, defaults_destination)
-        # This will ensure galaxy's run.sh file picks up the config dir.
-        self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
 
     def get_galaxy_conf_dir(self):
         return self.app.ud.get("galaxy_conf_dir", None)
