@@ -36,16 +36,10 @@ class GalaxyReportsService(ApplicationService):
         self.status()
         if not self.state == service_states.RUNNING:
             self._setup()
-            started_successfully = False
             # --sync-config will update Galaxy Report's database settings with Galaxy's.
             started = self._run("--sync-config start")
-            if started:
-                self.status()
-                if self.state == service_states.RUNNING:
-                    log.info("Successfully started PostgreSQL.")
-                    started_successfully = True
-            if not started_successfully:
-                log.warning("Failed to setup or run galaxy reports server.")
+            if not started:
+                log.warn("Failed to setup or run galaxy reports server.")
                 self.start = service_states.ERROR
 
     def _setup(self):
