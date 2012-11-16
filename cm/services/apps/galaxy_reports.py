@@ -1,4 +1,6 @@
+import datetime
 import os
+import subprocess
 import urllib2
 
 from cm.services.apps import ApplicationService
@@ -70,6 +72,8 @@ filter-with = proxy-prefix
         log.info("Shutting down Galaxy Reports...")
         if self._run("stop"):
             self.state = service_states.SHUT_DOWN
+            # Move all log files
+            subprocess.call("bash -c 'for f in $GALAXY_HOME/reports_webapp.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
         else:
             log.info("Failed to shutdown down Galaxy Reports...")
             self.state = service_states.ERROR

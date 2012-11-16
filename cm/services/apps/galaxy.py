@@ -150,7 +150,7 @@ class GalaxyService(ApplicationService):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 # Move all log files
-                subprocess.call("bash -c 'for f in $GALAXY_HOME/*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime('%H_%M'), shell=True)
 
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (key, value) for key, value in self.env_vars.iteritems()])
