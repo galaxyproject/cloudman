@@ -1,3 +1,4 @@
+import os
 import urllib2
 
 from cm.services.apps import ApplicationService
@@ -5,6 +6,7 @@ from cm.services.apps import ApplicationService
 from cm.util import paths
 from cm.util import misc
 from cm.services import service_states
+from cm.services.apps.galaxy import GalaxyService
 
 import logging
 log = logging.getLogger('cloudman')
@@ -17,6 +19,7 @@ class GalaxyReportsService(ApplicationService):
         self.galaxy_home = paths.P_GALAXY_HOME
         self.svc_type = "GalaxyReports"
         self.reqs = {'Galaxy': None}  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
+        self.conf_dir = os.path.join(paths.P_GALAXY_HOME, 'reports.conf.d')
 
     def _check_galaxy_reports_running(self):
         dns = "http://127.0.0.1:9001"
@@ -30,6 +33,7 @@ class GalaxyReportsService(ApplicationService):
         self.state = service_states.STARTING
         self.status()
         if not self.state == service_states.RUNNING:
+            self._setup()
             started_successfully = False
             # --sync-config will update Galaxy Report's database settings with Galaxy's.
             started = self._run("--sync-config start")
@@ -42,6 +46,22 @@ class GalaxyReportsService(ApplicationService):
                 log.warning("Failed to setup or run galaxy reports server.")
                 self.start = service_states.ERROR
 
+    def _setup(self):
+        # setup config dir
+        conf_dir = self.conf_dir
+        GalaxyService.initialize_galaxy_config_dir(conf_dir, 'reports_wsgi.ini')
+        # This will ensure galaxy's run.sh file picks up the config dir.
+        cloudman_specific_config = os.path.join(conf_dir, "020_cloudman.ini")
+        if not os.path.exists(cloudman_specific_config):
+            open(cloudman_specific_config, 'w').write("""
+[filter:proxy-prefix]
+use                = egg:PasteDeploy#prefix
+prefix             = /reports
+
+[app:main]
+filter-with        = proxy-prefix
+""")
+
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
         self.state = service_states.SHUTTING_DOWN
@@ -53,7 +73,7 @@ class GalaxyReportsService(ApplicationService):
             self.state = service_states.ERROR
 
     def _run(self, args):
-        command = '%s - galaxy -c "sh $GALAXY_HOME/run_reports.sh %s"' % (paths.P_SU, args)
+        command = '%s - galaxy -c "export GALAXY_REPORTS_CONFIG_DIR=\'%s\'; sh $GALAXY_HOME/run_reports.sh %s"' % (paths.P_SU, self.conf_dir, args)
         misc.run(command, "Error invoking Galaxy Reports", "Successfully invoked Galaxy Reports.")
 
     def status(self):
