@@ -229,13 +229,12 @@ def _get_cm(ud):
     # ELSE try from local S3
     if ud.has_key('s3_url'):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
-        if _run('wget --output-document=%s %s' % (local_cm_file, url)):
-            log.info("Retrieved Cloudman by url from '%s' and saving it to '%s'" % (url, local_cm_file))
-            return True
-    # ELSE Default to public Amazon repo and wget via URL
-    url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
-    log.info("Attempting to retrieve from Amazon S3 from %s" % (url))
-    return _run('wget --output-document=%s %s' % (local_cm_file, url))
+    elif ud.has_key('cloudman_repository'):
+        url = ud.get('cloudman_repository')
+    else:
+        url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
+    log.info("Attempting to retrieve from from %s" % (url))
+    return _run("wget --output-document='%s' '%s'" % (local_cm_file, url))
 
 def _write_cm_revision_to_file(s3_conn, bucket_name):
     """ Get the revision number associated with the CM_REMOTE_FILENAME and save
