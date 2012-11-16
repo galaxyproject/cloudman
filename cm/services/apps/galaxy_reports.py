@@ -55,11 +55,13 @@ class GalaxyReportsService(ApplicationService):
         if not os.path.exists(cloudman_specific_config):
             open(cloudman_specific_config, 'w').write("""
 [filter:proxy-prefix]
-use                = egg:PasteDeploy#prefix
-prefix             = /reports
+use = egg:PasteDeploy#prefix
+prefix = /reports
 
 [app:main]
-filter-with        = proxy-prefix
+# Place dummy database_connection for run_reports.sh's --sync-config option to replace
+database_connection = dummy
+filter-with = proxy-prefix
 """)
 
     def remove(self):
