@@ -465,7 +465,7 @@ class CM(BaseController):
             return comment
 
     @expose
-    def manage_service(self, trans, service_name, to_be_started=True, is_filesystem=False):
+    def manage_service(self, trans, service_name, to_be_started='True', is_filesystem=False):
         """
         Manage a CloudMan service identified by ``service_name``. Currently,
         managing a service means that the service can be started (if
