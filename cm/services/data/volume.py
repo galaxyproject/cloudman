@@ -182,7 +182,7 @@ class Volume(BlockStorage):
                 wait_forever = False
             while wait_forever or time.time() <= end_time:
                 if self.status == status:
-                    log.debug('Volume {0} ({1}) has reached status {1}'.format(self.volume_id,
+                    log.debug('Volume {0} ({1}) has reached status {2}'.format(self.volume_id,
                         self.fs.get_full_name(), status))
                     return True
                 else:
