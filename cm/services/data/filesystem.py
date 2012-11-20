@@ -118,10 +118,13 @@ class Filesystem(DataService):
                     ts.add()
             except Exception, e:
                 log.error("Error adding file system service {0}: {1}".format(self.get_full_name(), e))
+                return False
             self.status()
+            return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"\
                     .format(self.get_full_name(), service_states.UNSTARTED, self.state))
+            return False
 
     def remove(self):
         """

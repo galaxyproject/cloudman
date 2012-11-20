@@ -197,7 +197,7 @@ class CM(BaseController):
             else:
                 log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
-                log.debug("Adding '{2}' file system based on an exising {0}, {1}"\
+                log.debug("Adding '{2}' file system based on an existing {0}, {1}"\
                     .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
                         vol_fs_name if fs_kind == 'volume' else snap_fs_name))
         elif fs_kind == 'new_volume':
