@@ -597,7 +597,7 @@ jQuery.fn.serializeObject = function() {
                 '<input type="checkbox" name="persist" id="add-fs-persist-box">' +
                 '<label for="add-fs-persist-box">If checked, ' +
                 'the created disk <b>will be persisted</b> as part of the cluster configuration ' +
-                'and thus automatically added the next this this cluster is started</label>' +
+                'and thus automatically added the next time this cluster is started</label>' +
             '</div>' +
             '<div id="add-fs-submit-btn" class="add-fs-details-form-row">' +
                 '<input type="submit" class="fs-form-submit-button" value="Add new file system"/>' +
