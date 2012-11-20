@@ -116,16 +116,13 @@ class Bucket(object):
             mount_cmd = None
             mount_cmd = self._compose_mount_cmd()
             if mount_cmd is not None:
-                ok = misc.run(mount_cmd)
-                if ok is True:
-                    msg = "Done adding bucket {0} as a local file system. The bucket can now be "\
-                        "accessed at {1}".format(self.bucket_name, self.mount_point)
-                else:
+                if not misc.run(mount_cmd):
                     msg = "Seems to have run into a problem adding bucket {0} as a local file "\
                             "system.".format(self.bucket_name)
-                log.debug(msg)
-                self.app.msgs.info(msg)
-                return ok
+                    log.warning(msg)
+                    self.app.msgs.info(msg)
+                    return False
+                return True
             else:
                 log.error("Cannot compose command line for mounting bucket {0}".format(self.bucket_name))
         except Exception, e:
