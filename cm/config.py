@@ -1,4 +1,5 @@
 """Universe configuration builder."""
+import time
 import sys, os, logging, logging.config, ConfigParser
 # from optparse import OptionParser
 from cm.util import string_as_bool
@@ -91,9 +92,7 @@ def configure_logging( config ):
     config.
     """
     # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s %(message)s" )
-    format = config.get( "log_format",
-        "{0}\t{1}\t{2}:{3:13}\t{4}"\
-        .format("%(asctime)s", "%(levelname)s", "%(module)s", "%(lineno)d", "%(message)s"))
+    format = config.get( "log_format", "%(asctime)s %(levelname)-7s %(module)12s:%(lineno)-4d %(message)s")
     level = logging._levelNames[ config.get( "log_level", "DEBUG" ) ]
     destination = config.get( "log_destination", "stdout" )
     log.info( "Logging at '%s' level to '%s'" % ( level, destination ) )
@@ -117,5 +116,3 @@ def configure_logging( config ):
     # Hook everything up
     handler.setFormatter( formatter )
     root.addHandler( handler )
-
-
