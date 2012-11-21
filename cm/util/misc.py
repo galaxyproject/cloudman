@@ -2,7 +2,7 @@
 import logging, time, yaml
 from boto.s3.key import Key
 from boto.s3.acl import ACL
-from boto.exception import S3ResponseError, EC2ResponseError
+from boto.exception import S3ResponseError
 import subprocess
 import threading
 import datetime as dt
@@ -20,7 +20,7 @@ def load_yaml_file(filename):
         ud = yaml.load(ud_file)
     # log.debug("Loaded user data: %s" % ud)
     return ud
-    
+
 def dump_yaml_to_file(data, filename):
     with open(filename, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
@@ -60,7 +60,7 @@ def flock(path, wait_delay=1):
     """
     A lockfile implementation (from http://code.activestate.com/recipes/576572/)
     It is primarily intended to be used as a semaphore with multithreaded code.
-    
+
     Use like so:
     with flock('.lockfile'):
        # do whatever.
@@ -92,7 +92,7 @@ def formatDelta(delta):
     h = delta.seconds / 3600
     m = (delta.seconds % 3600) / 60
     s = delta.seconds % 60
-    
+
     if d > 0:
         return '%sd %sh' % (d, h)
     elif h > 0:
@@ -136,7 +136,7 @@ def get_bucket(s3_conn, bucket_name, validate=True):
             try:
                 b = s3_conn.get_bucket(bucket_name, validate=validate)
                 break
-            except S3ResponseError: 
+            except S3ResponseError:
                 log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
                 time.sleep(2)
     return b
@@ -168,16 +168,16 @@ def make_key_public(s3_conn, bucket_name, key_name):
 def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recursive=False):
     """
     Boto wrapper that provides a quick way to add a canonical
-    user grant to a bucket. 
-    
+    user grant to a bucket.
+
     :type permission: string
     :param permission: The permission being granted. Should be one of:
                        (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
-    
+
     :type user_id: list of strings
-    :param cannonical_ids: A list of strings with canonical user ids associated 
+    :param cannonical_ids: A list of strings with canonical user ids associated
                         with the AWS account your are granting the permission to.
-    
+
     :type recursive: boolean
     :param recursive: A boolean value to controls whether the command
                       will apply the grant to all keys within the bucket
@@ -197,20 +197,20 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
 def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_ids):
     """
     Boto wrapper that provides a quick way to add a canonical
-    user grant to a key. 
-    
+    user grant to a key.
+
     :type permission: string
     :param permission: Name of the bucket where the key resides
-    
+
     :type permission: string
     :param permission: Name of the key to add the permission to
-    
+
     :type permission: string
     :param permission: The permission being granted. Should be one of:
                        (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
-    
+
     :type user_id: list of strings
-    :param cannonical_ids: A list of strings with canonical user ids associated 
+    :param cannonical_ids: A list of strings with canonical user ids associated
                         with the AWS account your are granting the permission to.
     """
     b = get_bucket(s3_conn, bucket_name)
@@ -228,28 +228,28 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
 
 def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_power_users=True):
     """
-    Retrieve a list of users that are associated with a key in a folder (i.e., prefix) 
-    in the provided bucket and have READ grant. Note that this method assumes all 
-    of the keys in the given folder have the same ACL and the method thus looks 
+    Retrieve a list of users that are associated with a key in a folder (i.e., prefix)
+    in the provided bucket and have READ grant. Note that this method assumes all
+    of the keys in the given folder have the same ACL and the method thus looks
     only at the very first key in the folder. Also, any users
-    
+
     :type s3_conn: boto.s3.connection.S3Connection
     :param s3_conn: Established boto connection to S3 that has access to bucket_name
-    
+
     :type bucket_name: string
-    :param bucket_name: Name of the bucket in which the given folder/prefix is 
+    :param bucket_name: Name of the bucket in which the given folder/prefix is
                         stored
-    
+
     :type folder_name: string
-    :param folder_name: Allows limit the listing of keys in the given bucket to a 
-                   particular prefix. This has the effect of iterating through 
-                   'folders' within a bucket. For example, if you call the method 
+    :param folder_name: Allows limit the listing of keys in the given bucket to a
+                   particular prefix. This has the effect of iterating through
+                   'folders' within a bucket. For example, if you call the method
                    with folder_name='/foo/' then the iterator will only cycle
                    through the keys that begin with the string '/foo/'.
                    A valid example would be 'shared/2011-03-31--19-43/'
-    
+
     :type exclude_power_users: boolean
-    :param exclude_power_users: If True, folder users with FULL_CONTROL grant 
+    :param exclude_power_users: If True, folder users with FULL_CONTROL grant
                    are not included in the folder user list
     """
     users=[] # Current list of users retrieved from folder's ACL
@@ -287,19 +287,19 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
 
 def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
     """
-    This method is used when dealing with bucket permissions of shared instances. 
-    The method's intent is to isolate the set of users that have (READ) grant on 
+    This method is used when dealing with bucket permissions of shared instances.
+    The method's intent is to isolate the set of users that have (READ) grant on
     a given folder and no other (shared) folder within the given bucket.
     Obtained results can then be used to set the permissions on the bucket root.
-    
+
     See also: get_list_of_bucket_folder_users
-    
+
     :type s3_conn: boto.s3.connection.S3Connection
     :param s3_conn: Established boto connection to S3 that has access to bucket_name
-    
+
     :type bucket_name: string
     :param bucket_name: Name of the bucket in which the given folder is stored
-    
+
     :type folder_name: string
     :param folder_name: Name of the (shared) folder whose grants will be examined
                         and compared to other (shared) folders in the same bucket.
@@ -337,13 +337,13 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
 def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
     """
     Adjust the ACL on given bucket and remove grants for all the mentioned users.
-    
+
     :type s3_conn: boto.s3.connection.S3Connection
     :param s3_conn: Established boto connection to S3 that has access to bucket_name
-    
+
     :type bucket_name: string
     :param bucket_name: Name of the bucket for which to adjust the ACL
-    
+
     :type users_whose_grant_to_remove: list
     :param users_whose_grant_to_remove: List of user names (as defined in bucket's
                 initial ACL, e.g., ['afgane', 'cloud']) whose grant is to be revoked.
@@ -353,7 +353,7 @@ def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
         try:
             grants_to_keep = []
             # log.debug("All grants on bucket '%s' are following" % bucket_name)
-            # Compose list of grants on the bucket that are to be kept, i.e., siphon 
+            # Compose list of grants on the bucket that are to be kept, i.e., siphon
             # through the list of grants for bucket's users and the list of users
             # whose grant to remove and create a list of bucket grants to keep
             for g in bucket.get_acl().acl.grants:
@@ -400,7 +400,7 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
 def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local_filename):
     """ Check if the file in bucket has been modified before the local file.
     :rtype: bool
-    :return: True of file in bucket is older than the local file or an error 
+    :return: True of file in bucket is older than the local file or an error
              while checking the time occurs. False otherwise.
     """
     bucket = get_bucket(s3_conn, bucket_name)
@@ -465,7 +465,7 @@ def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filenam
             log.debug("Copying file '%s/%s' to file '%s/%s'" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename))
             k.copy(dest_bucket_name, copy_filename, preserve_acl=preserve_acl)
             return True
-        except S3ResponseError as e: 
+        except S3ResponseError as e:
             log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
     return False
 
@@ -482,8 +482,10 @@ def delete_file_from_bucket(conn, bucket_name, remote_filename):
     return False
 
 def delete_bucket(conn, bucket_name):
-    """Delete given bucket. This method will iterate through all the keys in
-    the given bucket first and delete them. Finally, the bucket will be deleted."""
+    """
+    Delete the bucket ``bucket_name``. This method will iterate through all the keys in
+    the given bucket first and delete them. Finally, the bucket will be deleted.
+    """
     try:
         b = get_bucket(conn, bucket_name)
         if b:
@@ -497,8 +499,9 @@ def delete_bucket(conn, bucket_name):
     return True
 
 def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
-    """ Get metadata value for the given key. If bucket or remote_filename is not 
-    found, the method returns None.    
+    """
+    Get metadata value for the given key. If ``bucket_name`` or ``remote_filename``
+    is not found, return ``None``.
     """
     log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
     b = get_bucket(conn, bucket_name)
@@ -506,10 +509,12 @@ def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
         k = b.get_key(remote_filename)
         if k and metadata_key:
             return k.get_metadata(metadata_key)
-    return None 
+    return None
 
 def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata_value):
-    """ Set metadata key-value pair for the remote file. 
+    """
+    Set metadata key-value pair for the remote file.
+
     :rtype: bool
     :return: If specified bucket and remote_filename exist, return True.
              Else, return False
@@ -522,7 +527,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
         if k and metadata_key:
             # Simply setting the metadata through set_metadata does not work.
             # Instead, must create in-place copy of the file with altered metadata:
-            # http://groups.google.com/group/boto-users/browse_thread/thread/9968d3fc4fc18842/29c680aad6e31b3e#29c680aad6e31b3e 
+            # http://groups.google.com/group/boto-users/browse_thread/thread/9968d3fc4fc18842/29c680aad6e31b3e#29c680aad6e31b3e
             try:
                 k.copy(bucket_name, remote_filename, metadata={metadata_key:metadata_value}, preserve_acl=True)
                 return True
@@ -530,31 +535,14 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
                 log.debug("Could not set metadata for file '%s' in bucket '%s': %e" % (remote_filename, bucket_name, e))
     return False
 
-def check_process_running(proc_in):
-    ps = subprocess.Popen("ps ax", shell=True, stdout=subprocess.PIPE)
-    lines = ps.communicate()[0]
-    for line in lines.split('\n'):
-        if line.find(proc_in) != -1:
-            log.debug(line)
-    ps.stdout.close()
-    ps.wait()
-    
-def get_volume_size(ec2_conn, vol_id):
-    log.debug("Getting size of volume '%s'" % vol_id) 
-    try: 
-        vol = ec2_conn.get_all_volumes(vol_id)
-    except EC2ResponseError as e:
-        log.error("Volume ID '%s' returned an error: %s" % (vol_id, e))
-        return 0 
-
-    if len(vol) > 0: 
-        # We're only looking for the first vol bc. that's all we asked for
-        return vol[0].size
-    else:
-        return 0
-
 def run(cmd, err=None, ok=None):
-    """ Convenience method for executing a shell command. """
+    """
+    Convenience method for executing a shell command ``cmd``. Returns
+    ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
+
+    In case of an error, include ``err`` in the log output;
+    include ``ok`` output if command ran fine.
+    """
     # Predefine err and ok mesages to include the command being run
     if err is None:
         err = "---> PROBLEM"
@@ -573,15 +561,17 @@ def run(cmd, err=None, ok=None):
         return False
 
 def replace_string(file_name, pattern, subst):
-    """Replace string in a file
+    """
+    Replace string ``pattern`` in file ``file_name`` with ``subst``.
+
     :type file_name: str
     :param file_name: Full path to the file where the string is to be replaced
 
     :type pattern: str
     :param pattern: String pattern to search for
-    
+
     :type subst: str
-    :param subst: String pattern to replace search pattern with 
+    :param subst: String pattern to replace search pattern with
     """
     # Create temp file
     fh, abs_path = mkstemp()
@@ -599,7 +589,10 @@ def replace_string(file_name, pattern, subst):
     shutil.move(abs_path, file_name)
 
 def _if_not_installed(prog_name):
-    """Decorator that checks if a callable program is installed.
+    """
+    Decorator that checks if a callable program is installed.
+    If not, the decorated method is called. If the program is
+    installed, returns ``False``.
     """
     def argcatcher(func):
         def decorator(*args, **kwargs):
@@ -611,10 +604,14 @@ def _if_not_installed(prog_name):
                 return func(*args, **kwargs)
             else:
                 log.debug("{0} is installed".format(prog_name))
+                return False
         return decorator
     return argcatcher
 
 def add_to_etc_hosts(hostname, ip_address):
+    """
+    Add ``hostname`` and its ``ip_address`` to ``/etc/hosts``
+    """
     try:
         etc_hosts = open('/etc/hosts','r')
         tmp = NamedTemporaryFile()
@@ -636,6 +633,9 @@ def add_to_etc_hosts(hostname, ip_address):
         log.error('could not update /etc/hosts. {0}'.format(e))
 
 def remove_from_etc_hosts(hostname):
+    """
+    Remove ``hostname`` from ``/etc/hosts``
+    """
     try:
         etc_hosts = open('/etc/hosts','r')
         tmp = NamedTemporaryFile()

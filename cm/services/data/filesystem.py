@@ -431,6 +431,11 @@ class Filesystem(DataService):
             for ts in self.transient_storage:
                 ts.status()
             return
+        # Wait for s3fs to install before checking status
+        if len(self.buckets) > 0:
+            for b in self.buckets:
+                if not b.s3fs_installed:
+                    return
         # TODO: Move volume-specific checks into volume.py
         if self._service_transitioning():
             pass
@@ -487,17 +492,6 @@ class Filesystem(DataService):
         """
         log.debug("Adding Bucket (name={name}) into Filesystem {fs}"\
             .format(name=bucket_name, fs=self.get_full_name()))
-        a_thread = threading.Thread(target=self.__add_bucket,
-            args=(bucket_name, bucket_a_key, bucket_s_key))
-        a_thread.start()
-
-    def __add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
-        """
-        Do the actual adding of a bucket (intended to be called as a separate thread).
-
-        This is in a separate thread because potentially s3fs will need to be
-        installed, which takes a few minutes, so do not block here.
-        """
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
 
     def add_transient_storage(self):

@@ -1,9 +1,9 @@
 """
-introspect.py - used as an introspection module for Galaxy CloudMan to 
+introspect.py - used as an introspection module for Galaxy CloudMan to
 enable status reporting for individual services running on a machine.
 
 All of the methods in this class set or return appropriate service's
-status as True or False, based on assumed functionality of given service. 
+status as True or False, based on assumed functionality of given service.
 No action is taken to correct operation of a failed service.
 """
 import logging, logging.config, commands
@@ -45,17 +45,17 @@ sge_template = """#!/bin/sh
     sleep 5
     # print date and time again
     date
-    """    
+    """
 
 
 class Introspect(object):
-    
+
     def __init__(self, app):
         self.app = app
-    
+
     def check_all_master_services(self):
-        """Check all services running on a master instance and update 
-        appropriate fields in the master itself. 
+        """Check all services running on a master instance and update
+        appropriate fields in the master itself.
         """
         log.debug("Checking all services...")
         self.check_volumes()
@@ -85,9 +85,9 @@ class Introspect(object):
             return False
 
     def check_file_systems(self):
-        """Check if file systems expected by GC are available and mounted. 
+        """Check if file systems expected by GC are available and mounted.
         Following file systems are checked (as they map to their appropriate
-        mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools', 
+        mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         and 'galaxyIndices'.
         Because multiple file syatems are checked, status of individual voluems
         is stored in master's volume description variable so this method does
@@ -98,20 +98,20 @@ class Introspect(object):
             dev_id = lst[1] # get device id as stored in the volume description
             fs_status = self.check_file_system(vol_name, dev_id)
             lst[3] = fs_status # store fs_status in self.app.manager.volumes
-            # log.debug("\tVol with name '%s' and device ID '%s' status: '%s'" % 
+            # log.debug("\tVol with name '%s' and device ID '%s' status: '%s'" %
             #     (vol_name, dev_id, fs_status))
-    
+
     def check_worker_file_systems(self):
-        """Check if file systems expected by GC worker are available and mounted. 
+        """Check if file systems expected by GC worker are available and mounted.
         Following file systems are checked (as they map to their appropriate
-        mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools', 
+        mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         'galaxyIndices', and '/opt/sge'.
         """
         self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData')
         self.app.manager.nfs_tools = self.check_file_system('galaxyTools', '/mnt/galaxyTools')
         self.app.manager.nfs_indices = self.check_file_system('galaxyIndices', '/mnt/galaxyIndices')
         self.app.manager.nfs_sge = self.check_file_system('SGE', '/opt/sge')
-        
+
     def check_file_system(self, vol_name, dev_id):
         """Check if file system on given device ID was mounted to the location
         based on the volume name.
@@ -119,12 +119,12 @@ class Introspect(object):
         :param vol_name: Name of the volume being checked as assigned by GC
         :type vol_id: str
         :param vol_id: device id where given volume is attached (e.g., /dev/sdi)
-    
+
         :rtype: bool
-        :return: True if dev_id is mounted to /mnt/vol_name, 
+        :return: True if dev_id is mounted to /mnt/vol_name,
                  False otherwise.
         """
-        # log.debug("\tChecking volume with name '%s' attached to device '%s'" % 
+        # log.debug("\tChecking volume with name '%s' attached to device '%s'" %
         #             (vol_name, dev_id))
         mnt_location = ''
         mnt_location = commands.getoutput("cat /proc/mounts | grep %s | cut -d' ' -f2" % dev_id)
@@ -146,10 +146,10 @@ class Introspect(object):
                 (vol_name, dev_id))
             return False
 
-            
+
     def check_for_existing_volumes(self):
         """Check if there are any data volumes attached to the running
-        instance. If yes, based on their 
+        instance. If yes, based on their
         """
         if self.app.TESTFLAG is True:
             return True
@@ -161,7 +161,7 @@ class Introspect(object):
         # Get existing volumes from respective files in current cluster's bucket
         # Check for attached volumes first becauce in the process we discover
         # created ones as well. If no record of attached volumes exists, check
-        # for created ones. 
+        # for created ones.
         c_vols_file = 'created_volumes.txt'
         a_vols_file = 'attached_volumes.txt'
         if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], a_vols_file, a_vols_file):
@@ -180,12 +180,11 @@ class Introspect(object):
                     # If found vol does not exist, don't create reference to it
                     if vol_status is not None:
                         fs_status = self.check_file_system(vol_name, dev_id)
-                        # vol_size = misc.get_volume_size(ec2_conn, vol_id)
                         idd_volumes[vol_name] = [vol_id, dev_id, vol_status, fs_status]
                 except Exception, e:
                     log.error("Wrong format of line (%s) from attached volumes file. Exception: %s" % (attached_vol, e))
             return idd_volumes
-        
+
         if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], c_vols_file, c_vols_file):
             f = open(c_vols_file, 'r')
             created_vols = f.readlines()
@@ -204,7 +203,7 @@ class Introspect(object):
                 except Exception, e:
                     log.error("Wrong format of line (%s) from created volumes file. Exception: %s" % (created_vol, e))
             return idd_volumes
-            
+
         log.debug("No already existing volumes found.")
         return {}
-        
+
