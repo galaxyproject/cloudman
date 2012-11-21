@@ -343,6 +343,7 @@
         <% } %>
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
+        <tr><th>Persistent:</th><td><%= persistent %></td>
     </%text>
     </script>
     <script type="text/template" id="fileSystem-template">

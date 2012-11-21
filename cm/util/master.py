@@ -226,7 +226,12 @@ class ConsoleManager(BaseConsoleManager):
                     elif fs['kind'] == 'bucket':
                         a_key = fs.get('access_key', None)
                         s_key = fs.get('secret_key', None)
-                        filesystem.add_bucket(fs['name'], a_key, s_key)
+                        # Can have only a single bucket per file system so access it directly
+                        bucket_name = fs.get('ids', [None])[0]
+                        if bucket_name:
+                            filesystem.add_bucket(bucket_name, a_key, s_key)
+                        else:
+                            log.warning("No bucket name for file system {0}!".format(fs['name']))
                     else:
                         # TODO: try to do some introspection on the device ID
                         # to guess the kind before err
@@ -503,12 +508,13 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
         "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
-        "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G"},
+        "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",
+        "persistent": "No"},
         {"size_used": "33M", "status": "Running", "kind": "Volume",
         "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
         "err_msg": None, "snapshot_progress": None, "from_snap": None,
         "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
-        "DoT": "No", "size": "1014M"}], quiet=True)
+        "DoT": "No", "size": "1014M", "persistent": "Yes"}], quiet=True)
     def get_all_filesystems_status(self):
         """
         Get a list and information about each of the file systems currently
@@ -1381,10 +1387,10 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
 
-    def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None):
-        log.info("Adding a file system {3} from bucket {0} (w/ creds {1}:{2})"\
-            .format(bucket_name, bucket_a_key, bucket_s_key, fs_name))
-        fs = Filesystem(self.app, fs_name or bucket_name)
+    def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None, persistent=False):
+        log.info("Adding a {4} file system {3} from bucket {0} (w/ creds {1}:{2})"\
+            .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
+        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same
@@ -1723,14 +1729,15 @@ class ConsoleMonitor( object ):
             cc['tags'] = self.app.cloud_interface.tags # save cloud tags, in case the cloud doesn't support them natively
             for srvc in self.app.manager.services:
                 if srvc.svc_type=='Filesystem':
-                    # Transient file systems do not get persisted
-                    if srvc.kind != 'transient':
+                    if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
                             fs['ids'] = [b.bucket_name for b in srvc.buckets]
+                            fs['access_key'] = b.a_key
+                            fs['secret_key'] = b.s_key
                         elif srvc.kind == 'volume':
                             fs['ids'] = [v.volume_id for v in srvc.volumes]
                         elif srvc.kind == 'snapshot':
@@ -1763,6 +1770,7 @@ class ConsoleMonitor( object ):
         In addition, store the local Galaxy configuration files to the cluster's
         bucket (do so only if they are not already there).
         """
+        log.debug("Storing cluster configuration to cluster's bucket")
         s3_conn = self.app.cloud_interface.get_s3_connection()
         if not s3_conn:
             # s3_conn will be None is use_object_store is False, in this case just skip this
@@ -1877,10 +1885,10 @@ class ConsoleMonitor( object ):
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = dt.datetime.utcnow()
                 if service.add():
-                    # FIXME: file systems do not return True on service add
                     added_srvcs = True
-                #else:
-                    #log.debug("Monitor DIDN'T add service {0}?".format(service.get_full_name()))
+                # else:
+                    # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
+                        # .format(service.get_full_name(), service.state))
             # Store cluster conf after all services have been added.
             # NOTE: this flag relies on the assumption service additions are
             # sequential (i.e., monitor waits for the service add call to complete).

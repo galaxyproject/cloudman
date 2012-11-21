@@ -24,7 +24,7 @@ log = logging.getLogger('cloudman')
 
 
 class Filesystem(DataService):
-    def __init__(self, app, name, mount_point=None):
+    def __init__(self, app, name, mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
         self.svc_type = "Filesystem"
         self.nfs_lock_file = '/tmp/nfs.lockfile'
@@ -36,6 +36,7 @@ class Filesystem(DataService):
         self.buckets = [] # A list of cm.services.data.bucket.Bucket objects
         self.transient_storage = [] # Instance's transient storage
         self.name = name  # File system name
+        self.persistent = persistent # Whether it should be part of the cluster config
         self.size = None      # Total size of this file system
         self.size_used = None # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
@@ -73,7 +74,8 @@ class Filesystem(DataService):
 
     def _get_details(self, details):
         """
-        Get details about this file system, excluding any device-specific details
+        Get the general details about this file system, excluding any
+        device-specific details. Returns a dictionary.
         """
         details['name']     = self.name
         details['kind']     = str(self.kind).title()
@@ -83,6 +85,7 @@ class Filesystem(DataService):
         details['status']   = self.state
         details['err_msg']  = ""
         details['mount_point'] = self.mount_point
+        details['persistent'] = "Yes" if self.persistent else "No"
         return details
 
     def get_size(self):
@@ -115,16 +118,19 @@ class Filesystem(DataService):
                     log.debug("Initiated addition of FS from bucket {0}".format(b.bucket_name))
                 for ts in self.transient_storage:
                     self.kind = 'transient'
+                    self.persistent = False
                     ts.add()
             except Exception, e:
                 log.error("Error adding file system service {0}: {1}".format(self.get_full_name(), e))
                 return False
             self.status()
+            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3})"\
+                .format(self.get_full_name(), self.volumes, self.buckets, self.transient_storage))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"\
                     .format(self.get_full_name(), service_states.UNSTARTED, self.state))
-            return False
+        return False
 
     def remove(self):
         """
@@ -488,6 +494,9 @@ class Filesystem(DataService):
     def __add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         """
         Do the actual adding of a bucket (intended to be called as a separate thread).
+
+        This is in a separate thread because potentially s3fs will need to be
+        installed, which takes a few minutes, so do not block here.
         """
         self.buckets.append(Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
 
