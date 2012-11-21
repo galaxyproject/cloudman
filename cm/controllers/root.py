@@ -177,12 +177,13 @@ class CM(BaseController):
 
         The rest of the parameters define the details for each file system kind.
         """
-        log.debug("Wanting to add a file system of kind {0}".format(fs_kind))
         dot = True if dot == 'on' else False
         persist = True if persist == 'on' else False
+        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind,
+            "persistent" if persist else "temporary"))
         if fs_kind == 'bucket':
             if bucket_name != '':
-                log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
+                # log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
                 # Clean form input data
                 if bucket_a_key == '':
                     bucket_a_key = None
@@ -193,7 +194,7 @@ class CM(BaseController):
                 else:
                     bucket_s_key = bucket_s_key.strip()
                 self.app.manager.add_fs(bucket_name.strip(), bucket_fs_name.strip(),
-                    bucket_a_key, bucket_s_key)
+                    bucket_a_key, bucket_s_key, persistent=persist)
             else:
                 log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':

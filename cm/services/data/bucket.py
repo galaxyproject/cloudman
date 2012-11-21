@@ -64,11 +64,11 @@ class Bucket(object):
         """
         Bucket-specific details for this file system
         """
-        details['DoT']      = "No"
+        details['DoT'] = "No"
         details['bucket_name'] = self.bucket_name
         details['access_key'] = self.a_key
         # TODO: keep track of any errors
-        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg'] = None if details.get('err_msg', '') == '' else details['err_msg']
         return details
 
     def _compose_mount_cmd(self):
@@ -107,6 +107,8 @@ class Bucket(object):
         ``self.fs.mount_point`` (which is typically ``/mnt/filesystem_name``)
         """
         try:
+            log.debug("Mounting file system {0} from bucket {1} to {2}"\
+                .format(self.fs.get_full_name(), self.bucket_name, self.mount_point))
             if os.path.exists(self.mount_point):
                 if len(os.listdir(self.mount_point)) != 0:
                     log.warning("Filesystem at %s already exists and is not empty." % self.mount_point)
