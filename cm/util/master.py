@@ -1119,10 +1119,11 @@ class ConsoleManager(BaseConsoleManager):
         self.add_preconfigured_services()
         return True
 
-    def share_a_cluster(self, user_ids=None, cannonical_ids=None):
+    @TestFlag({})
+    def share_a_cluster(self, user_ids=None, canonical_ids=None):
         """
         Setup the environment to make the current cluster shared (via a shared
-        EBS snapshot).
+        volume snapshot).
         This entails stopping all services to enable creation of a snapshot of
         the data volume, allowing others to create a volume from the created
         snapshot as well giving read permissions to cluster's bucket. If user_ids
@@ -1131,10 +1132,13 @@ class ConsoleManager(BaseConsoleManager):
         :type user_ids: list
         :param user_ids: The numeric Amazon IDs of users (with no dashes) to
                          give read permissions to the bucket and snapshot
+
+        :type canonical_ids: list
+        :param canonical_ids: A list of Amazon Canonical IDs (in the same linear
+                              order as the ``user_ids``) that will be used to
+                              enable sharing of individual objects in the
+                              cluster's bucket.
         """
-        if self.app.TESTFLAG is True:
-            log.debug( "Attempted to share-an-instance, but TESTFLAG is set.")
-            return {}
         # TODO: recover services if the process fails midway
         log.info("Setting up the cluster for sharing")
         self.cluster_manipulation_in_progress = True
@@ -1149,7 +1153,7 @@ class ConsoleManager(BaseConsoleManager):
                     % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
 
         # Create a new folder-like structure inside cluster's bucket and copy
-        # cluster conf files
+        # the cluster configuration files
         s3_conn = self.app.cloud_interface.get_s3_connection()
         # All of the shared cluster's config files will be stored with the specified prefix
         shared_names_root = "shared/%s" % dt.datetime.utcnow().strftime("%Y-%m-%d--%H-%M")
@@ -1211,22 +1215,22 @@ class ConsoleManager(BaseConsoleManager):
             except EC2ResponseError, e:
                 log.error("Error modifying snapshot '%s' attribute: %s" % (snap_id, e))
         err = False
-        if cannonical_ids:
+        if canonical_ids:
             # In order to list the keys associated with a shared instance, a user
             # must be given READ permissions on the cluster's bucket as a whole.
             # This allows a given user to list the contents of a bucket but not
             # access any of the keys other than the ones granted the permission
             # next (i.e., keys required to bootstrap the shared instance)
-            # misc.add_bucket_user_grant(s3_conn, self.app.ud['bucket_cluster'], 'READ', cannonical_ids, recursive=False)
+            # misc.add_bucket_user_grant(s3_conn, self.app.ud['bucket_cluster'], 'READ', canonical_ids, recursive=False)
             # Grant READ permissions for the keys required to bootstrap the shared instance
             for k_name in copied_key_names:
-                if not misc.add_key_user_grant(s3_conn, self.app.ud['bucket_cluster'], k_name, 'READ', cannonical_ids):
+                if not misc.add_key_user_grant(s3_conn, self.app.ud['bucket_cluster'], k_name, 'READ', canonical_ids):
                     log.error("Error adding READ permission for key '%s'" % k_name)
                     err = True
-        else: # If no cannonical_ids are provided, means to set the permissions to public-read
+        else: # If no canonical_ids are provided, means to set the permissions to public-read
             # See above, but in order to access keys, the bucket root must be given read permissions
             # FIXME: this method sets the bucket's grant to public-read and
-            # removes any individual user's grants - something share-in-instance
+            # removes any individual user's grants - something share-a-cluster
             # depends on down the line if the publicly shared instance is deleted
             # misc.make_bucket_public(s3_conn, self.app.ud['bucket_cluster'])
             for k_name in copied_key_names:

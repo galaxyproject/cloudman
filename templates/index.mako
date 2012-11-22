@@ -334,7 +334,7 @@ vertical-align: top;
                                 <span class="share_cluster_help_text">CSV numbers</span>
                             </div>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
-                                <input type="text" id="cannonical_ids" name="cannonical_ids" size="40" value="" />
+                                <input type="text" id="canonical_ids" name="canonical_ids" size="40" value="" />
                                 <span class="share_cluster_help_text">CSV HEX numbers</span>
                             </div>
                         </div>
@@ -749,7 +749,7 @@ $(document).ready(function() {
     $('#shared_visibility').click(function() {
         $('#user_permissions').show();
         $('#user_ids').val("");
-        $('#cannonical_ids').val("");
+        $('#canonical_ids').val("");
     });
     $('#public_visibility').click(function() {$('#user_permissions').hide();});
 

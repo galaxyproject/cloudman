@@ -165,7 +165,7 @@ def make_key_public(s3_conn, bucket_name, key_name):
             log.error("Could not make key '%s' public: %s" % (key_name, e))
     return False
 
-def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recursive=False):
+def add_bucket_user_grant(s3_conn, bucket_name, permission, canonical_ids, recursive=False):
     """
     Boto wrapper that provides a quick way to add a canonical
     user grant to a bucket.
@@ -175,7 +175,7 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
                        (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
 
     :type user_id: list of strings
-    :param cannonical_ids: A list of strings with canonical user ids associated
+    :param canonical_ids: A list of strings with canonical user ids associated
                         with the AWS account your are granting the permission to.
 
     :type recursive: boolean
@@ -186,7 +186,7 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
-            for c_id in cannonical_ids:
+            for c_id in canonical_ids:
                 log.debug("Adding '%s' permission for bucket '%s' for users '%s'" % (permission, bucket_name, c_id))
                 b.add_user_grant(permission, c_id, recursive)
             return True
@@ -194,7 +194,7 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, cannonical_ids, recu
             log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
     return False
 
-def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_ids):
+def add_key_user_grant(s3_conn, bucket_name, key_name, permission, canonical_ids):
     """
     Boto wrapper that provides a quick way to add a canonical
     user grant to a key.
@@ -210,7 +210,7 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
                        (READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL).
 
     :type user_id: list of strings
-    :param cannonical_ids: A list of strings with canonical user ids associated
+    :param canonical_ids: A list of strings with canonical user ids associated
                         with the AWS account your are granting the permission to.
     """
     b = get_bucket(s3_conn, bucket_name)
@@ -218,7 +218,7 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, cannonical_id
         try:
             k = Key(b, key_name)
             if k.exists():
-                for c_id in cannonical_ids:
+                for c_id in canonical_ids:
                     log.debug("Adding '%s' permission for key '%s' for user '%s'" % (permission, key_name, c_id))
                     k.add_user_grant(permission, c_id)
                 return True
