@@ -579,12 +579,12 @@ class CM(BaseController):
             return False
 
     @expose
-    def share_a_cluster(self, trans, visibility, user_ids="", cannonical_ids=""):
-        if visibility == 'shared' and user_ids != "" and cannonical_ids != "":
+    def share_a_cluster(self, trans, visibility, user_ids="", canonical_ids=""):
+        if visibility == 'shared' and user_ids != "" and canonical_ids != "":
             # Check provided values
             try:
                 u_ids = [x.strip() for x in user_ids.split(',')]
-                c_ids = [x.strip() for x in cannonical_ids.split(',')]
+                c_ids = [x.strip() for x in canonical_ids.split(',')]
                 if len(u_ids) != len(c_ids):
                     log.error("User account ID fields must contain the same number of entries.")
                     return self.instance_state_json(trans)
@@ -595,7 +595,7 @@ class CM(BaseController):
                         return self.instance_state_json(trans)
             except Exception:
                 log.error("Error processing values - user IDs: '%s', canonnical IDs: '%s'" % \
-                    (user_ids, cannonical_ids))
+                    (user_ids, canonical_ids))
                 return self.instance_state_json(trans)
         elif visibility == 'public':
             u_ids = c_ids = None
