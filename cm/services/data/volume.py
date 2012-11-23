@@ -89,19 +89,30 @@ class Volume(BlockStorage):
 
     def update(self, vol_id):
         """
-        Switch to a different boto.ec2.volume.Volume
+        Set or switch the local ``self.volume`` to a different boto.ec2.volume.Volume
+
+        This is primarily useful during restarts when introspecting an already
+        attached volume.
         """
         log.debug('vol_id = {0} ({1})'.format(vol_id, type(vol_id)))
         if isinstance(vol_id, basestring):
-            vols = self.app.cloud_interface.get_all_volumes(volume_ids=(vol_id, ))
+            vols = None
+            try:
+                vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(volume_ids=(vol_id, ))
+            except EC2ResponseError, e:
+                log.error("Trouble getting volume reference for volume {0}: {1}"\
+                    .format(vol_id, e))
             if not vols:
                 log.error('Attempting to connect to a non-existent volume {0}'.format(vol_id))
+                self.volume = None
+                self.device = None
             vol = vols[0]
         else:
             vol = vol_id
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
         if vol.attachment_state() == 'attached' and vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id():
-            log.error('Attempting to connect to a volume ({0} that is already attached to a different instance ({1}'.format(vol.volume_id, vol.attach_data.instance_id))
+            log.error('Attempting to connect to a volume ({0} that is already attached "\
+                "to a different instance ({1}'.format(vol.volume_id, vol.attach_data.instance_id))
             self.volume = None
             self.device = None
         else:
@@ -167,7 +178,7 @@ class Volume(BlockStorage):
         Note that this may potentially be forever.
         """
         if self.status == volume_status.NONE:
-            log.debug('Attempted to wait for a status ({0} ) on a non-existent volume'.format(status))
+            log.debug('Attempted to wait for a status ({0}) on a non-existent volume'.format(status))
             return False # no volume means not worth waiting
         else:
             start_time = time.time()

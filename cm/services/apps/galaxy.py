@@ -31,9 +31,13 @@ class GalaxyService(ApplicationService):
 
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
-        self.state = service_states.SHUTTING_DOWN
-        self.last_state_change_time = datetime.utcnow()
-        self.manage_galaxy(False)
+        if self.state == service_states.RUNNING:
+            self.state = service_states.SHUTTING_DOWN
+            self.last_state_change_time = datetime.utcnow()
+            self.manage_galaxy(False)
+        else:
+            log.debug("Galaxy service not running (state: {0}) so not stopping it."\
+                .format(self.state))
 
     def restart(self):
         log.info('Restarting Galaxy service')

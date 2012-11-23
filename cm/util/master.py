@@ -201,7 +201,7 @@ class ConsoleManager(BaseConsoleManager):
                 log.debug("Handling deprecated cluster config")
                 return self._handle_old_cluster_conf_format(attached_volumes)
             # Process the current cluster config
-            log.debug("Processing existing cluster config")
+            log.debug("Processing an existing cluster config")
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
@@ -257,7 +257,7 @@ class ConsoleManager(BaseConsoleManager):
                                 % service_name)
             return True
         except Exception, e:
-            log.error("Error reading existing cluster configuration file: %s" % e)
+            log.error("Error processing existing cluster configuration: %s" % e)
             self.manager_started = False
             return False
 
@@ -1045,66 +1045,91 @@ class ConsoleManager(BaseConsoleManager):
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
-    def init_shared_cluster(self, shared_cluster_config):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to initialize a shared cluster from bucket '%s', but TESTFLAG is set." % shared_cluster_config)
-            return
+    @TestFlag(True)
+    def init_shared_cluster(self, share_string):
+        """
+        Initialize a new (i.e., derived) cluster from a shared one, whose details
+        need to be provided in the ``share_string`` (e.g.,
+        ``cm-808d863548acae7c2328c39a90f52e29/shared/2012-09-17--19-47``)
+
+        This method can only be called at a new cluster start.
+        """
         self.cluster_status = cluster_status.STARTING
-        log.debug("Initializing a shared cluster from '%s'" % shared_cluster_config)
+        log.debug("Initializing a shared cluster from '%s'" % share_string)
         s3_conn = self.app.cloud_interface.get_s3_connection()
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         try:
-            shared_cluster_config = shared_cluster_config.strip('/')
-            bucket_name = shared_cluster_config.split('/')[0]
-            cluster_config_prefix = os.path.join(shared_cluster_config.split('/')[1], shared_cluster_config.split('/')[2])
+            share_string = share_string.strip('/')
+            bucket_name = share_string.split('/')[0]
+            cluster_config_prefix = os.path.join(share_string.split('/')[1], share_string.split('/')[2])
         except Exception, e:
-            log.error("Error while parsing provided shared cluster's bucket '%s': %s" % (shared_cluster_config, e))
+            log.error("Error while parsing provided shared cluster's bucket '%s': %s" % (share_string, e))
             return False
-        # Check shared cluster's bucket exists
+        # Check that the shared cluster's bucket exists
         if not misc.bucket_exists(s3_conn, bucket_name, validate=False):
             log.error("Shared cluster's bucket '%s' does not exist or is not accessible!" % bucket_name)
             return False
         # Create the new cluster's bucket
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
             misc.create_bucket(s3_conn, self.app.ud['bucket_cluster'])
-        # Copy contents of the shared cluster's bucket to current cluster's bucket
+        # Copy contents of the shared cluster's bucket to the current cluster's bucket
         fl = "shared_instance_file_list.txt"
-        if misc.get_file_from_bucket(s3_conn, bucket_name, os.path.join(cluster_config_prefix, fl), fl, validate=False):
+        if misc.get_file_from_bucket(s3_conn, bucket_name, os.path.join(cluster_config_prefix, fl),
+            fl, validate=False):
             key_list = misc.load_yaml_file(fl)
             for key in key_list:
-                misc.copy_file_in_bucket(s3_conn, bucket_name, self.app.ud['bucket_cluster'], key, key.split('/')[-1], preserve_acl=False, validate=False)
+                misc.copy_file_in_bucket(s3_conn, bucket_name, self.app.ud['bucket_cluster'],
+                    key, key.split('/')[-1], preserve_acl=False, validate=False)
         else:
-            log.error("Problem copying shared cluster configuration files. Cannot continue with shared cluster initialization.")
+            log.error("Problem copying shared cluster configuration files. Cannot continue with "\
+                "the shared cluster initialization.")
             return False
         # Create a volume from shared cluster's data snap and set current cluster's data volume
         shared_cluster_pd_file = 'shared_p_d.yaml'
-        if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', shared_cluster_pd_file):
+        if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml',
+            shared_cluster_pd_file):
             scpd = misc.load_yaml_file(shared_cluster_pd_file)
             if scpd.has_key('shared_data_snaps'):
                 shared_data_vol_snaps = scpd['shared_data_snaps']
                 try:
                     # TODO: If support for multiple volumes comprising a file system becomes available,
-                    # this code will need to adjusted to accomodate that. Currently, the assumption is
+                    # this code will need to adjusted to accommodate that. Currently, the assumption is
                     # that only 1 snap ID will be provided as the data file system.
                     snap = ec2_conn.get_all_snapshots(shared_data_vol_snaps)[0]
-                    data_vol = ec2_conn.create_volume(snap.volume_size, self.app.cloud_interface.get_zone(), snapshot=snap)
-                    scpd['data_filesystems'] = {'galaxyData': [{'vol_id': data_vol.id, 'size': data_vol.size}]}
-                    log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'" % (data_vol.id, data_vol.size, snap.id))
+                    # Create a volume here because we'll be dealing with a volume-based file system
+                    # and for that we need a volume ID
+                    data_vol = ec2_conn.create_volume(snap.volume_size, self.app.cloud_interface.get_zone(),
+                        snapshot=snap)
+                    # Old style for persistent data - delete if the other method works as expected
+                    # scpd['data_filesystems'] = {'galaxyData': [{'vol_id': data_vol.id, 'size': data_vol.size}]}
+                    # Compose a persistent_data compatible entry for the shared data volume so that
+                    # the appropriate file system can be created as part of ``add_preconfigured_services``
+                    # TODO: make it more general vs. galaxyData specific
+                    data_fs_yaml = {'ids': [data_vol.id], 'kind': 'volume',
+                        'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'}
+                    scpd['filesystems'].append(data_fs_yaml)
+                    log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
+                        % (data_vol.id, data_vol.size, snap.id))
                     # Don't make the new cluster shared by default
                     del scpd['shared_data_snaps']
                     # Update new cluster's persistent_data.yaml
                     cc_file_name = 'cm_cluster_config.yaml'
-                    log.debug("Dumping scpd to file {0} (which will become persistent_data.yaml): {1}".format(cc_file_name, scpd))
+                    log.debug("Dumping scpd to file {0} (which will become persistent_data.yaml): {1}"\
+                        .format(cc_file_name, scpd))
                     misc.dump_yaml_to_file(scpd, cc_file_name)
-                    misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml', cc_file_name)
+                    misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml',
+                        cc_file_name)
                 except EC2ResponseError, e:
-                    log.error("EC2 error creating volume from shared cluster's snapshot '%s': %s" % (shared_data_vol_snaps, e))
+                    log.error("EC2 error creating volume from shared cluster's snapshot '%s': %s"
+                        % (shared_data_vol_snaps, e))
                     return False
                 except Exception, e:
-                    log.error("Error creating volume from shared cluster's snapshot '%s': %s" % (shared_data_vol_snaps, e))
+                    log.error("Error creating volume from shared cluster's snapshot '%s': %s"
+                        % (shared_data_vol_snaps, e))
                     return False
             else:
-                log.error("Loaded configuration from the shared cluster does not have a reference to a shared data snapshot. Cannot continue.")
+                log.error("Loaded configuration from the shared cluster does not have a reference "\
+                    "to a shared data snapshot. Cannot continue.")
                 return False
         # TODO: Reboot the instance so CloudMan source downloaded from the shared
         # instance is used
@@ -1151,7 +1176,6 @@ class ConsoleManager(BaseConsoleManager):
             if svc.name == 'galaxyData':
                 snap_ids = svc.snapshot(snap_description="CloudMan share-a-cluster %s; %s" \
                     % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
-
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1159,20 +1183,24 @@ class ConsoleManager(BaseConsoleManager):
         shared_names_root = "shared/%s" % dt.datetime.utcnow().strftime("%Y-%m-%d--%H-%M")
         # Create current cluster config and save it to cluster's shared location,
         # including the freshly generated snap IDs
-        # snap_ids = ['snap-04c01768'] # For testing only
         conf_file_name = 'cm_shared_cluster_conf.yaml'
-        addl_data = {'shared_data_snaps': snap_ids, 'galaxy_home': paths.P_GALAXY_HOME}
+        addl_data = {'shared_data_snaps': snap_ids}
         self.console_monitor.create_cluster_config_file(conf_file_name, addl_data=addl_data)
-        # Remove references to cluster's own data volumes
+        # Remove references to cluster's own data; this is shared via the snapshots above
+        # TODO: Add an option for a user to include any self-added file systems as well
         sud = misc.load_yaml_file(conf_file_name)
-        if sud.has_key('data_filesystems'):
-            del sud['data_filesystems']
-            misc.dump_yaml_to_file(sud, conf_file_name)
-        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(shared_names_root, 'persistent_data.yaml'), conf_file_name)
-        # Keep track of which keys were copied into shared folder
+        fsl = sud.get('filesystems', [])
+        sfsl = [] # Shared file systems list
+        for fs in fsl:
+            if fs['name'] == 'galaxyTools' or fs['name'] == 'galaxyIndices':
+                sfsl.append(fs)
+        sud['filesystems'] = sfsl
+        misc.dump_yaml_to_file(sud, conf_file_name)
+        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],
+            os.path.join(shared_names_root, 'persistent_data.yaml'), conf_file_name)
+        # Keep track of which keys were copied into the shared folder
         copied_key_names = [os.path.join(shared_names_root, 'persistent_data.yaml')]
-        # Save remaining cluster configuration files
-        # conf_files = ['universe_wsgi.ini.cloud', 'tool_conf.xml.cloud', 'tool_data_table_conf.xml.cloud', 'cm.tar.gz', self.app.ud['boot_script_name']]
+        # Save the remaining cluster configuration files
         try:
             # Get a list of all files stored in cluster's bucket excluding
             # any keys that include '/' (i.e., are folders) or the previously
@@ -1185,7 +1213,8 @@ class ConsoleManager(BaseConsoleManager):
                 if '/' not in key.name and 'persistent_data.yaml' not in key.name:
                     conf_files.append(key.name)
         except S3ResponseError, e:
-            log.error("Error collecting cluster configuration files form bucket '%s': %s" % (self.app.ud['bucket_cluster'], e))
+            log.error("Error collecting cluster configuration files form bucket '%s': %s"\
+                % (self.app.ud['bucket_cluster'], e))
             return False
         # Copy current cluster's configuration files into the shared folder
         for conf_file in conf_files:
@@ -1202,16 +1231,17 @@ class ConsoleManager(BaseConsoleManager):
         misc.dump_yaml_to_file(copied_key_names, fl)
         misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(shared_names_root, fl), fl)
         copied_key_names.append(os.path.join(shared_names_root, fl)) # Add it to the list so it's permissions get set
-
         # Adjust permissions on the new keys and the created snapshots
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         for snap_id in snap_ids:
             try:
                 if user_ids:
                     log.debug("Adding createVolumePermission for snap '%s' for users '%s'" % (snap_id, user_ids))
-                    ec2_conn.modify_snapshot_attribute(snap_id, attribute='createVolumePermission', operation='add', user_ids=user_ids)
+                    ec2_conn.modify_snapshot_attribute(snap_id, attribute='createVolumePermission',
+                        operation='add', user_ids=user_ids)
                 else:
-                    ec2_conn.modify_snapshot_attribute(snap_id, attribute='createVolumePermission', operation='add', groups=['all'])
+                    ec2_conn.modify_snapshot_attribute(snap_id, attribute='createVolumePermission',
+                        operation='add', groups=['all'])
             except EC2ResponseError, e:
                 log.error("Error modifying snapshot '%s' attribute: %s" % (snap_id, e))
         err = False
@@ -1246,6 +1276,11 @@ class ConsoleManager(BaseConsoleManager):
         return True
 
     def get_shared_instances(self):
+        """
+        Get a list of point-in-time shared instances of this cluster.
+        Returns a list such instances. Each element of the returned list is a
+        dictionary with ``bucket``, ``snap``, and ``visibility`` keys.
+        """
         lst = []
         if self.app.TESTFLAG is True:
             lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap": 'snap-743ddw12', "visibility": 'Shared'})
@@ -1260,10 +1295,12 @@ class ConsoleManager(BaseConsoleManager):
                 for folder in folder_list:
                     # Get snapshot assoc. with the current shared cluster
                     tmp_pd = 'tmp_pd.yaml'
-                    if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
+                    if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                        os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
                         tmp_ud = misc.load_yaml_file(tmp_pd)
+                        # Currently, only a single volume snapshot can be associated
+                        # a shared instance so pull it out of the list
                         if tmp_ud.has_key('shared_data_snaps') and len(tmp_ud['shared_data_snaps'])==1:
-                            # Currently, only single data snapshot can be associated a shared instance to pull it out of the list
                             snap_id = tmp_ud['shared_data_snaps'][0]
                         else:
                             snap_id = "Missing-ERROR"
@@ -1273,7 +1310,8 @@ class ConsoleManager(BaseConsoleManager):
                             pass # Best effort temp file cleanup
                     else:
                         snap_id = "Missing-ERROR"
-                    # Get permission on the persistent_data file and assume all the entire cluster shares those permissions...
+                    # Get permission on the persistent_data file and assume
+                    # the entire cluster shares those permissions
                     k = b.get_key(os.path.join(folder.name, 'persistent_data.yaml'))
                     if k is not None:
                         acl = k.get_acl()
@@ -1289,15 +1327,15 @@ class ConsoleManager(BaseConsoleManager):
     def delete_shared_instance(self, shared_instance_folder, snap_id):
         """
         Deletes all files under shared_instance_folder (i.e., all keys with
-        'shared_instance_folder' as prefix) and snap_id, thus deleting the
+        ``shared_instance_folder`` prefix) and ``snap_id``, thus deleting the
         shared instance of the given cluster.
 
         :type shared_instance_folder: str
         :param shared_instance_folder: Prefix for the shared cluster instance
-            configuration (e.g., shared/2011-02-24--20-52/)
+            configuration (e.g., ``shared/2011-02-24--20-52/``)
 
         :type snap_id: str
-        :param snap_id: Snapshot ID to be deleted (e.g., snap-04c01768)
+        :param snap_id: Snapshot ID to be deleted (e.g., ``snap-04c01768``)
         """
         if self.app.TESTFLAG is True:
             log.debug("Tried deleting shared instance for folder '%s' and snap '%s' but TESTFLAG is set." % (shared_instance_folder, snap_id))
@@ -1720,16 +1758,19 @@ class ConsoleMonitor( object ):
         self.app.manager._start_app_level_services()
         return True
 
-    def create_cluster_config_file(self, file_name='persistent_data-current.yaml'):
+    def create_cluster_config_file(self, file_name='persistent_data-current.yaml', addl_data=None):
         """
         Capture the current cluster configuration in a file (i.e., ``persistent_data.yaml``
         in cluster's bucket). The generated file is stored in CloudMan's running
-        directory as ``file_name``.
+        directory as ``file_name``. If provided, ``addl_data`` is included in
+        the created configuration file.
         """
         try:
             cc = {} # cluster configuration
             svcs = [] # list of services
             fss = [] # list of filesystems
+            if addl_data:
+                cc = addl_data
             cc['tags'] = self.app.cloud_interface.tags # save cloud tags, in case the cloud doesn't support them natively
             for srvc in self.app.manager.services:
                 if srvc.svc_type=='Filesystem':
