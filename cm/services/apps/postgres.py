@@ -22,8 +22,14 @@ class PostgresService( ApplicationService ):
 
     def remove(self):
         log.info("Removing '%s' service" % self.svc_type)
-        # self.state = service_states.SHUTTING_DOWN
-        self.manage_postgres(False)
+        # Stop only if currently running
+        if self.state==service_states.RUNNING:
+            self.state = service_states.SHUTTING_DOWN
+            self.manage_postgres(False)
+        else:
+            log.debug("{0} service is not running (state: {1}) so not stopping it."\
+                .format(self.svc_type, self.state))
+        # TODO: Should we completely remove self?
 
     def manage_postgres( self, to_be_started=True ):
         if self.app.TESTFLAG is True:
@@ -99,18 +105,14 @@ class PostgresService( ApplicationService ):
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (to_be_started, self.state))
         elif not to_be_started:
-            # Stop only if currently running
-            if self.state==service_states.RUNNING:
-                # Stop PostgreSQL database
-                log.info( "Stopping PostgreSQL..." )
-                self.state = service_states.SHUTTING_DOWN
-                if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
-                    self.state = service_states.SHUT_DOWN
-                else:
-                    self.state = service_states.ERROR
-                    return False
+            # Stop PostgreSQL database
+            log.info( "Stopping PostgreSQL..." )
+            self.state = service_states.SHUTTING_DOWN
+            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
+                self.state = service_states.SHUT_DOWN
             else:
-                log.debug("PostgreSQL not running so not stopping it.")
+                self.state = service_states.ERROR
+                return False
         return True
 
     def check_postgres(self):

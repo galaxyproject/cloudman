@@ -49,7 +49,7 @@ class PSS(ApplicationService):
 
     def add(self):
         if not self.already_ran and self.app.manager.initial_cluster_type is not None:
-            log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
+            # log.debug("Custom-checking '%s' service prerequisites" % self.svc_type)
             self.state = service_states.STARTING
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.

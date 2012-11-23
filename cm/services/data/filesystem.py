@@ -103,7 +103,7 @@ class Filesystem(DataService):
         """
         Add this file system service by adding any devices that compose it
         """
-        if self.state == service_states.UNSTARTED:
+        if self.state == service_states.UNSTARTED or self.state == service_states.SHUT_DOWN:
             try:
                 log.debug("Trying to add file system service {0}".format(self.get_full_name()))
                 self.state = service_states.STARTING
@@ -134,7 +134,8 @@ class Filesystem(DataService):
 
     def remove(self):
         """
-        Initiate removal of this file system from the system
+        Initiate removal of this file system from the system; do it in a
+        separate thread and return without waiting for the process to complete.
         """
         log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, and "\
                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
@@ -145,7 +146,9 @@ class Filesystem(DataService):
 
     def __remove(self, delete_vols=True):
         """
-        Do the actual removal of devices used to compose this file system
+        Do the actual removal of devices used to compose this file system.
+        After the service is successfully stopped, it is automatically removed
+        from the list of services monitored by the master.
         """
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
@@ -228,8 +231,10 @@ class Filesystem(DataService):
 
     def snapshot(self, snap_description=None):
         """
-        Create a snapshot of this file system. **Note** that this only applies to
-        file systems based on volumes.
+        Create a snapshot of this file system.
+
+        .. note::
+            This functionality applies only to file systems based on volumes.
         """
         self.__remove(delete_vols=False)
         snap_ids = []
@@ -237,7 +242,10 @@ class Filesystem(DataService):
         for vol in self.volumes:
             snap_ids.append(vol.snapshot(snap_description=snap_description))
         # After the snapshot is done, add the file system back as a cluster service
-        self.add()
+        log.debug("{0} snapshot process completed; adding self to the list of master services"\
+            .format(self.get_full_name()))
+        self.state = service_states.UNSTARTED # Need to reset state so it gets picked up by monitor
+        self.app.manager.services.append(self)
         return snap_ids
 
     def _get_attach_device_from_device(self, device):
@@ -254,6 +262,10 @@ class Filesystem(DataService):
         return None
 
     def check_and_update_volume(self, device):
+        """
+        Run an update on the volume, making sure it exists, it is attached to this
+        instance to ``device``. If not, try to update the reference to self.
+        """
         # TODO: Abstract filtering into the cloud interface classes
         if self.app.cloud_type == "ec2":
             # filtering w/ boto is supported only with ec2
@@ -447,8 +459,7 @@ class Filesystem(DataService):
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
-                    # Check volume(s) if part of the file system (but because boto
-                    # filtering works only on ec2, for now, do this check only on ec2)
+                    # Check volume(s) if part of the file system
                     if len(self.volumes) > 0:
                         self.check_and_update_volume(self._get_attach_device_from_device(device))
                     # Check mount point
