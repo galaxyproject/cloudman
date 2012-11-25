@@ -525,11 +525,11 @@ jQuery.fn.serializeObject = function() {
                 '<b>File system source or device:</b> ' +
                 '<input type="radio" name="fs_kind" id="fs-kind-bucket-name" class="fs-add-radio-btn" value="bucket"/>' +
                 '<label for="fs-kind-bucket-name">Bucket</label>' +
-                '<input type="radio" name="fs_kind" id="fs-kind-volume" class="fs-add-radio-btn" value="volume" />' +
+                '<input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-volume" class="fs-add-radio-btn" value="volume" />' +
                 '<label for="fs-kind-volume">Volume</label>' +
-                '<input type="radio" name="fs_kind" id="fs-kind-snapshot" class="fs-add-radio-btn" value="snapshot"/>' +
+                '<input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-snapshot" class="fs-add-radio-btn" value="snapshot"/>' +
                 '<label for="fs-kind-snapshot">Snapshot</label>' +
-                '<input type="radio" name="fs_kind" id="fs-kind-new-volume" class="fs-add-radio-btn" value="new_volume"/>' +
+                '<input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-new-volume" class="fs-add-radio-btn" value="new_volume"/>' +
                 '<label for="fs-kind-new-volume">New volume</label>' +
             '</fieldset>' +
             // Bucket form details
