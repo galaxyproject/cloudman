@@ -708,12 +708,16 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Attached volumes: %s" % attached_volumes)
         return attached_volumes
 
+    @TestFlag(None)
     def shutdown(self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True,
                 sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
                 rebooting=False):
-        if self.app.TESTFLAG is True:
-            log.debug("Shutting down the cluster but the TESTFLAG is set")
-            return
+        """
+        Shut down this cluster. This means shutting down all services, optionally,
+        deleting the cluster.
+
+        .. seealso:: `~cm.util.master.delete_cluster`
+        """
         log.debug("List of services before shutdown: %s" % [s.get_full_name() for s in self.services])
         self.cluster_status = cluster_status.SHUTTING_DOWN
         # Services need to be shut down in particular order
@@ -798,12 +802,28 @@ class ConsoleManager(BaseConsoleManager):
         return False
 
     def terminate_master_instance(self, delete_cluster=False):
+        """
+        Terminate the master instance using the cloud middleware API.
+        If ``delete_cluster`` is set to ``True``, delete all cluster
+        components before terminating the instance.
+
+        .. seealso:: `~cm.util.master.delete_cluster`
+        """
         if self.cluster_status != cluster_status.TERMINATED:
             self.shutdown(delete_cluster=delete_cluster)
         log.debug("Terminating the master instance")
         self.app.cloud_interface.terminate_instance(self.app.cloud_interface.get_instance_id())
 
     def delete_cluster(self):
+        """
+        Completely delete this cluster. This involves deleting the cluster's
+        bucket as well as volumes containing user data file system(s)!
+
+        .. warning::
+
+            This action is irreversible. All data will be permanently deleted.
+
+        """
         log.info("All services shut down; deleting this cluster.")
         # Delete any remaining volume(s) assoc. w/ given cluster
         try:
@@ -822,9 +842,11 @@ class ConsoleManager(BaseConsoleManager):
             misc.delete_bucket(s3_conn, self.app.ud['bucket_cluster'])
 
     def clean(self):
-        """ Clean the system as if it was freshly booted. All services are shut down
-        and any changes made to the system since service start are reverted (this exludes
-        any data on user data file system)"""
+        """
+        Clean the system as if it was freshly booted. All services are shut down
+        and any changes made to the system since service start are reverted (this
+        excludes any data on user data file system).
+        """
         log.debug("Cleaning the system - all services going down")
         svcs = self.get_services('Galaxy')
         for service in svcs:
@@ -840,7 +862,11 @@ class ConsoleManager(BaseConsoleManager):
         for service in svcs:
             service.clean()
 
-    def get_idle_instances( self ):
+    def get_idle_instances(self):
+        """
+        Get a list of instances that are currently not executing any job manager
+        jobs. Return a list of ``Instance`` objects.
+        """
         # log.debug( "Looking for idle instances" )
         idle_instances = [] # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % paths.P_SGE_ROOT):
@@ -877,7 +903,17 @@ class ConsoleManager(BaseConsoleManager):
         return idle_instances
 
     def remove_instances(self, num_nodes, force=False):
-        """ Decide which instance(s) to terminate, remove them from SGE and terminate
+        """
+        Remove a number (``num_nodes``) of worker instances from the cluster, first
+        deciding which instance(s) to terminate and then removing them from SGE and
+        terminating. An instance is deemed removable if it is not currently running
+        any jobs.
+
+        Note that if the number of removable instances is smaller than the
+        number of instances requested to remove, the smaller number of instances
+        is removed. This can be overridden by setting ``force`` to ``True``. In that
+        case, removable instances are removed first, then additional instances are
+        chosen at random and removed.
         """
         num_terminated = 0
         # First look for idle instances that can be removed
@@ -909,6 +945,11 @@ class ConsoleManager(BaseConsoleManager):
             log.info( "Did not terminate any instances." )
 
     def remove_instance(self, instance_id=''):
+        """
+        Remove an instance with ID ``instance_id`` from the cluster. This means
+        that the instance is first removed from the job manager as a worker and
+        then it is terminated via cloud middleware API.
+        """
         if instance_id == '':
             log.warning("Tried to remove an instance but did not receive instance ID")
             return False
@@ -935,6 +976,9 @@ class ConsoleManager(BaseConsoleManager):
         log.info("Initiated requested termination of instance. Terminating '%s'." % instance_id)
 
     def reboot_instance(self, instance_id=''):
+        """
+        Using cloud middleware API, reboot instance with ID ``instance_id``.
+        """
         if instance_id == '':
             log.warning("Tried to reboot an instance but did not receive instance ID")
             return False
@@ -950,8 +994,10 @@ class ConsoleManager(BaseConsoleManager):
                                                spot_price=spot_price)
 
     def add_live_instance(self, instance_id):
-        """ Add an instance to the list of worker instances; get a handle to the
-        instance object in the process. """
+        """
+        Add an existing instance to the list of worker instances tracked by the master;
+        get a handle to the instance object in the process.
+        """
         try:
             log.debug("Adding live instance '%s'" % instance_id)
             reservation = self.app.cloud_interface.get_all_instances(instance_id)
@@ -1441,19 +1487,23 @@ class ConsoleManager(BaseConsoleManager):
             w_inst.send_add_s3fs(bucket_name)
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
-    def stop_worker_instances( self ):
-        log.info( "Stopping all '%s' worker instance(s)" % len(self.worker_instances) )
+    def stop_worker_instances(self):
+        """
+        Initiate termination of all worker instances.
+        """
+        log.info("Stopping all '%s' worker instance(s)" % len(self.worker_instances))
         to_terminate = []
         for i in self.worker_instances:
             to_terminate.append(i)
         for inst in to_terminate:
-            log.debug("Initiating termination of instance %s" % inst.get_desc() )
+            log.debug("Initiating termination of instance %s" % inst.get_desc())
             inst.terminate()
             # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({}) #{'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
     def check_for_new_version_of_CM(self):
-        """ Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
+        """
+        Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
 
         :rtype: dict
         :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where each key
@@ -1475,9 +1525,11 @@ class ConsoleManager(BaseConsoleManager):
         return {}
 
     def update_users_CM(self):
-        """ If the revision number of CloudMan (CM) source file (as stored in file's metadata)
+        """
+        If the revision number of CloudMan (CM) source file (as stored in file's metadata)
         in user's bucket is less than that of default CM, upload the new version of CM to
         user's bucket. Note that the update will take effect only after the next cluster reboot.
+
         :rtype: bool
         :return: If update was successful, return True.
                  Else, return False
@@ -1533,38 +1585,43 @@ class ConsoleManager(BaseConsoleManager):
             log.warning("Could not initiate expansion of {0} file system because the "\
                     "file system was not found?".format(fs_name))
 
-    def get_root_public_key( self ):
-        if self.app.TESTFLAG is True:
-            log.debug( "Attempted to get root public key, but TESTFLAG is set." )
-            return "TESTFLAG_ROOTPUBLICKEY"
+    @TestFlag('TESTFLAG_ROOTPUBLICKEY')
+    def get_root_public_key(self):
+        """
+        Generate or retrieve a public ssh key for the user running CloudMan and
+        return it as a string. The key file is stored in ``id_rsa.pub``.
+        Also, the private portion of the key is copied to ``/root/.ssh/id_rsa``
+        to enable passwordless login by job manager jobs.
+        """
         if self.root_pub_key is None:
-            if not os.path.exists( 'id_rsa'):
-                log.debug( "Generating root user's public key..." )
-                ret_code = subprocess.call( 'ssh-keygen -t rsa -N "" -f id_rsa', shell=True )
+            if not os.path.exists('id_rsa'):
+                log.debug("Generating root user's public key...")
+                ret_code = subprocess.call( 'ssh-keygen -t rsa -N "" -f id_rsa', shell=True)
                 if ret_code == 0:
-                    log.info( "Successfully generated root user's public key." )
-                    f = open( 'id_rsa.pub' )
+                    log.info("Successfully generated root user's public key.")
+                    f = open('id_rsa.pub')
                     self.root_pub_key = f.readline()
                     f.close()
                     # Must copy private key at least to /root/.ssh for passwordless login to work
-                    shutil.copy2( 'id_rsa', '/root/.ssh/id_rsa' )
-                    log.debug( "Successfully retrieved root user's public key from file." )
+                    shutil.copy2('id_rsa', '/root/.ssh/id_rsa')
+                    log.debug("Successfully retrieved root user's public key from file.")
                 else:
-                    log.error( "Encountered a problem while creating root user's public key, process returned error code '%s'." % ret_code )
+                    log.error("Encountered a problem while creating root user's public key, process returned error code '%s'." % ret_code )
             else: # This is master restart, so
-                f = open( 'id_rsa.pub' )
+                f = open( 'id_rsa.pub')
                 self.root_pub_key = f.readline()
                 f.close()
-                if not os.path.exists( '/root/.ssh/id_rsa' ):
+                if not os.path.exists('/root/.ssh/id_rsa'):
                     # Must copy private key at least to /root/.ssh for passwordless login to work
-                    shutil.copy2( 'id_rsa', '/root/.ssh/id_rsa' )
-                log.info( "Successfully retrieved root user's public key from file." )
+                    shutil.copy2( 'id_rsa', '/root/.ssh/id_rsa')
+                log.info("Successfully retrieved root user's public key from file.")
         return self.root_pub_key
 
-    def save_host_cert( self, host_cert ):
-        if self.app.TESTFLAG is True:
-            log.debug( "Attempted to save host cert, but TESTFLAG is set." )
-            return None
+    @TestFlag(None)
+    def save_host_cert(self, host_cert):
+        """
+        Save host certificate ``host_cert`` to ``/root/.ssh/knowns_hosts``
+        """
         log.debug( "Saving host certificate '%s'" % host_cert )
         log.debug( "Saving worker host certificate.")
         f = open( "/root/.ssh/known_hosts", 'a' )
@@ -1597,6 +1654,10 @@ class ConsoleManager(BaseConsoleManager):
         return workers_status
 
     def get_num_available_workers( self ):
+        """
+        Return the number of available worker nodes. A worker node is assumed
+        available if it is in state ``READY``.
+        """
         # log.debug("Gathering number of available workers" )
         num_available_nodes = 0
         for inst in self.worker_instances:
@@ -1608,7 +1669,8 @@ class ConsoleManager(BaseConsoleManager):
     # ============================ UTILITY METHODS =============================
     # ==========================================================================
     def _make_file_from_list(self, input_list, file_name, bucket_name=None):
-        """Create a file from provided list so that each list element is
+        """
+        Create a file from provided list so that each list element is
         printed on a separate line. If bucket_name parameter is provided,
         save created file to the bucket.
 
@@ -1631,13 +1693,16 @@ class ConsoleManager(BaseConsoleManager):
         return True
 
     def _update_file(self, file_name, search_exp, replace_exp):
-        """ Search file_name for a line containing search_exp and replace that
+        """
+        Search file_name for a line containing search_exp and replace that
         expression with replace_exp.
 
         :type file_name: str
         :param file_name: Name of the file to modify
+
         :type search_exp: str
         :param search_exp: String for which to search
+
         :type replace_exp: str
         :param replace_exp: String used to replace search string
         """
@@ -1649,12 +1714,24 @@ class ConsoleManager(BaseConsoleManager):
         fout.close()
         shutil.copy("%s-tmp" % file_name, file_name)
 
-    def get_status_dict( self ):
+    def get_status_dict(self):
+        """
+        Return a status dictionary for the current instance.
+
+        The dictionary includes the following keys: ``id`` of the instance;
+        ``ld`` as a load of the instance over the past 1, 5, and 15 minutes
+        (e.g., ``0.00 0.02 0.39``); ``time_in_state`` as the length of time
+        since instance state was last changed; ``instance_type`` as the type
+        of the instance provisioned by the cloud; and ``public_ip`` with the
+        public IP address of the instance.
+        """
         public_ip = self.app.cloud_interface.get_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
             load = "0.00 0.02 0.39"
-            return {'id' : 'localtest', 'ld' : load, 'time_in_state' : misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type' : 'tester', 'public_ip' : public_ip}
+            return {'id': 'localtest', 'ld': load,
+                    'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
+                    'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" ))
             load = (commands.getoutput( "cat /proc/loadavg | cut -d' ' -f1-3" )).strip() # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
