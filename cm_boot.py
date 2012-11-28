@@ -88,7 +88,7 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
 
 def _start_nginx(ud):
     log.info("<< Starting nginx >>")
-    # Because nginx needs the uplaod directory to start properly, create it now.
+    # Because nginx needs the upload directory to start properly, create it now.
     # However, because user data will be mounted after boot and because given
     # directory already exists on the user's data disk, must remove it after
     # nginx starts
@@ -98,6 +98,7 @@ def _start_nginx(ud):
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
     _configure_nginx(ud)
+    _fix_nginx_upload()
     rmdir = False # Flag to indicate if a dir should be deleted
     if not os.path.exists('/mnt/galaxyData/upload_store'):
         rmdir = True
@@ -142,6 +143,28 @@ def _reconfigure_nginx(ud, nginx_conf_path):
         nginx_conf = open(nginx_conf_path, "r").read()
         new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}", upstream_galaxy_app_conf, nginx_conf)
         open(nginx_conf_path, "w").write(new_nginx_conf)
+
+def _fix_nginx_upload():
+    """
+    Set ``max_client_body_size`` in nginx config. This is necessary for the
+    Galaxy Cloud AMI ami-da58aab3
+    """
+    nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
+    log.info("Attempting to configure max_client_body_size in {0}".format(nginx_conf_path))
+    if os.path.exists(nginx_conf_path):
+        # first check of the directive is already defined
+        cmd = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
+        if not _run(cmd):
+            sedargs = """'
+/listen/ a\
+        client_max_body_size 2048m;
+' -i %s""" % nginx_conf_path
+            _run('sudo sed %s' % sedargs)
+            _run('sudo kill -HUP `cat /opt/galaxy/pkg/nginx/logs/nginx.pid`')
+        else:
+            "client_max_body_size is already defined in {0}".format(nginx_conf_path)
+    else:
+        log.error("{0} not found to update".format(nginx_conf_path))
 
 def _get_s3connection(ud):
     access_key = ud['access_key']
