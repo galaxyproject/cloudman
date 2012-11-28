@@ -1782,15 +1782,18 @@ class ConsoleMonitor( object ):
         self.monitor_thread.start()
 
     def shutdown( self ):
-        """Attempts to gracefully shut down the worker thread"""
-        log.info( "Stop signal received; deleting SQS queue..." )
+        """
+        Attempts to gracefully shut down the monitor thread, in turn stopping
+        system updates.
+        """
+        log.info( "Monitor received stop signal" )
         try:
-            log.info( "Sending stop signal to worker thread" )
+            log.info( "Sending stop signal to the Monitor thread" )
             if self.conn:
                 self.conn.shutdown()
             self.running = False
             self.sleeper.wake()
-            log.info( "Console manager stopped" )
+            log.info( "ConsoleMonitor thread stopped" )
         except:
             pass
 
