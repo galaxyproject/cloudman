@@ -64,7 +64,8 @@ class OSInterface(EC2Interface):
                                         is_secure=self.is_secure,
                                         region=region,
                                         port=self.ec2_port,
-                                        path=self.ec2_conn_path)
+                                        path=self.ec2_conn_path,
+                                        validate_certs=False) # https://github.com/boto/boto/wiki/2.6.0-release-notes
         except EC2ResponseError, e:
             log.error("Trouble creating a Nova connection: {0}".format(e))
         return ec2_conn
