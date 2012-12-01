@@ -10,6 +10,7 @@ log = logging.getLogger( 'cloudman' )
 service_states = Bunch(
     UNSTARTED="Unstarted",
     WAITING_FOR_USER_ACTION="Waiting for user action",
+    CONFIGURING="Configuring",
     STARTING="Starting",
     RUNNING = "Running",
     SHUTTING_DOWN = "Shutting down",

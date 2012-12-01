@@ -350,12 +350,16 @@
     <%text filter='trim'>
         <td class="fs-td-20pct"><%= name %></td>
         <td class="fs-status fs-td-15pct"><%= status %></td>
-        <td class="fs-td-20pct">
+        <td class="fs-td-20pct" style="font-size: 9px;">
         <!-- // Only display usage when the file system is 'Available' -->
         <% if (status === "Available" || status === "Running") { %>
             <meter min="0" max="100" value="<%= size_pct %>" high="85">
                 <%= size_used %>/<%= size %> (<%= size_pct %>)
             </meter>
+        <% } else if (kind == "Volume" && status === "Configuring") { %>
+            <% if (snapshot_status != "" && snapshot_status != null) { %>
+                Snapshot status: <%= snapshot_status %>; progress: <%= snapshot_progress %>
+            <% } %></td>
         <% } %></td>
         <td class="fs-td-15pct">
             <!-- // Enable removal while a file system is 'Available' or 'Error' -->
