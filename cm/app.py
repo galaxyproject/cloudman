@@ -57,7 +57,9 @@ class UniverseApplication( object ):
         log.addHandler(self.logger)
         config.configure_logging(self.config)
         log.debug( "Initializing app" )
-        log.debug("Running on '{0}' type of cloud.".format(self.cloud_type))
+        log.debug("Running on '{0}' type of cloud in zone '{1}' using image '{2}'."
+            .format(self.cloud_type, self.cloud_interface.get_zone(),
+            self.cloud_interface.get_ami()))
 
         # App-wide object to store messages that need to travel between the back-end
         # and the UI.

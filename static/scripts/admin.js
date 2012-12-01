@@ -337,7 +337,7 @@ jQuery.fn.serializeObject = function() {
                 });
                 // Update model state on the resizing event
                 filesystemResizeFormView.on("fs:resizing", function(){
-                    that.model.attributes.status = "Resizing";
+                    that.model.attributes.status = "Configuring";
                     that.model.save();
                 });
             }

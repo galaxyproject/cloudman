@@ -354,14 +354,14 @@ class Volume(BlockStorage):
             log.error('Attempt to attach non-existent volume {0}'.format(self.volume_id))
             return None
         elif self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE:
-            log.debug('Volume {0} already attached')
+            log.debug('Volume {0} already attached as {1}'.format(self.volume_id, self.device))
             return self.device
 
         # Wait for the volume to become available
-        if self.from_snapshot_id and  self.status == volume_status.CREATING:
+        if self.from_snapshot_id and self.status == volume_status.CREATING:
             # Eucalyptus can take an inordinate amount of time to create a volume from a snapshot
-            log.warning("Waiting for volume to be created from a snapshot...")
-            if not self.wait_for_status(volume_status.AVAILABLE,timeout=600):
+            log.debug("Waiting for volume to be created from a snapshot...")
+            if not self.wait_for_status(volume_status.AVAILABLE):
                 log.error('Volume never reached available from creating status. Status is {0}'.format(self.status))
         elif self.status != volume_status.AVAILABLE:
             if not self.wait_for_status(volume_status.AVAILABLE):

@@ -514,7 +514,13 @@ class ConsoleManager(BaseConsoleManager):
         "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
         "err_msg": None, "snapshot_progress": None, "from_snap": None,
         "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
-        "DoT": "No", "size": "1014M", "persistent": "Yes"}], quiet=True)
+        "DoT": "No", "size": "1014M", "persistent": "Yes"},
+        {"size_used": "52M", "status": "Configuring", "kind": "Volume",
+         "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
+         "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
+         "snapshot_progress": "10%", "from_snap": "snap-760fd33d",
+         "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2%",
+         "DoT": "No", "size": "5.0G"}], quiet=True)
     def get_all_filesystems_status(self):
         """
         Get a list and information about each of the file systems currently
@@ -1579,6 +1585,7 @@ class ConsoleManager(BaseConsoleManager):
                 fs_found = True
                 log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
                         % (svc.get_full_name(), new_vol_size, snap_description))
+                svc.state = service_states.CONFIGURING
                 svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description,
                         'delete_snap': delete_snap}
         if not fs_found:

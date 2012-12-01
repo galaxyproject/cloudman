@@ -144,10 +144,11 @@ class Filesystem(DataService):
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
 
-    def __remove(self, delete_vols=True):
+    def __remove(self, delete_vols=True, remove_from_master=True):
         """
         Do the actual removal of devices used to compose this file system.
-        After the service is successfully stopped, it is automatically removed
+        After the service is successfully stopped, if ``remove_from_master``
+        is set to ``True``, the service is automatically removed
         from the list of services monitored by the master.
         """
         log.debug("Removing {0} devices".format(self.get_full_name()))
@@ -161,7 +162,7 @@ class Filesystem(DataService):
         log.debug("Setting state of %s to '%s'" % (self.get_full_name(), service_states.SHUT_DOWN))
         self.state = service_states.SHUT_DOWN
         # Remove self from the list of master's services
-        if self.state == service_states.SHUT_DOWN:
+        if self.state == service_states.SHUT_DOWN and remove_from_master:
             self.app.manager.services.remove(self)
 
     def clean(self):
@@ -190,20 +191,28 @@ class Filesystem(DataService):
         Also note that this method applies only to Volume-based file systems.
         """
         if self.grow is not None:
-            self.__remove()
+            self.__remove(delete_vols=False, remove_from_master=False)
+            self.state = service_states.CONFIGURING
             smaller_vol_ids = []
-            # Create a snapshot of detached volume
+            # Create a snapshot of the detached volume
             for vol in self.volumes:
                 smaller_vol_ids.append(vol.volume_id)
                 snap_id = vol.snapshot(self.grow['snap_description'])
+                # Reset the reference to the cloud volume resource object
+                vol.volume = None
+                # Set the size for the new volume
                 vol.size = self.grow['new_size']
+                # Set the snapshot from which a new volume resource object will be created
                 vol.from_snapshot_id = snap_id
-                vol.volume_id = None
 
             # Create a new volume based on just created snapshot and add the file system
+            self.state = service_states.SHUT_DOWN # So it gets started again w/o monitor
+                                                  # adding it as a new service;
+                                                  # TOOD: define a set of stats for
+                                                  # file system services
             self.add()
 
-            # Grow file system
+            # Grow the file system
             if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
                     % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
@@ -212,14 +221,16 @@ class Filesystem(DataService):
             for smaller_vol_id in smaller_vol_ids:
                 try:
                     ec2_conn.delete_volume(smaller_vol_id)
+                    log.debug("Deleted smaller volume {0} after resizing".format(smaller_vol_id))
                 except EC2ResponseError, e:
-                    log.error("Error deleting old data volume '%s' during '%s' resizing: %s"
-                            % (smaller_vol_id, self.get_full_name(), e))
-            # If desired by user, delete snapshot used during the resizing process
+                    log.error("Error deleting smaller volume '%s' after resizing: %s"
+                            % (smaller_vol_id, e))
+            # If specified by user, delete the snapshot used during the resizing process
             if self.grow['delete_snap'] is True:
                 try:
-                    ec2_conn = self.app.cloud_interface.get_ec2_connection()
                     ec2_conn.delete_snapshot(snap_id)
+                    log.debug("Deleted temporary snapshot {0} created and used during resizing"
+                        .format(snap_id))
                 except EC2ResponseError, e:
                     log.error("Error deleting snapshot '%s' during '%s' resizing: %s"
                             % (snap_id, self.get_full_name(), e))
@@ -377,7 +388,8 @@ class Filesystem(DataService):
         if self.state==service_states.SHUTTING_DOWN or \
            self.state==service_states.SHUT_DOWN or \
            self.state==service_states.UNSTARTED or \
-           self.state==service_states.WAITING_FOR_USER_ACTION:
+           self.state==service_states.WAITING_FOR_USER_ACTION or \
+           self.state==service_states.CONFIGURING:
                return True
         return False
 
