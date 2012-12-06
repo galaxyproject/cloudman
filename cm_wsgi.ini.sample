@@ -1,0 +1,43 @@
+# ---- HTTP Server ----------------------------------------------------------
+
+[server:main]
+
+use                = egg:Paste#http
+port               = 42284
+host               = 0.0.0.0
+use_threadpool     = true
+threadpool_workers = 10
+
+[filter:proxy-prefix]
+use                = egg:PasteDeploy#prefix
+prefix             = /cloud
+
+[app:main]
+filter-with        = proxy-prefix
+cloudman_file_name = cm.tar.gz
+
+# Specifies the factory for the universe WSGI application
+paste.app_factory  = cm.buildapp:app_factory
+log_level          = DEBUG
+
+# Where templates are stored
+template_path      = templates
+
+# Configuration for debugging middleware
+debug              = true
+use_lint           = false
+
+# NEVER enable this on a public site (even test or QA)
+# use_interactive  = true
+
+# Serving static files (needed if running standalone)
+static_enabled     = True
+static_cache_time  = 360
+static_dir         = static
+static_images_dir  = static/images
+static_favicon_dir = static/favicon.ico
+static_scripts_dir = static/scripts
+static_style_dir   = static/style
+
+# Don't display server logs
+#use_translogger   = False
