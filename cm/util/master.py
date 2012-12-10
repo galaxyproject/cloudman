@@ -210,8 +210,10 @@ class ConsoleManager(BaseConsoleManager):
                     # handle 'volume', 'snapshot', or 'bucket' kind
                     if fs['kind'] == 'volume':
                         if 'ids' not in fs and 'size' in fs:
+                            # We're creating a new volume
                             filesystem.add_volume(size=fs['size'])
                         else:
+                            # A volume already exists so use it
                             for vol_id in fs['ids']:
                                 filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
@@ -2362,8 +2364,8 @@ class Instance( object ):
         if self.inst:
             try:
                 state = self.inst.state
-                log.debug("Requested instance {0} update; old state: {1}; new state: {2}"\
-                    .format(self.get_id(), self.m_state, state))
+                log.debug("Requested instance {0} update: old state: {1}; new state: {2}"\
+                    .format(self.get_desc(), self.m_state, state))
                 if state != self.m_state:
                     self.m_state = state
                     self.last_m_state_change = dt.datetime.utcnow()
@@ -2455,16 +2457,22 @@ class Instance( object ):
                     .format(self.get_id()))
         return self.private_ip
 
+    @TestFlag('127.0.0.1')
     def get_public_ip(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get instance public IP, but TESTFLAG is set. Returning 127.0.0.1")
-            self.public_ip = '127.0.0.1'
-        if self.public_ip is None:
-            inst = self.get_cloud_instance_object()
+        """
+        Get the public IP address of this worker instance.
+        """
+        if not self.public_ip:
+            inst = self.get_cloud_instance_object(deep=True)
+            # log.debug('Getting public IP for instance {0}'.format(inst.id))
             if inst is not None:
                 try:
                     inst.update()
                     self.public_ip = inst.ip_address
+                    if self.public_ip:
+                        log.debug("Got public IP for instance {0}: {1}".format(self.get_id(), self.public_ip))
+                    else:
+                        log.debug("Still no public IP for instance {0}".format(self.get_id()))
                 except EC2ResponseError:
                     log.debug("ip_address for instance {0} not (yet?) available.".format(self.get_id()))
             else:

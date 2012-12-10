@@ -422,11 +422,13 @@ class EC2Interface(CloudInterface):
         try:
             log.info("Terminating instance {0}".format(instance_id))
             ec2_conn.terminate_instances([instance_id])
+            log.info("Initiated termination of instance {0}".format(instance_id))
             # Make sure the instance was terminated
             time.sleep(3) # First give the middleware a chance to register the termination
-            rs = ec2_conn.get_all_instances(instance_id)
+            rs = ec2_conn.get_all_instances([instance_id])
             if len(rs) == 0 or rs[0].instances[0].state == 'shutting-down' or \
                 rs[0].instances[0].state == 'terminated':
+                log.debug("Instance {0} terminated.".format(instance_id))
                 return True
         except EC2ResponseError, e:
             if e.errors[0][0] == 'InstanceNotFound':
@@ -440,7 +442,7 @@ class EC2Interface(CloudInterface):
     def _cancel_spot_request(self, request_id):
         ec2_conn = self.get_ec2_connection()
         try:
-            log.debug("Cancelling spot request {0}".format(request_id))
+            log.debug("Canceling spot request {0}".format(request_id))
             ec2_conn.cancel_spot_instance_requests([request_id])
             return True
         except EC2ResponseError, e:
