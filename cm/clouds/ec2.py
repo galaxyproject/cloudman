@@ -446,7 +446,7 @@ class EC2Interface(CloudInterface):
             ec2_conn.cancel_spot_instance_requests([request_id])
             return True
         except EC2ResponseError, e:
-            log.error("Trouble cancelling spot request {0}: {1}".format(request_id, e))
+            log.error("Trouble canceling spot request {0}: {1}".format(request_id, e))
             return False
 
     def _compose_worker_user_data(self):
