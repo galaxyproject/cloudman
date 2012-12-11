@@ -81,7 +81,7 @@ class ConsoleManager(BaseConsoleManager):
         self.worker_status = worker_states.WAKE
         self.worker_instances = [] # Needed because of UI and number of nodes value
         self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy') # Default to the most comprihensive type
-        
+
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -89,22 +89,35 @@ class ConsoleManager(BaseConsoleManager):
         self.nfs_sge = 0
         self.get_cert = 0
         self.sge_started = 0
-        
+        self.custom_hostname = None
+
         self.load = 0
-    
+
+    @property
+    def local_hostname(self):
+        """
+        Returns the local hostname for this instance.
+        """
+        return self.app.cloud_interface.get_local_hostname()
+        # Not working (SGE cannot resolve master host)
+        if not self.custom_hostname:
+            self.custom_hostname = "{0}-{1}".format(self.app.cloud_interface.get_instance_id(),
+                self.app.cloud_interface.get_private_ip())
+        return self.custom_hostname
+
     def start( self ):
         self._handle_prestart_commands()
         self.mount_nfs( self.app.ud['master_ip'] )
         misc.add_to_etc_hosts(self.app.ud['master_hostname'], self.app.ud['master_ip'])
-    
+
     def shutdown( self, delete_cluster=None ):
         self.worker_status = worker_states.SHUTTING_DOWN
         self.console_monitor.send_node_shutting_down()
         self.console_monitor.shutdown()
-    
+
     def get_cluster_status( self ):
         return "This is a worker node, cluster status not available."
-    
+
     def mount_disk(self, master_ip, path, source_path=None):
         if source_path is None:
             source_path = path
@@ -114,7 +127,7 @@ class ConsoleManager(BaseConsoleManager):
         ret_code = subprocess.call( "mount %s:%s %s" % (master_ip, source_path, path), shell=True )
         log.debug( "Process mounting '%s' returned code '%s'" % (path, ret_code) )
         return ret_code
-    
+
     def mount_nfs( self, master_ip ):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to mount NFS, but TESTFLAG is set.")
@@ -186,7 +199,7 @@ class ConsoleManager(BaseConsoleManager):
             self.get_cert = -1
             self.console_monitor.send_node_status()
             return None
-    
+
     def save_authorized_key( self, m_key ):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to save authorized key, but TESTFLAG is set.")
@@ -194,14 +207,14 @@ class ConsoleManager(BaseConsoleManager):
         log.info( "Saving master's (i.e., root) authorized key to ~/.ssh/authorized_keys..." )
         with open( "/root/.ssh/authorized_keys", 'a' ) as f:
             f.write( m_key )
-    
+
     def start_sge(self ):
         if self.app.TESTFLAG is True:
             fakeretcode = 0
             log.debug("Attempted to start SGE, but TESTFLAG is set.  Returning retcode %s" % fakeretcode)
             return fakeretcode
         log.info( "Configuring SGE..." )
-        # Check if /lib64/libc.so.6 exists - it's required by SGE but on 
+        # Check if /lib64/libc.so.6 exists - it's required by SGE but on
         # Ubuntu 11.04 the location and name of the library have changed
         if not os.path.exists('/lib64/libc.so.6'):
             if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
@@ -214,37 +227,36 @@ class ConsoleManager(BaseConsoleManager):
                 os.symlink("/lib/x86_64-linux-gnu/libc-2.15.so", "/lib64/libc.so.6")
             else:
                 log.error("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
-        # Ensure lines starting with 127.0.1. are not included in /etc/hosts 
+        # Ensure lines starting with 127.0.1. are not included in /etc/hosts
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init
         # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
-        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")        
+        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
         log.debug( "Configuring users' SGE profiles..." )
         f = open(paths.LOGIN_SHELL_SCRIPT, 'a')
         f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
         f.write( "\n. $SGE_ROOT/default/common/settings.sh\n" )
         f.close()
-        
+
         SGE_config_file = '/tmp/galaxyEC2_configuration.conf'
         f = open( SGE_config_file, 'w' )
-        print >> f, sge_install_template % (self.app.cloud_interface.get_local_hostname(),
-                self.app.cloud_interface.get_local_hostname(),
-                self.app.cloud_interface.get_local_hostname())
+        print >> f, sge_install_template % (self.local_hostname,
+                self.local_hostname, self.local_hostname)
         f.close()
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
-        
+
         cmd = 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file)
         log.info("Setting up SGE; cmd: {0}".format(cmd))
         ret_code = subprocess.call(cmd, shell=True )
-        
+
         if ret_code == 0:
             self.sge_started = 1
             log.debug( "Successfully configured SGE." )
         else:
             self.sge_started = -1
             log.error( "Setting up SGE did not go smoothly, process returned with code '%s'" % ret_code )
-        
+
         self.console_monitor.send_node_status()
         return ret_code
 
@@ -258,7 +270,7 @@ class ConsoleMonitor( object ):
         self.waiting = []
         self.state = worker_states.INITIAL_STARTUP
         self.running = True
-        # Helper for interruptable sleep
+        # Helper for interruptible sleep
         self.sleeper = misc.Sleeper()
         self.conn = comm.CMWorkerComm(self.app.cloud_interface.get_instance_id(), self.app.ud['master_ip'])
         if self.app.TESTFLAG is True:
@@ -266,62 +278,48 @@ class ConsoleMonitor( object ):
         else:
             self.conn.setup()
         self.monitor_thread = threading.Thread( target=self.__monitor )
-    
+
     def start( self ):
         self.app.manager.worker_status = worker_states.WAKE
         self.last_state_change_time = dt.datetime.utcnow()
         self.monitor_thread.start()
-    
+
     def get_msg(self, m_tag):
         msg = self.conn.recv()
         if msg:
             if msg.body.startswith(m_tag):
                 log.debug( "Got message: %s" % msg.body )
                 return msg.body
-    
+
     def send_alive_message( self ):
-        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(), 
-                                                       self.app.cloud_interface.get_public_ip(), 
-                                                       self.app.cloud_interface.get_zone(), 
-                                                       self.app.cloud_interface.get_type(), 
-                                                       self.app.cloud_interface.get_ami(),
-                                                       self.app.cloud_interface.get_local_hostname())
-        self.conn.send(msg)
-        log.debug( "Sending message '%s'" % msg )
-        
-        if self.app.cloud_type == 'openstack':
-            log.debug("Adding master to /etc/hosts")
-            master_host_line = '{ip}\t{hostname}\n'.format(ip=self.app.ud.get('master_ip', None),
-                hostname=self.app.ud.get('master_hostname', None))
-            log.debug("master_host_line: {0}".format(master_host_line))
-            with open('/etc/hosts', 'r+') as f:
-                hosts = f.readlines()
-                if master_host_line not in hosts:
-                    f.write(master_host_line)
-            
-        
-        if self.app.cloud_type == 'opennebula':
-            if not open('/etc/hostname').readline().startswith('worker'):
-                
-                log.debug( "Configuring hostname..." )
-                f = open( "/etc/hostname", 'w' )
-                f.write( "worker-%s" % self.app.cloud_interface.get_instance_id() )
-                f.close()
-                
-                f = open( "/etc/hosts", 'w' )
-                f.write( "127.0.0.1\tlocalhost\n")
-                f.write( "%s\tubuntu\n" % (self.app.ud['master_ip']))
-                f.write( "%s\tworker-%s\n" % (self.app.cloud_interface.get_private_ip(), self.app.cloud_interface.get_instance_id()))
-                f.close()
-                
-                # Restart complete node or only hostname process?
-                #ret_code = subprocess.call( "/etc/init.d/hostname restart", shell=True )
+        # If necessary, do some cloud-specific instance adjustments first
+        if self.app.cloud_type in ('opennebula',):
+            if not open('/etc/hostname').readline().startswith('i-'):
+                # Augment /etc/hostname w/ the custom local hostname
+                log.debug("Configuring hostname..." )
+                with open("/etc/hostname", 'w') as f:
+                    f.write(self.app.manager.local_hostname)
+                # Augment /etc/hosts w/ the custom local hostname
+                misc.add_to_etc_hosts(self.app.ud['master_hostname'], self.app.ud['master_ip'])
+                misc.add_to_etc_hosts(self.app.manager.local_hostname, self.app.cloud_interface.get_private_ip())
+                misc.add_to_etc_hosts(self.app.ud['master_ip'], 'ubuntu') # For opennebula
+                # Restart hostname process or the node process?
+                # ret_code = subprocess.call( "/etc/init.d/hostname restart", shell=True )
                 ret_code = subprocess.call( "sudo telinit 6", shell=True )
                 if ret_code == 0:
                     log.debug("Initiated reboot...")
                 else:
-                    log.debug("Problem iniating reboot!?")
-    
+                    log.debug("Problem initiating reboot!?")
+        # Compose the ALIVE message
+        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
+                                                       self.app.cloud_interface.get_public_ip(),
+                                                       self.app.cloud_interface.get_zone(),
+                                                       self.app.cloud_interface.get_type(),
+                                                       self.app.cloud_interface.get_ami(),
+                                                       self.app.manager.local_hostname)
+        self.conn.send(msg)
+        log.debug( "Sending message '%s'" % msg )
+
     def send_worker_hostcert(self):
         host_cert = self.app.manager.get_host_cert()
         if host_cert != None:
@@ -330,20 +328,20 @@ class ConsoleMonitor( object ):
             self.conn.send(m_response)
         else:
             log.error("Sending HostCert failed, HC is None.")
-    
+
     def send_node_ready(self):
         num_cpus = commands.getoutput( "cat /proc/cpuinfo | grep processor | wc -l" )
         msg_body = "NODE_READY | %s | %s" % (self.app.cloud_interface.get_instance_id(), num_cpus)
         log.debug( "Sending message '%s'" % msg_body )
         log.info( "Instance '%s' done configuring itself, sending NODE_READY." % self.app.cloud_interface.get_instance_id() )
         self.conn.send(msg_body)
-    
+
     def send_node_shutting_down(self):
         msg_body = "NODE_SHUTTING_DOWN | %s | %s" \
             % (self.app.manager.worker_status, self.app.cloud_interface.get_instance_id())
         log.debug( "Sending message '%s'" % msg_body )
         self.conn.send(msg_body)
-    
+
     def send_node_status(self):
         # Gett the system load in the following format:
         # "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
@@ -360,7 +358,7 @@ class ConsoleMonitor( object ):
                self.app.manager.nfs_tfs)
         log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
-    
+
     def handle_message(self, message):
         if message.startswith("RESTART"):
             m_ip = message.split(' | ')[1]
@@ -407,7 +405,7 @@ class ConsoleMonitor( object ):
             self.send_alive_message()
         else:
             log.debug("Unknown message '%s'" % message)
-    
+
     def __monitor( self ):
         self.app.manager.start()
         while self.running:
@@ -436,7 +434,7 @@ class ConsoleMonitor( object ):
                         subprocess.call( 'sudo telinit 6', shell=True )
                     else:
                         log.warning("IO trouble receiving msg: {0}".format(e))
-                    
+
                 while m is not None:
                     self.handle_message(m.body)
                     m = self.conn.recv()
@@ -446,7 +444,7 @@ class ConsoleMonitor( object ):
                 self.running = False
                 log.error("Communication queue not available, terminating.")
             self.sleeper.sleep(10)
-    
+
     def shutdown( self ):
         """Attempts to gracefully shut down the worker thread"""
         log.info( "Sending stop signal to worker thread" )

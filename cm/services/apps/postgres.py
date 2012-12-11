@@ -50,7 +50,7 @@ class PostgresService( ApplicationService ):
                 to_be_configured = True
 
             if to_be_configured:
-                log.info( "Configuring PostgreSQL with a database for Galaxy..." )
+                log.debug( "Configuring PostgreSQL with a database for Galaxy..." )
                 cont = True # Flag to indicate if previous operation completed successfully
                 # Make Galaxy database directory
                 if os.path.exists(paths.P_GALAXY_DATA) and not os.path.exists(psql_data_dir):
@@ -94,7 +94,7 @@ class PostgresService( ApplicationService ):
             self.status()
             if to_be_started and not self.state==service_states.RUNNING:
                 # Start PostgreSQL database
-                log.info( "Starting PostgreSQL..." )
+                log.debug( "Starting PostgreSQL..." )
                 misc.run( '%s -R postgres:postgres %s' % (paths.P_CHOWN, paths.P_GALAXY_DATA+'/pgsql'), "Error changing owner of postgres data dir", "Successfully changed owner of postgres data dir" )
                 if misc.run( '%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' % (paths.P_SU, paths.P_PG_HOME, psql_data_dir, self.psql_port), "Error starting PostgreSQL server", "Successfully started PostgreSQL server"):
                     self.status()
