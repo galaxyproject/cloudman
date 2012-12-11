@@ -927,7 +927,7 @@ class ConsoleManager(BaseConsoleManager):
         # First look for idle instances that can be removed
         idle_instances = self.get_idle_instances()
         if len(idle_instances) > 0:
-            log.info("Found %s idle instances; trying to remove %s." % (len(idle_instances), num_nodes))
+            log.debug("Found %s idle instances; trying to remove %s." % (len(idle_instances), num_nodes))
             for i in range (0, num_nodes):
                 for inst in idle_instances:
                     if num_terminated < num_nodes:
@@ -961,7 +961,7 @@ class ConsoleManager(BaseConsoleManager):
         if instance_id == '':
             log.warning("Tried to remove an instance but did not receive instance ID")
             return False
-        log.info( "Specific termination of instance '%s' requested." % instance_id)
+        log.debug( "Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 sge_svc = self.get_services('SGE')[0]
@@ -1055,7 +1055,7 @@ class ConsoleManager(BaseConsoleManager):
             return
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
-        log.info("Initializing a '%s' cluster." % cluster_type)
+        log.info("Initializing '%s' cluster type." % cluster_type)
         if cluster_type == 'Galaxy':
             # Static data - get snapshot IDs from the default bucket and add respective file systems
             s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1607,7 +1607,7 @@ class ConsoleManager(BaseConsoleManager):
                 log.debug("Generating root user's public key...")
                 ret_code = subprocess.call( 'ssh-keygen -t rsa -N "" -f id_rsa', shell=True)
                 if ret_code == 0:
-                    log.info("Successfully generated root user's public key.")
+                    log.debug("Successfully generated root user's public key.")
                     f = open('id_rsa.pub')
                     self.root_pub_key = f.readline()
                     f.close()
@@ -2125,7 +2125,7 @@ class Instance( object ):
             if self.reboot_count < self.REBOOT_COUNT_THRESHOLD:
                 self.reboot()
             elif self.terminate_attempt_count > self.TERMINATE_COUNT_THRESHOLD:
-                log.info("Tried terminating instance {0} {1} times but was unsucessful. Giving up."\
+                log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."\
                     .format(self.inst.id, self.TERMINATE_COUNT_THRESHOLD))
                 self._remove_instance()
             else:
@@ -2467,7 +2467,7 @@ class Instance( object ):
         if not self.public_ip:
             inst = self.get_cloud_instance_object(deep=True)
             # log.debug('Getting public IP for instance {0}'.format(inst.id))
-            if inst is not None:
+            if inst:
                 try:
                     inst.update()
                     self.public_ip = inst.ip_address
@@ -2489,7 +2489,7 @@ class Instance( object ):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
         self.app.manager.console_monitor.conn.send( 'MASTER_PUBKEY | %s' \
             % self.app.manager.get_root_public_key(), self.id )
-        log.info("Sent master public key to worker instance '%s'." % self.id)
+        log.debug("Sent master public key to worker instance '%s'." % self.id)
         log.debug( "\tMT: Message MASTER_PUBKEY %s sent to '%s'" \
             % ( self.app.manager.get_root_public_key(), self.id ) )
 
@@ -2511,7 +2511,7 @@ class Instance( object ):
             msg_type = msg.split( ' | ' )[0]
             if msg_type == "ALIVE":
                 self.worker_status = "Starting"
-                log.info( "Instance '%s' reported alive" % self.id )
+                log.info("Instance %s reported alive" % self.get_desc())
                 msp = msg.split(' | ')
                 self.private_ip = msp[1]
                 self.public_ip = msp[2]
@@ -2564,7 +2564,8 @@ class Instance( object ):
                             if len(fs.buckets) > 0:
                                 for b in fs.buckets:
                                     self.send_add_s3fs(b.bucket_name)
-                        log.info( "Waiting on worker instance '%s' to configure itself..." % self.id )
+                        log.info("Waiting on worker instance %s to configure itself..."
+                            % self.get_desc())
                     else:
                         log.error("Adding host to SGE did not go smoothly, "
                             "not instructing worker to configure SGE daemon.")

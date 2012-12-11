@@ -57,7 +57,7 @@ class Service( object):
                             if not svc.running():
                                 failed_prereqs.append(svc.get_full_name())
             if len(failed_prereqs) == 0:
-                log.info("{0} prerequisites OK; starting the service".format(self.get_full_name()))
+                log.info("{0} service prerequisites OK; starting the service".format(self.get_full_name()))
                 self.start()
                 return True
             else:

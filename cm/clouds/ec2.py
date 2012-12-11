@@ -422,7 +422,7 @@ class EC2Interface(CloudInterface):
         try:
             log.info("Terminating instance {0}".format(instance_id))
             ec2_conn.terminate_instances([instance_id])
-            log.info("Initiated termination of instance {0}".format(instance_id))
+            log.debug("Initiated termination of instance {0}".format(instance_id))
             # Make sure the instance was terminated
             time.sleep(3) # First give the middleware a chance to register the termination
             rs = ec2_conn.get_all_instances([instance_id])

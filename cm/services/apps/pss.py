@@ -112,6 +112,7 @@ class PSS(ApplicationService):
         self.already_ran = True
         # Once this service is complete, it's safe to assume the cluster is READY
         self.app.manager.cluster_status = cluster_status.READY
+        log.info("All cluster services started; the cluster is ready for use")
 
     def save_to_bucket(self):
         """ Save the current post start script file to the cluster's
