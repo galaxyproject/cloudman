@@ -5,6 +5,7 @@ import sys, os, logging, logging.config, ConfigParser
 from cm.util import string_as_bool
 from cm.util import misc
 from cm.util import paths
+import hoover
 
 log = logging.getLogger( 'cloudman' )
 
@@ -116,3 +117,10 @@ def configure_logging( config ):
     # Hook everything up
     handler.setFormatter( formatter )
     root.addHandler( handler )
+    # Add loggly handler
+    loggly_token = os.environ.get('CM_LOGGLY_TOKEN', None)
+    loggly_token = config.get('loggly_token', loggly_token)
+    if loggly_token is not None:
+        loggly_handler = hoover.LogglyHttpHandler(token=config.get('loggly_token', loggly_token))
+        loggly_handler.setFormatter( formatter )
+        log.addHandler(loggly_handler)
