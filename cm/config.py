@@ -5,6 +5,7 @@ import sys, os, logging, logging.config, ConfigParser
 from cm.util import string_as_bool
 from cm.util import misc
 from cm.util import paths
+import hoover
 
 log = logging.getLogger( 'cloudman' )
 
@@ -86,7 +87,7 @@ def get_database_engine_options( kwargs ):
             rval[ key  ] = value
     return rval
 
-def configure_logging( config ):
+def configure_logging( config, user_data ):
     """
     Allow some basic logging configuration to be read from the cherrpy
     config.
@@ -116,3 +117,12 @@ def configure_logging( config ):
     # Hook everything up
     handler.setFormatter( formatter )
     root.addHandler( handler )
+    # Add loggly handler
+    loggly_token = config.get('cm_loggly_token', None)
+    loggly_token = os.environ.get('CM_LOGGLY_TOKEN', loggly_token)
+    loggly_token = user_data.get('cm_loggly_token', loggly_token)
+    
+    if loggly_token is not None:
+        loggly_handler = hoover.LogglyHttpHandler(token=loggly_token)
+        loggly_handler.setFormatter( formatter )
+        log.addHandler(loggly_handler)
