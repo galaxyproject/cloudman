@@ -118,7 +118,7 @@ class Volume(BlockStorage):
         else:
             self.volume = vol
             attach_device = vol.attach_data.device
-            if run('ls {0}'.format(attach_device)):
+            if run('ls {0}'.format(attach_device), quiet=True):
                 self.device = attach_device
             else:
                 # Attach device is different than the system device so figure it out
@@ -126,7 +126,7 @@ class Volume(BlockStorage):
                     attach_device = '/dev/xvd' + attach_device[-1]
                 except Exception, e:
                     log.error("Attach device's ({0}) ID too short? {1}".format(attach_device, e))
-                if run('ls {0}'.format(attach_device)):
+                if run('ls {0}'.format(attach_device), quiet=True):
                     self.device = attach_device
                 else:
                     log.error("Problems discovering attach device vs. system device")
