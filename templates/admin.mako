@@ -354,18 +354,18 @@
         <!-- // Only display usage when the file system is 'Available' -->
         <style type="text/css">
 			/* Styling for the space usage meter element */
-			#space_usage {
+			.space_usage {
 		        text-align: center;
 		        padding:2px 2px 2px 2px;
 		    }
 
 			/* The percentage */
-			#space_usage:after {
+			.space_usage:after {
 				content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
 			}
 		</style>
         <% if (status === "Available" || status === "Running") { %>
-            <meter id="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
+            <meter class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
             	<%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
