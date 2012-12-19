@@ -61,7 +61,7 @@ class Service( object):
                 self.start()
                 return True
             else:
-                log.info("{0} service prerequisites are not yet satisfied, missing: {2}. "\
+                log.debug("{0} service prerequisites are not yet satisfied, missing: {2}. "\
                         "Setting {0} service state to '{1}'"\
                         .format(self.get_full_name(), service_states.UNSTARTED, failed_prereqs))
                 # Reset state so it get picked back up by monitor
