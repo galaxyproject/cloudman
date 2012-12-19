@@ -352,9 +352,21 @@
         <td class="fs-status fs-td-15pct"><%= status %></td>
         <td class="fs-td-20pct" style="font-size: 9px;">
         <!-- // Only display usage when the file system is 'Available' -->
+        <style type="text/css">
+			/* Styling for the space usage meter element */
+			#space_usage {
+		        text-align: center;
+		        padding:2px 2px 2px 2px;
+		    }
+
+			/* The percentage */
+			#space_usage:after {
+				content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+			}
+		</style>
         <% if (status === "Available" || status === "Running") { %>
-            <meter min="0" max="100" value="<%= size_pct %>" high="85">
-                <%= size_used %>/<%= size %> (<%= size_pct %>)
+            <meter id="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
+            	<%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
             <% if (snapshot_status != "" && snapshot_status != null) { %>
