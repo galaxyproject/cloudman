@@ -121,7 +121,6 @@ def configure_logging( config, user_data={} ):
     loggly_token = config.get('cm_loggly_token', None)
     loggly_token = os.environ.get('CM_LOGGLY_TOKEN', loggly_token)
     loggly_token = user_data.get('cm_loggly_token', loggly_token)
-
     if loggly_token is not None:
         loggly_handler = hoover.LogglyHttpHandler(token=loggly_token)
         loggly_handler.setFormatter( formatter )
