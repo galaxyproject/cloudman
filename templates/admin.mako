@@ -356,16 +356,16 @@
 			/* Styling for the space usage meter element */
 			.space_usage {
 		        text-align: center;
-		        padding:2px 2px 2px 2px;
+		        padding: 2px 2px 2px 2px;
 		    }
 
 			/* The percentage */
-			.space_usage:after {
+			#fs-meter-<%= name %>:after {
 				content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
 			}
 		</style>
         <% if (status === "Available" || status === "Running") { %>
-            <meter class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
+            <meter id="fs-meter-<%= name %>" class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
             	<%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
