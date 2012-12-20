@@ -1,0 +1,7 @@
+static_filesystems:
+    - filesystem: galaxyIndices
+      snap_id: snap-84e771ef 
+      size: 200
+    - filesystem: galaxyTools
+      snap_id: snap-506d233b
+      size: 1
