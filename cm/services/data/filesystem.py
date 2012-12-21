@@ -141,6 +141,7 @@ class Filesystem(DataService):
                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
                     self.transient_storage))
         self.state = service_states.SHUTTING_DOWN
+        super(Filesystem, self).remove()
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
 

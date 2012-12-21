@@ -68,6 +68,18 @@ class Service( object):
                 self.state = service_states.UNSTARTED
                 return False
 
+    def remove(self):
+        """
+        Recursively removes a service and all services that depend on it.
+        Child classes which override this method should ensure this is called
+        for proper removal of service dependencies.
+        """
+        print "Removing service: " % self.name
+        for service in self.app.manager.services:
+            if (self.name in service.reqs):
+                print "Removing dependent service: " % service.name % " of service: " % self.name
+                service.remove()
+
     def running(self):
         """
         Return ``True`` is service is in state ``RUNNING``, ``False`` otherwise
