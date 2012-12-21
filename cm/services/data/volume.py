@@ -514,7 +514,7 @@ class Volume(BlockStorage):
                         log.debug("Device path {0} checked and it exists.".format(self.device))
                         break
                     else:
-                        log.debug("Device path {0} does not yet exists; waiting...".format(self.device))
+                        log.debug("Device path {0} does not yet exist; waiting...".format(self.device))
                         time.sleep(4)
                 # Until the underlying issue is fixed (see FIXME below), mask this
                 # even more by custom-handling the run command and thus not printing the err

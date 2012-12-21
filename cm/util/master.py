@@ -1964,6 +1964,60 @@ class ConsoleMonitor( object ):
                 log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
                 misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
 
+
+    def __add_services(self):
+        # Check and add any new services
+        added_srvcs = False # Flag to indicate if cluster conf was changed
+        for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
+            log.debug("Monitor adding service '%s'" % service.get_full_name())
+            self.last_system_change_time = dt.datetime.utcnow()
+            if service.add():
+                added_srvcs = True # else:
+        
+            # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
+            # .format(service.get_full_name(), service.state))
+            # Store cluster conf after all services have been added.
+            # NOTE: this flag relies on the assumption service additions are
+            # sequential (i.e., monitor waits for the service add call to complete).
+            # If any of the services are to be added via separate threads, a
+            # system-wide flag should probably be maintained for that particular
+            # service that would indicate the configuration of the service is
+            # complete. This could probably be done by monitoring
+            # the service state flag that is already maintained?
+        if added_srvcs and self.app.cloud_type != 'opennebula':
+            self.store_cluster_config() # Check and grow the file system
+        svcs = self.app.manager.get_services('Filesystem')
+        for svc in svcs:
+            if svc.name == 'galaxyData' and svc.grow is not None:
+                self.last_system_change_time = dt.datetime.utcnow()
+                self.expand_user_data_volume()
+            # Opennebula has no storage like S3, so this is not working (yet)
+                if self.app.cloud_type != 'opennebula':
+                    self.store_cluster_config()
+                    
+    def __check_amqp_messages(self):
+        # Check for any new AMQP messages
+        m = self.conn.recv()
+        while m is not None:
+            def do_match():
+                match = False
+                for inst in self.app.manager.worker_instances:
+                    if str(inst.id) == str(m.properties['reply_to']):
+                        match = True
+                        inst.handle_message( m.body )
+                return match
+
+            if not do_match():
+                log.debug( "No instance (%s) match found for message %s; will add instance now!" \
+                    % ( m.properties['reply_to'], m.body ) )
+                if self.app.manager.add_live_instance(m.properties['reply_to']):
+                    do_match()
+                else:
+                    log.warning("Potential error, got message from instance '%s' "
+                        "but not aware of this instance. Ignoring the instance." \
+                        % m.properties['reply_to'])
+            m = self.conn.recv()
+
     def __monitor( self ):
         if self.app.manager.manager_started == False:
             if not self.app.manager.start():
@@ -2015,56 +2069,8 @@ class ConsoleMonitor( object ):
                         log.debug("Not checking quiet instance {0} (last check {1} secs ago)"\
                             .format(w_instance.get_desc(),
                             (dt.datetime.utcnow() - w_instance.last_state_update).seconds))
-            # Check and add any new services
-            added_srvcs = False # Flag to indicate if cluster conf was changed
-            for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
-                log.debug("Monitor adding service '%s'" % service.get_full_name())
-                self.last_system_change_time = dt.datetime.utcnow()
-                if service.add():
-                    added_srvcs = True
-                # else:
-                    # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
-                        # .format(service.get_full_name(), service.state))
-            # Store cluster conf after all services have been added.
-            # NOTE: this flag relies on the assumption service additions are
-            # sequential (i.e., monitor waits for the service add call to complete).
-            # If any of the services are to be added via separate threads, a
-            # system-wide flag should probably be maintained for that particular
-            # service that would indicate the configuration of the service is
-            # complete. This could probably be done by monitoring
-            # the service state flag that is already maintained?
-            if added_srvcs and self.app.cloud_type != 'opennebula':
-                self.store_cluster_config()
-            # Check and grow the file system
-            svcs = self.app.manager.get_services('Filesystem')
-            for svc in svcs:
-                if svc.name == 'galaxyData' and svc.grow is not None:
-                    self.last_system_change_time = dt.datetime.utcnow()
-                    self.expand_user_data_volume()
-                    # Opennebula has no storage like S3, so this is not working (yet)
-                    if self.app.cloud_type != 'opennebula':
-                        self.store_cluster_config()
-            # Check for any new AMQP messages
-            m = self.conn.recv()
-            while m is not None:
-                def do_match():
-                    match = False
-                    for inst in self.app.manager.worker_instances:
-                        if str(inst.id) == str(m.properties['reply_to']):
-                            match = True
-                            inst.handle_message( m.body )
-                    return match
-
-                if not do_match():
-                    log.debug( "No instance (%s) match found for message %s; will add instance now!" \
-                        % ( m.properties['reply_to'], m.body ) )
-                    if self.app.manager.add_live_instance(m.properties['reply_to']):
-                        do_match()
-                    else:
-                        log.warning("Potential error, got message from instance '%s' "
-                            "but not aware of this instance. Ignoring the instance." \
-                            % m.properties['reply_to'])
-                m = self.conn.recv()
+            self.__add_services()
+            self.__check_amqp_messages()
 
 
 class Instance( object ):
@@ -2118,7 +2124,7 @@ class Instance( object ):
             the instance.
         """
         def reboot_terminate_logic():
-            """ Make a decision whether to reboot, terminate or reboot an instance.
+            """ Make a decision whether to terminate or reboot an instance.
                 CALL THIS METHOD CAREFULLY because it defaults to terminating the
                 instance!
             """
