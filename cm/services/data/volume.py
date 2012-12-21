@@ -117,7 +117,20 @@ class Volume(BlockStorage):
             self.device = None
         else:
             self.volume = vol
-            self.device = vol.attach_data.device
+            attach_device = vol.attach_data.device
+            if run('ls {0}'.format(attach_device), quiet=True):
+                self.device = attach_device
+            else:
+                # Attach device is different than the system device so figure it out
+                try:
+                    attach_device = '/dev/xvd' + attach_device[-1]
+                except Exception, e:
+                    log.error("Attach device's ({0}) ID too short? {1}".format(attach_device, e))
+                if run('ls {0}'.format(attach_device), quiet=True):
+                    self.device = attach_device
+                else:
+                    log.error("Problems discovering attach device vs. system device")
+                    self.device = None
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
             if self.from_snapshot_id == '':
@@ -217,6 +230,17 @@ class Volume(BlockStorage):
 
         if self.status == volume_status.NONE:
             try:
+                # Temp code (Dec 2012) - required by the NeCTAR Research Cloud until general volumes arrive
+                if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                    zone = self.app.cloud_interface.get_zone()
+                    if zone != 'melbourne-qh2':
+                        msg = "It seems you're running on the NeCTAR cloud and in " \
+                            "zone other than 'melbourne-qh2'. However, volumes work " \
+                            "only in that zone. You must restart this cluster in the " \
+                            "correct zone."
+                        log.critical(msg)
+                        self.app.msgs.error(msg)
+                        return None
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                 self.size = int(self.volume.size or 0) # when creating from a snapshot in Euca, volume.size may be None

@@ -536,13 +536,14 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
                 log.debug("Could not set metadata for file '%s' in bucket '%s': %e" % (remote_filename, bucket_name, e))
     return False
 
-def run(cmd, err=None, ok=None):
+def run(cmd, err=None, ok=None, quiet=False):
     """
     Convenience method for executing a shell command ``cmd``. Returns
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
 
     In case of an error, include ``err`` in the log output;
-    include ``ok`` output if command ran fine.
+    include ``ok`` output if command ran fine. If ``quite`` is set to ``True``,
+    do not log any messages.
     """
     # Predefine err and ok mesages to include the command being run
     if err is None:
@@ -552,13 +553,16 @@ def run(cmd, err=None, ok=None):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
-        log.debug(ok)
+        if not quiet:
+            log.debug(ok)
         if stdout:
             return stdout
         else:
             return True
     else:
-        log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'" % (err, cmd, process.returncode, stderr))
+        if not quiet:
+            log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'"
+                % (err, cmd, process.returncode, stderr))
         return False
 
 def replace_string(file_name, pattern, subst):
