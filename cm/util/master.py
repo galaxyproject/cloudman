@@ -2542,8 +2542,11 @@ class Instance( object ):
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type in ('openstack','eucalyptus'):
-                    worker_host_line = '{ip}\t{hostname}\n'.format(ip=self.private_ip, \
-                        hostname=self.local_hostname)
+                    hn2 = ''
+                    if '.' in self.local_hostname:
+                        hn2 = (self.local_hostname).split('.')[0]
+                    worker_host_line = '{ip} {hn1} {hn2}\n'.format(ip=self.private_ip, \
+                        hn1=self.local_hostname, hn2=hn2)
                     log.debug("worker_host_line: {0}".format(worker_host_line))
                     with open('/etc/hosts', 'r+') as f:
                         hosts = f.readlines()

@@ -68,7 +68,7 @@ class GalaxyService(ApplicationService):
         if to_be_started:
             self.status()
             if not self.configured:
-                log.info( "Setting up Galaxy application" )
+                log.debug( "Setting up Galaxy application" )
                 s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
@@ -137,7 +137,7 @@ class GalaxyService(ApplicationService):
                 # os.chown(self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                 self.configured = True
             if self.state != service_states.RUNNING:
-                log.info( "Starting Galaxy..." )
+                log.debug( "Starting Galaxy..." )
                 # Make sure admin users get added
                 self.add_galaxy_admin_users()
                 start_command = self.galaxy_run_command("%s --daemon" % self.extra_daemon_args)
