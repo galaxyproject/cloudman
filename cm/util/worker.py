@@ -397,7 +397,7 @@ class ConsoleMonitor( object ):
         elif message.startswith("ADDS3FS"):
             bucket_name = message.split(' | ')[1]
             log.info("Adding s3fs file system from bucket {0}".format(bucket_name))
-            fs = Filesystem(self.app, bucket_name)
+            fs = Filesystem(self.app, bucket_name) #NGTODO: What should the svc_role be here?
             fs.add_bucket(bucket_name)
             fs.add()
             log.debug("Worker done adding FS from bucket {0}".format(bucket_name))

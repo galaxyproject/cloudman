@@ -17,6 +17,7 @@ from cm.util import paths
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.services import service_states
+from cm.services import ServiceRole
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
 
@@ -494,7 +495,7 @@ class Volume(BlockStorage):
         # Mark a volume as 'static' if created from a snapshot
         # Note that if a volume is marked as 'static', it is assumed it
         # can be deleted upon cluster termination!
-        if self.fs.name != 'galaxyData' and self.from_snapshot_id is not None:
+        if self.fs.svc_role != ServiceRole.GALAXY_DATA and self.from_snapshot_id is not None:
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (self.volume_id, self.fs.name))
             self.static = True
             self.fs.kind= 'snapshot'
@@ -512,7 +513,7 @@ class Volume(BlockStorage):
         log.debug("Detaching volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
         if self.detach():
             log.debug("Detached volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
-            if self.static and self.fs.name != 'galaxyData' and delete_vols:
+            if self.static and self.fs.svc_role != ServiceRole.GALAXY_DATA and delete_vols:
                 log.debug("Deleting volume {0} as part of {1}".format(self.volume_id, self.fs.get_full_name()))
                 self.delete()
 
@@ -564,7 +565,7 @@ class Volume(BlockStorage):
                     # Default owner of all mounted file systems to `galaxy` user
                     os.chown(mount_point, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                     # Add Galaxy- and CloudBioLinux-required files under the 'data' dir
-                    if self.fs.name == 'galaxyData':
+                    if self.fs.svc_role == ServiceRole.GALAXY_DATA:
                         for sd in ['files', 'tmp', 'upload_store', 'export']:
                             path = os.path.join(paths.P_GALAXY_DATA, sd)
                             if not os.path.exists(path):

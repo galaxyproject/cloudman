@@ -10,10 +10,12 @@ Placeholder for ApplicationService methods.
 """
 
 from cm.services import Service
+from cm.services import ServiceType
 
 class ApplicationService( Service ):
 
     def __init__(self, app):
+        self.svc_type = ServiceType.APPLICATION        
         super(ApplicationService, self).__init__(app)
 
     def _check_daemon(self, service):

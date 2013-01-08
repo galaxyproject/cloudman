@@ -100,15 +100,15 @@ def _start_nginx(ud):
     _configure_nginx(ud)
     _fix_nginx_upload()
     rmdir = False # Flag to indicate if a dir should be deleted
-    if not os.path.exists('/mnt/galaxyData/upload_store'):
+    if not os.path.exists('/mnt/galaxyData/upload_store'): #NGTODO: Hardcoded links to GalaxyData?
         rmdir = True
-        os.makedirs('/mnt/galaxyData/upload_store')
+        os.makedirs('/mnt/galaxyData/upload_store')  #NGTODO: Hardcoded links to GalaxyData?
     if not _run('/opt/galaxy/sbin/nginx'):
         _run('/etc/init.d/apache2 stop')
         _run('/etc/init.d/tntnet stop') # On Ubuntu 12.04, this server also starts?
         _run('/opt/galaxy/sbin/nginx')
     if rmdir:
-        _run('rm -rf /mnt/galaxyData')
+        _run('rm -rf /mnt/galaxyData')  #NGTODO: Hardcoded links to GalaxyData?
 
 def _write_conf_file(contents_descriptor, path):
     destination_directory = os.path.dirname(path)
