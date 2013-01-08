@@ -18,6 +18,6 @@ class BaseConsoleManager(object):
               - "mkdir -p /mnt/galaxyData/tmp"
               - "chown -R galaxy:galaxy /mnt/galaxyData"
         """
-        user_data_variable = "%s_prestart_commands" % self.node_type
+        user_data_variable = "%s_prestart_commands" % self.node_type #NGTODO: Another potential hardcoded link to galaxyData?
         for command in self.app.ud.get(user_data_variable, []):
             misc.run(command)

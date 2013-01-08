@@ -71,7 +71,7 @@ class Introspect(object):
 
     def check_disk(self):
         try:
-            disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'")
+            disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'") #NGTODO: Needs review. Should no be linked to galaxyData directly
             disk_usage = disk_usage.split(' ')
             if len(disk_usage) == 3:
                 self.app.manager.disk_total = disk_usage[0]
@@ -89,7 +89,7 @@ class Introspect(object):
         Following file systems are checked (as they map to their appropriate
         mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         and 'galaxyIndices'.
-        Because multiple file syatems are checked, status of individual voluems
+        Because multiple file systems are checked, status of individual volumes
         is stored in master's volume description variable so this method does
         not return a value.
         """
@@ -107,7 +107,7 @@ class Introspect(object):
         mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         'galaxyIndices', and '/opt/sge'.
         """
-        self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData')
+        self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData') #NGTODO: Needs major overhaul. Should iterate through services and discover volume name?
         self.app.manager.nfs_tools = self.check_file_system('galaxyTools', '/mnt/galaxyTools')
         self.app.manager.nfs_indices = self.check_file_system('galaxyIndices', '/mnt/galaxyIndices')
         self.app.manager.nfs_sge = self.check_file_system('SGE', '/opt/sge')
