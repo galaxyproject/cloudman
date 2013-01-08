@@ -1516,7 +1516,7 @@ fieldset {
     display: inline !important;
     padding-right: 15px;
 }
-#add-bucket-form, #add-volume-form, #add-snapshot-form, #add-new-volume-form {
+#add-bucket-form, #add-volume-form, #add-snapshot-form, #add-new-volume-form, #add-nfs-form {
     display: none;
     border-top: 1px solid #CCC;
 }

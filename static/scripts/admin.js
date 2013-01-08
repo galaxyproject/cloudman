@@ -531,6 +531,8 @@ jQuery.fn.serializeObject = function() {
                 '<label for="fs-kind-snapshot">Snapshot</label>' +
                 '<input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-new-volume" class="fs-add-radio-btn" value="new_volume"/>' +
                 '<label for="fs-kind-new-volume">New volume</label>' +
+                '<input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-nfs" class="fs-add-radio-btn" value="nfs"/>' +
+                '<label for="fs-kind-nfs">NFS</label>' +
             '</fieldset>' +
             // Bucket form details
             '</div><div id="add-bucket-form" class="add-fs-details-form-row">' +
@@ -590,6 +592,17 @@ jQuery.fn.serializeObject = function() {
                     '<td><input type="text" size="20" name="new_vol_fs_name" id="new_vol_fs_name"> ' +
                     '(no spaces, alphanumeric characters only)</td>' +
                 '</tr></table>' +
+            // NFS form details
+            '</div><div id="add-nfs-form" class="add-fs-details-form-row">' +
+                '<table><tr>' +
+                    '<td><label for="nfs-server">NFS server address: </label></td>' +
+                    '<td><input type="text" size="20" name="nfs_server" id="nfs_server" ' +
+                        'placeholder="e.g., 172.22.169.17:/nfs_dir"></td>' +
+                    '</tr><tr>' +
+                    '<td><label for="nfs_fs_name">File system name: </label></td>' +
+                    '<td><input type="text" size="20" name="nfs_fs_name" id="nfs_fs_name"> ' +
+                    '(no spaces, alphanumeric characters only)</td>' +
+                '</tr></table>' +
             '</div><div id="add-fs-dot" class="add-fs-details-form-row">' +
                 '<input type="checkbox" name="dot" id="add-fs-dot-box"><label for="add-fs-dot-box">' +
                 'If checked, the created disk <b>will be deleted</b> upon cluster termination</label>' +
@@ -615,6 +628,7 @@ jQuery.fn.serializeObject = function() {
             "click #fs-kind-volume": "showVolumeForm",
             "click #fs-kind-snapshot": "showSnapshotForm",
             "click #fs-kind-new-volume": "showNewVolumeForm",
+            "click #fs-kind-nfs": "showNFSForm",
         },
 
         initialize: function(options) {
@@ -671,6 +685,13 @@ jQuery.fn.serializeObject = function() {
             $('#add-fs-submit-btn').show("blind");
         },
 
+        showNFSForm: function() {
+            this.hideDetailsForm();
+            $("#add-nfs-form").show("blind");
+            $('#add-fs-persist').show("blind");
+            $('#add-fs-submit-btn').show("blind");
+        },
+
         hideDetailsForm: function(event) {
             $('.add-fs-details-form-row').each(function() {
                 var elid = $(this).attr('id');
@@ -700,6 +721,9 @@ jQuery.fn.serializeObject = function() {
                     break;
                 case "new_volume":
                     var new_fs_name = form_obj.new_vol_fs_name;
+                    break;
+                case "nfs":
+                    var new_fs_name = form_obj.nfs_fs_name;
                     break;
                 default:
                     var new_fs_name = "Unknown";
