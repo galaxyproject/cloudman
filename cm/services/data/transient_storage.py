@@ -71,6 +71,7 @@ class TransientStorage(BlockStorage):
         here we just need to remove the NFS share point.
         """
         log.debug("Removing transient instance storage from {0}".format(self.fs.mount_point))
+        super(TransientStorage, self).remove()
         self.fs.remove_nfs_share()
         self.state = service_states.SHUT_DOWN
 

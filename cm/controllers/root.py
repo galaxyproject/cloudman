@@ -8,6 +8,8 @@ from cm.util.json import to_json_string
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
+from cm.services import ServiceType
+from cm.services import ServiceRole
 from cm.util.bunch import BunchToo
 import cm.util.paths as paths
 from cm.util.decorators import TestFlag
@@ -29,7 +31,7 @@ class CM(BaseController):
                                         initial_cluster_type = initial_cluster_type,
                                         cluster_name = cluster_name,
                                         master_instance_type = self.app.cloud_interface.get_type(),
-                                        use_autoscaling = bool(self.app.manager.get_services('Autoscale')),
+                                        use_autoscaling = bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
                                         image_config_support = BunchToo(self.app.config.ic),
                                         CM_url = CM_url,
                                         cloud_type = self.app.ud.get('cloud_type', 'ec2'),
@@ -121,7 +123,7 @@ class CM(BaseController):
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False,
-            fs_name='galaxyData'):
+            fs_name='galaxyData'): #NGTODO: Needs review since fs_name is assumed
         if delete_snap:
             delete_snap = True
         log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
@@ -433,8 +435,8 @@ class CM(BaseController):
         self.app.msgs.dismiss()
 
     @expose
-    def restart_service(self, trans, service_name):
-        svcs = self.app.manager.get_services(service_name)
+    def restart_service(self, trans, service_name, service_role=None):
+        svcs = self.app.manager.get_services(svc_role=service_role, svc_name=service_name)
         if svcs:
             for service in svcs:
                 service.remove()
@@ -451,7 +453,7 @@ class CM(BaseController):
             log.debug("Updating Galaxy database...")
         else:
             log.debug("Updating Galaxy... Using repository %s" % repository)
-        svcs = self.app.manager.get_services('Galaxy')
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
         if svcs:
             for service in svcs:
                 service.remove()
@@ -484,7 +486,7 @@ class CM(BaseController):
                 if not m:
                     admins_list.remove(admin)
             # Get a handle to Galaxy service and add admins
-            svcs = self.app.manager.get_services('Galaxy')
+            svcs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
             if len(svcs)>0 and len(admins_list)>0:
                 svcs[0].add_galaxy_admin_users(admins_list)
                 log.info("Galaxy admins added: %s; restarting Galaxy" % admins_list)
@@ -512,10 +514,10 @@ class CM(BaseController):
         is_filesystem = (is_filesystem == 'True') # convert to boolean
         to_be_started = (to_be_started == 'True')
         if is_filesystem:
-            svcs = [s for s in self.app.manager.services if s.svc_type=='Filesystem' \
-                    and s.name==service_name]
-        else:
-            svcs = self.app.manager.get_services(service_name)
+            svc_type = ServiceType.FILE_SYSTEM
+        else:            
+            svc_type = ServiceType.APPLICATION        
+        svcs = self.app.manager.get_services(svc_type=svc_type, svc_name=service_name)
         if svcs:
             log.debug("Managing services: %s" % svcs)
             if to_be_started == False:
@@ -534,7 +536,7 @@ class CM(BaseController):
 
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None):
-        if self.app.manager.get_services('Autoscale'):
+        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
@@ -544,11 +546,11 @@ class CM(BaseController):
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, max: %s). " +
                     "Autoscaling is OFF." % (as_min, as_max))
-        if self.app.manager.get_services('Autoscale'):
+        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
 
             return to_json_string({'running' : True,
-                                    'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
-                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max,
+                                    'as_min' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
+                                    'as_max' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
             return to_json_string({'running' : False,
@@ -558,15 +560,15 @@ class CM(BaseController):
 
     @expose
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
-        if self.app.manager.get_services('Autoscale'):
+        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
             if self.check_as_vals(as_min_adj, as_max_adj):
                 # log.debug("Adjusting autoscaling; new bounds min: %s, max: %s" % (as_min_adj, as_max_adj))
                 self.app.manager.adjust_autoscaling(int(as_min_adj), int(as_max_adj))
             else:
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (as_min_adj, as_max_adj))
             return to_json_string({'running' : True,
-                                    'as_min' : self.app.manager.get_services('Autoscale')[0].as_min,
-                                    'as_max' : self.app.manager.get_services('Autoscale')[0].as_max,
+                                    'as_min' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
+                                    'as_max' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
             return to_json_string({'running' : False,
@@ -631,7 +633,7 @@ class CM(BaseController):
     def admin(self, trans):
         # Get names of the file systems
         filesystems = []
-        fss = self.app.manager.get_services('Filesystem')
+        fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
@@ -663,7 +665,7 @@ class CM(BaseController):
     def get_galaxy_dns(self):
         """ Check if Galaxy is running and the the web UI is accessible. Return
         DNS address if so, `#` otherwise. """
-        g_s = self.app.manager.get_services('Galaxy')
+        g_s = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
         if g_s and g_s[0].state == service_states.RUNNING:
             dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
         else:
@@ -703,9 +705,9 @@ class CM(BaseController):
                     'all_fs' : self.app.manager.all_fs_status_array(),
                     'snapshot' : {'status' : str(snap_status[0]),
                                   'progress' : str(snap_status[1])},
-                    'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services('Autoscale')),
-                                    'as_min': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_min,
-                                    'as_max': 'N/A' if not self.app.manager.get_services('Autoscale') else self.app.manager.get_services('Autoscale')[0].as_max}
+                    'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
+                                    'as_min': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
+                                    'as_max': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max}
                     }
         if no_json:
             return ret_dict

@@ -1,6 +1,8 @@
 syntax: regexp
 
 \.svn$
+lib/*
+bin/*
 
 syntax: glob
 

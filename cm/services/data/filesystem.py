@@ -14,6 +14,7 @@ from cm.util import paths
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.services import service_states
+from cm.services import ServiceRole
 from cm.services.data import DataService
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
@@ -24,9 +25,9 @@ log = logging.getLogger('cloudman')
 
 
 class Filesystem(DataService):
-    def __init__(self, app, name, mount_point=None, persistent=True):
+    def __init__(self, app, name, svc_role=ServiceRole.GENERIC_FS, mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
-        self.svc_type = "Filesystem"
+        self.svc_role = svc_role
         self.nfs_lock_file = '/tmp/nfs.lockfile'
         # TODO: Introduce a new file system layer that abstracts/consolidates
         # potentially multiple devices under a single file system interface
@@ -141,6 +142,7 @@ class Filesystem(DataService):
                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
                     self.transient_storage))
         self.state = service_states.SHUTTING_DOWN
+        super(Filesystem, self).remove()
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
 
@@ -442,7 +444,7 @@ class Filesystem(DataService):
         set state to ERROR.
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
-        #   % (self.svc_type, self.name, self.state))
+        #   % (self.svc_role, self.name, self.state))
         if self.dirty:
             # First check if the NFS server needs to be restarted but do it one thread at a time
             with flock(self.nfs_lock_file):

@@ -3,6 +3,8 @@ import commands, os, pwd, grp
 from cm.services.apps import ApplicationService
 from cm.util import paths
 from cm.services import service_states
+from cm.services import ServiceRole
+from cm.services import ServiceDependency
 from cm.util import misc
 
 import logging
@@ -12,23 +14,23 @@ class PostgresService( ApplicationService ):
 
     def __init__(self, app):
         super(PostgresService, self).__init__(app)
-        self.svc_type = "Postgres"
+        self.svc_role = ServiceRole.GALAXY_POSTGRES
         self.psql_port = paths.C_PSQL_PORT
-        self.reqs = {'Filesystem': 'galaxyData'}
+        self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY_DATA) ]
 
     def start(self):
         self.state = service_states.STARTING
         self.manage_postgres(True)
 
     def remove(self):
-        log.info("Removing '%s' service" % self.svc_type)
+        log.info("Removing '%s' service" % self.svc_role)
         # Stop only if currently running
         if self.state==service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.manage_postgres(False)
         else:
             log.debug("{0} service is not running (state: {1}) so not stopping it."\
-                .format(self.svc_type, self.state))
+                .format(self.svc_role, self.state))
         # TODO: Should we completely remove self?
 
     def manage_postgres( self, to_be_started=True ):

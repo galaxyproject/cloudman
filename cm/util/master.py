@@ -14,6 +14,8 @@ from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
+from cm.services import ServiceType
+from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
@@ -21,7 +23,7 @@ from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S
 
 log = logging.getLogger('cloudman')
 
-APP_SERVICES = {'Galaxy': GalaxyService, 'Postgres': PostgresService, 'GalaxyReports': GalaxyReportsService}
+APP_SERVICES = {'Galaxy': GalaxyService, 'Postgres': PostgresService, 'GalaxyReports': GalaxyReportsService} #NGTODO: This should be changed to use Roles instead of names directly? 
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -61,28 +63,28 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
-            for svc_type in ['Galaxy', 'Postgres']:
+            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES]:
                 try:
-                    svc = self.get_services(svc_type)
+                    svc = self.get_services(svc_role=svc_role)
                     if svc:
                         svc[0].remove()
                 except IndexError, e:
                     log.error("Tried removing app level service '%s' but failed: %s" \
-                        % (svc_type, e))
+                        % (svc_role, e))
 
     def _start_app_level_services(self):
         # Resume application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
         # to be added)
-        for svc_type in ['Postgres', 'Galaxy']:
+        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.GALAXY]:
             try:
-                svc = self.get_services(svc_type)
+                svc = self.get_services(svc_role=svc_role)
                 if svc:
                     svc[0].add()
             except IndexError, e:
                 log.error("Tried adding app level service '%s' but failed: %s" \
-                    % (svc_type, e))
+                    % (svc_role, e))
         log.debug("Unsuspending SGE queue all.q")
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' \
             % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
@@ -113,7 +115,7 @@ class ConsoleManager(BaseConsoleManager):
         :return: A pair of values as strings indicating (1) the status (e.g.,
         pending, complete) of the snapshot and (2) the progress.
         """
-        fsarr = [s for s in self.services if s.svc_type == "Filesystem"]
+        fsarr = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for fs in fsarr:
             for vol in fs.volumes:
                 if vol.snapshot_status != None:
@@ -139,7 +141,7 @@ class ConsoleManager(BaseConsoleManager):
         # Always add SGE service
         self.services.append(SGEService(self.app))
         # Always share instance transient storage over NFS
-        tfs = Filesystem(self.app, 'transient_nfs')
+        tfs = Filesystem(self.app, 'transient_nfs', svc_role=ServiceRole.TRANSIENT_NFS)
         tfs.add_transient_storage()
         self.services.append(tfs)
         # Always add PSS service - note that this service runs only after the cluster
@@ -183,7 +185,7 @@ class ConsoleManager(BaseConsoleManager):
               - "mkdir -p /mnt/galaxyData/tmp"
               - "chown -R galaxy:galaxy /mnt/galaxyData"
         """
-        for command in self.app.ud.get("master_prestart_commands", []):
+        for command in self.app.ud.get("master_prestart_commands", []): #NGTODO: Check for potential hardcoded link to galaxyData
             misc.run(command)
 
     @TestFlag(False)
@@ -205,7 +207,7 @@ class ConsoleManager(BaseConsoleManager):
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None))
+                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_role=fs['svc_role']) #NGTODO: Correct user data to include svc_role
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
                     if fs['kind'] == 'volume':
@@ -246,11 +248,11 @@ class ConsoleManager(BaseConsoleManager):
                         self.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_name = srvc['name']
+                    service_name = srvc['name'] #NGTODO: Need backward compatibility at this point
                     log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    service_class = APP_SERVICES.get(service_name, None)
+                    service_class = APP_SERVICES.get(service_name, None) #NGTODO: This needs review. APP_SERVICES refers to services directly by name instead of role
                     if service_class:
                         self.services.append(service_class(self.app))
                         processed_service = True
@@ -310,7 +312,7 @@ class ConsoleManager(BaseConsoleManager):
             # Process the deprecated configuration now
             if "static_filesystems" in self.app.ud:
                 for vol in self.app.ud['static_filesystems']:
-                    fs = Filesystem(self.app, vol['filesystem'])
+                    fs = Filesystem(self.app, vol['filesystem'], svc_role=vol['svc_role']) #NGTODO: Correct user data to include svc_role
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, vol['filesystem'])
                     if att_vol:
@@ -324,7 +326,7 @@ class ConsoleManager(BaseConsoleManager):
             if "data_filesystems" in self.app.ud:
                 for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
                     log.debug("Adding a previously existing data filesystem: '%s'" % fs)
-                    fs = Filesystem(self.app, fs)
+                    fs = Filesystem(self.app, fs) #NGTODO: Something needs to be done here to pass correct svc_role
                     for vol in vol_array:
                         fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
                     self.services.append(fs)
@@ -353,23 +355,23 @@ class ConsoleManager(BaseConsoleManager):
             return False
 
     def start_autoscaling(self, as_min, as_max, instance_type):
-        as_svc = self.get_services('Autoscale')
+        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if not as_svc:
             self.services.append(Autoscale(self.app, as_min, as_max, instance_type))
         else:
             log.debug("Autoscaling is already on.")
-        as_svc = self.get_services('Autoscale')
+        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         log.debug(as_svc[0])
 
     def stop_autoscaling(self):
-        as_svc = self.get_services('Autoscale')
+        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if as_svc:
             self.services.remove(as_svc[0])
         else:
             log.debug("Not stopping autoscaling because it is not on.")
 
     def adjust_autoscaling(self, as_min, as_max):
-        as_svc = self.get_services('Autoscale')
+        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if as_svc:
             as_svc[0].as_min = int(as_min)
             as_svc[0].as_max = int(as_max)
@@ -380,7 +382,7 @@ class ConsoleManager(BaseConsoleManager):
     # DBTODO For now this is a quick fix to get a status.
     # Define what 'yellow' would be, and don't just count on "Filesystem" being the only data service.
     def get_data_status(self):
-        fses = self.get_services("Filesystem")
+        fses = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         if fses != []:
             for fs in fses:
                 if fs.state == service_states.ERROR:
@@ -393,22 +395,33 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_app_status(self):
         count = 0
-        for svc in self.services:
-            if svc.svc_type != "Filesystem":
-                count += 1
-                if svc.state == service_states.ERROR:
-                    return "red"
-                elif svc.state != service_states.RUNNING:
-                    return "yellow"
+        for svc in self.get_services(svc_type=ServiceType.APPLICATION):
+            count += 1
+            if svc.state == service_states.ERROR:
+                return "red"
+            elif svc.state != service_states.RUNNING:
+                return "yellow"
         if count != 0:
             return "green"
         else:
             return "nodata"
 
-    def get_services(self, svc_type):
+    def get_services(self, svc_type=None, svc_role=None, svc_name=None):
+        """
+        Returns all services that best match given service type, role and name.
+        If service name is specified, it is matched first.
+        Next, if a role is specified, returns all services matching role.
+        If service role is None, but a service type is specified, returns all services
+        matching type.
+        """
         svcs = []
         for s in self.services:
-            if s.svc_type == svc_type:
+            if s.name == svc_name:
+                svcs.append(s)
+                return svcs # Only one match possible - so return immediately
+            elif s.svc_role == svc_role:
+                svcs.append(s)
+            elif s.svc_type == svc_type and svc_role == None:
                 svcs.append(s)
         return svcs
 
@@ -444,7 +457,7 @@ class ConsoleManager(BaseConsoleManager):
         """fs_status"""
         good_count = 0
         bad_count = 0
-        fsarr = [s for s in self.services if s.svc_type == "Filesystem"]
+        fsarr = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         if len(fsarr) == 0:
             return "nodata"
         # DBTODO Fix this conflated volume/filesystem garbage.
@@ -462,7 +475,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def pg_status_text(self):
         """pg_status"""
-        svcarr = [s for s in self.services if s.svc_type == "Postgres"]
+        svcarr = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
         if len(svcarr) > 0:
             if svcarr[0].state == service_states.RUNNING:
                 return "green"
@@ -473,7 +486,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def sge_status_text(self):
         """sge_status"""
-        svcarr = [s for s in self.services if s.svc_type == "SGE"]
+        svcarr = self.get_services(svc_role=ServiceRole.SGE)
         if len(svcarr) > 0:
             if svcarr[0].state == service_states.RUNNING:
                 return "green"
@@ -484,7 +497,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def galaxy_status_text(self):
         """galaxy_status"""
-        svcarr = [s for s in self.services if s.svc_type == "Galaxy"]
+        svcarr = self.get_services(svc_role=ServiceRole.GALAXY)
         if len(svcarr) > 0:
             if svcarr[0].state == service_states.RUNNING:
                 return "green"
@@ -499,13 +512,13 @@ class ConsoleManager(BaseConsoleManager):
         a CloudMan-service, return ``Service not recognized``. If the service is
         not currently running (i.e., not currently recognized by CloudMan as a
         service it should be managing), return ``Service not found``.
-        """
-        if srvc in ['Galaxy', 'SGE', 'Postgres', 'Filesystem']:
-            svcarr = [s for s in self.services if s.svc_type == srvc]
-            if len(svcarr) > 0:
-                return srvc[0].state
-            else:
-                return "'%s' is not running" % srvc
+        """        
+        svcarr = self.get_services(svc_name=srvc)
+        svcarr = [s for s in svcarr if (s.svc_type == ServiceType.FILE_SYSTEM or s.svc_role in [ServiceRole.GALAXY, ServiceRole.SGE, ServiceRole.GALAXY_POSTGRES])]
+        if len(svcarr) > 0:
+            return srvc[0].state
+        else:
+            return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
@@ -529,7 +542,7 @@ class ConsoleManager(BaseConsoleManager):
         managed by CloudMan.
         """
         fss = []
-        fs_svcs = [s for s in self.services if s.svc_type=='Filesystem']
+        fs_svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for fs in fs_svcs:
             fss.append(fs.get_details())
         return fss
@@ -557,7 +570,7 @@ class ConsoleManager(BaseConsoleManager):
             "size": "N/A", "NFS_shared": True, "size_used": "", "size_pct": "", "error_msg": None})
         if r == 3:
             dummy[0]['status'] = "Adding"
-        if r == 4:
+        if r == 4: #NGTODO: Hardcoded links below to tools and indices?
             dummy.append({"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
             "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
             "size": "10G", "size_used": "1.9G", "size_pct": "19%",
@@ -585,7 +598,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         status_dict = {}
         for srvc in self.services:
-            status_dict[srvc.svc_type] = srvc.state
+            status_dict[srvc.svc_role] = srvc.state
         return status_dict
 
     def get_galaxy_rev(self):
@@ -618,7 +631,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_permanent_storage_size( self ):
         pss = 0
-        fs_arr = [s for s in self.services if s.svc_type=='Filesystem' and s.name=='galaxyData']
+        fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
         for fs in fs_arr:
             for vol in fs.volumes:
                 pss += int(vol.size)
@@ -626,9 +639,9 @@ class ConsoleManager(BaseConsoleManager):
 
     def check_disk(self):
         try:
-            fs_arr = [s for s in self.services if s.svc_type=='Filesystem' and s.name=='galaxyData']
+            fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
             if len(fs_arr)>0:
-                disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'")
+                disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'") #NGTODO: change hard coded link to GalaxyData
                 disk_usage = disk_usage.split(' ')
                 if len(disk_usage) == 3:
                     self.disk_total = disk_usage[0]
@@ -654,7 +667,7 @@ class ConsoleManager(BaseConsoleManager):
             :return: True if the master instance is set to be an execution host.
                      False otherwise.
         """
-        sge_svc = self.get_services('SGE')[0]
+        sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
         if sge_svc.state == service_states.RUNNING:
             if self.master_exec_host is True or force_removal:
                 self.master_exec_host = False
@@ -732,17 +745,17 @@ class ConsoleManager(BaseConsoleManager):
         if sd_autoscaling:
             self.stop_autoscaling()
         if sd_galaxy:
-            svcs = self.get_services('Galaxy')
+            svcs = self.get_services(svc_role=ServiceRole.GALAXY)
             for service in svcs:
                 service.remove()
         if sd_postgres:
-            svcs = self.get_services('Postgres')
+            svcs = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
             for service in svcs:
                 service.remove()
         if sd_instances:
             self.stop_worker_instances()
         if sd_filesystems:
-            svcs = self.get_services('Filesystem')
+            svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
             to_remove = []
             for service in svcs:
                 to_remove.append(service)
@@ -750,7 +763,7 @@ class ConsoleManager(BaseConsoleManager):
                 log.debug("Requesting removal of '%s' as part of shutdown" % service.get_full_name())
                 service.remove()
         if sd_sge:
-            svcs = self.get_services('SGE')
+            svcs = self.get_services(svc_role=ServiceRole.SGE)
             for service in svcs:
                 service.remove()
         if sd_spot_requests:
@@ -856,17 +869,17 @@ class ConsoleManager(BaseConsoleManager):
         excludes any data on user data file system).
         """
         log.debug("Cleaning the system - all services going down")
-        svcs = self.get_services('Galaxy')
+        svcs = self.get_services(svc_role=ServiceRole.GALAXY) #NGTODO: THis is one place where service ordering/category matters
         for service in svcs:
             service.remove()
-        svcs = self.get_services('Postgres')
+        svcs = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
         for service in svcs:
             service.remove()
         self.stop_worker_instances()
-        svcs = self.get_services('Filesystem')
+        svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for service in svcs:
             service.clean()
-        svcs = self.get_services('SGE')
+        svcs = self.get_services(svc_role=ServiceRole.SGE)
         for service in svcs:
             service.clean()
 
@@ -964,7 +977,7 @@ class ConsoleManager(BaseConsoleManager):
         log.debug( "Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-                sge_svc = self.get_services('SGE')[0]
+                sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
                 # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
                 # if sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip()) is True:
                 # Best-effort PATCH until above issue is handled
@@ -1046,7 +1059,7 @@ class ConsoleManager(BaseConsoleManager):
             """
             fs_name = 'galaxyData'
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
-            fs = Filesystem(self.app, fs_name)
+            fs = Filesystem(self.app, fs_name, svc_role=ServiceRole.GALAXY_DATA)
             fs.add_volume(size=pss)
             self.services.append(fs)
 
@@ -1069,7 +1082,7 @@ class ConsoleManager(BaseConsoleManager):
             if snaps:
                 attached_volumes = self.get_attached_volumes()
                 for snap in snaps:
-                    fs = Filesystem(self.app, snap['filesystem'])
+                    fs = Filesystem(self.app, snap['filesystem']) #NGTODO: What should the svc_role be here?
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
@@ -1160,7 +1173,7 @@ class ConsoleManager(BaseConsoleManager):
                     # the appropriate file system can be created as part of ``add_preconfigured_services``
                     # TODO: make it more general vs. galaxyData specific
                     data_fs_yaml = {'ids': [data_vol.id], 'kind': 'volume',
-                        'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'}
+                        'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'} #NGTODO: Hardcoded link to GalaxyData?
                     scpd['filesystems'].append(data_fs_yaml)
                     log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
                         % (data_vol.id, data_vol.size, snap.id))
@@ -1225,9 +1238,9 @@ class ConsoleManager(BaseConsoleManager):
 
         # Initiate snapshot of the galaxyData file system
         snap_ids=[]
-        svcs = self.get_services('Filesystem')
+        svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if svc.name == 'galaxyData':
+            if svc.svc_role == ServiceRole.GALAXY_DATA:
                 snap_ids = svc.snapshot(snap_description="CloudMan share-a-cluster %s; %s" \
                     % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
         # Create a new folder-like structure inside cluster's bucket and copy
@@ -1246,7 +1259,7 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = [] # Shared file systems list
         for fs in fsl:
-            if fs['name'] == 'galaxyTools' or fs['name'] == 'galaxyIndices':
+            if fs['name'] == 'galaxyTools' or fs['name'] == 'galaxyIndices': #NGTODO: Hardcoded links to tools and indices?
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
         misc.dump_yaml_to_file(sud, conf_file_name)
@@ -1449,7 +1462,7 @@ class ConsoleManager(BaseConsoleManager):
 
         # Initiate snapshot of the specified file system
         snap_ids=[]
-        svcs = self.get_services('Filesystem')
+        svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         found_fs_name = False # Flag to ensure provided fs name was actually found
         for svc in svcs:
             if svc.name == file_system_name:
@@ -1464,7 +1477,7 @@ class ConsoleManager(BaseConsoleManager):
                     svc.remove()
                     #self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
-                    fs = Filesystem(self.app, file_system_name)
+                    fs = Filesystem(self.app, file_system_name) #NGTODO: What should the service role be here?
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
                     self.services.append(fs)
@@ -1486,7 +1499,7 @@ class ConsoleManager(BaseConsoleManager):
     def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None, persistent=False):
         log.info("Adding a {4} file system {3} from bucket {0} (w/ creds {1}:{2})"\
             .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
-        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent)
+        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent) #NGTODO: What should the svc_role be?
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same
@@ -1569,7 +1582,7 @@ class ConsoleManager(BaseConsoleManager):
         return False
 
     def expand_user_data_volume(self, new_vol_size, snap_description=None,
-            delete_snap=False, fs_name='galaxyData'):
+            delete_snap=False, fs_name='galaxyData'): #NGTODO: Hardcoded link to GalaxyData?
         """
         Mark the file system ``fs_name`` for size expansion. For full details on how
         this works, take a look at the file system expansion method for the
@@ -1580,7 +1593,7 @@ class ConsoleManager(BaseConsoleManager):
         If the snapshot is to be kept, a brief ``snap_description`` can be provided.
         """
         # Mark the file system as needing to be expanded
-        svcs = self.get_services('Filesystem')
+        svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         fs_found = False;
         for svc in svcs:
             if svc.name == fs_name:
@@ -1838,9 +1851,9 @@ class ConsoleMonitor( object ):
         self.app.manager._stop_app_level_services()
 
         # Grow galaxyData filesystem
-        svcs = self.app.manager.get_services('Filesystem')
+        svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if svc.name == 'galaxyData':
+            if svc.svc_role == ServiceRole.GALAXY_DATA:
                 log.debug("Expanding '%s'" % svc.get_full_name())
                 svc.expand()
 
@@ -1862,10 +1875,11 @@ class ConsoleMonitor( object ):
                 cc = addl_data
             cc['tags'] = self.app.cloud_interface.tags # save cloud tags, in case the cloud doesn't support them natively
             for srvc in self.app.manager.services:
-                if srvc.svc_type=='Filesystem':
+                if srvc.svc_type == ServiceType.FILE_SYSTEM:
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
+                        fs['role'] = srvc.svc_role #NGTODO: Study impact of addition
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -1881,8 +1895,10 @@ class ConsoleMonitor( object ):
                         fss.append(fs)
                 else:
                     s = {}
-                    s['name'] = srvc.svc_type
-                    if srvc.svc_type == 'Galaxy':
+                    s['name'] = srvc.name
+                    s['service_type'] = srvc.svc_type #NGTODO: Study impact of addition. Also, what about service name?
+                    s['service_role'] = srvc.svc_role
+                    if srvc.svc_role == ServiceRole.GALAXY:
                         s['home'] = paths.P_GALAXY_HOME
                     svcs.append(s)
             cc['filesystems'] = fss
@@ -1920,7 +1936,7 @@ class ConsoleMonitor( object ):
         # that the configuration files get loaded from proper S3 bucket rather
         # than potentially being overwritten by files that might exist on the snap)
         try:
-            galaxy_svc = self.app.manager.get_services('Galaxy')[0]
+            galaxy_svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)[0]
             if galaxy_svc.running():
                 for f_name in ['universe_wsgi.ini',
                                'tool_conf.xml',
@@ -1963,6 +1979,60 @@ class ConsoleMonitor( object ):
             if os.path.exists(cn_file):
                 log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
                 misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
+
+
+    def __add_services(self):
+        # Check and add any new services
+        added_srvcs = False # Flag to indicate if cluster conf was changed
+        for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
+            log.debug("Monitor adding service '%s'" % service.get_full_name())
+            self.last_system_change_time = dt.datetime.utcnow()
+            if service.add():
+                added_srvcs = True # else:
+        
+            # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
+            # .format(service.get_full_name(), service.state))
+            # Store cluster conf after all services have been added.
+            # NOTE: this flag relies on the assumption service additions are
+            # sequential (i.e., monitor waits for the service add call to complete).
+            # If any of the services are to be added via separate threads, a
+            # system-wide flag should probably be maintained for that particular
+            # service that would indicate the configuration of the service is
+            # complete. This could probably be done by monitoring
+            # the service state flag that is already maintained?
+        if added_srvcs and self.app.cloud_type != 'opennebula':
+            self.store_cluster_config() # Check and grow the file system
+        svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
+        for svc in svcs:
+            if svc.svc_role == ServiceRole.GALAXY_DATA and svc.grow is not None:
+                self.last_system_change_time = dt.datetime.utcnow()
+                self.expand_user_data_volume()
+            # Opennebula has no storage like S3, so this is not working (yet)
+                if self.app.cloud_type != 'opennebula':
+                    self.store_cluster_config()
+                    
+    def __check_amqp_messages(self):
+        # Check for any new AMQP messages
+        m = self.conn.recv()
+        while m is not None:
+            def do_match():
+                match = False
+                for inst in self.app.manager.worker_instances:
+                    if str(inst.id) == str(m.properties['reply_to']):
+                        match = True
+                        inst.handle_message( m.body )
+                return match
+
+            if not do_match():
+                log.debug( "No instance (%s) match found for message %s; will add instance now!" \
+                    % ( m.properties['reply_to'], m.body ) )
+                if self.app.manager.add_live_instance(m.properties['reply_to']):
+                    do_match()
+                else:
+                    log.warning("Potential error, got message from instance '%s' "
+                        "but not aware of this instance. Ignoring the instance." \
+                        % m.properties['reply_to'])
+            m = self.conn.recv()
 
     def __monitor( self ):
         if self.app.manager.manager_started == False:
@@ -2015,56 +2085,8 @@ class ConsoleMonitor( object ):
                         log.debug("Not checking quiet instance {0} (last check {1} secs ago)"\
                             .format(w_instance.get_desc(),
                             (dt.datetime.utcnow() - w_instance.last_state_update).seconds))
-            # Check and add any new services
-            added_srvcs = False # Flag to indicate if cluster conf was changed
-            for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
-                log.debug("Monitor adding service '%s'" % service.get_full_name())
-                self.last_system_change_time = dt.datetime.utcnow()
-                if service.add():
-                    added_srvcs = True
-                # else:
-                    # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
-                        # .format(service.get_full_name(), service.state))
-            # Store cluster conf after all services have been added.
-            # NOTE: this flag relies on the assumption service additions are
-            # sequential (i.e., monitor waits for the service add call to complete).
-            # If any of the services are to be added via separate threads, a
-            # system-wide flag should probably be maintained for that particular
-            # service that would indicate the configuration of the service is
-            # complete. This could probably be done by monitoring
-            # the service state flag that is already maintained?
-            if added_srvcs and self.app.cloud_type != 'opennebula':
-                self.store_cluster_config()
-            # Check and grow the file system
-            svcs = self.app.manager.get_services('Filesystem')
-            for svc in svcs:
-                if svc.name == 'galaxyData' and svc.grow is not None:
-                    self.last_system_change_time = dt.datetime.utcnow()
-                    self.expand_user_data_volume()
-                    # Opennebula has no storage like S3, so this is not working (yet)
-                    if self.app.cloud_type != 'opennebula':
-                        self.store_cluster_config()
-            # Check for any new AMQP messages
-            m = self.conn.recv()
-            while m is not None:
-                def do_match():
-                    match = False
-                    for inst in self.app.manager.worker_instances:
-                        if str(inst.id) == str(m.properties['reply_to']):
-                            match = True
-                            inst.handle_message( m.body )
-                    return match
-
-                if not do_match():
-                    log.debug( "No instance (%s) match found for message %s; will add instance now!" \
-                        % ( m.properties['reply_to'], m.body ) )
-                    if self.app.manager.add_live_instance(m.properties['reply_to']):
-                        do_match()
-                    else:
-                        log.warning("Potential error, got message from instance '%s' "
-                            "but not aware of this instance. Ignoring the instance." \
-                            % m.properties['reply_to'])
-                m = self.conn.recv()
+            self.__add_services()
+            self.__check_amqp_messages()
 
 
 class Instance( object ):
@@ -2118,7 +2140,7 @@ class Instance( object ):
             the instance.
         """
         def reboot_terminate_logic():
-            """ Make a decision whether to reboot, terminate or reboot an instance.
+            """ Make a decision whether to terminate or reboot an instance.
                 CALL THIS METHOD CAREFULLY because it defaults to terminating the
                 instance!
             """
@@ -2557,12 +2579,12 @@ class Instance( object ):
                 log.debug( "Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" \
                     % self.id )
                 try:
-                    sge_svc = self.app.manager.get_services('SGE')[0]
+                    sge_svc = self.app.manager.get_services(svc_role=ServiceRole.SGE)[0]
                     if sge_svc.add_sge_host(self.get_id(), self.local_hostname):
                         # Send a message to worker to start SGE
                         self.send_start_sge()
                         # If there are any bucket-based FSs, tell the worker to add those
-                        fss = self.app.manager.get_services('Filesystem')
+                        fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
                         for fs in fss:
                             if len(fs.buckets) > 0:
                                 for b in fs.buckets:
