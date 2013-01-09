@@ -23,7 +23,8 @@ from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S
 
 log = logging.getLogger('cloudman')
 
-APP_SERVICES = { ServiceRole.GALAXY : GalaxyService, ServiceRole.GALAXY_POSTGRES : PostgresService, ServiceRole.GALAXY_REPORTS : GalaxyReportsService} 
+APP_SERVICES = { ServiceRole.to_string(ServiceRole.GALAXY) : GalaxyService, ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES) : PostgresService,
+                 ServiceRole.to_string(ServiceRole.GALAXY_REPORTS) : GalaxyReportsService} 
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -252,7 +253,7 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    service_class = APP_SERVICES.get(service_role, None)
+                    service_class = APP_SERVICES.get(ServiceRole.to_string(service_role), None)
                     if service_class:
                         self.services.append(service_class(self.app))
                         processed_service = True
@@ -1606,7 +1607,7 @@ class ConsoleManager(BaseConsoleManager):
                 log.warning("Could not initiate expansion of {0} file system because the "\
                     "file system was not found?".format(fs_name))
                 return
-        else
+        else:
             svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
             
         log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
