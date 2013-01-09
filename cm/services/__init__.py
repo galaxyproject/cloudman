@@ -37,6 +37,57 @@ class ServiceRole(object):
     GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'name': "Generic FS"}
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name': "Transient NFS FS"}
 
+    @staticmethod
+    def from_string(val):
+        if val == "SGE":
+            return ServiceRole.SGE
+        elif val == "Galaxy":
+            return ServiceRole.GALAXY
+        elif val == "Postgres":
+            return ServiceRole.GALAXY_POSTGRES
+        elif val == "GalaxyReports":
+            return ServiceRole.GALAXY_REPORTS
+        elif val == "Autoscale":
+            return ServiceRole.AUTOSCALE
+        elif val == "PSS":
+            return ServiceRole.PSS
+        elif val == "galaxyData":
+            return ServiceRole.GALAXY_DATA
+        elif val == "galaxyIndices":
+            return ServiceRole.GALAXY_INDICES
+        elif val == "galaxyTools":
+            return ServiceRole.GALAXY_TOOLS
+        elif val == "GenericFS":
+            return ServiceRole.GENERIC_FS
+        elif val == "TransientNFS":
+            return ServiceRole.TRANSIENT_NFS    
+    
+    @staticmethod
+    def to_string(svc_role):
+        if svc_role == ServiceRole.SGE:
+            return "SGE"
+        elif svc_role == ServiceRole.GALAXY:
+            return "Galaxy"
+        elif svc_role == ServiceRole.GALAXY_POSTGRES:
+            return "Postgres"
+        elif svc_role == ServiceRole.GALAXY_REPORTS:
+            return "GalaxyReports"
+        elif svc_role == ServiceRole.AUTOSCALE:
+            return "Autoscale"
+        elif svc_role == ServiceRole.PSS:
+            return "PSS"
+        elif svc_role == ServiceRole.GALAXY_DATA:
+            return "galaxyData"
+        elif svc_role == ServiceRole.GALAXY_INDICES:
+            return "galaxyIndices"
+        elif svc_role == ServiceRole.GALAXY_TOOLS:
+            return "galaxyTools"
+        elif svc_role == ServiceRole.GENERIC_FS:
+            return "GenericFS"
+        elif svc_role == ServiceRole.TRANSIENT_NFS:
+            return "TransientNFS"
+        
+
 class ServiceDependency(object):
     """
     Represents a dependency that another service required for its function.

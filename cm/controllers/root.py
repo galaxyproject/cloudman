@@ -122,8 +122,9 @@ class CM(BaseController):
         return self.app.manager.initial_cluster_type
 
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, vol_expand_desc=None, delete_snap=False,
-            fs_name='galaxyData'): #NGTODO: Needs review since fs_name is assumed
+    def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
+        if not fs_name:
+            fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0] 
         if delete_snap:
             delete_snap = True
         log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\

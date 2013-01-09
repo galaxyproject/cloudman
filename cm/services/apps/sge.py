@@ -16,7 +16,7 @@ class SGEService( ApplicationService ):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
         self.svc_role = ServiceRole.SGE
-        self.name = "Sun Grid Engine"
+        self.name = "Sun Grid Engine Service"
         self.hosts = []
 
     def start(self):
