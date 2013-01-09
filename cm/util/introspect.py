@@ -9,6 +9,7 @@ No action is taken to correct operation of a failed service.
 import logging, logging.config, commands
 
 from cm.util import misc
+from cm.services import ServiceRole
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -69,9 +70,14 @@ class Introspect(object):
         log.debug("Checking all services...")
         self.check_worker_file_systems()
 
-    def check_disk(self):
+    def check_disk(self, fs_name=None):
         try:
-            disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'") #NGTODO: Needs review. Should no be linked to galaxyData directly
+            if not fs_name:
+                fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0].name
+                
+            #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
+            # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
+            disk_usage = commands.getoutput("df -h | grep " + fs_name + " | awk '{print $2, $3, $5}'")
             disk_usage = disk_usage.split(' ')
             if len(disk_usage) == 3:
                 self.app.manager.disk_total = disk_usage[0]

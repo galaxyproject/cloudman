@@ -23,7 +23,7 @@ from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S
 
 log = logging.getLogger('cloudman')
 
-APP_SERVICES = {'Galaxy': GalaxyService, 'Postgres': PostgresService, 'GalaxyReports': GalaxyReportsService} #NGTODO: This should be changed to use Roles instead of names directly? 
+APP_SERVICES = { ServiceRole.GALAXY : GalaxyService, ServiceRole.GALAXY_POSTGRES : PostgresService, ServiceRole.GALAXY_REPORTS : GalaxyReportsService} 
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -185,7 +185,7 @@ class ConsoleManager(BaseConsoleManager):
               - "mkdir -p /mnt/galaxyData/tmp"
               - "chown -R galaxy:galaxy /mnt/galaxyData"
         """
-        for command in self.app.ud.get("master_prestart_commands", []): #NGTODO: Check for potential hardcoded link to galaxyData
+        for command in self.app.ud.get("master_prestart_commands", []):
             misc.run(command)
 
     @TestFlag(False)
@@ -207,7 +207,7 @@ class ConsoleManager(BaseConsoleManager):
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_role=fs['svc_role']) #NGTODO: Correct user data to include svc_role
+                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_role=ServiceRole.from_string(fs['role']))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
                     if fs['kind'] == 'volume':
@@ -248,17 +248,17 @@ class ConsoleManager(BaseConsoleManager):
                         self.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_name = srvc['name'] #NGTODO: Need backward compatibility at this point
-                    log.debug("Adding service: '%s'" % service_name)
+                    service_role = ServiceRole.from_string(srvc['role'])
+                    log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    service_class = APP_SERVICES.get(service_name, None) #NGTODO: This needs review. APP_SERVICES refers to services directly by name instead of role
+                    service_class = APP_SERVICES.get(service_role, None)
                     if service_class:
                         self.services.append(service_class(self.app))
                         processed_service = True
-                    if not processed_service and service_name != 'SGE': # SGE is added by default
+                    if not processed_service and service_role != ServiceRole.SGE: # SGE is added by default
                         log.warning("Could not find service class matching userData service entry: %s"\
-                                % service_name)
+                                % srvc['name'])
             return True
         except Exception, e:
             log.error("Error processing existing cluster configuration: %s" % e)
@@ -312,7 +312,7 @@ class ConsoleManager(BaseConsoleManager):
             # Process the deprecated configuration now
             if "static_filesystems" in self.app.ud:
                 for vol in self.app.ud['static_filesystems']:
-                    fs = Filesystem(self.app, vol['filesystem'], svc_role=vol['svc_role']) #NGTODO: Correct user data to include svc_role
+                    fs = Filesystem(self.app, vol['filesystem'], svc_role=ServiceRole.from_string(vol['role']))
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, vol['filesystem'])
                     if att_vol:
@@ -333,7 +333,7 @@ class ConsoleManager(BaseConsoleManager):
                     self.initial_cluster_type = 'Data'
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_name = srvc['service']
+                    service_name = srvc['service'] # NGTODO: This is going on old format and using name. Should be fixed after format conversion is done.
                     log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
@@ -417,8 +417,7 @@ class ConsoleManager(BaseConsoleManager):
         svcs = []
         for s in self.services:
             if s.name == svc_name:
-                svcs.append(s)
-                return svcs # Only one match possible - so return immediately
+                return [s] # Only one match possible - so return it immediately
             elif s.svc_role == svc_role:
                 svcs.append(s)
             elif s.svc_type == svc_type and svc_role == None:
@@ -641,7 +640,10 @@ class ConsoleManager(BaseConsoleManager):
         try:
             fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
             if len(fs_arr)>0:
-                disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'") #NGTODO: change hard coded link to GalaxyData
+                fs_name = fs_arr[0]
+                #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
+                # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
+                disk_usage = commands.getoutput("df -h | grep " + fs_name + " | awk '{print $2, $3, $5}'")
                 disk_usage = disk_usage.split(' ')
                 if len(disk_usage) == 3:
                     self.disk_total = disk_usage[0]
@@ -869,7 +871,8 @@ class ConsoleManager(BaseConsoleManager):
         excludes any data on user data file system).
         """
         log.debug("Cleaning the system - all services going down")
-        svcs = self.get_services(svc_role=ServiceRole.GALAXY) #NGTODO: THis is one place where service ordering/category matters
+        #TODO: #NGTODO: Possibility of simply calling remove on SGE service so that all dependencies are automatically removed?
+        svcs = self.get_services(svc_role=ServiceRole.GALAXY)
         for service in svcs:
             service.remove()
         svcs = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
@@ -1082,7 +1085,7 @@ class ConsoleManager(BaseConsoleManager):
             if snaps:
                 attached_volumes = self.get_attached_volumes()
                 for snap in snaps:
-                    fs = Filesystem(self.app, snap['filesystem']) #NGTODO: What should the svc_role be here?
+                    fs = Filesystem(self.app, snap['filesystem'], svc_role=ServiceRole.from_string(snap['role'])) #NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
@@ -1173,7 +1176,7 @@ class ConsoleManager(BaseConsoleManager):
                     # the appropriate file system can be created as part of ``add_preconfigured_services``
                     # TODO: make it more general vs. galaxyData specific
                     data_fs_yaml = {'ids': [data_vol.id], 'kind': 'volume',
-                        'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'} #NGTODO: Hardcoded link to GalaxyData?
+                        'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'}
                     scpd['filesystems'].append(data_fs_yaml)
                     log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
                         % (data_vol.id, data_vol.size, snap.id))
@@ -1259,7 +1262,7 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = [] # Shared file systems list
         for fs in fsl:
-            if fs['name'] == 'galaxyTools' or fs['name'] == 'galaxyIndices': #NGTODO: Hardcoded links to tools and indices?
+            if fs['role'] == ServiceRole.to_string(ServiceRole.GALAXY_TOOLS) or fs['name'] == ServiceRole.to_string(ServiceRole.GALAXY_INDICES):
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
         misc.dump_yaml_to_file(sud, conf_file_name)
@@ -1477,7 +1480,7 @@ class ConsoleManager(BaseConsoleManager):
                     svc.remove()
                     #self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
-                    fs = Filesystem(self.app, file_system_name) #NGTODO: What should the service role be here?
+                    fs = Filesystem(self.app, file_system_name, svc.svc_role)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
                     self.services.append(fs)
@@ -1496,16 +1499,16 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
 
-    def add_fs(self, bucket_name, fs_name=None, bucket_a_key=None, bucket_s_key=None, persistent=False):
+    def add_fs(self, bucket_name, fs_name=None, fs_role=ServiceRole.GENERIC_FS, bucket_a_key=None, bucket_s_key=None, persistent=False):
         log.info("Adding a {4} file system {3} from bucket {0} (w/ creds {1}:{2})"\
             .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
-        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent) #NGTODO: What should the svc_role be?
+        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent, svc_role=fs_role)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
-            w_inst.send_add_s3fs(bucket_name)
+            w_inst.send_add_s3fs(bucket_name, fs_role)
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
     def stop_worker_instances(self):
@@ -1581,8 +1584,8 @@ class ConsoleManager(BaseConsoleManager):
                     return True
         return False
 
-    def expand_user_data_volume(self, new_vol_size, snap_description=None,
-            delete_snap=False, fs_name='galaxyData'): #NGTODO: Hardcoded link to GalaxyData?
+    def expand_user_data_volume(self, new_vol_size, fs_name, snap_description=None,
+            delete_snap=False):
         """
         Mark the file system ``fs_name`` for size expansion. For full details on how
         this works, take a look at the file system expansion method for the
@@ -1593,19 +1596,24 @@ class ConsoleManager(BaseConsoleManager):
         If the snapshot is to be kept, a brief ``snap_description`` can be provided.
         """
         # Mark the file system as needing to be expanded
-        svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
-        fs_found = False;
-        for svc in svcs:
-            if svc.name == fs_name:
-                fs_found = True
-                log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
-                        % (svc.get_full_name(), new_vol_size, snap_description))
-                svc.state = service_states.CONFIGURING
-                svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description,
-                        'delete_snap': delete_snap}
-        if not fs_found:
-            log.warning("Could not initiate expansion of {0} file system because the "\
+        
+        # matches fs_name, or if it's null or empty, the GALAXY_DATA role
+        if fs_name:
+            svcs = self.app.manager.get_services(svc_name=fs_name)
+            if svcs:
+                svc = svcs[0]
+            else:
+                log.warning("Could not initiate expansion of {0} file system because the "\
                     "file system was not found?".format(fs_name))
+                return
+        else
+            svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
+            
+        log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
+                 % (svc.get_full_name(), new_vol_size, snap_description))
+        svc.state = service_states.CONFIGURING
+        svc.grow = {'new_size': new_vol_size, 'snap_description': snap_description,
+                   'delete_snap': delete_snap}
 
     @TestFlag('TESTFLAG_ROOTPUBLICKEY')
     def get_root_public_key(self):
@@ -1879,7 +1887,7 @@ class ConsoleMonitor( object ):
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
-                        fs['role'] = srvc.svc_role #NGTODO: Study impact of addition
+                        fs['role'] = ServiceRole.to_string(srvc.svc_role)
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -1896,8 +1904,7 @@ class ConsoleMonitor( object ):
                 else:
                     s = {}
                     s['name'] = srvc.name
-                    s['service_type'] = srvc.svc_type #NGTODO: Study impact of addition. Also, what about service name?
-                    s['service_role'] = srvc.svc_role
+                    s['role'] = ServiceRole.to_string(srvc.svc_role)
                     if srvc.svc_role == ServiceRole.GALAXY:
                         s['home'] = paths.P_GALAXY_HOME
                     svcs.append(s)
@@ -2519,8 +2526,8 @@ class Instance( object ):
         log.debug( "\tMT: Sending START_SGE message to instance '%s'" % self.id )
         self.app.manager.console_monitor.conn.send( 'START_SGE', self.id )
 
-    def send_add_s3fs(self, bucket_name):
-        msg = 'ADDS3FS | {0}'.format(bucket_name)
+    def send_add_s3fs(self, bucket_name, svc_role):
+        msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_role))
         log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(msg=msg, inst=self.id))
         self.app.manager.console_monitor.conn.send(msg, self.id)
 
