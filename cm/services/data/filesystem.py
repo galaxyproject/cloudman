@@ -25,9 +25,9 @@ log = logging.getLogger('cloudman')
 
 
 class Filesystem(DataService):
-    def __init__(self, app, name, svc_role=ServiceRole.GENERIC_FS, mount_point=None, persistent=True):
+    def __init__(self, app, name, svc_roles=[ServiceRole.GENERIC_FS], mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
-        self.svc_role = svc_role
+        self.svc_roles = svc_roles
         self.nfs_lock_file = '/tmp/nfs.lockfile'
         # TODO: Introduce a new file system layer that abstracts/consolidates
         # potentially multiple devices under a single file system interface
@@ -444,7 +444,7 @@ class Filesystem(DataService):
         set state to ERROR.
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
-        #   % (self.svc_role, self.name, self.state))
+        #   % (self.name, self.name, self.state))
         if self.dirty:
             # First check if the NFS server needs to be restarted but do it one thread at a time
             with flock(self.nfs_lock_file):

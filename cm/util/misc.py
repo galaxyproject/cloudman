@@ -11,6 +11,7 @@ import shutil
 import os
 import contextlib
 import errno
+from cm.services import ServiceRole
 
 
 log = logging.getLogger( 'cloudman' )
@@ -61,16 +62,16 @@ def normalize_user_data(app, ud):
         if 'filesystems' in ud:
             log.debug("Normalizing v2 user data")
             for fs in ud['filesystems']:
-                if 'role' not in fs:
-                    fs['role'] = fs['name']
+                if 'roles' not in fs:
+                    fs['roles'] = ServiceRole.legacy_convert(fs['name'])
                 if 'delete_on_termination' not in fs:
                     if fs['kind'] == 'snapshot':
                         fs['delete_on_termination'] = True
                     else:
                         fs['delete_on_termination'] = False
             for svc in ud.get('services', []):
-                if 'role' not in svc:
-                    svc['role'] = svc.get('name', 'NoName')
+                if 'roles' not in svc:
+                    svc['roles'] = ServiceRole.legacy_convert(svc.get('name', 'NoName'))
         # Convert (i.e., normalize) v1 ud
         if "static_filesystems" in ud or "data_filesystems" in ud:
             log.debug("Normalizing v1 user data")
@@ -82,8 +83,9 @@ def normalize_user_data(app, ud):
                     # Some assumptions are made here; namely, all static file systems
                     # in the original data are assumed delete_on_termination, their name
                     # defines their role and they are mounted under /mnt/<name>
+                    roles = ServiceRole.legacy_convert(vol['filesystem'])                   
                     fs = {'kind': 'snapshot', 'name': vol['filesystem'],
-                          'role': vol['filesystem'], 'delete_on_termination': True,
+                          'roles': roles, 'delete_on_termination': True,
                           'mount_point': os.path.join('/mnt', vol['filesystem']),
                           'ids': [vol['snap_id']]}
                     ud['filesystems'].append(fs)
@@ -92,7 +94,7 @@ def normalize_user_data(app, ud):
             if 'data_filesystems' in ud:
                 for fs_name, fs in ud['data_filesystems'].items():
                     fs = {'kind': 'volume', 'name': fs_name,
-                          'role': fs_name, 'delete_on_termination': False,
+                          'roles': ServiceRole.legacy_convert(fs_name), 'delete_on_termination': False,
                           'mount_point': os.path.join('/mnt', fs_name),
                           'ids': [fs[0]['vol_id']]}
                     ud['filesystems'].append(fs)
@@ -103,8 +105,8 @@ def normalize_user_data(app, ud):
                 old_svc_list = ud['services']
                 ud['services'] = [] # clear 'services' and replace with the new format
                 for svc in old_svc_list:
-                    if 'role' not in svc:
-                        normalized_svc = {'name': svc['service'], 'role': svc['service']}
+                    if 'roles' not in svc:
+                        normalized_svc = {'name': svc['service'], 'roles': ServiceRole.legacy_convert(svc['service'])}
                         ud['services'].append(normalized_svc)
             if 'galaxy_home' in ud:
                 ud.pop('galaxy_home')

@@ -85,7 +85,7 @@ class ConsoleManager(BaseConsoleManager):
                     svc[0].add()
             except IndexError, e:
                 log.error("Tried adding app level service '%s' but failed: %s" \
-                    % (svc_role, e))
+                    % (ServiceRole.to_string([svc_role]), e))
         log.debug("Unsuspending SGE queue all.q")
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' \
             % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
@@ -142,7 +142,7 @@ class ConsoleManager(BaseConsoleManager):
         # Always add SGE service
         self.services.append(SGEService(self.app))
         # Always share instance transient storage over NFS
-        tfs = Filesystem(self.app, 'transient_nfs', svc_role=ServiceRole.TRANSIENT_NFS)
+        tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
         self.services.append(tfs)
         # Always add PSS service - note that this service runs only after the cluster
@@ -208,7 +208,7 @@ class ConsoleManager(BaseConsoleManager):
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_role=ServiceRole.from_string(fs['role']))
+                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_roles=ServiceRole.from_string(fs['roles']))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
                     if fs['kind'] == 'volume':
@@ -249,15 +249,15 @@ class ConsoleManager(BaseConsoleManager):
                         self.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_role = ServiceRole.from_string(srvc['role'])
+                    service_roles = ServiceRole.from_string(srvc['roles'])
                     log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
-                    service_class = APP_SERVICES.get(ServiceRole.to_string(service_role), None)
+                    service_class = APP_SERVICES.get(ServiceRole.to_string(service_roles), None)
                     if service_class:
                         self.services.append(service_class(self.app))
                         processed_service = True
-                    if not processed_service and service_role != ServiceRole.SGE: # SGE is added by default
+                    if (not processed_service) and (ServiceRole.SGE not in service_roles): # SGE is added by default
                         log.warning("Could not find service class matching userData service entry: %s"\
                                 % srvc['name'])
             return True
@@ -313,7 +313,7 @@ class ConsoleManager(BaseConsoleManager):
             # Process the deprecated configuration now
             if "static_filesystems" in self.app.ud:
                 for vol in self.app.ud['static_filesystems']:
-                    fs = Filesystem(self.app, vol['filesystem'], svc_role=ServiceRole.from_string(vol['role']))
+                    fs = Filesystem(self.app, vol['filesystem'], svc_roles=ServiceRole.from_string(vol['roles']))
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, vol['filesystem'])
                     if att_vol:
@@ -514,7 +514,7 @@ class ConsoleManager(BaseConsoleManager):
         service it should be managing), return ``Service not found``.
         """        
         svcarr = self.get_services(svc_name=srvc)
-        svcarr = [s for s in svcarr if (s.svc_type == ServiceType.FILE_SYSTEM or s.svc_role in [ServiceRole.GALAXY, ServiceRole.SGE, ServiceRole.GALAXY_POSTGRES])]
+        svcarr = [s for s in svcarr if (s.svc_type == ServiceType.FILE_SYSTEM or ServiceRole.fulfills_roles(s.svc_roles, [ServiceRole.GALAXY, ServiceRole.SGE, ServiceRole.GALAXY_POSTGRES]))]
         if len(svcarr) > 0:
             return srvc[0].state
         else:
@@ -598,7 +598,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         status_dict = {}
         for srvc in self.services:
-            status_dict[srvc.svc_role] = srvc.state
+            status_dict[srvc.name] = srvc.state #NGTODO: Needs special handling for file systems
         return status_dict
 
     def get_galaxy_rev(self):
@@ -1063,7 +1063,7 @@ class ConsoleManager(BaseConsoleManager):
             """
             fs_name = 'galaxyData'
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
-            fs = Filesystem(self.app, fs_name, svc_role=ServiceRole.GALAXY_DATA)
+            fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
             self.services.append(fs)
 
@@ -1086,7 +1086,7 @@ class ConsoleManager(BaseConsoleManager):
             if snaps:
                 attached_volumes = self.get_attached_volumes()
                 for snap in snaps:
-                    fs = Filesystem(self.app, snap['filesystem'], svc_role=ServiceRole.from_string(snap['role'])) #NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
+                    fs = Filesystem(self.app, snap['filesystem'], svc_roles=ServiceRole.from_string(snap['roles'])) #NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
@@ -1244,7 +1244,7 @@ class ConsoleManager(BaseConsoleManager):
         snap_ids=[]
         svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if svc.svc_role == ServiceRole.GALAXY_DATA:
+            if ServiceRole.GALAXY_DATA in svc.svc_roles:
                 snap_ids = svc.snapshot(snap_description="CloudMan share-a-cluster %s; %s" \
                     % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
         # Create a new folder-like structure inside cluster's bucket and copy
@@ -1263,7 +1263,8 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = [] # Shared file systems list
         for fs in fsl:
-            if fs['role'] == ServiceRole.to_string(ServiceRole.GALAXY_TOOLS) or fs['name'] == ServiceRole.to_string(ServiceRole.GALAXY_INDICES):
+            roles = ServiceRole.from_string(fs['roles']) 
+            if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
         misc.dump_yaml_to_file(sud, conf_file_name)
@@ -1481,7 +1482,7 @@ class ConsoleManager(BaseConsoleManager):
                     svc.remove()
                     #self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
-                    fs = Filesystem(self.app, file_system_name, svc.svc_role)
+                    fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
                     self.services.append(fs)
@@ -1500,16 +1501,16 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Did not find file system with name '%s'; update not performed." % file_system_name)
             return False
 
-    def add_fs(self, bucket_name, fs_name=None, fs_role=ServiceRole.GENERIC_FS, bucket_a_key=None, bucket_s_key=None, persistent=False):
+    def add_fs(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS], bucket_a_key=None, bucket_s_key=None, persistent=False):
         log.info("Adding a {4} file system {3} from bucket {0} (w/ creds {1}:{2})"\
             .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
-        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent, svc_role=fs_role)
+        fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
         self.services.append(fs)
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
-            w_inst.send_add_s3fs(bucket_name, fs_role)
+            w_inst.send_add_s3fs(bucket_name, fs_roles)
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
     def stop_worker_instances(self):
@@ -1862,7 +1863,7 @@ class ConsoleMonitor( object ):
         # Grow galaxyData filesystem
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if svc.svc_role == ServiceRole.GALAXY_DATA:
+            if ServiceRole.GALAXY_DATA in svc.svc_role:
                 log.debug("Expanding '%s'" % svc.get_full_name())
                 svc.expand()
 
@@ -1888,7 +1889,7 @@ class ConsoleMonitor( object ):
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
-                        fs['role'] = ServiceRole.to_string(srvc.svc_role)
+                        fs['roles'] = ServiceRole.to_string(srvc.svc_role)
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -1905,8 +1906,8 @@ class ConsoleMonitor( object ):
                 else:
                     s = {}
                     s['name'] = srvc.name
-                    s['role'] = ServiceRole.to_string(srvc.svc_role)
-                    if srvc.svc_role == ServiceRole.GALAXY:
+                    s['roles'] = ServiceRole.to_string(srvc.svc_roles)
+                    if ServiceRole.GALAXY in srvc.svc_role:
                         s['home'] = paths.P_GALAXY_HOME
                     svcs.append(s)
             cc['filesystems'] = fss
@@ -2013,7 +2014,7 @@ class ConsoleMonitor( object ):
             self.store_cluster_config() # Check and grow the file system
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if svc.svc_role == ServiceRole.GALAXY_DATA and svc.grow is not None:
+            if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
                 self.last_system_change_time = dt.datetime.utcnow()
                 self.expand_user_data_volume()
             # Opennebula has no storage like S3, so this is not working (yet)
@@ -2528,8 +2529,8 @@ class Instance( object ):
         log.debug( "\tMT: Sending START_SGE message to instance '%s'" % self.id )
         self.app.manager.console_monitor.conn.send( 'START_SGE', self.id )
 
-    def send_add_s3fs(self, bucket_name, svc_role):
-        msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_role))
+    def send_add_s3fs(self, bucket_name, svc_roles):
+        msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
         log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(msg=msg, inst=self.id))
         self.app.manager.console_monitor.conn.send(msg, self.id)
 

@@ -21,7 +21,8 @@ class GalaxyReportsService(ApplicationService):
     def __init__(self, app):
         super(GalaxyReportsService, self).__init__(app)
         self.galaxy_home = paths.P_GALAXY_HOME
-        self.svc_role = ServiceRole.GALAXY_REPORTS
+        self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
+        self.svc_roles = [ServiceRole.GALAXY_REPORTS]
         self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY) ]  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
         self.conf_dir = os.path.join(paths.P_GALAXY_HOME, 'reports.conf.d')
 
@@ -63,7 +64,7 @@ filter-with = proxy-prefix
 """)
 
     def remove(self):
-        log.info("Removing '%s' service" % self.svc_role)
+        log.info("Removing '%s' service" % self.name)
         self.state = service_states.SHUTTING_DOWN
         log.info("Shutting down Galaxy Reports...")
         if self._run("stop"):
