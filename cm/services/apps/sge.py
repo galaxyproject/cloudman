@@ -15,8 +15,8 @@ log = logging.getLogger( 'cloudman' )
 class SGEService( ApplicationService ):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
-        self.svc_role = ServiceRole.SGE
-        self.name = "Sun Grid Engine Service"
+        self.svc_roles = [ServiceRole.SGE]
+        self.name = ServiceRole.to_string(ServiceRole.SGE)
         self.hosts = []
 
     def start(self):
@@ -24,7 +24,7 @@ class SGEService( ApplicationService ):
         if self.unpack_sge():
             self.configure_sge()
         else:
-            log.error("Error adding service '%s'" % self.svc_role)
+            log.error("Error adding service '%s'" % self.name)
             self.state = service_states.ERROR
 
     def remove(self):

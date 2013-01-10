@@ -22,8 +22,8 @@ class PSS(ApplicationService):
 
     def __init__(self, app, instance_role='master'):
         super(PSS, self).__init__(app)
-        self.svc_role = ServiceRole.PSS
-        self.name = "Post Start Script Service"
+        self.svc_roles = [ServiceRole.PSS]
+        self.name = ServiceRole.to_string(ServiceRole.PSS)
         self.instance_role = instance_role
         log.debug("Configured PSS as {0}".format(self.instance_role))
         # Name of the default script to run
@@ -51,30 +51,30 @@ class PSS(ApplicationService):
 
     def add(self):
         if not self.already_ran and self.app.manager.initial_cluster_type is not None:
-            # log.debug("Custom-checking '%s' service prerequisites" % self.svc_role)
+            # log.debug("Custom-checking '%s' service prerequisites" % self.name)
             self.state = service_states.STARTING
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
             for srvc in self.app.manager.services:
                 if srvc != self and not srvc.running():
                     log.debug("%s not running (%s), %s service prerequisites not met afterall," \
-                        "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.svc_role))
+                        "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
                     self.state = service_states.UNSTARTED # Reset state so it gets picked up by monitor again
                     return False
             self.start()
             return True
         else:
             log.debug("Not adding {0} svc; it already ran ({1}) or the cluster was not yet initialized ({2})"\
-                .format(self.svc_role, self.already_ran, self.app.manager.initial_cluster_type))
+                .format(self.name, self.already_ran, self.app.manager.initial_cluster_type))
             return False
 
     def start(self):
         """ Wait until all other services are running before starting this one."""
-        log.debug("Starting %s service" % self.svc_role)
+        log.debug("Starting %s service" % self.name)
         # All other services OK, start this one now
         self.state = service_states.RUNNING
         log.debug("%s service prerequisites OK (i.e., all other services running), " \
-            "checking if %s was provided..." % (self.svc_role, self.pss_filename))
+            "checking if %s was provided..." % (self.name, self.pss_filename))
         local_pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
         # Check user data first to allow overwriting of a potentially existing script
         if self.pss_url:
@@ -102,12 +102,12 @@ class PSS(ApplicationService):
             log.info("Done running {0}".format(self.pss_filename))
         else:
             log.debug("%s does not exist or could not be downloaded; continuing without running it." \
-                % self.svc_role)
+                % self.name)
         # Prime the object with instance data (because this may take a while
         # on some clouds, do so in a separate thread)
         threading.Thread(target=self._prime_data).start()
         self.state = service_states.SHUT_DOWN
-        log.debug("%s service done and marked as '%s'" % (self.svc_role, self.state))
+        log.debug("%s service done and marked as '%s'" % (self.name, self.state))
         if self.instance_role == 'master':
             # On master, remove the service upon completion (PSS runs only once)
             self.remove()
@@ -141,13 +141,13 @@ class PSS(ApplicationService):
 
     def remove(self):
         if self.state == service_states.SHUT_DOWN:
-            log.debug("Removing %s service from master list of services" % self.svc_role)
+            log.debug("Removing %s service from master list of services" % self.name)
             for srvc in self.app.manager.services:
                 if srvc == self:
                     self.app.manager.services.remove(srvc)
         else:
             log.debug("Tried removing %s service but it's not in state %s" \
-                % (self.svc_role, service_states.SHUT_DOWN))
+                % (self.name, service_states.SHUT_DOWN))
 
     def status(self):
         pass
