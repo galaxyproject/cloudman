@@ -16,19 +16,27 @@ import errno
 log = logging.getLogger( 'cloudman' )
 
 def load_yaml_file(filename):
+    """
+    Load ``filename`` in YAML format and return it as a dict
+    """
     with open(filename) as ud_file:
         ud = yaml.load(ud_file)
     # log.debug("Loaded user data: %s" % ud)
     return ud
 
 def dump_yaml_to_file(data, filename):
+    """
+    Dump (i.e., store) ``data`` dict into a YAML file ``filename``
+    """
     with open(filename, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
 
 def merge_yaml_objects(user, default):
-    """Merge fields from user data (user) YAML object and default data (default)
+    """
+    Merge fields from user data ``user`` YAML object and default data ``default``
     YAML object. If there are conflicts, value from the user data object are
-    kept."""
+    kept.
+    """
     if isinstance(user, dict) and isinstance(default, dict):
         for k, v in default.iteritems():
             if k not in user:
@@ -36,6 +44,71 @@ def merge_yaml_objects(user, default):
             else:
                 user[k] = merge_yaml_objects(user[k], v)
     return user
+
+def normalize_user_data(app, ud):
+    """
+    Normalize user data format to a consistent representation used within CloudMan.
+    This is useful as user data and also persistent data evolve over time and thus
+    calling this method at app start enables any necessary translation to happen.
+    """
+    if ud.get('persistent_data_version', 1) < app.PERSISTENT_DATA_VERSION:
+        # First make a backup of the deprecated persistent data file
+        s3_conn = app.cloud_interface.get_s3_connection()
+        copy_file_in_bucket(s3_conn, ud['bucket_cluster'], ud['bucket_cluster'],
+            'persistent_data.yaml', 'persistent_data-deprecated.yaml', preserve_acl=False,
+            validate=False)
+        # Convert (i.e., normalize) v2 ud
+        if 'filesystems' in ud:
+            log.debug("Normalizing v2 user data")
+            for fs in ud['filesystems']:
+                if 'role' not in fs:
+                    fs['role'] = fs['name']
+                if 'delete_on_termination' not in fs:
+                    if fs['kind'] == 'snapshot':
+                        fs['delete_on_termination'] = True
+                    else:
+                        fs['delete_on_termination'] = False
+            for svc in ud.get('services', []):
+                if 'role' not in svc:
+                    svc['role'] = svc.get('name', 'NoName')
+        # Convert (i.e., normalize) v1 ud
+        if "static_filesystems" in ud or "data_filesystems" in ud:
+            log.debug("Normalizing v1 user data")
+            if 'filesystems' not in ud:
+                ud['filesystems'] = []
+            if 'static_filesystems' in ud:
+                for vol in ud['static_filesystems']:
+                    # Create a mapping between the old and the new format styles
+                    # Some assumptions are made here; namely, all static file systems
+                    # in the original data are assumed delete_on_termination, their name
+                    # defines their role and they are mounted under /mnt/<name>
+                    fs = {'kind': 'snapshot', 'name': vol['filesystem'],
+                          'role': vol['filesystem'], 'delete_on_termination': True,
+                          'mount_point': os.path.join('/mnt', vol['filesystem']),
+                          'ids': [vol['snap_id']]}
+                    ud['filesystems'].append(fs)
+                ud.pop('static_filesystems')
+                ud['cluster_type'] = 'Galaxy'
+            if 'data_filesystems' in ud:
+                for fs_name, fs in ud['data_filesystems'].items():
+                    fs = {'kind': 'volume', 'name': fs_name,
+                          'role': fs_name, 'delete_on_termination': False,
+                          'mount_point': os.path.join('/mnt', fs_name),
+                          'ids': [fs[0]['vol_id']]}
+                    ud['filesystems'].append(fs)
+                ud.pop('data_filesystems')
+                if 'cluster_type' not in ud:
+                    ud['cluster_type'] = 'Data'
+            if 'services' in ud:
+                old_svc_list = ud['services']
+                ud['services'] = [] # clear 'services' and replace with the new format
+                for svc in old_svc_list:
+                    if 'role' not in svc:
+                        normalized_svc = {'name': svc['service'], 'role': svc['service']}
+                        ud['services'].append(normalized_svc)
+            if 'galaxy_home' in ud:
+                ud.pop('galaxy_home')
+    return ud
 
 def shellVars2Dict(filename):
     '''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
