@@ -5,6 +5,7 @@ from string import Template
 from cm.services.apps import ApplicationService
 from cm.util import paths, templates
 from cm.services import service_states
+from cm.services import ServiceRole
 from cm.util import misc
 
 import logging
@@ -14,7 +15,8 @@ log = logging.getLogger( 'cloudman' )
 class SGEService( ApplicationService ):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
-        self.svc_type = "SGE"
+        self.svc_roles = [ServiceRole.SGE]
+        self.name = ServiceRole.to_string(ServiceRole.SGE)
         self.hosts = []
 
     def start(self):
@@ -22,7 +24,7 @@ class SGEService( ApplicationService ):
         if self.unpack_sge():
             self.configure_sge()
         else:
-            log.error("Error adding service '%s'" % self.svc_type)
+            log.error("Error adding service '%s'" % self.name)
             self.state = service_states.ERROR
 
     def remove(self):

@@ -5,6 +5,7 @@ import datetime as dt
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
 from cm.util.manager import BaseConsoleManager
+from cm.services import ServiceRole
 from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
 
@@ -396,8 +397,9 @@ class ConsoleMonitor( object ):
             ret_code = subprocess.call( "sudo telinit 6", shell=True )
         elif message.startswith("ADDS3FS"):
             bucket_name = message.split(' | ')[1]
+            svc_roles = message.split(' | ')[2]
             log.info("Adding s3fs file system from bucket {0}".format(bucket_name))
-            fs = Filesystem(self.app, bucket_name)
+            fs = Filesystem(self.app, bucket_name, ServiceRole.from_string(svc_roles))
             fs.add_bucket(bucket_name)
             fs.add()
             log.debug("Worker done adding FS from bucket {0}".format(bucket_name))

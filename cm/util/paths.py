@@ -20,7 +20,7 @@ P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
 P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
-P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
+P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"  #NGTODO: Hardcoded link to galaxyData?
 
 try:
     # Get only the first 3 chars of the version since that's all that's used for dir name
@@ -53,7 +53,7 @@ def get_path(name, default_path):
     return path
 
 P_MOUNT_ROOT = "/mnt"
-P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
+P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools")) #NGTODO: Harrd coded to tools and indices?
 P_GALAXY_HOME = get_path("galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
 P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
 P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
