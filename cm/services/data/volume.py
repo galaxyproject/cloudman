@@ -98,6 +98,7 @@ class Volume(BlockStorage):
         if isinstance(vol_id, basestring):
             vols = None
             try:
+                log.debug("Retrieving a reference to the Volume object for ID {0}".format(vol_id))
                 vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(volume_ids=(vol_id, ))
             except EC2ResponseError, e:
                 log.error("Trouble getting volume reference for volume {0}: {1}"\
@@ -122,14 +123,21 @@ class Volume(BlockStorage):
                 self.device = attach_device
             else:
                 # Attach device is different than the system device so figure it out
+                log.debug("Volume {0} (attached as {1}) is visible as something else???"\
+                    .format(vol.id, attach_device))
                 try:
-                    attach_device = '/dev/xvd' + attach_device[-1]
+                    device_id = attach_device[-1] # Letter-only based device IDs (e.g., /dev/xvdc)
+                    if (str(device_id).isdigit()):
+                        device_id = attach_device[-2:] # Number-based device IDs (e.g., /dev/sdg1)
+                    attach_device = '/dev/xvd' + device_id
+                    log.debug("Trying visible device {0}...".format(attach_device))
                 except Exception, e:
-                    log.error("Attach device's ({0}) ID too short? {1}".format(attach_device, e))
+                    log.error("Attach device's ID ({0}) too short? {1}".format(attach_device, e))
                 if run('ls {0}'.format(attach_device), quiet=True):
                     self.device = attach_device
                 else:
-                    log.error("Problems discovering attach device vs. system device")
+                    log.error("Problems discovering volume {0} attach device {0} vs. system device ?"\
+                        .format(vol.id, attach_device))
                     self.device = None
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
