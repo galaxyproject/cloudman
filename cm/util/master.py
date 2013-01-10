@@ -24,7 +24,7 @@ from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S
 log = logging.getLogger('cloudman')
 
 APP_SERVICES = { ServiceRole.to_string(ServiceRole.GALAXY) : GalaxyService, ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES) : PostgresService,
-                 ServiceRole.to_string(ServiceRole.GALAXY_REPORTS) : GalaxyReportsService} 
+                 ServiceRole.to_string(ServiceRole.GALAXY_REPORTS) : GalaxyReportsService}
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -512,7 +512,7 @@ class ConsoleManager(BaseConsoleManager):
         a CloudMan-service, return ``Service not recognized``. If the service is
         not currently running (i.e., not currently recognized by CloudMan as a
         service it should be managing), return ``Service not found``.
-        """        
+        """
         svcarr = self.get_services(svc_name=srvc)
         svcarr = [s for s in svcarr if (s.svc_type == ServiceType.FILE_SYSTEM or ServiceRole.fulfills_roles(s.svc_roles, [ServiceRole.GALAXY, ServiceRole.SGE, ServiceRole.GALAXY_POSTGRES]))]
         if len(svcarr) > 0:
@@ -872,7 +872,8 @@ class ConsoleManager(BaseConsoleManager):
         excludes any data on user data file system).
         """
         log.debug("Cleaning the system - all services going down")
-        #TODO: #NGTODO: Possibility of simply calling remove on SGE service so that all dependencies are automatically removed?
+        #TODO: #NGTODO: Possibility of simply calling remove on ServiceType.FILE_SYSTEM
+        # service so that all dependencies are automatically removed?
         svcs = self.get_services(svc_role=ServiceRole.GALAXY)
         for service in svcs:
             service.remove()
@@ -1263,7 +1264,7 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = [] # Shared file systems list
         for fs in fsl:
-            roles = ServiceRole.from_string(fs['roles']) 
+            roles = ServiceRole.from_string(fs['roles'])
             if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
@@ -1598,7 +1599,7 @@ class ConsoleManager(BaseConsoleManager):
         If the snapshot is to be kept, a brief ``snap_description`` can be provided.
         """
         # Mark the file system as needing to be expanded
-        
+
         # matches fs_name, or if it's null or empty, the GALAXY_DATA role
         if fs_name:
             svcs = self.app.manager.get_services(svc_name=fs_name)
@@ -1610,7 +1611,7 @@ class ConsoleManager(BaseConsoleManager):
                 return
         else:
             svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
-            
+
         log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
                  % (svc.get_full_name(), new_vol_size, snap_description))
         svc.state = service_states.CONFIGURING
@@ -1999,7 +2000,7 @@ class ConsoleMonitor( object ):
             self.last_system_change_time = dt.datetime.utcnow()
             if service.add():
                 added_srvcs = True # else:
-        
+
             # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
             # .format(service.get_full_name(), service.state))
             # Store cluster conf after all services have been added.
@@ -2020,7 +2021,7 @@ class ConsoleMonitor( object ):
             # Opennebula has no storage like S3, so this is not working (yet)
                 if self.app.cloud_type != 'opennebula':
                     self.store_cluster_config()
-                    
+
     def __check_amqp_messages(self):
         # Check for any new AMQP messages
         m = self.conn.recv()
