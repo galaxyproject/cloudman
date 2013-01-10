@@ -24,7 +24,7 @@ class UniverseApplication( object ):
     """Encapsulates the state of a Universe application"""
     def __init__( self, **kwargs ):
         print "Python version: ", sys.version_info[:2]
-        self.PERSISTENT_DATA_VERSION = 2 # Current expected and generated PD version
+        self.PERSISTENT_DATA_VERSION = 3 # Current expected and generated PD version
         cc = CloudConfig(app=self)
         # Get the type of cloud currently running on
         self.cloud_type = cc.get_cloud_type()
