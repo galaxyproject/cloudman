@@ -3,11 +3,13 @@ Placeholder for DataService methods.
 """
 
 from cm.services import Service
+from cm.services import ServiceType
 from cm.util.bunch import Bunch
 
 class DataService( Service ):
     
     def __init__(self, app):
+        self.svc_type = ServiceType.FILE_SYSTEM
         super(DataService, self).__init__(app)
     
 

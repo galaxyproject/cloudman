@@ -9,6 +9,7 @@ No action is taken to correct operation of a failed service.
 import logging, logging.config, commands
 
 from cm.util import misc
+from cm.services import ServiceRole
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -69,9 +70,14 @@ class Introspect(object):
         log.debug("Checking all services...")
         self.check_worker_file_systems()
 
-    def check_disk(self):
+    def check_disk(self, fs_name=None):
         try:
-            disk_usage = commands.getoutput("df -h | grep galaxyData | awk '{print $2, $3, $5}'")
+            if not fs_name:
+                fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0].name
+                
+            #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
+            # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
+            disk_usage = commands.getoutput("df -h | grep " + fs_name + " | awk '{print $2, $3, $5}'")
             disk_usage = disk_usage.split(' ')
             if len(disk_usage) == 3:
                 self.app.manager.disk_total = disk_usage[0]
@@ -89,7 +95,7 @@ class Introspect(object):
         Following file systems are checked (as they map to their appropriate
         mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         and 'galaxyIndices'.
-        Because multiple file syatems are checked, status of individual voluems
+        Because multiple file systems are checked, status of individual volumes
         is stored in master's volume description variable so this method does
         not return a value.
         """
@@ -107,7 +113,7 @@ class Introspect(object):
         mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         'galaxyIndices', and '/opt/sge'.
         """
-        self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData')
+        self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData') #NGTODO: Needs major overhaul. Should iterate through services and discover volume name?
         self.app.manager.nfs_tools = self.check_file_system('galaxyTools', '/mnt/galaxyTools')
         self.app.manager.nfs_indices = self.check_file_system('galaxyIndices', '/mnt/galaxyIndices')
         self.app.manager.nfs_sge = self.check_file_system('SGE', '/opt/sge')

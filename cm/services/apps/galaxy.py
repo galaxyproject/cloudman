@@ -3,6 +3,8 @@ from datetime import datetime
 
 from cm.services.apps import ApplicationService
 from cm.services import service_states
+from cm.services import ServiceRole
+from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
 
@@ -16,21 +18,23 @@ class GalaxyService(ApplicationService):
         super(GalaxyService, self).__init__(app)
         self.galaxy_home = paths.P_GALAXY_HOME
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
-        self.svc_type = "Galaxy"
+        self.name = ServiceRole.to_string(ServiceRole.GALAXY)
+        self.svc_roles = [ServiceRole.GALAXY]
         self.configured = False # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {"SGE_ROOT": paths.P_SGE_ROOT}
-        self.reqs = {'Postgres': None,
-                     'Filesystem': 'galaxyData',
-                     'Filesystem': 'galaxyIndices',
-                     'Filesystem': 'galaxyTools'}
+        self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
+                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
+                      ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
+                      ] 
 
     def start(self):
         self.manage_galaxy(True)
         self.status()
 
     def remove(self):
-        log.info("Removing '%s' service" % self.svc_type)
+        log.info("Removing '%s' service" % self.name)
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.last_state_change_time = datetime.utcnow()
