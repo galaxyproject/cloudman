@@ -1912,6 +1912,7 @@ class ConsoleMonitor( object ):
             cc['filesystems'] = fss
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
+            cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
