@@ -249,7 +249,7 @@ class ConsoleManager(BaseConsoleManager):
                         self.services.append(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_roles = ServiceRole.from_string(srvc['roles'])
+                    service_roles = ServiceRole.from_string(srvc.get('roles', srvc['name']))
                     log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into classes is not quite ideal...
                     processed_service = False
@@ -411,15 +411,15 @@ class ConsoleManager(BaseConsoleManager):
         """
         Returns all services that best match given service type, role and name.
         If service name is specified, it is matched first.
-        Next, if a role is specified, returns all services matching role.
-        If service role is None, but a service type is specified, returns all services
-        matching type.
+        Next, if a role is specified, returns all services containing that role.
+        Lastly, if svc_role is ``None``, but a ``svc_type`` is specified, returns
+        all services matching type.
         """
         svcs = []
         for s in self.services:
             if s.name == svc_name:
                 return [s] # Only one match possible - so return it immediately
-            elif s.svc_role == svc_role:
+            elif svc_role in s.svc_roles:
                 svcs.append(s)
             elif s.svc_type == svc_type and svc_role == None:
                 svcs.append(s)
@@ -427,7 +427,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def all_fs_status_text(self):
         return []
-    # FIXME: unreachable code
+        # FIXME: unreachable code
         tr = []
         for key, vol in self.volumes.iteritems():
             if vol[3] is None:
@@ -1890,7 +1890,7 @@ class ConsoleMonitor( object ):
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
-                        fs['roles'] = ServiceRole.to_string(srvc.svc_role)
+                        fs['roles'] = ServiceRole.to_string(srvc.svc_roles)
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -1908,7 +1908,7 @@ class ConsoleMonitor( object ):
                     s = {}
                     s['name'] = srvc.name
                     s['roles'] = ServiceRole.to_string(srvc.svc_roles)
-                    if ServiceRole.GALAXY in srvc.svc_role:
+                    if ServiceRole.GALAXY in srvc.svc_roles:
                         s['home'] = paths.P_GALAXY_HOME
                     svcs.append(s)
             cc['filesystems'] = fss

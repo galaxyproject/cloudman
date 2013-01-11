@@ -124,7 +124,7 @@ class CM(BaseController):
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
         if not fs_name:
-            fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0] 
+            fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
         if delete_snap:
             delete_snap = True
         log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
@@ -516,8 +516,8 @@ class CM(BaseController):
         to_be_started = (to_be_started == 'True')
         if is_filesystem:
             svc_type = ServiceType.FILE_SYSTEM
-        else:            
-            svc_type = ServiceType.APPLICATION        
+        else:
+            svc_type = ServiceType.APPLICATION
         svcs = self.app.manager.get_services(svc_type=svc_type, svc_name=service_name)
         if svcs:
             log.debug("Managing services: %s" % svcs)

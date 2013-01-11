@@ -83,7 +83,7 @@ def normalize_user_data(app, ud):
                     # Some assumptions are made here; namely, all static file systems
                     # in the original data are assumed delete_on_termination, their name
                     # defines their role and they are mounted under /mnt/<name>
-                    roles = ServiceRole.legacy_convert(vol['filesystem'])                   
+                    roles = ServiceRole.legacy_convert(vol['filesystem'])
                     fs = {'kind': 'snapshot', 'name': vol['filesystem'],
                           'roles': roles, 'delete_on_termination': True,
                           'mount_point': os.path.join('/mnt', vol['filesystem']),
