@@ -189,7 +189,7 @@ class ServiceDependency(object):
         """
         if (self.assigned_service() is not None):
             log.debug("Removing service and dependency named {0} with role {1} belonging to service (3)."\
-                      .format(self.assigned_service(), self.service_role()['name'], self.owning_service()))
+                      .format(self.assigned_service(), ServiceRole.to_string(self.service_role()), self.owning_service().name))
             self.assigned_service().remove()
             self.assigned_service(None)
 
