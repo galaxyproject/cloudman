@@ -3,7 +3,6 @@ The base services package; all CloudMan services derive from this class.
 """
 import datetime as dt
 from cm.util.bunch import Bunch
-import collections
 
 import logging
 log = logging.getLogger( 'cloudman' )
@@ -23,9 +22,9 @@ service_states = Bunch(
 class ServiceType(object):
     FILE_SYSTEM = "FileSystem"
     APPLICATION = "Application"
-  
 
-class ServiceRole(object):    
+
+class ServiceRole(object):
     SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
     GALAXY = {'type': ServiceType.APPLICATION, 'name': "Galaxy"}
     GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name': "Postgres DB for Galaxy"}
@@ -41,19 +40,20 @@ class ServiceRole(object):
     @staticmethod
     def get_type(role):
         return role['type']
-        
+
     @staticmethod
-    def from_string(role_str):
+    def from_string(roles_str):
+        """
+        Convert a list of roles as strings ``roles_str`` into a list of
+        ``ServiceRole`` objects and return that list.
+        """
         svc_roles = []
-        if not role_str:
-            return svc_roles
-        
-        role_list = str.split(",")
-        for val in role_list:
-            svc_roles.append(ServiceRole._role_from_string(val))
-        
+        if not isinstance(roles_str, list):
+            roles_str = [roles_str] # Not a list, therefore, convert to list
+        for role_str in roles_str:
+            svc_roles.append(ServiceRole._role_from_string(role_str))
         return svc_roles
-        
+
     @staticmethod
     def _role_from_string(val):
         if val == "SGE":
@@ -80,17 +80,17 @@ class ServiceRole(object):
             return ServiceRole.TRANSIENT_NFS
         else:
             return None
-    
+
     @staticmethod
     def to_string(svc_roles):
         if not isinstance(svc_roles, list):
             svc_roles = [svc_roles] # Not a list, therefore, convert to list
         str_roles = ""
         for role in svc_roles:
-            str_roles = str_roles  + "," + ServiceRole._role_to_string(role)
-        return str_roles[1:] # strip leading comma 
-    
-    @staticmethod 
+            str_roles = str_roles + "," + ServiceRole._role_to_string(role)
+        return str_roles[1:] # strip leading comma
+
+    @staticmethod
     def _role_to_string(svc_role):
         if svc_role == ServiceRole.SGE:
             return "SGE"
@@ -115,68 +115,73 @@ class ServiceRole(object):
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
         else:
-            raise Exception("Unrecognized role {0}. Cannot convert to string".format(svc_role)) 
-    
+            raise Exception("Unrecognized role {0}. Cannot convert to string".format(svc_role))
+
     @staticmethod
-    def fulfills_roles(svc_roles, list_to_fulfill):
-        for role in list_to_fulfill:
-            if role not in svc_roles:
-                return False
-        
-        return True
-    
+    def fulfills_roles(svc_roles, list_to_check):
+        """
+        Iterates through the list of services ``list_to_check`` and if any
+        service in that list is present in ``svc_roles`` list, return ``True``.
+        Else, return ``False``.
+        """
+        for role in list_to_check:
+            if role in svc_roles:
+                return True
+        return False
+
     @staticmethod
     def legacy_convert(name):
         """
         Legacy name to role conversion support. Supports the conversion of
         known service names such as SGE, galaxyData, galaxyTools etc. to role types.
         """
-        known_roles = ServiceRole.from_string([ name ]) 
+        known_roles = ServiceRole.from_string([name])
         if not known_roles:
             known_roles = [ServiceRole.GENERIC_FS]
-        return ServiceRole.to_string(known_roles)        
-       
+        return ServiceRole.to_string(known_roles)
+
 
 class ServiceDependency(object):
     """
     Represents a dependency that another service required for its function.
     A service dependency may have the following attributes:
     owning_service - The parent service whose dependency this instance describes.
-    service_role - The specific roles that this instance of the service is playing. For example, there may be
-                   multiple File System services providing/fulfilling different requirements
-    assigned_service - Represents the service currently assigned to fulfill this dependency.  
+    service_role - The specific roles that this instance of the service is playing.
+                   For example, there may be multiple File System services
+                   providing/fulfilling different requirements
+    assigned_service - Represents the service currently assigned to fulfill this dependency.
     """
-    def __init__( self, owning_service, service_role, assigned_service=None ):
+    def __init__(self, owning_service, service_role, assigned_service=None):
         self._owning_service = owning_service
         self._service_role = service_role
         self._assigned_service = assigned_service
- 
+
     @property
     def owning_service(self):
         return self._owning_service
-      
-    @property  
+
+    @property
     def service_type(self):
         return ServiceRole.get_type(self._service_role)
-    
+
     @property
     def service_role(self):
         return self._service_role
- 
+
     @property
     def assigned_service(self):
-        return self._assigned_service   
+        return self._assigned_service
 
     @assigned_service.setter
     def assigned_service(self, value):
         self._assigned_service = value
-        
+
     def satisfies(self, service):
         """
         Determines whether this service dependency satisfies a given service
         """
         return self.service_role() in service.svc_roles
-        
+
     def remove(self):
         """
         Calls the remove method on the currently assigned service
