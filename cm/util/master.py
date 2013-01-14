@@ -641,7 +641,7 @@ class ConsoleManager(BaseConsoleManager):
         try:
             fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
             if len(fs_arr)>0:
-                fs_name = fs_arr[0]
+                fs_name = fs_arr[0].name
                 #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
                 # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
                 disk_usage = commands.getoutput("df -h | grep " + fs_name + " | awk '{print $2, $3, $5}'")
