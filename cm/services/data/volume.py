@@ -521,7 +521,7 @@ class Volume(BlockStorage):
         log.debug("Detaching volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
         if self.detach():
             log.debug("Detached volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
-            if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_role) and delete_vols:
+            if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and delete_vols:
                 log.debug("Deleting volume {0} as part of {1}".format(self.volume_id, self.fs.get_full_name()))
                 self.delete()
 
