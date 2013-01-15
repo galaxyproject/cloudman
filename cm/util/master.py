@@ -208,9 +208,10 @@ class ConsoleManager(BaseConsoleManager):
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], fs.get('mount_point', None), svc_roles=ServiceRole.from_string(fs['roles']))
+                    filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string(fs['roles']), mount_point=fs.get('mount_point', None))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
+                    log.debug("Got here 2")
                     if fs['kind'] == 'volume':
                         if 'ids' not in fs and 'size' in fs:
                             # We're creating a new volume
