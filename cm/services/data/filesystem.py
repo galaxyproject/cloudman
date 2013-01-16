@@ -142,7 +142,6 @@ class Filesystem(DataService):
                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
                     self.transient_storage))
         self.state = service_states.SHUTTING_DOWN
-        super(Filesystem, self).remove()
         r_thread = threading.Thread( target=self.__remove )
         r_thread.start()
 
@@ -153,6 +152,7 @@ class Filesystem(DataService):
         is set to ``True``, the service is automatically removed
         from the list of services monitored by the master.
         """
+        super(Filesystem, self).remove()
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
@@ -165,7 +165,7 @@ class Filesystem(DataService):
         self.state = service_states.SHUT_DOWN
         # Remove self from the list of master's services
         if self.state == service_states.SHUT_DOWN and remove_from_master:
-            self.app.manager.services.remove(self)
+            self.app.manager.remove_master_service(self)
 
     def clean(self):
         """
@@ -258,7 +258,7 @@ class Filesystem(DataService):
         log.debug("{0} snapshot process completed; adding self to the list of master services"\
             .format(self.get_full_name()))
         self.state = service_states.UNSTARTED # Need to reset state so it gets picked up by monitor
-        self.app.manager.services.append(self)
+        self.app.manager.add_master_service(self)
         return snap_ids
 
     def _get_attach_device_from_device(self, device):

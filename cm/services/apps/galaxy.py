@@ -35,6 +35,7 @@ class GalaxyService(ApplicationService):
 
     def remove(self):
         log.info("Removing '%s' service" % self.name)
+        super(GalaxyService, self).remove()
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.last_state_change_time = datetime.utcnow()

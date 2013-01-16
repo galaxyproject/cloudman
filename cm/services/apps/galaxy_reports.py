@@ -65,6 +65,7 @@ filter-with = proxy-prefix
 
     def remove(self):
         log.info("Removing '%s' service" % self.name)
+        super(GalaxyReportsService, self).remove()
         self.state = service_states.SHUTTING_DOWN
         log.info("Shutting down Galaxy Reports...")
         if self._run("stop"):
