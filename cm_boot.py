@@ -149,7 +149,12 @@ def _fix_nginx_upload():
     Set ``max_client_body_size`` in nginx config. This is necessary for the
     Galaxy Cloud AMI ami-da58aab3
     """
-    nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
+    # Accommodate different images and let user data override file location
+    if os.path.exists('/opt/galaxy/pkg/nginx/conf/nginx.conf'):
+        nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
+    elif os.path.exists("/usr/nginx/conf/nginx.conf"):
+        nginx_conf_path = "/usr/nginx/conf/nginx.conf"
+    nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
     log.info("Attempting to configure max_client_body_size in {0}".format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
         # first check of the directive is already defined
