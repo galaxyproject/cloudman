@@ -51,6 +51,38 @@ class ConsoleManager(BaseConsoleManager):
         self.master_exec_host = True
         self.initial_cluster_type = None
         self.services = []
+        
+    def add_master_service(self, new_service):
+        self.services.append(new_service)
+        self._update_dependencies(new_service, "ADD")
+        
+    def remove_master_service(self, service_to_remove):
+        self.services.remove(service_to_remove)
+        self._update_dependencies(service_to_remove, "REMOVE")
+        
+    def _update_dependencies(self, new_service, action):
+        """
+        Updates service dependencies when a new service is added.
+        Iterates through all services and if action is "ADD",
+        and the newly added service fulfills the requirements of an
+        existing service, sets the new service as the service assigned
+        to fulfill the existing service.
+        If the action is "REMOVE", then the dependent service's
+        assigned service property is set to null for all services
+        which depend on the new service.
+        """
+        log.debug("Updating dependencies for service {0}".format(new_service.name))
+        for svc in self.services:
+            if action == "ADD":
+                for req in new_service.reqs:
+                    if req.is_satisfied_by(svc):
+                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(req.owning_service.name, new_service.name, action))
+                        req.assigned_service = svc
+            elif action == "REMOVE":
+                for req in svc.reqs:
+                    if req.is_satisfied_by(new_service):
+                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(req.owning_service.name, new_service.name, action))
+                        req.assigned_service = None 
 
     def _stop_app_level_services(self):
         """ Convenience function that suspends SGE jobs and removes Galaxy &
@@ -140,14 +172,14 @@ class ConsoleManager(BaseConsoleManager):
         self._handle_prestart_commands()
 
         # Always add SGE service
-        self.services.append(SGEService(self.app))
+        self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
-        self.services.append(tfs)
+        self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.services.append(PSS(self.app))
+        self.add_master_service(PSS(self.app))
 
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
@@ -246,7 +278,7 @@ class ConsoleManager(BaseConsoleManager):
                     if not err:
                         log.debug("Adding a previously existing filesystem '{0}' of "\
                             "kind '{1}'".format(fs['name'], fs['kind']))
-                        self.services.append(filesystem)
+                        self.add_master_service(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_roles = ServiceRole.from_string(srvc.get('roles', srvc['name']))
@@ -255,7 +287,7 @@ class ConsoleManager(BaseConsoleManager):
                     processed_service = False
                     service_class = APP_SERVICES.get(ServiceRole.to_string(service_roles), None)
                     if service_class:
-                        self.services.append(service_class(self.app))
+                        self.add_master_service(service_class(self.app))
                         processed_service = True
                     if (not processed_service) and (ServiceRole.SGE not in service_roles): # SGE is added by default
                         log.warning("Could not find service class matching userData service entry: %s"\
@@ -322,7 +354,7 @@ class ConsoleManager(BaseConsoleManager):
                     else:
                         fs.add_volume(size=vol['size'], from_snapshot_id=vol['snap_id'])
                     log.debug("Adding static filesystem: '%s'" % vol['filesystem'])
-                    self.services.append(fs)
+                    self.add_master_service(fs)
                     self.initial_cluster_type = 'Galaxy'
             if "data_filesystems" in self.app.ud:
                 for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
@@ -330,7 +362,7 @@ class ConsoleManager(BaseConsoleManager):
                     fs = Filesystem(self.app, fs) #NGTODO: Something needs to be done here to pass correct svc_role
                     for vol in vol_array:
                         fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
-                    self.services.append(fs)
+                    self.add_master_service(fs)
                     self.initial_cluster_type = 'Data'
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
@@ -340,7 +372,7 @@ class ConsoleManager(BaseConsoleManager):
                     processed_service = False
                     service_class = APP_SERVICES.get(service_name, None)
                     if service_class:
-                        self.services.append(service_class(self.app))
+                        self.add_master_service(service_class(self.app))
                         if service_name in ['Postgres', 'Galaxy']:
                             self.initial_cluster_type = 'Galaxy'
                         processed_service = True
@@ -358,7 +390,7 @@ class ConsoleManager(BaseConsoleManager):
     def start_autoscaling(self, as_min, as_max, instance_type):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if not as_svc:
-            self.services.append(Autoscale(self.app, as_min, as_max, instance_type))
+            self.add_master_service(Autoscale(self.app, as_min, as_max, instance_type))
         else:
             log.debug("Autoscaling is already on.")
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -367,7 +399,7 @@ class ConsoleManager(BaseConsoleManager):
     def stop_autoscaling(self):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if as_svc:
-            self.services.remove(as_svc[0])
+            self.remove_master_service(as_svc[0])
         else:
             log.debug("Not stopping autoscaling because it is not on.")
 
@@ -1066,7 +1098,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
-            self.services.append(fs)
+            self.add_master_service(fs)
 
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug("Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
@@ -1100,14 +1132,14 @@ class ConsoleManager(BaseConsoleManager):
                         fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
-                    self.services.append(fs)
+                    self.add_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
-            self.services.append(PostgresService(self.app))
+            self.add_master_service(PostgresService(self.app))
             # Add Galaxy service
-            self.services.append(GalaxyService(self.app))
+            self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data
             _add_data_fs()
@@ -1486,7 +1518,7 @@ class ConsoleManager(BaseConsoleManager):
                     fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
-                    self.services.append(fs)
+                    self.add_master_service(fs)
                     # Monitor will pick up the new service and start it up but
                     # need to wait until that happens before can add rest of
                     # the services
@@ -1507,7 +1539,7 @@ class ConsoleManager(BaseConsoleManager):
             .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
         fs = Filesystem(self.app, fs_name or bucket_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
-        self.services.append(fs)
+        self.add_master_service(fs)
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:

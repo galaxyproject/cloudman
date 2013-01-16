@@ -30,6 +30,7 @@ class SGEService( ApplicationService ):
     def remove(self):
         # TODO write something to clean up SGE in the case of restarts?
         log.info("Removing SGE service")
+        super(SGEService, self).remove()
         self.state = service_states.SHUTTING_DOWN
         for inst in self.app.manager.worker_instances:
             if not inst.is_spot() or inst.spot_was_filled():

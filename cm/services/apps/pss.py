@@ -140,11 +140,10 @@ class PSS(ApplicationService):
                 .format(self.pss_filename, self.app.ud['bucket_cluster']))
 
     def remove(self):
+        super(PSS, self).remove()
         if self.state == service_states.SHUT_DOWN:
             log.debug("Removing %s service from master list of services" % self.name)
-            for srvc in self.app.manager.services:
-                if srvc == self:
-                    self.app.manager.services.remove(srvc)
+            self.app.manager.remove_master_service(self)
         else:
             log.debug("Tried removing %s service but it's not in state %s" \
                 % (self.name, service_states.SHUT_DOWN))

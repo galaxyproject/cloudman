@@ -176,25 +176,13 @@ class ServiceDependency(object):
     def assigned_service(self, value):
         self._assigned_service = value
 
-    def satisfies(self, service):
+    def is_satisfied_by(self, service):
         """
-        Determines whether this service dependency satisfies a given service
+        Determines whether this service dependency is satisfied by a given service
         """
         return self.service_role in service.svc_roles
 
-    def remove(self):
-        """
-        Calls the remove method on the currently assigned service
-        and sets the currently assigned service to Null
-        """
-        log.debug("Removing dependency belonging to {0} with roles {1}".format(self.owning_service.name, ServiceRole.to_string(self.service_role)))
-        if (self.assigned_service is not None):
-            log.debug("Removing service and dependency named {0} with role {1} belonging to service {2}."\
-                      .format(self.assigned_service, ServiceRole.to_string(self.service_role), self.owning_service.name))
-            self.assigned_service.remove()
-            self.assigned_service(None)
-
-
+    
 class Service( object):
 
     def __init__( self, app, service_type=None ):
@@ -224,7 +212,7 @@ class Service( object):
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
                 for svc in self.app.manager.services:
                     #log.debug("Checking service %s state." % svc.name)
-                    if dependency.satisfies(svc):
+                    if dependency.is_satisfied_by(svc):
                         #log.debug("Service %s:%s running: %s" % (svc.name, svc.name, svc.running()))
                         if not svc.running():
                             failed_prereqs.append(svc.get_full_name())
@@ -246,10 +234,12 @@ class Service( object):
         Child classes which override this method should ensure this is called
         for proper removal of service dependencies.
         """
+        log.debug("Removing dependencies of service: {0}".format(self.name))
         for service in self.app.manager.services:
-            for dependent_svc in service.reqs:
-                if (dependent_svc.satisfies(self)):
-                    dependent_svc.remove()
+            for dependency in service.reqs:
+                if (dependency.is_satisfied_by(self)):
+                    log.debug("Dependency {0} found. Removing...".format(service.name))
+                    service.remove()
 
     def running(self):
         """
