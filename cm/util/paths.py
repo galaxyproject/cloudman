@@ -63,53 +63,53 @@ IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')
 
 
 class PathResolver(object):
-    def __init__(self, app):
-        self.app = app
-    
+    def __init__(self, manager):
+        self.manager = manager
+
     @property
     def galaxy_tools(self):
         return P_GALAXY_TOOLS
-    
+
     @property
     def galaxy_home(self):
-        return P_GALAXY_HOME    
-    
+        return P_GALAXY_HOME
+
     @property
     def galaxy_data(self):
-        galaxy_data_fs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
+        galaxy_data_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
         if galaxy_data_fs:
             return galaxy_data_fs[0].mount_point
         else:
             return P_GALAXY_DATA
-   
+
     @property
     def galaxy_indices(self):
         return P_GALAXY_INDICES
-    
+
     @property
     def pg_home(self):
         return P_PG_HOME
-    
+
     @property
     def psql_dir(self):
         return os.path.join(self.galaxy_data, "pgsql/data")
-    
+
     @property
     def mount_root(self):
         return P_MOUNT_ROOT
-    
+
     @property
     def sge_root(self):
         return P_SGE_ROOT
-    
+
     @property
     def sge_tars(self):
         return P_SGE_TARS
-    
+
     @property
     def sge_cell(self):
         return P_SGE_CELL
 
-    
-    
+
+
 

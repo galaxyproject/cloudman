@@ -51,15 +51,15 @@ class ConsoleManager(BaseConsoleManager):
         self.master_exec_host = True
         self.initial_cluster_type = None
         self.services = []
-        
+
     def add_master_service(self, new_service):
         self.services.append(new_service)
         self._update_dependencies(new_service, "ADD")
-        
+
     def remove_master_service(self, service_to_remove):
         self.services.remove(service_to_remove)
         self._update_dependencies(service_to_remove, "REMOVE")
-        
+
     def _update_dependencies(self, new_service, action):
         """
         Updates service dependencies when a new service is added.
@@ -82,7 +82,7 @@ class ConsoleManager(BaseConsoleManager):
                 for req in svc.reqs:
                     if req.is_satisfied_by(new_service):
                         log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(req.owning_service.name, new_service.name, action))
-                        req.assigned_service = None 
+                        req.assigned_service = None
 
     def _stop_app_level_services(self):
         """ Convenience function that suspends SGE jobs and removes Galaxy &
@@ -1131,7 +1131,7 @@ class ConsoleManager(BaseConsoleManager):
                     else:
                         log.debug("There are no volumes already attached for file system {0}"\
                             .format(snap['filesystem']))
-                        fs.add_volume(size=snap['size'], from_snapshot_id=snap['snap_id'])
+                        fs.add_volume(size=snap.get('size', 0), from_snapshot_id=snap['snap_id'])
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.add_master_service(fs)

@@ -91,11 +91,11 @@ class UniverseApplication( object ):
                 log.info( "Worker starting" )
                 from cm.util import worker
                 self.manager = worker.ConsoleManager(self)
+            self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
         else:
             log.error("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
-            
-        self.path_resolver = paths.PathResolver(self)
+
 
     def shutdown(self, delete_cluster=False):
         if self.manager:

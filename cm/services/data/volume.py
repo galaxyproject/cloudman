@@ -250,6 +250,12 @@ class Volume(BlockStorage):
                         log.critical(msg)
                         self.app.msgs.error(msg)
                         return None
+                if self.from_snapshot_id and self.size == 0:
+                    try:
+                        s = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([self.from_snapshot_id])[0]
+                        self.size = s.volume_size
+                    except EC2ResponseError, e:
+                        log.error("Error retrieving snapshot %s size: %s" % (self.from_snapshot_id, e))
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
                 self.size = int(self.volume.size or 0) # when creating from a snapshot in Euca, volume.size may be None
