@@ -98,7 +98,7 @@ def _start_nginx(ud):
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
     _configure_nginx(ud)
-    _fix_nginx_upload()
+    _fix_nginx_upload(ud)
     rmdir = False # Flag to indicate if a dir should be deleted
     if not os.path.exists('/mnt/galaxyData/upload_store'): #NGTODO: Hardcoded links to GalaxyData?
         rmdir = True
@@ -144,7 +144,7 @@ def _reconfigure_nginx(ud, nginx_conf_path):
         new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}", upstream_galaxy_app_conf, nginx_conf)
         open(nginx_conf_path, "w").write(new_nginx_conf)
 
-def _fix_nginx_upload():
+def _fix_nginx_upload(ud):
     """
     Set ``max_client_body_size`` in nginx config. This is necessary for the
     Galaxy Cloud AMI ami-da58aab3
