@@ -77,7 +77,10 @@ class PathResolver(object):
     @property
     def galaxy_data(self):
         galaxy_data_fs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
-        return galaxy_data_fs[0].mount_point if not None else P_GALAXY_DATA
+        if galaxy_data_fs:
+            return galaxy_data_fs[0].mount_point
+        else:
+            return P_GALAXY_DATA
    
     @property
     def galaxy_indices(self):
