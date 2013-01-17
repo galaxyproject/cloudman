@@ -1,6 +1,7 @@
 import os
 import commands
 from cm.util import misc
+from cm.services import ServiceRole
 
 # Commands
 P_MKDIR = "/bin/mkdir"
@@ -20,7 +21,7 @@ P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
 P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
-P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"  #NGTODO: Hardcoded link to galaxyData?
+P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 
 try:
     # Get only the first 3 chars of the version since that's all that's used for dir name
@@ -59,3 +60,56 @@ P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData')
 P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
 
 IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')
+
+
+class PathResolver(object):
+    def __init__(self, app):
+        self.app = app
+    
+    @property
+    def galaxy_tools(self):
+        return P_GALAXY_TOOLS
+    
+    @property
+    def galaxy_home(self):
+        return P_GALAXY_HOME    
+    
+    @property
+    def galaxy_data(self):
+        galaxy_data_fs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
+        if galaxy_data_fs:
+            return galaxy_data_fs[0].mount_point
+        else:
+            return P_GALAXY_DATA
+   
+    @property
+    def galaxy_indices(self):
+        return P_GALAXY_INDICES
+    
+    @property
+    def pg_home(self):
+        return P_PG_HOME
+    
+    @property
+    def psql_dir(self):
+        return os.path.join(self.galaxy_data, "pgsql/data")
+    
+    @property
+    def mount_root(self):
+        return P_MOUNT_ROOT
+    
+    @property
+    def sge_root(self):
+        return P_SGE_ROOT
+    
+    @property
+    def sge_tars(self):
+        return P_SGE_TARS
+    
+    @property
+    def sge_cell(self):
+        return P_SGE_CELL
+
+    
+    
+

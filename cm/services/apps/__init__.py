@@ -53,13 +53,13 @@ class ApplicationService( Service ):
         :return: PID, -1 if the file does not exist
         """
         if service == 'postgres':
-            pid_file = '%s/postmaster.pid' % paths.P_PSQL_DIR
+            pid_file = '%s/postmaster.pid' % self.app.path_resolver.psql_dir
         elif service == 'sge':
-            pid_file = '%s/qmaster.pid' % paths.P_SGE_CELL
+            pid_file = '%s/qmaster.pid' % self.app.path_resolver.sge_cell
         elif service == 'galaxy':
-            pid_file = '%s/main.pid' % paths.P_GALAXY_HOME
+            pid_file = '%s/main.pid' % self.app.path_resolver.galaxy_home
         elif service == 'galaxy_reports':
-            pid_file = '%s/reports_webapp.pid' % paths.P_GALAXY_HOME
+            pid_file = '%s/reports_webapp.pid' % self.app.path_resolver.galaxy_home
         else:
             return -1
         # log.debug("Checking pid file '%s' for service '%s'" % (pid_file, service))
