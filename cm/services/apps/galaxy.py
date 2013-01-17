@@ -16,13 +16,13 @@ class GalaxyService(ApplicationService):
 
     def __init__(self, app):
         super(GalaxyService, self).__init__(app)
-        self.galaxy_home = paths.P_GALAXY_HOME
+        self.galaxy_home = self.app.path_resolver.galaxy_home
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         self.name = ServiceRole.to_string(ServiceRole.GALAXY)
         self.svc_roles = [ServiceRole.GALAXY]
         self.configured = False # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
-        self.env_vars = {"SGE_ROOT": paths.P_SGE_ROOT}
+        self.env_vars = {"SGE_ROOT": self.app.path_resolver.sge_root}
         self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
                       ServiceDependency(self, ServiceRole.GALAXY_DATA),
                       ServiceDependency(self, ServiceRole.GALAXY_INDICES),
@@ -107,12 +107,12 @@ class GalaxyService(ApplicationService):
                             self._attempt_chown_galaxy_if_exists(local_file)
                 self.add_dynamic_galaxy_options()
                 # Make sure the temporary job_working_directory exists on user data volume (defined in universe_wsgi.ini.cloud)
-                if not os.path.exists('%s/tmp/job_working_directory' % paths.P_GALAXY_DATA):
-                    os.makedirs('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
-                self._attempt_chown_galaxy('%s/tmp/job_working_directory/' % paths.P_GALAXY_DATA)
+                if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
+                    os.makedirs('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
+                self._attempt_chown_galaxy('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
                 # Setup environment for the FTP server and start it
-                if not os.path.exists('%s/tmp/ftp' % paths.P_GALAXY_DATA):
-                    os.makedirs('%s/tmp/ftp' % paths.P_GALAXY_DATA)
+                if not os.path.exists('%s/tmp/ftp' % self.app.path_resolver.galaxy_data):
+                    os.makedirs('%s/tmp/ftp' % self.app.path_resolver.galaxy_data)
                 misc.run('/etc/init.d/proftpd start')
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE DATA TABLES
                 if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):
@@ -199,7 +199,7 @@ class GalaxyService(ApplicationService):
             self.last_state_change_time = datetime.utcnow()
             if self.state == service_states.RUNNING:
                 log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
-                misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, paths.P_PG_HOME, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
+                misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, self.app.path_resolver.pg_home, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
             # Force cluster configuration state update on status change
             self.app.manager.console_monitor.store_cluster_config()
 
@@ -230,16 +230,16 @@ class GalaxyService(ApplicationService):
         if not os.path.exists(conf_dir):
             os.makedirs(conf_dir)
             defaults_destination = os.path.join(conf_dir, "010_%s" % defaults_name)
-            universe_wsgi = os.path.join(paths.P_GALAXY_HOME, defaults_name)
+            universe_wsgi = os.path.join(self.app.path_resolver.galaxy_home, defaults_name)
             if not os.path.exists(universe_wsgi):
                 # Fresh install, take the oppertunity to just link in defaults
-                defaults_source = os.path.join(paths.P_GALAXY_HOME, "%s.sample" % defaults_name)
+                defaults_source = os.path.join(self.app.path_resolver.galaxy_home, "%s.sample" % defaults_name)
                 os.symlink(defaults_source, defaults_destination)
             else:
                 # CloudMan has previously been run without the galaxy_conf_dir
                 # option enabled. Users may have made modifications to universe_wsgi.ini
                 # that I guess we should preserve for backward compatibility.
-                defaults_source = os.path.join(paths.P_GALAXY_HOME, defaults_name)
+                defaults_source = os.path.join(self.app.path_resolver.galaxy_home, defaults_name)
                 shutil.copyfile(defaults_source, defaults_destination)
 
     def get_galaxy_conf_dir(self):

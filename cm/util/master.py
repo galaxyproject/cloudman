@@ -90,7 +90,7 @@ class ConsoleManager(BaseConsoleManager):
         # Suspend all SGE jobs
         log.debug("Suspending SGE queue all.q")
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
         # Stop application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
@@ -120,7 +120,7 @@ class ConsoleManager(BaseConsoleManager):
                     % (ServiceRole.to_string([svc_role]), e))
         log.debug("Unsuspending SGE queue all.q")
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), \
             "Error unsuspending SGE jobs", \
             "Successfully unsuspended all SGE jobs")
 
@@ -449,7 +449,9 @@ class ConsoleManager(BaseConsoleManager):
         """
         svcs = []
         for s in self.services:
-            if s.name == svc_name:
+            if s.name is None: # Sanity check
+                log.error("A name has not been assigned to the service. A value must be assigned to the svc.name property.")
+            elif s.name == svc_name:
                 return [s] # Only one match possible - so return it immediately
             elif svc_role in s.svc_roles:
                 svcs.append(s)
@@ -640,7 +642,7 @@ class ConsoleManager(BaseConsoleManager):
         Return a string with either the revision (e.g., ``5757:963e73d40e24``)
         or ``N/A`` if unable to get the revision number.
         """
-        cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, paths.P_GALAXY_HOME)
+        cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (paths.P_SU, self.app.path_resolver.galaxy_home)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = process.communicate()
         if out[1] != '':
@@ -652,7 +654,7 @@ class ConsoleManager(BaseConsoleManager):
     def get_galaxy_admins(self):
         admins = 'None'
         try:
-            config_file = open(os.path.join(paths.P_GALAXY_HOME, 'universe_wsgi.ini'), 'r').readlines()
+            config_file = open(os.path.join(self.app.path_resolver.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
             for line in config_file:
                 if 'admin_users' in line:
                     admins = line.split('=')[1].strip()
@@ -927,9 +929,9 @@ class ConsoleManager(BaseConsoleManager):
         """
         # log.debug( "Looking for idle instances" )
         idle_instances = [] # List of Instance objects corresponding to idle instances
-        if os.path.exists('%s/default/common/settings.sh' % paths.P_SGE_ROOT):
+        if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
             proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
-                "%s/bin/lx24-amd64/qstat -f | grep all.q" % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), \
+                "%s/bin/lx24-amd64/qstat -f | grep all.q" % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), \
                 shell=True, stdout=subprocess.PIPE)
             qstat_out = proc.communicate()[0]
             # log.debug( "qstat output: %s" % qstat_out )
@@ -1094,7 +1096,7 @@ class ConsoleManager(BaseConsoleManager):
             """
             A local convenience method used to add a new file system
             """
-            fs_name = 'galaxyData'
+            fs_name = ServiceRole.to_string(ServiceRole.GALAXY_DATA)
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
@@ -1141,8 +1143,9 @@ class ConsoleManager(BaseConsoleManager):
             # Add Galaxy service
             self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':
-            # Add a file system for user's data
-            _add_data_fs()
+            # Add a file system for user's data if one doesn't already exist
+            if not self.get_services(svc_role=ServiceRole.GALAXY_DATA):
+                _add_data_fs()
         elif cluster_type == 'SGE':
             # SGE service is automatically added at cluster start (see ``start`` method)
             pass
@@ -1941,7 +1944,7 @@ class ConsoleMonitor( object ):
                     s['name'] = srvc.name
                     s['roles'] = ServiceRole.to_string(srvc.svc_roles)
                     if ServiceRole.GALAXY in srvc.svc_roles:
-                        s['home'] = paths.P_GALAXY_HOME
+                        s['home'] = self.app.path_resolver.galaxy_home
                     svcs.append(s)
             cc['filesystems'] = fss
             cc['services'] = svcs
@@ -1986,10 +1989,10 @@ class ConsoleMonitor( object ):
                                'tool_data_table_conf.xml',
                                'shed_tool_conf.xml',
                                'datatypes_conf.xml']:
-                    if (os.path.exists(os.path.join(paths.P_GALAXY_HOME, f_name))) or \
-                       (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))):
+                    if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_home, f_name))) or \
+                       (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
                         log.debug("Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name, self.app.ud['bucket_cluster'], f_name))
-                        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(paths.P_GALAXY_HOME, f_name))
+                        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))
         except:
             pass
         # If not existent, save current boot script cm_boot.py to cluster's bucket

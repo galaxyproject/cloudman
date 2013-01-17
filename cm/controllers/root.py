@@ -322,14 +322,14 @@ class CM(BaseController):
         # Choose log file path based on service name
         log = "No '%s' log available." % service_name
         if service_name == 'Galaxy':
-            log_file = os.path.join(paths.P_GALAXY_HOME, 'main.log')
+            log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
         elif service_name == 'SGE':
             # For SGE, we can get either the service log file or the queue conf file
             q = kwargs.get('q', None)
             if q == 'conf':
-                log_file = os.path.join(paths.P_SGE_ROOT, 'all.q.conf')
+                log_file = os.path.join(self.app.path_resolver.sge_root, 'all.q.conf')
             elif q == 'qstat':
                 log_file = os.path.join('/tmp', 'qstat.out')
                 # Save qstat output into a file so it can be read in the same way as log files
@@ -337,16 +337,16 @@ class CM(BaseController):
                     cmd = ('%s - galaxy -c "export SGE_ROOT=%s;\
                         . %s/default/common/settings.sh; \
                         %s/bin/lx24-amd64/qstat -f > %s"'
-                        % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT, log_file))
+                        % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, log_file))
                     subprocess.call(cmd, shell=True)
                 except OSError:
                     pass
             else:
-                log_file = os.path.join(paths.P_SGE_CELL, 'messages')
+                log_file = os.path.join(self.app.path_resolver.sge_cell, 'messages')
         elif service_name == 'CloudMan':
             log_file = "paster.log"
         elif service_name == 'GalaxyReports':
-            log_file = os.path.join(paths.P_GALAXY_HOME, 'reports_webapp.log')
+            log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
         # Set log length
         if num_lines:
             if show == 'more':
@@ -459,10 +459,10 @@ class CM(BaseController):
             for service in svcs:
                 service.remove()
             if not db_only:
-                cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, paths.P_GALAXY_HOME, repository)
+                cmd = '%s - galaxy -c "cd %s; hg --config ui.merge=internal:local pull %s --update"' % (paths.P_SU, self.app.path_resolver.galaxy_home, repository)
                 retval = os.system(cmd)
                 log.debug("Galaxy update cmd '%s'; return value %s" % (cmd, retval))
-            cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, paths.P_GALAXY_HOME)
+            cmd = '%s - galaxy -c "cd %s; sh manage_db.sh upgrade"' % (paths.P_SU, self.app.path_resolver.galaxy_home)
             retval = os.system(cmd)
             log.debug("Galaxy DB update cmd '%s'; return value %s" % (cmd, retval))
             for service in svcs:
