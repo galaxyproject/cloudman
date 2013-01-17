@@ -36,19 +36,19 @@ class SGEService( ApplicationService ):
             if not inst.is_spot() or inst.spot_was_filled():
                 self.remove_sge_host(inst.get_id(), inst.get_private_ip())
 
-        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", "Successfully stopped SGE master")
+        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Problems stopping SGE master", "Successfully stopped SGE master")
         self.state = service_states.SHUT_DOWN
 
     def clean(self):
         """ Stop SGE and clean up the system as if SGE was never installed. Useful for CloudMan restarts."""
         self.remove()
         if self.state == service_states.SHUT_DOWN:
-            misc.run('rm -rf %s/*' % paths.SGE_ROOT, "Error cleaning SGE_ROOT (%s)" % paths.SGE_ROOT, "Successfully cleaned SGE_ROOT")
+            misc.run('rm -rf %s/*' % self.app.path_resolver.sge_root, "Error cleaning SGE_ROOT (%s)" % self.app.path_resolver.sge_root, "Successfully cleaned SGE_ROOT")
             with open(paths.LOGIN_SHELL_SCRIPT, 'r') as f:
                 lines = f.readlines()
             d1 = d2 = -1
             for i, l in enumerate(lines):
-                if "export SGE_ROOT=%s" % paths.P_SGE_ROOT in l:
+                if "export SGE_ROOT=%s" % self.app.path_resolver.sge_root in l:
                     d1 = i
                 if ". $SGE_ROOT/default/common/settings.sh" in l:
                     d2 = i
@@ -64,35 +64,35 @@ class SGEService( ApplicationService ):
         if self.app.TESTFLAG is True:
             log.debug( "Attempted to get volumes, but TESTFLAG is set." )
             return False
-        log.debug("Unpacking SGE from '%s'" % paths.P_SGE_TARS)
-        os.putenv( 'SGE_ROOT', paths.P_SGE_ROOT )
+        log.debug("Unpacking SGE from '%s'" % self.app.path_resolver.sge_tars)
+        os.putenv( 'SGE_ROOT', self.app.path_resolver.sge_root )
         # Ensure needed directory exists
-        if not os.path.exists( paths.P_SGE_TARS ):
-            log.error( "'%s' directory with SGE binaries does not exist! Aborting SGE setup." % paths.P_SGE_TARS )
+        if not os.path.exists( self.app.path_resolver.sge_tars ):
+            log.error( "'%s' directory with SGE binaries does not exist! Aborting SGE setup." % self.app.path_resolver.sge_tars )
             return False
-        if not os.path.exists( paths.P_SGE_ROOT ):
-            os.mkdir ( paths.P_SGE_ROOT )
+        if not os.path.exists( self.app.path_resolver.sge_root ):
+            os.mkdir ( self.app.path_resolver.sge_root )
         # Ensure SGE_ROOT directory is empty (useful for restarts)
-        if len(os.listdir(paths.P_SGE_ROOT)) > 0:
+        if len(os.listdir(self.app.path_resolver.sge_root)) > 0:
             # Check if qmaster is running in that case
             self.status()
             if self.state==service_states.RUNNING:
                 log.info("Found SGE already running; will reconfigure it.")
                 self.stop_sge()
-            log.debug("Cleaning '%s' directory." % paths.P_SGE_ROOT)
-            for base, dirs, files in os.walk(paths.P_SGE_ROOT):
+            log.debug("Cleaning '%s' directory." % self.app.path_resolver.sge_root)
+            for base, dirs, files in os.walk(self.app.path_resolver.sge_root):
                 for f in files:
                     os.unlink(os.path.join(base, f))
                 for d in dirs:
                     shutil.rmtree(os.path.join(base, d))
-        log.debug( "Unpacking SGE to '%s'." % paths.P_SGE_ROOT )
-        tar = tarfile.open( '%s/ge-6.2u5-common.tar.gz' % paths.P_SGE_TARS )
-        tar.extractall( path=paths.P_SGE_ROOT )
+        log.debug( "Unpacking SGE to '%s'." % self.app.path_resolver.sge_root )
+        tar = tarfile.open( '%s/ge-6.2u5-common.tar.gz' % self.app.path_resolver.sge_tars )
+        tar.extractall( path=self.app.path_resolver.sge_root )
         tar.close()
-        tar = tarfile.open( '%s/ge-6.2u5-bin-lx24-amd64.tar.gz' % paths.P_SGE_TARS )
-        tar.extractall( path=paths.P_SGE_ROOT )
+        tar = tarfile.open( '%s/ge-6.2u5-bin-lx24-amd64.tar.gz' % self.app.path_resolver.sge_tars )
+        tar.extractall( self.app.path_resolver.sge_root )
         tar.close()
-        subprocess.call( '%s -R sgeadmin:sgeadmin %s' % (paths.P_CHOWN, paths.P_SGE_ROOT), shell=True )
+        subprocess.call( '%s -R sgeadmin:sgeadmin %s' % (paths.P_CHOWN, self.app.path_resolver.sge_root), shell=True )
         return True
 
     def _get_sge_install_conf(self):
@@ -120,7 +120,7 @@ class SGEService( ApplicationService ):
             log.debug( "Attempted to get volumes, but TESTFLAG is set." )
             return None
         log.info( "Setting up SGE..." )
-        SGE_config_file = '%s/galaxyEC2.conf' % paths.P_SGE_ROOT
+        SGE_config_file = '%s/galaxyEC2.conf' % self.app.path_resolver.sge_root
         with open( SGE_config_file, 'w' ) as f:
             print >> f, self._get_sge_install_conf()
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
@@ -140,7 +140,7 @@ class SGEService( ApplicationService ):
                 log.error("SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
         log.debug("Setting up SGE.")
         self._fix_util_arch()
-        if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (paths.P_SGE_ROOT, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
+        if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (self.app.path_resolver.sge_root, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.debug("Successfully setup SGE; configuring SGE")
             log.debug("Adding parallel environments")
             pes = ['SMP_PE', 'MPI_PE']
@@ -148,17 +148,17 @@ class SGEService( ApplicationService ):
                 pe_file_path = os.path.join('/tmp', pe)
                 with open(pe_file_path, 'w') as f:
                     print >> f, getattr(templates, pe)
-                misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (paths.P_SGE_ROOT, pe_file_path))
+                misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (self.app.path_resolver.sge_root, pe_file_path))
             log.debug("Creating queue 'all.q'")
-            SGE_allq_file = '%s/all.q.conf' % paths.P_SGE_ROOT
+            SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
             with open( SGE_allq_file, 'w' ) as f:
                 print >> f, templates.ALL_Q_TEMPLATE
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             log.debug("Created SGE all.q template as file '%s'" % SGE_allq_file)
-            misc.run('cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (paths.P_SGE_ROOT, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
+            misc.run('cd %s; ./bin/lx24-amd64/qconf -Mq %s' % (self.app.path_resolver.sge_root, SGE_allq_file), "Error modifying all.q", "Successfully modified all.q")
             log.debug("Configuring users' SGE profiles")
             with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
-                f.write("\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT)
+                f.write("\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
             return True
         return False
@@ -168,16 +168,16 @@ class SGEService( ApplicationService ):
         Edit ``$SGE_ROOT/util/`` to prevent ``Unexpected operator`` error to
         show up at shell login (SGE bug on Ubuntu).
         """
-        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
+        misc.replace_string(self.app.path_resolver.sge_root + '/util/arch', "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\"`", "         libc_version=`echo $libc_string | tr ' ,' '\\n' | grep \"2\.\" | cut -f 2 -d \".\" | sort -u`")
         # Support 3.0, 3.2, 3.5 kernels in Ubuntu 11.10 & 12.04 & 12.10
         # Future proof it a bit to work with new 3.x kernels as they
         # come online
-        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "   2.[46].*)",
+        misc.replace_string(self.app.path_resolver.sge_root + '/util/arch', "   2.[46].*)",
                                                              "   [23].[24567890].*)")
-        misc.replace_string(paths.P_SGE_ROOT + '/util/arch', "      2.6.*)",
+        misc.replace_string(self.app.path_resolver.sge_root + '/util/arch', "      2.6.*)",
                                                              "      [23].[24567890].*)")
-        misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % paths.P_SGE_ROOT, "Error modifying %s/util/arch" % paths.P_SGE_ROOT, "Modified %s/util/arch" % paths.P_SGE_ROOT)
-        misc.run("chmod +rx %s/util/arch" % paths.P_SGE_ROOT, "Error chmod %s/util/arch" % paths.P_SGE_ROOT, "Successfully chmod %s/util/arch" % paths.P_SGE_ROOT)
+        misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % self.app.path_resolver.sge_root, "Error modifying %s/util/arch" % self.app.path_resolver.sge_root, "Modified %s/util/arch" % self.app.path_resolver.sge_root)
+        misc.run("chmod +rx %s/util/arch" % self.app.path_resolver.sge_root, "Error chmod %s/util/arch" % self.app.path_resolver.sge_root, "Successfully chmod %s/util/arch" % self.app.path_resolver.sge_root)
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init
@@ -218,7 +218,7 @@ class SGEService( ApplicationService ):
         stderr = stdout = None
         error = False
         cmd = 'export SGE_ROOT=%s;. $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -ah %s' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst_private_ip)
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, inst_private_ip)
         log.debug("Add SGE admin host cmd: {0}".format(cmd))
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if proc.wait() == 0:
@@ -247,7 +247,7 @@ class SGEService( ApplicationService ):
         error = False
         # Check if host is already in the exec host list
         cmd = "export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -sel" \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT)
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root)
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         if inst_private_ip in stdout:
@@ -255,7 +255,7 @@ class SGEService( ApplicationService ):
         else:
             log.debug("Adding instance '%s' to SGE execution host list." % inst_id)
             # Create a dir to hold all of workers host configuration files
-            host_conf_dir = "%s/host_confs" % paths.P_SGE_ROOT
+            host_conf_dir = "%s/host_confs" % self.app.path_resolver.sge_root
             if not os.path.exists(host_conf_dir):
                 subprocess.call('mkdir -p %s' % host_conf_dir, shell=True)
                 os.chown(host_conf_dir, pwd.getpwnam( "sgeadmin" )[2], grp.getgrnam( "sgeadmin" )[2])
@@ -266,7 +266,7 @@ class SGEService( ApplicationService ):
             log.debug("Created SGE host configuration template as file '%s'." % host_conf_file)
             # Add worker instance as execution host to SGE
             cmd = 'export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -Ae %s' \
-                % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, host_conf_file)
+                % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, host_conf_file)
             log.debug("Add SGE exec host cmd: {0}".format(cmd))
             proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if proc.wait() == 0:
@@ -296,7 +296,7 @@ class SGEService( ApplicationService ):
         # to sync the two via other methods.
         proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; " \
             "%s/bin/lx24-amd64/qconf -shgrp @allhosts" \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), shell=True, stdout=subprocess.PIPE)
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), shell=True, stdout=subprocess.PIPE)
         allhosts_out = proc.communicate()[0]
         if inst_private_ip not in allhosts_out:
             now = datetime.datetime.utcnow()
@@ -304,7 +304,7 @@ class SGEService( ApplicationService ):
             self.write_allhosts_file(filename=ah_file, to_add = inst_private_ip)
             if not misc.run('export SGE_ROOT=%s;. $SGE_ROOT/default/common/settings.sh; ' \
                 '%s/bin/lx24-amd64/qconf -Mhgrp %s' \
-                % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), \
+                % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, ah_file), \
                 "Problems updating @allhosts aimed at adding '%s'" % inst_id, \
                 "Successfully updated @allhosts to add '%s' with address '%s'" % (inst_id, inst_private_ip)):
                 error = True
@@ -324,7 +324,7 @@ class SGEService( ApplicationService ):
         for inst in self.app.manager.worker_instances:
             self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km' \
-            % (paths.P_SGE_ROOT, paths.P_SGE_ROOT), "Problems stopping SGE master", \
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Problems stopping SGE master", \
             "Successfully stopped SGE master.")
 
     def write_allhosts_file(self, filename = '/tmp/ah', to_add = None, to_remove = None):
@@ -393,7 +393,7 @@ class SGEService( ApplicationService ):
         """
         log.debug("Removing instance {0} from SGE administrative host list".format(inst_id))
         return subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
-            '%s/bin/lx24-amd64/qconf -dh %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, inst_private_ip), \
+            '%s/bin/lx24-amd64/qconf -dh %s' % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, inst_private_ip), \
             shell=True)
 
     def _remove_instance_from_exec_list(self, inst_id, inst_private_ip):
@@ -413,7 +413,7 @@ class SGEService( ApplicationService ):
         self.write_allhosts_file(filename=ah_file, to_remove=inst_private_ip)
 
         ret_code = subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
-            '%s/bin/lx24-amd64/qconf -Mhgrp %s' % (paths.P_SGE_ROOT, paths.P_SGE_ROOT, ah_file), shell=True)
+            '%s/bin/lx24-amd64/qconf -Mhgrp %s' % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, ah_file), shell=True)
         if ret_code == 0:
             log.debug("Successfully updated @allhosts to remove '%s'" % inst_id )
         else:
@@ -421,7 +421,7 @@ class SGEService( ApplicationService ):
                 % (inst_id, ret_code))
 
         proc = subprocess.Popen('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
-            '%s/bin/lx24-amd64/qconf -de %s' % (paths.P_SGE_ROOT,paths.P_SGE_ROOT, inst_private_ip), \
+            '%s/bin/lx24-amd64/qconf -de %s' % (self.app.path_resolver.sge_root,self.app.path_resolver.sge_root, inst_private_ip), \
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stderr = None
         std = proc.communicate()
@@ -430,7 +430,7 @@ class SGEService( ApplicationService ):
         # TODO: Should be looking at return code and use stdout/err just for info about the process progress
         if stderr is None or 'removed' in stderr:
             ret_code = subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; ' \
-                '/opt/sge/bin/lx24-amd64/qconf -dconf %s' % (paths.P_SGE_ROOT, inst_private_ip), shell=True)
+                '/opt/sge/bin/lx24-amd64/qconf -dconf %s' % (self.app.path_resolver.sge_root, inst_private_ip), shell=True)
             log.debug("Successfully removed instance '%s' with IP '%s' from SGE execution host list." \
                 % (inst_id, inst_private_ip))
             return True
@@ -452,7 +452,7 @@ class SGEService( ApplicationService ):
         qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
             . %s/default/common/settings.sh; \
             %s/bin/lx24-amd64/qstat -f | grep all.q"'
-            % (paths.P_SU, paths.P_SGE_ROOT, paths.P_SGE_ROOT, paths.P_SGE_ROOT))
+            % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root))
         qstat_out = qstat_out.split('\n')
         cleaned_qstat_out = []
         for line in qstat_out:

@@ -43,7 +43,7 @@ class Filesystem(DataService):
         self.size_pct = None  # Used percentage of this file system
         self.dirty = False
         self.kind = None # Choice of 'snapshot', 'volume', 'bucket', or 'transient'
-        self.mount_point = mount_point if mount_point is not None else os.path.join(paths.P_MOUNT_ROOT, self.name)
+        self.mount_point = mount_point if mount_point is not None else os.path.join(self.app.path_resolver.mount_root, self.name)
         self.grow = None # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
                          # the file system; use following dict structure:
                          # {'new_size': <size>, 'snap_desc': <snapshot description>}

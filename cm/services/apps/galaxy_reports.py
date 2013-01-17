@@ -20,11 +20,11 @@ class GalaxyReportsService(ApplicationService):
 
     def __init__(self, app):
         super(GalaxyReportsService, self).__init__(app)
-        self.galaxy_home = paths.P_GALAXY_HOME
+        self.galaxy_home = self.app.path_resolver.galaxy_home
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
         self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY) ]  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
-        self.conf_dir = os.path.join(paths.P_GALAXY_HOME, 'reports.conf.d')
+        self.conf_dir = os.path.join(self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
     def _check_galaxy_reports_running(self):
         dns = "http://127.0.0.1:9001"
