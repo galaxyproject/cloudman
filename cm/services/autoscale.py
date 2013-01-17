@@ -114,7 +114,7 @@ class Autoscale(Service):
         """
         running_jobs = []
         queued_jobs = []
-        cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % paths.P_SGE_ROOT
+        cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
         qstat_out = commands.getoutput(cmd)
         # log.debug('Plain qstat_out for cmd "%s":\n"%s"' % (cmd, qstat_out))
         if qstat_out != '': # else, the job queue is empty so just return

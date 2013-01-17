@@ -137,14 +137,14 @@ class ConsoleManager(BaseConsoleManager):
         # Build list of mounts based on cluster type
         mount_points = []
         if self.cluster_type == 'Galaxy':
-            mount_points.append(('nfs_tools', paths.P_GALAXY_TOOLS))
-            mount_points.append(('nfs_indices', paths.P_GALAXY_INDICES))
+            mount_points.append(('nfs_tools', self.app.path_resolver.galaxy_tools))
+            mount_points.append(('nfs_indices', self.app.path_resolver.galaxy_indices))
 
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            mount_points.append(('nfs_data', paths.P_GALAXY_DATA))
+            mount_points.append(('nfs_data', self.app.path_resolver.galaxy_data))
 
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', paths.P_SGE_ROOT))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root))
 
         # Mount master's transient stroage regardless of cluster type
         mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
@@ -166,13 +166,13 @@ class ConsoleManager(BaseConsoleManager):
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            self._umount(paths.P_GALAXY_DATA)
+            self._umount(self.app.path_resolver.galaxy_data)
 
         if self.cluster_type == 'Galaxy':
-            self._umount(paths.P_GALAXY_TOOLS)
-            self._umount(paths.P_GALAXY_INDICES)
+            self._umount(self.app.path_resolver.galaxy_tools)
+            self._umount(self.app.path_resolver.galaxy_indices)
 
-        self._umount(paths.P_SGE_ROOT)
+        self._umount(self.app.path_resolver.sge_root)
         for extra_mount in self._get_extra_nfs_mounts():
             self._umount(extra_mount)
 
@@ -235,7 +235,7 @@ class ConsoleManager(BaseConsoleManager):
         misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
         log.debug( "Configuring users' SGE profiles..." )
         f = open(paths.LOGIN_SHELL_SCRIPT, 'a')
-        f.write( "\nexport SGE_ROOT=%s" % paths.P_SGE_ROOT )
+        f.write( "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root )
         f.write( "\n. $SGE_ROOT/default/common/settings.sh\n" )
         f.close()
 
@@ -247,7 +247,7 @@ class ConsoleManager(BaseConsoleManager):
         os.chown( SGE_config_file, pwd.getpwnam("sgeadmin")[2], grp.getgrnam("sgeadmin")[2] )
         log.info( "Created SGE install template as file '%s'." % SGE_config_file )
 
-        cmd = 'cd %s; ./inst_sge -x -noremote -auto %s' % (paths.P_SGE_ROOT, SGE_config_file)
+        cmd = 'cd %s; ./inst_sge -x -noremote -auto %s' % (self.app.path_resolver.sge_root, SGE_config_file)
         log.info("Setting up SGE; cmd: {0}".format(cmd))
         ret_code = subprocess.call(cmd, shell=True )
 

@@ -575,7 +575,7 @@ class Volume(BlockStorage):
                     # Add Galaxy- and CloudBioLinux-required files under the 'data' dir
                     if ServiceRole.GALAXY_DATA in self.fs.svc_roles:
                         for sd in ['files', 'tmp', 'upload_store', 'export']:
-                            path = os.path.join(paths.P_GALAXY_DATA, sd)
+                            path = os.path.join(self.app.path_resolver.galaxy_data, sd)
                             if not os.path.exists(path):
                                 os.mkdir(path)
                             # Make 'export' dir that's shared over NFS be
