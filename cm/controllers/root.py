@@ -198,7 +198,7 @@ class CM(BaseController):
                 else:
                     bucket_s_key = bucket_s_key.strip()
                 self.app.manager.add_fs(bucket_name.strip(), bucket_fs_name.strip(),
-                    bucket_a_key, bucket_s_key, persistent=persist)
+                    bucket_a_key=bucket_a_key, bucket_s_key=bucket_s_key, persistent=persist)
             else:
                 log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
