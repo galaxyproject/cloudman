@@ -1,5 +1,5 @@
 #
-# Galaxy is configured by default to be useable in a single-user development
+# Galaxy is configured by default to be usable in a single-user development
 # environment.  To tune the application for a multi-user production
 # environment, see the documentation at:
 #
@@ -124,10 +124,10 @@ genome_data_path = /mnt/galaxyIndices/genome
 rsync_url = rsync://scofield.bx.psu.edu/indexes
 
 # Dataset files are stored in this directory.
-file_path = /mnt/galaxyData/files
+file_path = /mnt/galaxy/files
 
 # Temporary files are stored in this directory.
-new_file_path = /mnt/galaxyData/tmp
+new_file_path = /mnt/galaxy/tmp
 
 # Tool config files, defines what tools are available in Galaxy.
 # Tools can be locally developed or installed from Galaxy tool sheds.
@@ -140,7 +140,7 @@ tool_path = tools
 # Path to the directory in which managed tool dependencies are placed.  To use
 # the dependency system, see the documentation at:
 # http://wiki.g2.bx.psu.edu/Admin/Config/Tool%20Dependencies
-tool_dependency_dir = /mnt/galaxyTools/tools
+tool_dependency_dir = /mnt/galaxy/tools
 
 # Enable automatic polling of relative tool sheds to see if any updates
 # are available for installed repositories.  Ideally only one Galaxy
@@ -164,11 +164,11 @@ len_file_path = /mnt/galaxyIndices/len
 # Each job is given a unique empty directory as its current working directory.
 # This option defines in what parent directory those directories will be
 # created.
-job_working_directory = /mnt/galaxyData/tmp/job_working_directory
+job_working_directory = /mnt/galaxy/tmp/job_working_directory
 
 # If using a cluster, Galaxy will write job scripts and stdout/stderr to this
 # directory.
-cluster_files_directory = /mnt/galaxyData/tmp/pbs
+cluster_files_directory = /mnt/galaxy/tmp/pbs
 
 # External service types config file, defines what types of external_services configurations
 # are available in Galaxy.
@@ -316,7 +316,7 @@ nginx_x_accel_redirect_base = /_x_accel_redirect
 # Configuration for this is complex and explained in detail in the
 # documentation linked above.  The upload store is a temporary directory in
 # which files uploaded by the upload module will be placed.
-nginx_upload_store = /mnt/galaxyData/upload_store
+nginx_upload_store = /mnt/galaxy/tmp/upload_store
 
 # This value overrides the action set on the file upload form, e.g. the web
 # path where the nginx_upload_module has been configured to intercept upload
@@ -385,7 +385,7 @@ use_interactive = True
 
 # Add an option to the library upload form which allows administrators to
 # upload a directory of files.
-library_import_dir = /mnt/galaxyData/library_import_dir
+library_import_dir = /mnt/galaxy/tmp/library_import_dir
 
 # Add an option to the library upload form which allows authorized
 # non-administrators to upload a directory of files.  The configured directory
@@ -540,7 +540,7 @@ enable_unique_workflow_defaults = True
 
 # This should point to a directory containing subdirectories matching users'
 # email addresses, where Galaxy will look for files.
-ftp_upload_dir = /mnt/galaxyData/tmp/ftp
+ftp_upload_dir = /mnt/galaxy/tmp/ftp
 
 # This should be the hostname of your FTP server, which will be provided to
 # users in the help text.
