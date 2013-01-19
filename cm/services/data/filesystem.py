@@ -27,6 +27,7 @@ log = logging.getLogger('cloudman')
 class Filesystem(DataService):
     def __init__(self, app, name, svc_roles=[ServiceRole.GENERIC_FS], mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
+        log.debug("Instantiating Filesystem object {0} with service roles: {1}".format(name, ServiceRole.to_string(svc_roles)))
         self.svc_roles = svc_roles
         self.nfs_lock_file = '/tmp/nfs.lockfile'
         # TODO: Introduce a new file system layer that abstracts/consolidates
@@ -468,7 +469,7 @@ class Filesystem(DataService):
         elif self._service_starting():
             pass
         elif self.mount_point is not None:
-            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s | cut -d' ' -f1,2" \
+            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2" \
                 % self.mount_point)
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
