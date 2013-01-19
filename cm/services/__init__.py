@@ -48,10 +48,11 @@ class ServiceRole(object):
         ``ServiceRole`` objects and return that list.
         """
         svc_roles = []
-        if not isinstance(roles_str, list):
-            roles_str = [roles_str] # Not a list, therefore, convert to list
-        for role_str in roles_str:
-            svc_roles.append(ServiceRole._role_from_string(role_str))
+        roles_list = roles_str.split(",")
+        for val in roles_list:
+            role = ServiceRole._role_from_string(val)
+            if role:
+                svc_roles.append(role)
         return svc_roles
 
     @staticmethod
@@ -79,6 +80,7 @@ class ServiceRole(object):
         elif val == "TransientNFS":
             return ServiceRole.TRANSIENT_NFS
         else:
+            log.warn("Attempt to convert unknown role name from string: {0}".format(val))
             return None
 
     @staticmethod
@@ -87,7 +89,8 @@ class ServiceRole(object):
             svc_roles = [svc_roles] # Not a list, therefore, convert to list
         str_roles = ""
         for role in svc_roles:
-            str_roles = str_roles + "," + ServiceRole._role_to_string(role)
+            if role:
+                str_roles = str_roles + "," + ServiceRole._role_to_string(role)
         return str_roles[1:] # strip leading comma
 
     @staticmethod
@@ -251,4 +254,4 @@ class Service( object):
         """
         Return full name of the service (useful if different from service type)
         """
-        return self.name
+        return "{0} [Role:{1}]".format(self.name, ServiceRole.to_string(self.svc_roles))

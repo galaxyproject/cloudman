@@ -1096,6 +1096,8 @@ class ConsoleManager(BaseConsoleManager):
             """
             A local convenience method used to add a new file system
             """
+            if self.get_services(svc_role=ServiceRole.GALAXY_DATA):
+                return
             fs_name = ServiceRole.to_string(ServiceRole.GALAXY_DATA)
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
@@ -1144,7 +1146,6 @@ class ConsoleManager(BaseConsoleManager):
             self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
-            if not self.get_services(svc_role=ServiceRole.GALAXY_DATA):
                 _add_data_fs()
         elif cluster_type == 'SGE':
             # SGE service is automatically added at cluster start (see ``start`` method)
