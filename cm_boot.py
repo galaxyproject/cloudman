@@ -137,7 +137,7 @@ def _start_nginx(ud):
         _run('rm -rf {0}'.format(upload_store_dir))
 
 
-def _get_nginx_dir(self):
+def _get_nginx_dir():
     """
     Look around at possible nginx directory locations (from published
     images) and resort to a file system search
