@@ -1,4 +1,9 @@
-import os, urllib2, shutil, subprocess, pwd, grp
+import os
+import pwd
+import grp
+import shutil
+import urllib2
+import subprocess
 from datetime import datetime
 from string import Template
 from ConfigParser import SafeConfigParser
@@ -81,6 +86,9 @@ class GalaxyService(ApplicationService):
             self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
         if to_be_started:
             self.status()
+            # If not provided as part of user data, update nginx conf with current paths
+            if self.app.ud.get('nginx_conf_contents', None) is None:
+                self.configure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
                 s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -185,10 +193,10 @@ class GalaxyService(ApplicationService):
             else:
                 log.debug("Galaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
-        elif self.state==service_states.SHUTTING_DOWN or \
-             self.state==service_states.SHUT_DOWN or \
-             self.state==service_states.UNSTARTED or \
-             self.state==service_states.WAITING_FOR_USER_ACTION:
+        elif self.state == service_states.SHUTTING_DOWN or \
+             self.state == service_states.SHUT_DOWN or \
+             self.state == service_states.UNSTARTED or \
+             self.state == service_states.WAITING_FOR_USER_ACTION:
              # self.state==service_states.STARTING:
             pass
         else:
@@ -208,7 +216,10 @@ class GalaxyService(ApplicationService):
             self.last_state_change_time = datetime.utcnow()
             if self.state == service_states.RUNNING:
                 log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
-                misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "' % (paths.P_SU, self.app.path_resolver.pg_home, paths.C_PSQL_PORT), "Error granting SELECT grant to 'galaxyftp' user", "Successfully added SELECT grant to 'galaxyftp' user" )
+                misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "'
+                    % (paths.P_SU, self.app.path_resolver.pg_home, paths.C_PSQL_PORT),
+                    "Error granting SELECT grant to 'galaxyftp' user",
+                    "Successfully added SELECT grant to 'galaxyftp' user")
             # Force cluster configuration state update on status change
             self.app.manager.console_monitor.store_cluster_config()
 
@@ -313,11 +324,11 @@ class GalaxyService(ApplicationService):
                 if key.startswith(option_prefix):
                     key = key[len(option_prefix):]
                     self.add_universe_option(key, value, section)
-                    
+
     def update_galaxy_config(self):
         self.set_galaxy_paths()
         self.add_galaxy_admin_users()
-        
+
     def set_galaxy_paths(self):
         section = "app:main"
         config_file_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
@@ -353,7 +364,6 @@ class GalaxyService(ApplicationService):
         if self.has_config_dir():
             self.add_universe_option("admin_users", ",".join(admins_list))
         else:
-            edited = False
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
             admins_str = ', '.join(str(a) for a in admins_list)
@@ -376,7 +386,7 @@ class GalaxyService(ApplicationService):
             galaxy_gid = grp.getgrnam("galaxy")[2]
             os.chown(path, galaxy_uid, galaxy_gid)
         except OSError:
-            misc.run("chown galaxy:galaxy '%s'" % path)            
+            misc.run("chown galaxy:galaxy '%s'" % path)
 
     def configure_nginx(self):
         """
