@@ -4,7 +4,7 @@ from cm.util import misc
 from cm.services import ServiceRole
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 # Commands
 P_MKDIR = "/bin/mkdir"
@@ -57,7 +57,7 @@ def get_path(name, default_path):
     return path
 
 P_MOUNT_ROOT = "/mnt"
-P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools")) #NGTODO: Harrd coded to tools and indices?
+P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
 P_GALAXY_HOME = get_path("galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
 P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
 P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
@@ -103,6 +103,7 @@ class PathResolver(object):
         if galaxy_data_fs:
             return galaxy_data_fs[0].mount_point
         else:
+            log.debug("Warning: Returning default path for galaxy_data")
             return P_GALAXY_DATA
 
     @property
@@ -114,7 +115,7 @@ class PathResolver(object):
         galaxy_index_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_INDICES)
         if galaxy_index_fs:
             return galaxy_index_fs[0].mount_point
-        else: # For backward compatibility
+        else:  # For backward compatibility
             log.debug("Warning: Returning default galaxy path for indices")
             return P_GALAXY_INDICES
 
@@ -142,6 +143,21 @@ class PathResolver(object):
     def sge_cell(self):
         return P_SGE_CELL
 
-
-
-
+    @property
+    def nginx_dir(self):
+        """
+        Look around at possible nginx directory locations (from published
+        images) and resort to a file system search
+        """
+        nginx_dir = None
+        for path in ['/usr/nginx', '/opt/galaxy/pkg/nginx']:
+            if os.path.exists(path):
+                nginx_dir = path
+            if not nginx_dir:
+                cmd = 'find / -type d -name nginx'
+                output = misc.run(cmd)
+                if isinstance(output, str):
+                    path = output.strip()
+                    if os.path.exists(path):
+                        nginx_dir = path
+        return nginx_dir
