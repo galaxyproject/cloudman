@@ -392,7 +392,7 @@ class CM(BaseController):
     def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
         #status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
-        status_dict['galaxy_dns'] = self.get_galaxy_dns()
+        status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
         status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
         status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
         snap_status = self.app.manager.snapshot_status()
@@ -663,12 +663,21 @@ class CM(BaseController):
             else:
                 return "There was an error. Can't create a new monitor."
 
-    def get_galaxy_dns(self):
-        """ Check if Galaxy is running and the the web UI is accessible. Return
-        DNS address if so, `#` otherwise. """
+    def get_galaxy_dns(self, trans):
+        """ Check if Galaxy is running and the the web UI is accessible.
+        If it is, return the base url of the request (which is where Galaxy is hosted) instead of
+        using the cloud service provided ipv4.
+        This allows the use of custom external domains pointed to elastic ips, like those used
+        for cloud1.galaxyproject.org.  It's not feasible to gather this information from the EC2 interface.
+        """
         g_s = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
         if g_s and g_s[0].state == service_states.RUNNING:
-            dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
+            # dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
+            try:
+                dns = trans.request.host_url
+            except:
+                #Default to the old method in case of error.
+                dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
         else:
             # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
@@ -691,7 +700,7 @@ class CM(BaseController):
 
     @expose
     def instance_state_json(self, trans, no_json=False):
-        dns = self.get_galaxy_dns()
+        dns = self.get_galaxy_dns(trans)
         snap_status = self.app.manager.snapshot_status()
         ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
                     'dns': dns,
