@@ -1,6 +1,7 @@
 """Galaxy CM worker manager"""
-import logging, threading, os, os.path, subprocess,  pwd, grp, commands
+import commands, grp, logging, os, os.path, pwd, subprocess, threading
 import datetime as dt
+import json
 
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
@@ -108,7 +109,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def start( self ):
         self._handle_prestart_commands()
-        self.mount_nfs( self.app.ud['master_ip'] )
+        #self.mount_nfs( self.app.ud['master_ip'] )
         misc.add_to_etc_hosts(self.app.ud['master_hostname'], self.app.ud['master_ip'])
 
     def shutdown( self, delete_cluster=None ):
@@ -129,29 +130,35 @@ class ConsoleManager(BaseConsoleManager):
         log.debug( "Process mounting '%s' returned code '%s'" % (path, ret_code) )
         return ret_code
 
-    def mount_nfs( self, master_ip ):
+    def mount_nfs( self, master_ip, mount_json):
         if self.app.TESTFLAG is True:
             log.debug("Attempted to mount NFS, but TESTFLAG is set.")
             return
-        log.info( "Mounting NFS directories from master with IP address: %s..." % master_ip )
-        # Build list of mounts based on cluster type
         mount_points = []
-        if self.cluster_type == 'Galaxy':
-            mount_points.append(('nfs_tools', self.app.path_resolver.galaxy_tools))
-            mount_points.append(('nfs_indices', self.app.path_resolver.galaxy_indices))
-
-        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            mount_points.append(('nfs_data', self.app.path_resolver.galaxy_data))
-
+        try:
+            # Try to load mount points from json dispatch
+            mount_points_dict = json.loads(mount_json)
+            if 'mount_points' in mount_points_dict:
+                for mp in mount_points_dict['mount_points']:
+                    #TODO use the actual filesystem name for accounting/status updates
+                    mount_points.append((mp['fs_name'], mp['shared_mount_path']))
+            else:
+                raise Exception("Mount point parsing failure.")
+        except:
+            #malformed json, revert to old behavior.
+            log.info( "Mounting NFS directories from master with IP address: %s..." % master_ip )
+            # Build list of mounts based on cluster type
+            if self.cluster_type == 'Galaxy':
+                mount_points.append(('nfs_tools', self.app.path_resolver.galaxy_tools))
+                mount_points.append(('nfs_indices', self.app.path_resolver.galaxy_indices))
+            if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
+                mount_points.append(('nfs_data', self.app.path_resolver.galaxy_data))
+            # Mount master's transient storage regardless of cluster type
+            mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
         # Mount SGE regardless of cluster type
         mount_points.append(('nfs_sge', self.app.path_resolver.sge_root))
-
-        # Mount master's transient stroage regardless of cluster type
-        mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
-
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
             mount_points.append(('extra_mount_%d' % i, extra_mount))
-
         # For each main mount point, mount it and set status based on label
         for (label, path) in mount_points:
             do_mount = self.app.ud.get('mount_%s' % label, True)
@@ -160,11 +167,11 @@ class ConsoleManager(BaseConsoleManager):
             ret_code = self.mount_disk(master_ip, path)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
-
-        self.console_monitor.send_node_status()
+        self.conn.send("MOUNT_DONE")
 
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )
+        #TODO enhance this to account for all directories initially mounted in mount_nfs.
         if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
             self._umount(self.app.path_resolver.galaxy_data)
 
@@ -390,6 +397,10 @@ class ConsoleMonitor( object ):
                 log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
+        elif message.startswith("MOUNT"):
+            #MOUNT everything in json blob.
+            #Parse the message better
+            self.mount_nfs(self.app.ud['master_ip'], message[message.find("|")+1:])
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
