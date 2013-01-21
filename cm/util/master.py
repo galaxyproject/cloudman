@@ -1,7 +1,9 @@
 """Galaxy CM master manager"""
-import logging, logging.config, threading, os, time, subprocess, commands, fileinput
-import shutil
+import commands, fileinput, logging, logging.config, os, subprocess, threading, time
 import datetime as dt
+import json
+import shutil
+
 
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
@@ -1127,12 +1129,10 @@ class ConsoleManager(BaseConsoleManager):
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
-                        log.debug("{0} file system has volume(s) already attached"\
-                            .format(snap['filesystem']))
+                        log.debug("{0} file system has volume(s) already attached".format(snap['filesystem']))
                         fs.add_volume(vol_id=att_vol.id, size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
                     else:
-                        log.debug("There are no volumes already attached for file system {0}"\
-                            .format(snap['filesystem']))
+                        log.debug("There are no volumes already attached for file system {0}".format(snap['filesystem']))
                         fs.add_volume(size=snap.get('size', 0), from_snapshot_id=snap['snap_id'])
                     log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
@@ -2554,6 +2554,16 @@ class Instance( object ):
     def get_local_hostname(self):
         return self.local_hostname
 
+    def send_mount_points( self ):
+        mount_points = []
+        for fs in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
+            mount_points.append([{'nfs_server':self.app.cloud_interface.get_public_ip(),
+                                  'shared_mount_path':fs.get_details['mount_point'],
+                                  'fs_name':fs.get_details['name']
+                                  }])
+        self.app.manager.console_monitor.conn.send( 'MOUNT | %s' % json.dumps({'mount_points':mount_points}))
+        log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
+
     def send_master_pubkey( self ):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
         self.app.manager.console_monitor.conn.send( 'MASTER_PUBKEY | %s' \
@@ -2602,6 +2612,8 @@ class Instance( object ):
                        self.ami,
                        self.local_hostname))
                 # Instance is alive and functional. Send master pubkey.
+                self.send_mount_points()
+            elif msg_type == "MOUNT_DONE":
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type in ('openstack','eucalyptus'):
