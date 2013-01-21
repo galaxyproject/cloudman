@@ -16,8 +16,6 @@ class GalaxyService(ApplicationService):
 
     def __init__(self, app):
         super(GalaxyService, self).__init__(app)
-        self.galaxy_home = self.app.path_resolver.galaxy_home
-        log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         self.name = ServiceRole.to_string(ServiceRole.GALAXY)
         self.svc_roles = [ServiceRole.GALAXY]
         self.configured = False # Indicates if the environment for running Galaxy has been configured
@@ -27,7 +25,14 @@ class GalaxyService(ApplicationService):
                       ServiceDependency(self, ServiceRole.GALAXY_DATA),
                       ServiceDependency(self, ServiceRole.GALAXY_INDICES),
                       ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
-                      ] 
+                      ]
+
+    @property
+    def galaxy_home(self):
+        """
+        Return the path where Galaxy application is available
+        """
+        return self.app.path_resolver.galaxy_home
 
     def start(self):
         self.manage_galaxy(True)
@@ -54,6 +59,7 @@ class GalaxyService(ApplicationService):
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
             log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
             return
+        log.debug("Using Galaxy from '{0}'".format(gh))
         os.putenv( "GALAXY_HOME", self.galaxy_home )
         os.putenv( "TEMP", self.app.path_resolver.galaxy_temp )
         # Setup configuration directory for galaxy if galaxy_conf_dir specified

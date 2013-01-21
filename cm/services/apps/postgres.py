@@ -41,8 +41,10 @@ class PostgresService( ApplicationService ):
             return
         psql_data_dir = self.app.path_resolver.psql_dir
         # Make sure postgres is owner of its directory before any operations
-        if os.path.exists(os.path.split(self.app.path_resolver.psql_dir)[0]):
-            misc.run("%s --recursive postgres:postgres %s" % (paths.P_CHOWN, os.path.split(self.app.path_resolver.psql_dir)[0]), "Error changing ownership of just created directory", "Successfully set ownership of Postgres data directory")
+        if os.path.exists(self.app.path_resolver.psql_dir):
+            misc.run("%s --recursive postgres:postgres %s" % (paths.P_CHOWN, psql_data_dir),
+                "Error setting ownership of Postgres data directory %s" % psql_data_dir,
+                "Successfully set ownership of Postgres data directory %s" % psql_data_dir)
         # Check on the status of PostgreSQL server
         self.status()
         if to_be_started and not self.state==service_states.RUNNING:
@@ -99,13 +101,11 @@ class PostgresService( ApplicationService ):
             if to_be_started and not self.state==service_states.RUNNING:
                 # Start PostgreSQL database
                 log.debug( "Starting PostgreSQL..." )
-                misc.run( '%s -R postgres:postgres %s' % (paths.P_CHOWN, self.app.path_resolver.galaxy_data+'/pgsql'), "Error changing owner of postgres data dir", "Successfully changed owner of postgres data dir" )
-                if misc.run( '%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port), "Error starting PostgreSQL server", "Successfully started PostgreSQL server"):
+                if misc.run( '%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' %
+                    (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port),
+                    "Error starting PostgreSQL server in %s" % psql_data_dir,
+                    "Successfully started PostgreSQL server in %s" % psql_data_dir):
                     self.status()
-                    if self.state==service_states.RUNNING:
-                        log.info( "Successfully started PostgreSQL." )
-                    else:
-                        log.warning("Successfully started PosgreSQL but did it start and is it accessible?")
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (to_be_started, self.state))
         elif not to_be_started:

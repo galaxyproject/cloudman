@@ -185,7 +185,7 @@ class ServiceDependency(object):
         """
         return self.service_role in service.svc_roles
 
-    
+
 class Service( object):
 
     def __init__( self, app, service_type=None ):
@@ -254,4 +254,4 @@ class Service( object):
         """
         Return full name of the service (useful if different from service type)
         """
-        return "{0} [Role:{1}]".format(self.name, ServiceRole.to_string(self.svc_roles))
+        return "{0}".format(self.name)
