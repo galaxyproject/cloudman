@@ -26,6 +26,8 @@ AMAZON_S3_URL = 'http://s3.amazonaws.com/' # Obviously, customized for Amazon's 
 DEFAULT_BUCKET_NAME = 'cloudman'
 
 log = None
+
+
 def _setup_global_logger():
     formatter = logging.Formatter("[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
     console = logging.StreamHandler() # log to console - used during testing
@@ -40,9 +42,11 @@ def _setup_global_logger():
     new_logger.setLevel( logging.DEBUG )
     return new_logger
 
+
 def usage():
     print "Usage: python {0} [restart]".format(sys.argv[0])
     sys.exit(1)
+
 
 def _run(cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -57,9 +61,10 @@ def _run(cmd):
         log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd, process.returncode, stderr))
         return False
 
+
 def _make_dir(path):
     log.debug("Checking existence of directory '%s'" % path)
-    if not os.path.exists( path ):
+    if not os.path.exists(path):
         try:
             log.debug("Creating directory '%s'" % path)
             os.makedirs(path, 0755)
@@ -68,6 +73,7 @@ def _make_dir(path):
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
+
 
 def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename):
     try:
@@ -86,6 +92,7 @@ def _get_file_from_bucket(s3_conn, bucket_name, remote_filename, local_filename)
         log.error("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
         return False
 
+
 def _start_nginx(ud):
     log.info("<< Starting nginx >>")
     # Because nginx needs the upload directory to start properly, create it now.
@@ -99,16 +106,55 @@ def _start_nginx(ud):
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
     _configure_nginx(ud)
     _fix_nginx_upload(ud)
-    rmdir = False # Flag to indicate if a dir should be deleted
-    if not os.path.exists('/mnt/galaxyData/upload_store'): #NGTODO: Hardcoded links to GalaxyData?
+    rmdir = False  # Flag to indicate if a dir should be deleted
+    upload_store_dir = ''
+    nginx_dir = _get_nginx_dir()
+    # Look for ``upload_store`` definition in nginx conf file and create that dir
+    # before starting nginx if it doesn't already exist
+    if nginx_dir:
+        ul, us = None, None
+        nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
+        with open(nginx_conf_file, 'r') as f:
+            lines = f.readlines()
+        for line in lines:
+            if 'upload_store' in line:
+                ul = line
+                break
+        if ul:
+            try:
+                upload_store_dir = ul.strip().split(' ')[1].strip(';')
+            except Exception, e:
+                log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
+    if not os.path.exists(upload_store_dir):
         rmdir = True
-        os.makedirs('/mnt/galaxyData/upload_store')  #NGTODO: Hardcoded links to GalaxyData?
+        os.makedirs(upload_store_dir)
+    # TODO: Use nginx_dir as well vs. this hardcoded path
     if not _run('/opt/galaxy/sbin/nginx'):
         _run('/etc/init.d/apache2 stop')
-        _run('/etc/init.d/tntnet stop') # On Ubuntu 12.04, this server also starts?
+        _run('/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
         _run('/opt/galaxy/sbin/nginx')
     if rmdir:
-        _run('rm -rf /mnt/galaxyData')  #NGTODO: Hardcoded links to GalaxyData?
+        _run('rm -rf {0}'.format(upload_store_dir))
+
+
+def _get_nginx_dir(self):
+    """
+    Look around at possible nginx directory locations (from published
+    images) and resort to a file system search
+    """
+    nginx_dir = None
+    for path in ['/usr/nginx', '/opt/galaxy/pkg/nginx']:
+        if os.path.exists(path):
+            nginx_dir = path
+        if not nginx_dir:
+            cmd = 'find / -type d -name nginx'
+            output = _run(cmd)
+            if isinstance(output, str):
+                path = output.strip()
+                if os.path.exists(path):
+                    nginx_dir = path
+    return nginx_dir
+
 
 def _write_conf_file(contents_descriptor, path):
     destination_directory = os.path.dirname(path)
@@ -122,6 +168,7 @@ def _write_conf_file(contents_descriptor, path):
         with open(path, "w") as output:
             output.write(base64.b64decode(contents_descriptor))
 
+
 def _configure_nginx(ud):
     # User specified nginx.conf file, can be specified as
     # url or base64 encoded plain-text.
@@ -133,6 +180,7 @@ def _configure_nginx(ud):
     if reconfigure_nginx:
         _reconfigure_nginx(ud, nginx_conf_path)
 
+
 def _reconfigure_nginx(ud, nginx_conf_path):
     configure_multiple_galaxy_processes = ud.get("configure_multiple_galaxy_processes", False)
     web_threads = ud.get("web_thread_count", 1)
@@ -143,6 +191,7 @@ def _reconfigure_nginx(ud, nginx_conf_path):
         nginx_conf = open(nginx_conf_path, "r").read()
         new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}", upstream_galaxy_app_conf, nginx_conf)
         open(nginx_conf_path, "w").write(new_nginx_conf)
+
 
 def _fix_nginx_upload(ud):
     """
