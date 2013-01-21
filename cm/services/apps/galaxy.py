@@ -1,5 +1,6 @@
 import os, urllib2, shutil, subprocess, pwd, grp
 from datetime import datetime
+from string import Template
 from ConfigParser import SafeConfigParser
 
 from cm.services.apps import ApplicationService
@@ -8,6 +9,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
+from cm.util import templates
 
 import logging
 log = logging.getLogger('cloudman')
@@ -19,14 +21,14 @@ class GalaxyService(ApplicationService):
         super(GalaxyService, self).__init__(app)
         self.name = ServiceRole.to_string(ServiceRole.GALAXY)
         self.svc_roles = [ServiceRole.GALAXY]
-        self.configured = False # Indicates if the environment for running Galaxy has been configured
+        self.configured = False  # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {"SGE_ROOT": self.app.path_resolver.sge_root}
-        self.reqs = [ ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
-                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
-                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
-                      ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
-                      ]
+        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+                     ServiceDependency(self, ServiceRole.GALAXY_DATA),
+                     ServiceDependency(self, ServiceRole.GALAXY_INDICES),
+                     ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
+                     ]
 
     @property
     def galaxy_home(self):
@@ -56,13 +58,13 @@ class GalaxyService(ApplicationService):
         self.status()
         self.start()
 
-    def manage_galaxy( self, to_be_started=True ):
+    def manage_galaxy(self, to_be_started=True):
         if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
-            log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
+            log.debug("Attempted to manage Galaxy, but TESTFLAG is set.")
             return
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
-        os.putenv( "GALAXY_HOME", self.galaxy_home )
-        os.putenv( "TEMP", self.app.path_resolver.galaxy_temp )
+        os.putenv("GALAXY_HOME", self.galaxy_home)
+        os.putenv("TEMP", self.app.path_resolver.galaxy_temp)
         # Setup configuration directory for galaxy if galaxy_conf_dir specified
         # in user-data.
         if self.has_config_dir():
@@ -80,7 +82,7 @@ class GalaxyService(ApplicationService):
         if to_be_started:
             self.status()
             if not self.configured:
-                log.debug( "Setting up Galaxy application" )
+                log.debug("Setting up Galaxy application")
                 s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." % self.galaxy_home)
@@ -149,7 +151,7 @@ class GalaxyService(ApplicationService):
                 # os.chown(self.galaxy_home + '/universe_wsgi.ini', pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
                 self.configured = True
             if self.state != service_states.RUNNING:
-                log.debug( "Starting Galaxy..." )
+                log.debug("Starting Galaxy...")
                 # Make sure admin users get added
                 self.update_galaxy_config()
                 start_command = self.galaxy_run_command("%s --daemon" % self.extra_daemon_args)
@@ -160,7 +162,7 @@ class GalaxyService(ApplicationService):
             else:
                 log.debug("Galaxy already running.")
         else:
-            log.info( "Shutting down Galaxy..." )
+            log.info("Shutting down Galaxy...")
             stop_command = self.galaxy_run_command("%s --stop-daemon" % self.extra_daemon_args)
             if misc.run(stop_command):
                 self.state = service_states.SHUT_DOWN
@@ -388,4 +390,27 @@ class GalaxyService(ApplicationService):
             galaxy_gid = grp.getgrnam("galaxy")[2]
             os.chown(path, galaxy_uid, galaxy_gid)
         except OSError:
-            misc.run("chown galaxy:galaxy '%s'" % path)
+            misc.run("chown galaxy:galaxy '%s'" % path)            
+
+    def configure_nginx(self):
+        """
+        Generate nginx.conf from a template and reload nginx process so config
+        options take effect
+        """
+        nginx_dir = self.app.path_resolver.nginx_dir
+        if nginx_dir:
+            # Customize the template
+            nginx_conf_template = Template(templates.NGINX_CONF_TEMPLATE)
+            params = {
+                'galaxy_home': self.galaxy_home,
+                'galaxy_data': self.app.path_resolver.galaxy_data
+            }
+            templ = nginx_conf_template.substitute(params)
+            # Write out the file
+            nginx_config_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
+            with open(nginx_config_file, 'w') as f:
+                print >> f, templ
+            # Reload nginx process, specifying the newly generated config file
+            misc.run('{0} -c {1} -s reload'.format(os.path.join(nginx_dir, 'sbin', 'nginx'), nginx_config_file))
+        else:
+            log.warning("Cannot find nginx directory to reload nginx config")
