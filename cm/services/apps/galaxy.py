@@ -55,7 +55,7 @@ class GalaxyService(ApplicationService):
             log.debug( "Attempted to manage Galaxy, but TESTFLAG is set." )
             return
         os.putenv( "GALAXY_HOME", self.galaxy_home )
-        os.putenv( "TEMP", '/mnt/galaxyData/tmp' )
+        os.putenv( "TEMP", self.app.path_resolver.galaxy_temp )
         # Setup configuration directory for galaxy if galaxy_conf_dir specified
         # in user-data.
         if self.has_config_dir():

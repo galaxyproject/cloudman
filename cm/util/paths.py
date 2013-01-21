@@ -3,6 +3,9 @@ import commands
 from cm.util import misc
 from cm.services import ServiceRole
 
+import logging
+log = logging.getLogger( 'cloudman' )
+
 # Commands
 P_MKDIR = "/bin/mkdir"
 P_RM = "/bin/rm"
@@ -68,11 +71,20 @@ class PathResolver(object):
 
     @property
     def galaxy_tools(self):
-        return P_GALAXY_TOOLS
+        galaxy_tool_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        if galaxy_tool_fs:
+            return galaxy_tool_fs[0].mount_point
+        else:  # For backward compatibility
+            return P_GALAXY_TOOLS
 
     @property
     def galaxy_home(self):
-        return P_GALAXY_HOME
+        galaxy_tool_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        if galaxy_tool_fs:
+            return os.path.join(self.galaxy_tools, 'galaxy-app')
+        else: # For backward compatibility
+            log.debug("Warning: Returning default galaxy path for home")
+            return P_GALAXY_HOME
 
     @property
     def galaxy_data(self):
@@ -81,10 +93,19 @@ class PathResolver(object):
             return galaxy_data_fs[0].mount_point
         else:
             return P_GALAXY_DATA
+        
+    @property
+    def galaxy_temp(self):
+        return os.path.join(self.galaxy_data, 'tmp')
 
     @property
     def galaxy_indices(self):
-        return P_GALAXY_INDICES
+        galaxy_index_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_INDICES)
+        if galaxy_index_fs:
+            return galaxy_index_fs[0].mount_point
+        else: # For backward compatibility
+            log.debug("Warning: Returning default galaxy path for indices")
+            return P_GALAXY_INDICES
 
     @property
     def pg_home(self):
