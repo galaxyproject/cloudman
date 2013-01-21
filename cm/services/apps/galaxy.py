@@ -320,20 +320,21 @@ class GalaxyService(ApplicationService):
         
     def set_galaxy_paths(self):
         section = "app:main"
-        config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
+        config_file_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
         parser = SafeConfigParser()
-        parser.read(config_file_path)
-        parser.set(section, "genome_data_path", os.path.join(self.app.path_resolver.galaxy_indices, "genomes"))
-        parser.set(section, "len_file_path", os.path.join(self.app.path_resolver.galaxy_indices, "len"))
-        parser.set(section, "tool_dependency_dir", os.path.join(self.app.path_resolver.galaxy_tools, "tools"))
-        parser.set(section, "file_path", os.path.join(self.app.path_resolver.galaxy_data, "files"))
-        temp_dir = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
-        parser.set(section, "new_file_path", temp_dir)
-        parser.set(section, "job_working_directory",  os.path.join(temp_dir, "job_working_directory"))
-        parser.set(section, "cluster_files_directory",  os.path.join(temp_dir, "pbs"))
-        parser.set(section, "ftp_upload_dir",  os.path.join(temp_dir, "ftp"))
-        parser.set(section, "nginx_upload_store",  os.path.join(self.app.path_resolver.galaxy_data, "upload_store"))
-        
+        with open(config_file_path, 'r+b') as configfile:
+            parser.readfp(configfile)
+            parser.set(section, "genome_data_path", os.path.join(self.app.path_resolver.galaxy_indices, "genomes"))
+            parser.set(section, "len_file_path", os.path.join(self.app.path_resolver.galaxy_indices, "len"))
+            parser.set(section, "tool_dependency_dir", os.path.join(self.app.path_resolver.galaxy_tools, "tools"))
+            parser.set(section, "file_path", os.path.join(self.app.path_resolver.galaxy_data, "files"))
+            temp_dir = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
+            parser.set(section, "new_file_path", temp_dir)
+            parser.set(section, "job_working_directory",  os.path.join(temp_dir, "job_working_directory"))
+            parser.set(section, "cluster_files_directory",  os.path.join(temp_dir, "pbs"))
+            parser.set(section, "ftp_upload_dir",  os.path.join(temp_dir, "ftp"))
+            parser.set(section, "nginx_upload_store",  os.path.join(self.app.path_resolver.galaxy_data, "upload_store"))
+            parser.write(configfile)
 
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
@@ -355,27 +356,12 @@ class GalaxyService(ApplicationService):
             edited = False
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
-            with open(config_file_path, 'r') as f:
-                config_file = f.readlines()
-            new_config_file = open(new_config_file_path, 'w')
-            for line in config_file:
-                # Add all of the users in admins_list if no admin users exist
-                if '#admin_users = None' in line:
-                    line = line.replace('#admin_users = None', 'admin_users = %s' % ', '\
-                        .join(str(a) for a in admins_list))
-                    edited = True
-                # Add only admin users that don't already exist in the admin user list
-                if not edited and 'admin_users' in line:
-                    if line.endswith('\n'):
-                        line = line.rstrip('\n') + ', '
-                    for admin in admins_list:
-                        if admin not in line:
-                            line += "%s, " % admin
-                    if line.endswith(', '):
-                        line = line[:-2] + '\n'  # remove trailing space and comma and add newline
-                    edited = True
-                new_config_file.write(line)
-            new_config_file.close()
+            admins_str = ', '.join(str(a) for a in admins_list)
+            with open(config_file_path, 'r+b') as configfile:
+                parser = SafeConfigParser()
+                parser.read(configfile)
+                parser.set("app:main", "admin_users", admins_str)
+                parser.write(configfile)
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
             self._attempt_chown_galaxy(config_file_path)
