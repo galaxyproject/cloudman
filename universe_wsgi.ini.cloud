@@ -245,7 +245,7 @@ nglims_config_file = tool-data/nglims.yaml
 # -- UI Localization
 
 # Append "/{brand}" to the "Galaxy" text in the masthead.
-brand = GVL
+#brand = None
 
 # The URL linked by the "Galaxy/brand" text.
 #logo_url = /

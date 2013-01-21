@@ -79,12 +79,23 @@ class PathResolver(object):
 
     @property
     def galaxy_home(self):
-        galaxy_tool_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
-        if galaxy_tool_fs:
-            return os.path.join(self.galaxy_tools, 'galaxy-app')
-        else: # For backward compatibility
-            log.debug("Warning: Returning default galaxy path for home")
-            return P_GALAXY_HOME
+        # First check if galaxy_home is defined in user data to allow any
+        # path to be overridden
+        gh = get_path('galaxy_home', None)
+        if gh:
+            print "Using galaxy_home from user data: %s" % gh
+            return gh
+        # Get the required file system where Galaxy should be kept
+        galaxy_tools_fs_svc = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        if galaxy_tools_fs_svc:
+            # Test directories that were used in the past as potential
+            # Galaxy-home directories on the required file system
+            for g_dir in ['galaxy-app', 'galaxy-central', 'galaxy-dist']:
+                gh = os.path.join(galaxy_tools_fs_svc[0].mount_point, g_dir)
+                if os.path.exists(gh):
+                    return gh
+        log.debug("Warning: Returning default path for galaxy_home")
+        return P_GALAXY_HOME
 
     @property
     def galaxy_data(self):
@@ -93,7 +104,7 @@ class PathResolver(object):
             return galaxy_data_fs[0].mount_point
         else:
             return P_GALAXY_DATA
-        
+
     @property
     def galaxy_temp(self):
         return os.path.join(self.galaxy_data, 'tmp')
@@ -113,7 +124,7 @@ class PathResolver(object):
 
     @property
     def psql_dir(self):
-        return os.path.join(self.galaxy_data, "pgsql/data")
+        return os.path.join(self.galaxy_data, "db")
 
     @property
     def mount_root(self):
