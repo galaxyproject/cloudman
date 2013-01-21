@@ -62,7 +62,7 @@ class ApplicationService( Service ):
             pid_file = '%s/reports_webapp.pid' % self.app.path_resolver.galaxy_home
         else:
             return -1
-        # log.debug("Checking pid file '%s' for service '%s'" % (pid_file, service))
+        #log.debug("Checking pid file '%s' for service '%s'" % (pid_file, service))
         if os.path.isfile(pid_file):
             return commands.getoutput("head -n 1 %s" % pid_file)
         else:
