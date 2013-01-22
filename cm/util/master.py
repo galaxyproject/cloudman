@@ -2557,10 +2557,10 @@ class Instance( object ):
     def send_mount_points( self ):
         mount_points = []
         for fs in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
-            mount_points.append([{'nfs_server':self.app.cloud_interface.get_public_ip(),
+            mount_points.append({'nfs_server':self.app.cloud_interface.get_public_ip(),
                                   'shared_mount_path':fs.get_details['mount_point'],
                                   'fs_name':fs.get_details['name']
-                                  }])
+                                  })
         self.app.manager.console_monitor.conn.send( 'MOUNT | %s' % json.dumps({'mount_points':mount_points}))
         log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
 
