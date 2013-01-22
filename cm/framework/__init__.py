@@ -151,7 +151,7 @@ class UniverseWebTransaction( base.DefaultWebTransaction ):
         if filename.endswith( ".mako" ):
             return self.fill_template_mako( filename, **kwargs )
         else:
-            template = Template( file=os.path.join(self.app.config.template_path, filename), 
+            template = mako.template.Template( file=os.path.join(self.app.config.template_path, filename), 
                                  searchList=[kwargs, self.template_context, dict(caller=self, t=self, h=helpers, util=util, request=self.request, response=self.response, app=self.app)] )
             return str( template )
 
@@ -183,7 +183,7 @@ class UniverseWebTransaction( base.DefaultWebTransaction ):
         """
         Fill in a template, putting any keyword arguments on the context.
         """
-        template = Template( source=template_string,
+        template = mako.template.Template( source=template_string,
                              searchList=[context or kwargs, dict(caller=self)] )
         return str(template)
 
