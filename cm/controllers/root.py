@@ -2,9 +2,9 @@ import os
 import re
 import logging
 import subprocess
+import json
 # from datetime import datetime
 
-from cm.util.json import to_json_string
 from cm.framework import expose
 from cm.base.controller import BaseController
 from cm.services import service_states
@@ -108,7 +108,7 @@ class CM(BaseController):
     @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
-        return to_json_string(dict_feed)
+        return json.dumps(dict_feed)
 
     @expose
     def minibar(self, trans):
@@ -385,7 +385,7 @@ class CM(BaseController):
 
     @expose
     def get_srvc_status(self, trans, srvc):
-        return to_json_string({'srvc': srvc,
+        return json.dumps({'srvc': srvc,
                                'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
@@ -401,15 +401,15 @@ class CM(BaseController):
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         #status_dict['dummy'] = str(datetime.now()) # Used for testing only
-        return to_json_string(status_dict)
+        return json.dumps(status_dict)
 
     @expose
     def get_all_filesystems(self, trans):
-        return to_json_string(self.app.manager.get_all_filesystems_status())
+        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
-        return to_json_string({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
+        return json.dumps({ 'ui_update_data' : self.instance_state_json(trans, no_json=True),
                                 'log_update_data' : self.log_json(trans, l_log, no_json=True),
                                 'messages': self.messages_string(self.app.msgs.get_messages())})
 
@@ -419,7 +419,7 @@ class CM(BaseController):
             return {'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)}
         else:
-            return to_json_string({'log_messages' : self.app.logger.logmessages[int(l_log):],
+            return json.dumps({'log_messages' : self.app.logger.logmessages[int(l_log):],
                                 'log_cursor' : len(self.app.logger.logmessages)})
 
     def messages_string(self, messages):
@@ -549,12 +549,12 @@ class CM(BaseController):
                     "Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
 
-            return to_json_string({'running' : True,
+            return json.dumps({'running' : True,
                                     'as_min' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
                                     'as_max' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
-            return to_json_string({'running' : False,
+            return json.dumps({'running' : False,
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
@@ -567,12 +567,12 @@ class CM(BaseController):
                 self.app.manager.adjust_autoscaling(int(as_min_adj), int(as_max_adj))
             else:
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (as_min_adj, as_max_adj))
-            return to_json_string({'running' : True,
+            return json.dumps({'running' : True,
                                     'as_min' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
                                     'as_max' : self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
         else:
-            return to_json_string({'running' : False,
+            return json.dumps({'running' : False,
                                     'as_min' : 0,
                                     'as_max' : 0,
                                     'ui_update_data' : self.instance_state_json(trans, no_json=True)})
@@ -615,7 +615,7 @@ class CM(BaseController):
 
     @expose
     def get_shared_instances(self, trans):
-        return to_json_string({'shared_instances': self.app.manager.get_shared_instances()})
+        return json.dumps({'shared_instances': self.app.manager.get_shared_instances()})
 
     @expose
     def delete_shared_instance(self, trans, shared_instance_folder=None, snap_id=None):
@@ -651,7 +651,7 @@ class CM(BaseController):
 
     @expose
     def get_user_data(self, trans):
-        return to_json_string(self.app.ud)
+        return json.dumps(self.app.ud)
 
     @expose
     def recover_monitor(self, trans, force='False'):
@@ -696,7 +696,7 @@ class CM(BaseController):
         if no_json:
             return ret_dict
         else:
-            return to_json_string(ret_dict)
+            return json.dumps(ret_dict)
 
     @expose
     def instance_state_json(self, trans, no_json=False):
@@ -722,11 +722,11 @@ class CM(BaseController):
         if no_json:
             return ret_dict
         else:
-            return to_json_string(ret_dict)
+            return json.dumps(ret_dict)
 
     @expose
     def update_users_CM(self, trans):
-        return to_json_string({'updated':self.app.manager.update_users_CM()})
+        return json.dumps({'updated':self.app.manager.update_users_CM()})
 
     @expose
     def masthead(self, trans):
