@@ -127,6 +127,7 @@ def _start_nginx(ud):
                 log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
     if not os.path.exists(upload_store_dir):
         rmdir = True
+        log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
         os.makedirs(upload_store_dir)
     # TODO: Use nginx_dir as well vs. this hardcoded path
     if not _run('/opt/galaxy/sbin/nginx'):
@@ -135,6 +136,7 @@ def _start_nginx(ud):
         _run('/opt/galaxy/sbin/nginx')
     if rmdir:
         _run('rm -rf {0}'.format(upload_store_dir))
+        log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
 
 
 def _get_nginx_dir():
