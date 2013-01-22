@@ -2613,6 +2613,8 @@ class Instance( object ):
                        self.local_hostname))
                 # Instance is alive and functional. Send master pubkey.
                 self.send_mount_points()
+            elif msg_type == "GET_MOUNTPOINTS":
+                self.send_mount_points()
             elif msg_type == "MOUNT_DONE":
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
