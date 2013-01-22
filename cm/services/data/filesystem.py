@@ -90,6 +90,7 @@ class Filesystem(DataService):
         details['persistent'] = "Yes" if self.persistent else "No"
         return details
 
+    # TODO: This method appears to be unused. self.size is also calculated elsewhere differently. Needs review
     def get_size(self):
         """
         Get the total size of this file system across all of its devices
@@ -425,7 +426,7 @@ class Filesystem(DataService):
         For example: ``335G 199M 1%``
         """
         if not cmd:
-            cmd = "df -h | grep %s | awk '{print $2, $3, $5}'" % self.name
+            cmd = "df -h | grep %s$  | awk '{print $2, $3, $5}'" % self.name
         # Get size & usage
         try:
             disk_usage = commands.getoutput(cmd)

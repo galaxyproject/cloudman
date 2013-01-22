@@ -680,7 +680,7 @@ class ConsoleManager(BaseConsoleManager):
                 fs_name = fs_arr[0].name
                 #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
                 # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
-                disk_usage = commands.getoutput("df -h | grep " + fs_name + " | awk '{print $2, $3, $5}'")
+                disk_usage = commands.getoutput("df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
                 disk_usage = disk_usage.split(' ')
                 if len(disk_usage) == 3:
                     self.disk_total = disk_usage[0]
