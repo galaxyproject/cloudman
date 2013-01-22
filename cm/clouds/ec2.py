@@ -21,6 +21,8 @@ class EC2Interface(CloudInterface):
         super(EC2Interface, self).__init__()
         self.app = app
         self.tags_supported = True
+        self.update_frequency = 60
+        self.public_hostname_updated = time.time()
         self.set_configuration()
 
     def get_ami( self ):
@@ -190,23 +192,28 @@ class EC2Interface(CloudInterface):
         return self.local_hostname
 
     def get_public_hostname( self ):
-        if self.self_public_ip is None:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get public hostname, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_public_ip = '127.0.0.1'
-                return self.self_public_ip
+        """
+        Return the current public hostname reported by Amazon.
+        Public hostname can be changed -- check it every self.update_frequency.
+        """
+        if self.app.TESTFLAG is True:
+            log.debug("Attempted to get public hostname, but TESTFLAG is set. Returning '127.0.0.1'")
+            self.self_public_hostname = 'localhost'
+            self.public_hostname_updated = time.time()
+            return self.public_hostname
+        if self.public_hostname is None or (time.time() - self.public_hostname_updated > self.update_frequency):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public hostname, attempt %s' % i)
                     fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
-                    self.self_public_ip = fp.read()
+                    self.public_hostname = fp.read()
                     fp.close()
-                    if self.self_public_ip:
+                    if self.public_hostname:
+                        self.public_hostname_updated = time.time()
                         break
                 except Exception, e:
                     log.error ( "Error retrieving FQDN: %s" % e )
-
-        return self.self_public_ip
+        return self.public_hostname
 
     def get_public_ip( self ):
         if self.self_public_ip is None:
