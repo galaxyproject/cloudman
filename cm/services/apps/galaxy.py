@@ -333,22 +333,20 @@ class GalaxyService(ApplicationService):
         section = "app:main"
         config_file_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
         parser = SafeConfigParser()
-        configfile = open(config_file_path, 'rt')
-        parser.readfp(configfile)
-        parser.set(section, "genome_data_path", os.path.join(self.app.path_resolver.galaxy_indices, "genomes"))
-        parser.set(section, "len_file_path", os.path.join(self.app.path_resolver.galaxy_indices, "len"))
-        parser.set(section, "tool_dependency_dir", os.path.join(self.app.path_resolver.galaxy_tools, "tools"))
-        parser.set(section, "file_path", os.path.join(self.app.path_resolver.galaxy_data, "files"))
-        temp_dir = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
-        parser.set(section, "new_file_path", temp_dir)
-        parser.set(section, "job_working_directory",  os.path.join(temp_dir, "job_working_directory"))
-        parser.set(section, "cluster_files_directory",  os.path.join(temp_dir, "pbs"))
-        parser.set(section, "ftp_upload_dir",  os.path.join(temp_dir, "ftp"))
-        parser.set(section, "nginx_upload_store",  os.path.join(self.app.path_resolver.galaxy_data, "upload_store"))
-        configfile.close()
-        configfile = open(config_file_path, 'wt')
-        parser.write(configfile)
-        configfile.close()
+        with open(config_file_path, 'rt') as configfile:        
+            parser.readfp(configfile)
+            parser.set(section, "genome_data_path", os.path.join(self.app.path_resolver.galaxy_indices, "genomes"))
+            parser.set(section, "len_file_path", os.path.join(self.app.path_resolver.galaxy_indices, "len"))
+            parser.set(section, "tool_dependency_dir", os.path.join(self.app.path_resolver.galaxy_tools, "tools"))
+            parser.set(section, "file_path", os.path.join(self.app.path_resolver.galaxy_data, "files"))
+            temp_dir = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
+            parser.set(section, "new_file_path", temp_dir)
+            parser.set(section, "job_working_directory",  os.path.join(temp_dir, "job_working_directory"))
+            parser.set(section, "cluster_files_directory",  os.path.join(temp_dir, "pbs"))
+            parser.set(section, "ftp_upload_dir",  os.path.join(temp_dir, "ftp"))
+            parser.set(section, "nginx_upload_store",  os.path.join(self.app.path_resolver.galaxy_data, "upload_store"))
+        with open(config_file_path, 'wt') as configfile:
+            parser.write(configfile)
 
     def add_galaxy_admin_users(self, admins_list=[]):
         """ Galaxy admin users can now be added by providing them in user data
@@ -370,11 +368,12 @@ class GalaxyService(ApplicationService):
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
             admins_str = ', '.join(str(a) for a in admins_list)
-            with open(config_file_path, 'r+b') as configfile:
+            with open(config_file_path, 'rt') as configfile:
                 parser = SafeConfigParser()
-                parser.read(configfile)
+                parser.readfp(configfile)
                 parser.set("app:main", "admin_users", admins_str)
-                parser.write(configfile)
+            with open(new_config_file_path, 'wt') as output_file:
+                parser.write(output_file)
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
             self._attempt_chown_galaxy(config_file_path)
