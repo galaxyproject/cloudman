@@ -137,7 +137,11 @@ class ConsoleManager(BaseConsoleManager):
         mount_points = []
         try:
             # Try to load mount points from json dispatch
-            mount_points_dict = json.loads(mount_json)
+            try:
+                mount_points_dict = json.loads(mount_json.strip())
+            except Exception, e:
+                log.error("json load exception: %s" % e)
+            log.debug("mount_points_dict: %s" % mount_points_dict)
             if 'mount_points' in mount_points_dict:
                 for mp in mount_points_dict['mount_points']:
                     #TODO use the actual filesystem name for accounting/status updates
@@ -167,7 +171,7 @@ class ConsoleManager(BaseConsoleManager):
             ret_code = self.mount_disk(master_ip, path)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
-        self.conn.send("MOUNT_DONE")
+        self.console_monitor.conn.send("MOUNT_DONE")
 
     def unmount_nfs( self ):
         log.info( "Unmounting NFS directories..." )

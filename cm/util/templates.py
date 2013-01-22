@@ -248,7 +248,7 @@ http {
         }
 
         location /_upload {
-            upload_store $galaxy_data/tmp/upload_store;
+            upload_store $galaxy_data/upload_store;
             upload_pass_form_field "";
             upload_set_form_field "__$${upload_field_name}__is_composite" "true";
             upload_set_form_field "__$${upload_field_name}__keys" "name path";
