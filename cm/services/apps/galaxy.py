@@ -368,11 +368,12 @@ class GalaxyService(ApplicationService):
             config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini')
             new_config_file_path = os.path.join(self.galaxy_home, 'universe_wsgi.ini.new')
             admins_str = ', '.join(str(a) for a in admins_list)
-            with open(config_file_path, 'r+b') as configfile:
+            with open(config_file_path, 'rt') as configfile:
                 parser = SafeConfigParser()
                 parser.readfp(configfile)
                 parser.set("app:main", "admin_users", admins_str)
-                parser.write(new_config_file_path)
+            with open(new_config_file_path, 'wt') as output_file:
+                parser.write(output_file)
             shutil.move(new_config_file_path, config_file_path)
             # Change the owner of the file to galaxy user
             self._attempt_chown_galaxy(config_file_path)
