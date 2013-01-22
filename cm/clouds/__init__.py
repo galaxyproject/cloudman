@@ -21,6 +21,7 @@ class CloudInterface(object):
     self_private_ip = None
     local_hostname = None
     self_public_ip = None
+    public_hostname = None
     instance_type = None
     fqdn = None
     user_data = None
