@@ -400,7 +400,7 @@ class ConsoleMonitor( object ):
         elif message.startswith("MOUNT"):
             #MOUNT everything in json blob.
             #Parse the message better
-            self.mount_nfs(self.app.ud['master_ip'], message[message.find("|")+1:])
+            self.app.manager.mount_nfs(self.app.ud['master_ip'], message[message.find("|")+1:])
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
