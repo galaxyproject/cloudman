@@ -26,6 +26,23 @@ P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 
+# the value for P_HADOOP_HOME must be equal to the directory 
+# in the file hdfs-start.sh from sge_integration
+P_HADOOP_HOME = "/opt/hadoop/"
+P_HADOOP_TARS_PATH = "/opt/hadoop/"
+## P_HADOOP_TAR is a regex format file name to find the latest hadoop from the site or directory
+## the standard for the versioning here is "hadoop.<hadoop release number>__<release numbere.build number>.tar.gz"
+## if no version is set it is assumed 0.0 and would be replaced if any newer is found
+P_HADOOP_TAR = "hadoop\.((([|0-9])*\.)*[0-9]*__([0-9]*\.)*[0-9]+){0,1}\.{0,1}tar\.gz"
+## P_HADOOP_INTEGRATION_TAR is a regex format file name to find the latest hadoop_sge_integration from the site or directory
+P_HADOOP_INTEGRATION_TAR = "sge_integration\.(([0-9]*\.)*[0-9]+){0,1}\.{0,1}tar\.gz"
+P_HADOOP_TAR_URL = "https://s3.amazonaws.com/cloudman/"
+P_HADOOP_INTEGRATION_TAR_URL = "https://s3.amazonaws.com/cloudman/"
+
+P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
+
+P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
+
 try:
     # Get only the first 3 chars of the version since that's all that's used for dir name
     pg_ver = load = (commands.getoutput("dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]

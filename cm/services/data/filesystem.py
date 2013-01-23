@@ -340,9 +340,22 @@ class Filesystem(DataService):
                 with open(ee_file) as f:
                     shared_paths = f.readlines()
                 in_ee = -1
+                hadoo_mnt_point = "/opt/hadoop"
+                hadoop_set = False
                 for i, sp in enumerate(shared_paths):
                     if mount_point in sp:
                         in_ee = i
+                    if i == hadoo_mnt_point:
+                        hadoop_set = True
+
+                ## TODO:: change the follwoing line and make hadoop a file system
+                if not hadoop_set:
+                    he_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+                        .format(mp="/opt/hadoop", perms='rw')
+                    shared_paths.append(he_line)
+
+
+
                 # If the mount point is already in /etc/exports, replace the existing
                 # entry with the newly composed ee_line (thus supporting change of
                 # permissions). Otherwise, append ee_line to the end of the file.
@@ -354,6 +367,7 @@ class Filesystem(DataService):
                 with open(ee_file, 'w') as f:
                     f.writelines(shared_paths)
                 log.debug("Added '{0}' line to NFS file {1}".format(ee_line.strip(), ee_file))
+
             # Mark the NFS server as being in need of a restart
             self.dirty=True
             return True

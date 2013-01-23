@@ -1,7 +1,9 @@
 """Galaxy CM worker manager"""
 import commands, grp, logging, os, os.path, pwd, subprocess, threading
 import datetime as dt
+import shutil
 import json
+
 
 from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
@@ -9,6 +11,7 @@ from cm.util.manager import BaseConsoleManager
 from cm.services import ServiceRole
 from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
+from cm.services.apps.hadoop import HadoopService
 
 log = logging.getLogger( 'cloudman' )
 
@@ -161,6 +164,13 @@ class ConsoleManager(BaseConsoleManager):
             mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
         # Mount SGE regardless of cluster type
         mount_points.append(('nfs_sge', self.app.path_resolver.sge_root))
+
+        # <KWS>Mount Hadoop regardless of cluster type
+        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME))
+
+        # Mount master's transient stroage regardless of cluster type
+        mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
             mount_points.append(('extra_mount_%d' % i, extra_mount))
         # For each main mount point, mount it and set status based on label
@@ -271,6 +281,20 @@ class ConsoleManager(BaseConsoleManager):
 
         self.console_monitor.send_node_status()
         return ret_code
+
+    ## Configure hadoop necessary environment for further use 
+    ## by hadoop instalation process through SGE
+    def start_hadoop(self):
+        # KWS: Optionally add Hadoop service based on config setting
+        self.hadoop = HadoopService(self.app)
+        self.hadoop.configure_hadoop()
+
+    ##<KWS>
+    ##Updating etc host by fetching the master's etc/hosts file 
+    ## this is necessary for hadoop ssh component
+    def sync_etc_host(self,sync_path=paths.P_ETC_TRANSIENT_PATH):
+        
+        shutil.copyfile(sync_path,"/etc/hosts")
 
     def _get_extra_nfs_mounts(self):
         return self.app.ud.get('extra_nfs_mounts', [])
@@ -401,10 +425,12 @@ class ConsoleMonitor( object ):
                 log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
+            self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             #MOUNT everything in json blob.
             #Parse the message better
             self.app.manager.mount_nfs(self.app.ud['master_ip'], message[message.find("|")+1:])
+
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
@@ -420,6 +446,11 @@ class ConsoleMonitor( object ):
             log.debug("Worker done adding FS from bucket {0}".format(bucket_name))
         elif message.startswith('ALIVE_REQUEST'):
             self.send_alive_message()
+        elif message.startswith('SYNC_ETC_HOSTS'):
+            ##<KWS> synching etc host using the master one
+            sync_path = message.split(' | ')[1]
+            self.app.manager.sync_etc_host()
+
         else:
             log.debug("Unknown message '%s'" % message)
 

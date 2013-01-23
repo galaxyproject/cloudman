@@ -5,6 +5,7 @@ import json
 import shutil
 
 
+
 from cm.util import misc, comm
 from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
 from cm.util.manager import BaseConsoleManager
@@ -13,12 +14,16 @@ from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.pss import PSS
 from cm.services.apps.sge import SGEService
+from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
 from cm.services import ServiceType
 from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
+
+
+import shutil
 
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
@@ -172,6 +177,11 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("ud at manager start: %s" % self.app.ud)
 
         self._handle_prestart_commands()
+        # Generating public key before any worker has been initialized
+        # This is required for cnfiguring Hadoop the main hadoop worker still needs to be
+        # bale to ssh into itself!!!
+        # this should happen before SGE is added
+        self.get_root_public_key()
 
         # Always add SGE service
         self.add_master_service(SGEService(self.app))
@@ -182,7 +192,8 @@ class ConsoleManager(BaseConsoleManager):
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
-
+        # KWS: Optionally add Hadoop service based on config setting
+        self.add_master_service(HadoopService(self.app))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -1783,6 +1794,14 @@ class ConsoleManager(BaseConsoleManager):
         fout.close()
         shutil.copy("%s-tmp" % file_name, file_name)
 
+    def update_etc_host(self):
+
+        #misc.add_to_etc_hosts(self.app.cloud_interface.get_local_hostname(),self.app.cloud_interface.get_public_ip().split('.')[0])
+        shutil.copy("/etc/hosts",paths.P_ETC_TRANSIENT_PATH)
+        for wrk in self.worker_instances:
+            wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+
+
     def get_status_dict(self):
         """
         Return a status dictionary for the current instance.
@@ -2228,7 +2247,9 @@ class Instance( object ):
             if (dt.datetime.utcnow()-self.last_comm).seconds > 100 and \
                (dt.datetime.utcnow()-self.last_m_state_change).seconds > 400 and \
                (dt.datetime.utcnow()-self.time_rebooted).seconds > 300:
-                reboot_terminate_logic()
+                pass
+                ## <KWS> uncoment this part
+                #reboot_terminate_logic()
 
     def get_cloud_instance_object(self, deep=False):
         """ Get the instance object for this instance from the library used to
@@ -2454,6 +2475,7 @@ class Instance( object ):
     def send_alive_request(self):
         self.app.manager.console_monitor.conn.send( 'ALIVE_REQUEST', self.id
                                                     )
+
     def send_status_check( self ):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2467,6 +2489,10 @@ class Instance( object ):
             return
         self.app.manager.console_monitor.conn.send( 'RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id )
         log.info( "\tMT: Sent RESTART message to worker '%s'" % self.id )
+
+    def send_sync_etc_host(self, msg):
+        self.app.manager.console_monitor.conn.send( 'SYNC_ETC_HOSTS | ' + msg, self.id )    
+    
 
     def update_spot(self, force=False):
         """ Get an update on the state of a Spot request. If the request has entered
@@ -2619,18 +2645,21 @@ class Instance( object ):
             elif msg_type == "MOUNT_DONE":
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
-                if self.app.cloud_type in ('openstack','eucalyptus'):
+                if self.app.cloud_type in ('openstack','eucalyptus','ec2'):
+                    hdp_hosts=''
                     hn2 = ''
                     if '.' in self.local_hostname:
                         hn2 = (self.local_hostname).split('.')[0]
                     worker_host_line = '{ip} {hn1} {hn2}\n'.format(ip=self.private_ip, \
                         hn1=self.local_hostname, hn2=hn2)
+
                     log.debug("worker_host_line: {0}".format(worker_host_line))
                     with open('/etc/hosts', 'r+') as f:
                         hosts = f.readlines()
                         if worker_host_line not in hosts:
                             log.debug("Adding worker {0} to /etc/hosts".format(self.local_hostname))
                             f.write(worker_host_line)
+
                 if self.app.cloud_type == 'opennebula':
                     f = open( "/etc/hosts", 'a' )
                     f.write( "%s\tworker-%s\n" %  (self.private_ip, self.id))
@@ -2667,6 +2696,8 @@ class Instance( object ):
                     self.num_cpus = int(msplit[2])
                 except:
                     log.debug("Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
+                ##<KWS>
+                self.app.manager.update_etc_host()
                 log.debug("Instance '%s' reported as having '%s' CPUs." % (self.id, self.num_cpus))
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split( ' | ' )

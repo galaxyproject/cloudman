@@ -36,6 +36,7 @@ class ServiceRole(object):
     GALAXY_TOOLS = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Tools FS"}
     GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'name': "Generic FS"}
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name': "Transient NFS FS"}
+    HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
 
     @staticmethod
     def get_type(role):
@@ -79,6 +80,8 @@ class ServiceRole(object):
             return ServiceRole.GENERIC_FS
         elif val == "TransientNFS":
             return ServiceRole.TRANSIENT_NFS
+        elif val == "Hadoop":
+            return ServiceRole.HADOOP
         else:
             log.warn("Attempt to convert unknown role name from string: {0}".format(val))
             return None
@@ -117,6 +120,8 @@ class ServiceRole(object):
             return "GenericFS"
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
+        elif svc_role == ServiceRole.HADOOP:
+            return "Hadoop"
         else:
             raise Exception("Unrecognized role {0}. Cannot convert to string".format(svc_role))
 
