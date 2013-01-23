@@ -22,9 +22,6 @@ from cm.services import ServiceType
 from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
 
-
-import shutil
-
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
 
@@ -2247,9 +2244,7 @@ class Instance( object ):
             if (dt.datetime.utcnow()-self.last_comm).seconds > 100 and \
                (dt.datetime.utcnow()-self.last_m_state_change).seconds > 400 and \
                (dt.datetime.utcnow()-self.time_rebooted).seconds > 300:
-                pass
-                ## <KWS> uncoment this part
-                #reboot_terminate_logic()
+                reboot_terminate_logic()
 
     def get_cloud_instance_object(self, deep=False):
         """ Get the instance object for this instance from the library used to
