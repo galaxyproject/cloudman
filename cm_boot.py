@@ -4,14 +4,22 @@ Requires:
     PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
-# euca local file
-import logging, sys, os, subprocess, yaml, tarfile, shutil, time, urllib
-from urlparse import urlparse
-from boto.s3.connection import S3Connection, OrdinaryCallingFormat, SubdomainCallingFormat
-from boto.s3.key import Key
-from boto.exception import S3ResponseError, BotoServerError
 import base64
+import logging
+import os
 import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import time
+import urllib
+import urlparse
+import yaml
+from boto.exception import BotoServerError, S3ResponseError
+from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
+from boto.s3.key import Key
+
 logging.getLogger('boto').setLevel(logging.INFO) # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
@@ -233,7 +241,7 @@ def _get_s3connection(ud):
             log.info('connecting to Amazon S3 at {0}'.format(s3_url))
         else:
             log.info('connecting to custom S3 url: {0}'.format(s3_url))
-        url = urlparse(s3_url)
+        url = urlparse.urlparse(s3_url)
         if url.scheme == 'https':
             is_secure = True
         else:
