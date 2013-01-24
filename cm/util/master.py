@@ -1,27 +1,33 @@
 """Galaxy CM master manager"""
-import commands, fileinput, logging, logging.config, os, subprocess, threading, time
+
+import commands
 import datetime as dt
+import fileinput
 import json
+import logging
+import os
 import shutil
+import subprocess
+import threading
+import time
 
+from boto.exception import BotoClientError, BotoServerError, EC2ResponseError, S3ResponseError
 
-from cm.util import misc, comm
-from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
-from cm.util.manager import BaseConsoleManager
-from cm.services.autoscale import Autoscale
+import cm.util.paths as paths
+from cm.services import ServiceRole
+from cm.services import ServiceType
 from cm.services import service_states
-from cm.services.data.filesystem import Filesystem
-from cm.services.apps.pss import PSS
-from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
-from cm.services import ServiceType
-from cm.services import ServiceRole
+from cm.services.apps.pss import PSS
+from cm.services.apps.sge import SGEService
+from cm.services.autoscale import Autoscale
+from cm.services.data.filesystem import Filesystem
+from cm.util import cluster_status, instance_lifecycle, instance_states, spot_states
+from cm.util import comm, misc
 from cm.util.decorators import TestFlag
-
-import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
+from cm.util.manager import BaseConsoleManager
 
 log = logging.getLogger('cloudman')
 
@@ -1999,33 +2005,30 @@ class ConsoleMonitor( object ):
         # If not existent, save current boot script cm_boot.py to cluster's bucket
         # BUG: workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
         # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and os.path.exists(os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name'])):
-        if 1:
-            log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
+        log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']), self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']))
+        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], self.app.ud['boot_script_name'], os.path.join(self.app.ud['boot_script_path'], self.app.ud['boot_script_name']))
         # If not existent, save CloudMan source to cluster's bucket, including file's metadata
         # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
         # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz') and os.path.exists(os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz')):
-        if 1:
-            log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
-            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
-            try:
-                # Corrently, metadata only works on ec2 so set it only there
-                if self.app.cloud_type == 'ec2':
-                    with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
-                        rev = rev_file.read()
-                    misc.set_file_metadata(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', 'revision', rev)
-            except Exception, e:
-                log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
+        log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'), self.app.ud['bucket_cluster'], 'cm.tar.gz'))
+        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
+        try:
+            # Corrently, metadata only works on ec2 so set it only there
+            if self.app.cloud_type == 'ec2':
+                with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+                    rev = rev_file.read()
+                misc.set_file_metadata(s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+        except Exception, e:
+            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful as a reference)
         cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
         # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
         # if not misc.file_exists_in_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name']):
-        if 1:
-            with open(cn_file, 'w'):
-                pass
-            if os.path.exists(cn_file):
-                log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
-                misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
+        with open(cn_file, 'w'):
+            pass
+        if os.path.exists(cn_file):
+            log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
+            misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
 
 
     def __add_services(self):
