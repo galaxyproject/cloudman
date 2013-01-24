@@ -1,27 +1,33 @@
 """Galaxy CM master manager"""
-import commands, fileinput, logging, logging.config, os, subprocess, threading, time
+
+import commands
 import datetime as dt
+import fileinput
 import json
+import logging
+import os
 import shutil
+import subprocess
+import threading
+import time
 
+from boto.exception import BotoClientError, BotoServerError, EC2ResponseError, S3ResponseError
 
-from cm.util import misc, comm
-from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
-from cm.util.manager import BaseConsoleManager
-from cm.services.autoscale import Autoscale
+import cm.util.paths as paths
+from cm.services import ServiceRole
+from cm.services import ServiceType
 from cm.services import service_states
-from cm.services.data.filesystem import Filesystem
-from cm.services.apps.pss import PSS
-from cm.services.apps.sge import SGEService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
-from cm.services import ServiceType
-from cm.services import ServiceRole
+from cm.services.apps.pss import PSS
+from cm.services.apps.sge import SGEService
+from cm.services.autoscale import Autoscale
+from cm.services.data.filesystem import Filesystem
+from cm.util import cluster_status, instance_lifecycle, instance_states, spot_states
+from cm.util import comm, misc
 from cm.util.decorators import TestFlag
-
-import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
+from cm.util.manager import BaseConsoleManager
 
 log = logging.getLogger('cloudman')
 
