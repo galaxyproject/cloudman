@@ -26,6 +26,7 @@ LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
 CM_BOOT_PATH = '/tmp/cm'
 USER_DATA_FILE = 'userData.yaml'
+SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'

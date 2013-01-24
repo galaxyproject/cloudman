@@ -8,6 +8,9 @@ vertical-align: top;
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    %if system_message:
+        <div class="warning"><strong>System Message:</strong>${system_message} </div>
+    %endif
     <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
