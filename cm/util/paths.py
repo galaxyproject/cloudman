@@ -1,9 +1,10 @@
-import os
 import commands
-from cm.util import misc
-from cm.services import ServiceRole
-
 import logging
+import os
+
+from cm.services import ServiceRole
+from cm.util import misc
+
 log = logging.getLogger('cloudman')
 
 # Commands
@@ -17,6 +18,7 @@ P_LN = "/bin/ln"
 # Configs
 C_PSQL_PORT = "5840"
 USER_DATA_FILE = "userData.yaml"
+SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/profile"
 
 # Paths
