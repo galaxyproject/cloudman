@@ -345,14 +345,14 @@ class Filesystem(DataService):
                 for i, sp in enumerate(shared_paths):
                     if mount_point in sp:
                         in_ee = i
-                    if i == hadoo_mnt_point:
+                    if hadoo_mnt_point == sp:
                         hadoop_set = True
 
                 ## TODO:: change the follwoing line and make hadoop a file system
                 if not hadoop_set:
-                    he_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+                    hdp_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
                         .format(mp="/opt/hadoop", perms='rw')
-                    shared_paths.append(he_line)
+                    shared_paths.append(hdp_line)
 
 
 
@@ -369,7 +369,7 @@ class Filesystem(DataService):
                 log.debug("Added '{0}' line to NFS file {1}".format(ee_line.strip(), ee_file))
 
             # Mark the NFS server as being in need of a restart
-            self.dirty=True
+            self.dirty = True
             return True
         except Exception, e:
             log.error("Error configuring {0} file for NFS: {1}".format(ee_file, e))

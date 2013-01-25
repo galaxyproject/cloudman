@@ -169,7 +169,7 @@ class ConsoleManager(BaseConsoleManager):
         mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME))
 
         # Mount master's transient stroage regardless of cluster type
-        mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+        # mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
             mount_points.append(('extra_mount_%d' % i, extra_mount))
