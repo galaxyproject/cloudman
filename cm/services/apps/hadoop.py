@@ -26,7 +26,8 @@ class HadoopService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.HADOOP)
         self.reqs = [ServiceDependency(self, ServiceRole.SGE)]
         self.id_rsa_path = os.path.join(paths.P_HADOOP_HOME, "id_rsa")
-        self.id_rsa_pub_key_path = os.path.join(paths.P_HADOOP_HOME, "id_rsa.pub")
+        self.id_rsa_pub_key_path = os.path.join(
+            paths.P_HADOOP_HOME, "id_rsa.pub")
 
     def start(self):
         """
@@ -69,9 +70,11 @@ class HadoopService(ApplicationService):
         """
         all_done = False
         log.debug("Unpacking Hadoop")
-        hadoop_path = os.path.join(paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_TAR)
+        hadoop_path = os.path.join(
+            paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_TAR)
         log.debug("Hadoop path is " + hadoop_path)
-        hadoop_intg_path = os.path.join(paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_INTEGRATION_TAR)
+        hadoop_intg_path = os.path.join(
+            paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_INTEGRATION_TAR)
         log.debug("Hadoop SGE integration path is " + hadoop_intg_path)
         try:
             if not os.path.exists(paths.P_HADOOP_HOME):
@@ -106,16 +109,20 @@ class HadoopService(ApplicationService):
             # log.debug(img_intg_ver)
             # log.debug(serv_intg_ver)
             if StrictVersion(serv_hdp_ver) > StrictVersion(img_hdp_ver) or StrictVersion(serv_intg_ver) > StrictVersion(img_intg_ver):
-                u = urllib2.urlopen(urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp))
+                u = urllib2.urlopen(
+                    urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp))
                 log.debug("Downloading Hadoop from {0}".format(u))
                 localFile = open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp, 'w')
                 localFile.write(u.read())
                 localFile.close()
                 log.debug("Downloaded Hadoop")
             if not os.path.exists(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg):
-                u = urllib2.urlopen(urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp_intg))
-                log.debug("Downloading Hadoop SGE integration from {0}".format(u))
-                localFile = open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg, 'w')
+                u = urllib2.urlopen(
+                    urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp_intg))
+                log.debug(
+                    "Downloading Hadoop SGE integration from {0}".format(u))
+                localFile = open(
+                    paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg, 'w')
                 localFile.write(u.read())
                 localFile.close()
                 log.debug("Hadoop SGE integration downloaded")
@@ -126,9 +133,12 @@ class HadoopService(ApplicationService):
             tar = tarfile.open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg)
             tar.extractall(paths.P_HADOOP_HOME)
             tar.close()
-            log.debug("Hadoop SGE integration extracted to {0}".format(paths.P_HADOOP_HOME))
-            misc.run("chown -R -c ubuntu " + paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg)
-            misc.run("chown -R -c ubuntu " + paths.P_HADOOP_TARS_PATH + "/" + srv_hdp)
+            log.debug("Hadoop SGE integration extracted to {0}".format(
+                paths.P_HADOOP_HOME))
+            misc.run("chown -R -c ubuntu " +
+                     paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg)
+            misc.run("chown -R -c ubuntu " +
+                     paths.P_HADOOP_TARS_PATH + "/" + srv_hdp)
             all_done = True
         except Exception, e:
             log.debug("Error downloading Hadoop: {0}".format(e))

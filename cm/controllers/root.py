@@ -697,9 +697,9 @@ class CM(BaseController):
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
                                    ip=self.app.cloud_interface.get_public_hostname(
-        ),
+                                   ),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(
-                                       ),
+                                   ),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud[
                                        'bucket_cluster'],
@@ -757,7 +757,7 @@ class CM(BaseController):
                     'key_pair_name': self.app.cloud_interface.get_key_pair_name(),
                     'security_groups': self.app.cloud_interface.get_security_groups(),
                     'master_host_name': self.app.cloud_interface.get_public_hostname()
-                   }
+                    }
         if no_json:
             return ret_dict
         else:
@@ -773,13 +773,13 @@ class CM(BaseController):
                                         'available': str(self.app.manager.get_num_available_workers()),
                                         'requested': str(len(self.app.manager.worker_instances))},
                     'disk_usage': {'used': str(self.app.manager.disk_used),
-                                    'total': str(self.app.manager.disk_total),
-                                    'pct': str(self.app.manager.disk_pct)},
+                                   'total': str(self.app.manager.disk_total),
+                                   'pct': str(self.app.manager.disk_pct)},
                     'data_status': self.app.manager.get_data_status(),
                     'app_status': self.app.manager.get_app_status(),
                     'all_fs': self.app.manager.all_fs_status_array(),
                     'snapshot': {'status': str(snap_status[0]),
-                                  'progress': str(snap_status[1])},
+                                 'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
                                     'as_min': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
                                     'as_max': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max}
