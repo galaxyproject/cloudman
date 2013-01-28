@@ -1,33 +1,29 @@
 """Galaxy CM master manager"""
-
-import commands
+import commands, fileinput, logging, logging.config, os, subprocess, threading, time
 import datetime as dt
-import fileinput
 import json
-import logging
-import os
 import shutil
-import subprocess
-import threading
-import time
 
-from boto.exception import BotoClientError, BotoServerError, EC2ResponseError, S3ResponseError
 
-import cm.util.paths as paths
-from cm.services import ServiceRole
-from cm.services import ServiceType
+
+from cm.util import misc, comm
+from cm.util import (cluster_status, instance_states, instance_lifecycle, spot_states)
+from cm.util.manager import BaseConsoleManager
+from cm.services.autoscale import Autoscale
 from cm.services import service_states
+from cm.services.data.filesystem import Filesystem
+from cm.services.apps.pss import PSS
+from cm.services.apps.sge import SGEService
+from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
-from cm.services.apps.pss import PSS
-from cm.services.apps.sge import SGEService
-from cm.services.autoscale import Autoscale
-from cm.services.data.filesystem import Filesystem
-from cm.util import cluster_status, instance_lifecycle, instance_states, spot_states
-from cm.util import comm, misc
+from cm.services import ServiceType
+from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
-from cm.util.manager import BaseConsoleManager
+
+import cm.util.paths as paths
+from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -187,6 +183,11 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("ud at manager start: %s" % self.app.ud)
 
         self._handle_prestart_commands()
+        # Generating public key before any worker has been initialized
+        # This is required for cnfiguring Hadoop the main hadoop worker still needs to be
+        # bale to ssh into itself!!!
+        # this should happen before SGE is added
+        self.get_root_public_key()
 
         # Always add SGE service
         self.add_master_service(SGEService(self.app))
@@ -198,7 +199,8 @@ class ConsoleManager(BaseConsoleManager):
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
-
+        # KWS: Optionally add Hadoop service based on config setting
+        self.add_master_service(HadoopService(self.app))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -1982,6 +1984,14 @@ class ConsoleManager(BaseConsoleManager):
         fout.close()
         shutil.copy("%s-tmp" % file_name, file_name)
 
+    def update_etc_host(self):
+
+        #misc.add_to_etc_hosts(self.app.cloud_interface.get_local_hostname(),self.app.cloud_interface.get_public_ip().split('.')[0])
+        shutil.copy("/etc/hosts",paths.P_ETC_TRANSIENT_PATH)
+        for wrk in self.worker_instances:
+            wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+
+
     def get_status_dict(self):
         """
         Return a status dictionary for the current instance.
@@ -2236,27 +2246,24 @@ class ConsoleMonitor(object):
         misc.save_file_to_bucket(
             s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz',
                                  os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
-        try:
-            # Corrently, metadata only works on ec2 so set it only there
-            if self.app.cloud_type == 'ec2':
-                with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
-                    rev = rev_file.read()
+            try:
+                # Corrently, metadata only works on ec2 so set it only there
+                if self.app.cloud_type == 'ec2':
+                    with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+                        rev = rev_file.read()
                 misc.set_file_metadata(s3_conn, self.app.ud[
                                        'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
-        except Exception, e:
-            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" %
-                      (self.app.ud['bucket_cluster'], e))
-        # Create an empty file whose name is the name of this cluster (useful
-        # as a reference)
-        cn_file = os.path.join(self.app.ud['cloudman_home'],
-                               "%s.clusterName" % self.app.ud['cluster_name'])
+            except Exception, e:
+                log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud['bucket_cluster'], e))
+        # Create an empty file whose name is the name of this cluster (useful as a reference)
+        cn_file = os.path.join(self.app.ud['cloudman_home'], "%s.clusterName" % self.app.ud['cluster_name'])
         # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
         # if not misc.file_exists_in_bucket(s3_conn,
         # self.app.ud['bucket_cluster'], "%s.clusterName" %
         # self.app.ud['cluster_name']):
-        with open(cn_file, 'w'):
-            pass
-        if os.path.exists(cn_file):
+            with open(cn_file, 'w'):
+                pass
+            if os.path.exists(cn_file):
             log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (
                 cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],
@@ -2728,6 +2735,10 @@ class Instance(object):
             'RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
         log.info("\tMT: Sent RESTART message to worker '%s'" % self.id)
 
+    def send_sync_etc_host(self, msg):
+        self.app.manager.console_monitor.conn.send( 'SYNC_ETC_HOSTS | ' + msg, self.id )    
+    
+
     def update_spot(self, force=False):
         """ Get an update on the state of a Spot request. If the request has entered
             spot_states.ACTIVE or spot_states.CANCELLED states, update the Instance
@@ -2893,12 +2904,14 @@ class Instance(object):
             elif msg_type == "MOUNT_DONE":
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
-                if self.app.cloud_type in ('openstack', 'eucalyptus'):
+                if self.app.cloud_type in ('openstack','eucalyptus','ec2'):
+                    hdp_hosts=''
                     hn2 = ''
                     if '.' in self.local_hostname:
                         hn2 = (self.local_hostname).split('.')[0]
                     worker_host_line = '{ip} {hn1} {hn2}\n'.format(ip=self.private_ip,
                         hn1=self.local_hostname, hn2=hn2)
+
                     log.debug("worker_host_line: {0}".format(worker_host_line))
                     with open('/etc/hosts', 'r+') as f:
                         hosts = f.readlines()
@@ -2906,6 +2919,7 @@ class Instance(object):
                             log.debug("Adding worker {0} to /etc/hosts".format(
                                 self.local_hostname))
                             f.write(worker_host_line)
+
                 if self.app.cloud_type == 'opennebula':
                     f = open("/etc/hosts", 'a')
                     f.write("%s\tworker-%s\n" % (self.private_ip, self.id))

@@ -83,6 +83,8 @@ class ServiceRole(object):
             return ServiceRole.GENERIC_FS
         elif val == "TransientNFS":
             return ServiceRole.TRANSIENT_NFS
+        elif val == "Hadoop":
+            return ServiceRole.HADOOP
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -122,6 +124,8 @@ class ServiceRole(object):
             return "GenericFS"
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
+        elif svc_role == ServiceRole.HADOOP:
+            return "Hadoop"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))

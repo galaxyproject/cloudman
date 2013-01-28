@@ -1,10 +1,9 @@
-import commands
-import logging
 import os
-
-from cm.services import ServiceRole
+import commands
 from cm.util import misc
+from cm.services import ServiceRole
 
+import logging
 log = logging.getLogger('cloudman')
 
 # Commands
@@ -18,7 +17,6 @@ P_LN = "/bin/ln"
 # Configs
 C_PSQL_PORT = "5840"
 USER_DATA_FILE = "userData.yaml"
-SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/profile"
 
 # Paths
@@ -27,6 +25,23 @@ P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
+
+# the value for P_HADOOP_HOME must be equal to the directory 
+# in the file hdfs-start.sh from sge_integration
+P_HADOOP_HOME = "/opt/hadoop/"
+P_HADOOP_TARS_PATH = "/opt/hadoop/"
+## P_HADOOP_TAR is a regex format file name to find the latest hadoop from the site or directory
+## the standard for the versioning here is "hadoop.<hadoop release number>__<release numbere.build number>.tar.gz"
+## if no version is set it is assumed 0.0 and would be replaced if any newer is found
+P_HADOOP_TAR = "hadoop\.((([|0-9])*\.)*[0-9]*__([0-9]*\.)*[0-9]+){0,1}\.{0,1}tar\.gz"
+## P_HADOOP_INTEGRATION_TAR is a regex format file name to find the latest hadoop_sge_integration from the site or directory
+P_HADOOP_INTEGRATION_TAR = "sge_integration\.(([0-9]*\.)*[0-9]+){0,1}\.{0,1}tar\.gz"
+P_HADOOP_TAR_URL = "https://s3.amazonaws.com/cloudman/"
+P_HADOOP_INTEGRATION_TAR_URL = "https://s3.amazonaws.com/cloudman/"
+
+P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
+
+P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
 
 try:
     # Get only the first 3 chars of the version since that's all that's used
