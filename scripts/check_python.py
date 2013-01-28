@@ -6,9 +6,11 @@ please download and install a supported version from python.org. If a
 supported version is installed but is not your default, getgalaxy.org
 contains instructions on how to force the application to use a different version.""" % sys.version[:3]
 
+
 def check_python():
     try:
-        assert sys.version_info[:2] >= ( 2, 4 ) and sys.version_info[:2] <= ( 2, 7 )
+        assert sys.version_info[:2] >= (
+            2, 4) and sys.version_info[:2] <= (2, 7)
     except AssertionError:
         print >>sys.stderr, msg
         raise
@@ -19,4 +21,4 @@ if __name__ == '__main__':
         check_python()
     except StandardError:
         rval = 1
-    sys.exit( rval )
+    sys.exit(rval)

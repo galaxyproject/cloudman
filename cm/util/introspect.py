@@ -6,13 +6,15 @@ All of the methods in this class set or return appropriate service's
 status as True or False, based on assumed functionality of given service.
 No action is taken to correct operation of a failed service.
 """
-import logging, logging.config, commands
+import logging
+import logging.config
+import commands
 
 from cm.util import misc
 from cm.services import ServiceRole
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 try:
     DRMAA = __import__("DRMAA")
@@ -73,11 +75,14 @@ class Introspect(object):
     def check_disk(self, fs_name=None):
         try:
             if not fs_name:
-                fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0].name
-                
-            #NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
-            # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
-            disk_usage = commands.getoutput("df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
+                fs_name = self.app.manager.get_services(
+                    svc_role=ServiceRole.GALAXY_DATA)[0].name
+
+            # NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
+            # We may later have to think about sanitizing/securing/escaping
+            # user input if the issue arises.
+            disk_usage = commands.getoutput(
+                "df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
             disk_usage = disk_usage.split(' ')
             if len(disk_usage) == 3:
                 self.app.manager.disk_total = disk_usage[0]
@@ -101,9 +106,10 @@ class Introspect(object):
         """
         # log.debug("\tChecking file systems")
         for vol_name, lst in self.app.manager.volumes.iteritems():
-            dev_id = lst[1] # get device id as stored in the volume description
+            dev_id = lst[1]
+                # get device id as stored in the volume description
             fs_status = self.check_file_system(vol_name, dev_id)
-            lst[3] = fs_status # store fs_status in self.app.manager.volumes
+            lst[3] = fs_status  # store fs_status in self.app.manager.volumes
             # log.debug("\tVol with name '%s' and device ID '%s' status: '%s'" %
             #     (vol_name, dev_id, fs_status))
 
@@ -113,9 +119,12 @@ class Introspect(object):
         mount points - e.g., /mnt/<FS name>): 'galaxyData', 'galaxyTools',
         'galaxyIndices', and '/opt/sge'.
         """
-        self.app.manager.nfs_data = self.check_file_system('galaxyData', '/mnt/galaxyData') #NGTODO: Needs major overhaul. Should iterate through services and discover volume name?
-        self.app.manager.nfs_tools = self.check_file_system('galaxyTools', '/mnt/galaxyTools')
-        self.app.manager.nfs_indices = self.check_file_system('galaxyIndices', '/mnt/galaxyIndices')
+        self.app.manager.nfs_data = self.check_file_system(
+            'galaxyData', '/mnt/galaxyData')  # NGTODO: Needs major overhaul. Should iterate through services and discover volume name?
+        self.app.manager.nfs_tools = self.check_file_system(
+            'galaxyTools', '/mnt/galaxyTools')
+        self.app.manager.nfs_indices = self.check_file_system(
+            'galaxyIndices', '/mnt/galaxyIndices')
         self.app.manager.nfs_sge = self.check_file_system('SGE', '/opt/sge')
 
     def check_file_system(self, vol_name, dev_id):
@@ -133,8 +142,9 @@ class Introspect(object):
         # log.debug("\tChecking volume with name '%s' attached to device '%s'" %
         #             (vol_name, dev_id))
         mnt_location = ''
-        mnt_location = commands.getoutput("cat /proc/mounts | grep %s | cut -d' ' -f2" % dev_id)
-        if vol_name.find( ':' ) != -1: # handle multiple volumes comprising vol_name
+        mnt_location = commands.getoutput(
+            "cat /proc/mounts | grep %s | cut -d' ' -f2" % dev_id)
+        if vol_name.find(':') != -1:  # handle multiple volumes comprising vol_name
             mnt_path = '/mnt/%s' % vol_name.split(':')[0]
         else:
             mnt_path = '/mnt/%s' % vol_name
@@ -145,13 +155,12 @@ class Introspect(object):
                 return True
             else:
                 log.warning("Retreived mount path '%s' does not match expected path '%s'" %
-                    (mnt_location, mnt_path))
+                           (mnt_location, mnt_path))
                 return False
         else:
             log.error("Volume named '%s' is attached as device '%s' but not mounted." %
-                (vol_name, dev_id))
+                     (vol_name, dev_id))
             return False
-
 
     def check_for_existing_volumes(self):
         """Check if there are any data volumes attached to the running
@@ -174,7 +183,8 @@ class Introspect(object):
             f = open(a_vols_file, 'r')
             attached_vols = f.readlines()
             f.close()
-            log.debug("Retrieved following volumes potentially attached to current instance: %s" % attached_vols)
+            log.debug(
+                "Retrieved following volumes potentially attached to current instance: %s" % attached_vols)
             for attached_vol in attached_vols:
                 try:
                     # Each line of attached_vol must be formatted as follows:
@@ -186,16 +196,19 @@ class Introspect(object):
                     # If found vol does not exist, don't create reference to it
                     if vol_status is not None:
                         fs_status = self.check_file_system(vol_name, dev_id)
-                        idd_volumes[vol_name] = [vol_id, dev_id, vol_status, fs_status]
+                        idd_volumes[vol_name] = [
+                            vol_id, dev_id, vol_status, fs_status]
                 except Exception, e:
-                    log.error("Wrong format of line (%s) from attached volumes file. Exception: %s" % (attached_vol, e))
+                    log.error("Wrong format of line (%s) from attached volumes file. Exception: %s" %
+                              (attached_vol, e))
             return idd_volumes
 
         if misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'], c_vols_file, c_vols_file):
             f = open(c_vols_file, 'r')
             created_vols = f.readlines()
             f.close()
-            log.debug("Retrieved following volumes potentially created by/for current instance: %s" % created_vols)
+            log.debug(
+                "Retrieved following volumes potentially created by/for current instance: %s" % created_vols)
             for created_vol in created_vols:
                 try:
                     # Each line of created_vol must be formatted as follows:
@@ -205,11 +218,12 @@ class Introspect(object):
                     vol_status = self.check_volume(vol_name, vol_id)
                     # If found vol does not exist, don't create reference to it
                     if vol_status is not None:
-                        idd_volumes[vol_name] = [vol_id, dev_id, vol_status, None]
+                        idd_volumes[vol_name] = [
+                            vol_id, dev_id, vol_status, None]
                 except Exception, e:
-                    log.error("Wrong format of line (%s) from created volumes file. Exception: %s" % (created_vol, e))
+                    log.error(
+                        "Wrong format of line (%s) from created volumes file. Exception: %s" % (created_vol, e))
             return idd_volumes
 
         log.debug("No already existing volumes found.")
         return {}
-

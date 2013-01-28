@@ -1,5 +1,7 @@
 #!/usr/bin/python
-import logging, time, yaml
+import logging
+import time
+import yaml
 from boto.s3.key import Key
 from boto.s3.acl import ACL
 from boto.exception import S3ResponseError
@@ -14,7 +16,8 @@ import errno
 from cm.services import ServiceRole
 
 
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
+
 
 def load_yaml_file(filename):
     """
@@ -25,12 +28,14 @@ def load_yaml_file(filename):
     # log.debug("Loaded user data: %s" % ud)
     return ud
 
+
 def dump_yaml_to_file(data, filename):
     """
     Dump (i.e., store) ``data`` dict into a YAML file ``filename``
     """
     with open(filename, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
+
 
 def merge_yaml_objects(user, default):
     """
@@ -46,6 +51,7 @@ def merge_yaml_objects(user, default):
                 user[k] = merge_yaml_objects(user[k], v)
     return user
 
+
 def normalize_user_data(app, ud):
     """
     Normalize user data format to a consistent representation used within CloudMan.
@@ -55,7 +61,8 @@ def normalize_user_data(app, ud):
     if ud.get('persistent_data_version', 1) < app.PERSISTENT_DATA_VERSION:
         # First make a backup of the deprecated persistent data file
         s3_conn = app.cloud_interface.get_s3_connection()
-        copy_file_in_bucket(s3_conn, ud['bucket_cluster'], ud['bucket_cluster'],
+        copy_file_in_bucket(
+            s3_conn, ud['bucket_cluster'], ud['bucket_cluster'],
             'persistent_data.yaml', 'persistent_data-deprecated.yaml', preserve_acl=False,
             validate=False)
         # Convert (i.e., normalize) v2 ud
@@ -71,7 +78,8 @@ def normalize_user_data(app, ud):
                         fs['delete_on_termination'] = False
             for svc in ud.get('services', []):
                 if 'roles' not in svc:
-                    svc['roles'] = ServiceRole.legacy_convert(svc.get('name', 'NoName'))
+                    svc['roles'] = ServiceRole.legacy_convert(
+                        svc.get('name', 'NoName'))
         # Convert (i.e., normalize) v1 ud
         if "static_filesystems" in ud or "data_filesystems" in ud:
             log.debug("Normalizing v1 user data")
@@ -103,14 +111,17 @@ def normalize_user_data(app, ud):
                     ud['cluster_type'] = 'Data'
             if 'services' in ud:
                 old_svc_list = ud['services']
-                ud['services'] = [] # clear 'services' and replace with the new format
+                ud['services'] = []
+                    # clear 'services' and replace with the new format
                 for svc in old_svc_list:
                     if 'roles' not in svc:
-                        normalized_svc = {'name': svc['service'], 'roles': ServiceRole.legacy_convert(svc['service'])}
+                        normalized_svc = {'name': svc['service'], 'roles':
+                                          ServiceRole.legacy_convert(svc['service'])}
                         ud['services'].append(normalized_svc)
             if 'galaxy_home' in ud:
                 ud.pop('galaxy_home')
     return ud
+
 
 def shellVars2Dict(filename):
     '''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
@@ -118,9 +129,9 @@ def shellVars2Dict(filename):
     try:
         f = open(filename, 'r')
     except IOError:
-        return { }
+        return {}
     lines = f.readlines()
-    result = { }
+    result = {}
 
     for line in lines:
         parts = line.strip().partition('=')
@@ -129,6 +140,7 @@ def shellVars2Dict(filename):
         if key:
             result[key] = val
     return result
+
 
 @contextlib.contextmanager
 def flock(path, wait_delay=1):
@@ -156,11 +168,13 @@ def flock(path, wait_delay=1):
         os.close(fd)
         os.unlink(path)
 
+
 def formatSeconds(delta):
     # Python 2.7 defines this function but in the mean time...
     def _total_seconds(td):
-        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
+        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10 ** 6
     return '%s' % (_total_seconds(delta))
+
 
 def formatDelta(delta):
     d = delta.days
@@ -175,18 +189,22 @@ def formatDelta(delta):
     else:
         return '%sm %ss' % (m, s)
 
+
 def bucket_exists(s3_conn, bucket_name, validate=True):
     if s3_conn is None:
-        log.debug("Checking if s3 bucket exists, no s3 connection specified... it does not")
+        log.debug(
+            "Checking if s3 bucket exists, no s3 connection specified... it does not")
         return False
     if bucket_name:
         try:
             b = s3_conn.lookup(bucket_name, validate=validate)
             if b:
-                # log.debug("Checking if bucket '%s' exists... it does." % bucket_name)
+                # log.debug("Checking if bucket '%s' exists... it does." %
+                # bucket_name)
                 return True
             else:
-                log.debug("Checking if bucket '%s' exists... it does not." % bucket_name)
+                log.debug(
+                    "Checking if bucket '%s' exists... it does not." % bucket_name)
                 return False
         except S3ResponseError as e:
             log.error("Failed to lookup bucket '%s': %s" % (bucket_name, e))
@@ -194,14 +212,16 @@ def bucket_exists(s3_conn, bucket_name, validate=True):
         log.error("Cannot lookup bucket with no name.")
         return False
 
+
 def create_bucket(s3_conn, bucket_name):
     try:
         s3_conn.create_bucket(bucket_name)
         log.debug("Created bucket '%s'." % bucket_name)
     except S3ResponseError as e:
-        log.error( "Failed to create bucket '%s': %s" % (bucket_name, e))
+        log.error("Failed to create bucket '%s': %s" % (bucket_name, e))
         return False
     return True
+
 
 def get_bucket(s3_conn, bucket_name, validate=True):
     """Get handle to bucket"""
@@ -212,9 +232,11 @@ def get_bucket(s3_conn, bucket_name, validate=True):
                 b = s3_conn.get_bucket(bucket_name, validate=validate)
                 break
             except S3ResponseError:
-                log.error ( "Problem connecting to bucket '%s', attempt %s/5" % ( bucket_name, i+1 ) )
+                log.error("Problem connecting to bucket '%s', attempt %s/5" % (
+                    bucket_name, i + 1))
                 time.sleep(2)
     return b
+
 
 def make_bucket_public(s3_conn, bucket_name, recursive=False):
     b = get_bucket(s3_conn, bucket_name)
@@ -224,8 +246,10 @@ def make_bucket_public(s3_conn, bucket_name, recursive=False):
             log.debug("Bucket '%s' made public" % bucket_name)
             return True
         except S3ResponseError as e:
-            log.error("Could not make bucket '%s' public: %s" % (bucket_name, e))
+            log.error(
+                "Could not make bucket '%s' public: %s" % (bucket_name, e))
     return False
+
 
 def make_key_public(s3_conn, bucket_name, key_name):
     b = get_bucket(s3_conn, bucket_name)
@@ -239,6 +263,7 @@ def make_key_public(s3_conn, bucket_name, key_name):
         except S3ResponseError as e:
             log.error("Could not make key '%s' public: %s" % (key_name, e))
     return False
+
 
 def add_bucket_user_grant(s3_conn, bucket_name, permission, canonical_ids, recursive=False):
     """
@@ -262,12 +287,15 @@ def add_bucket_user_grant(s3_conn, bucket_name, permission, canonical_ids, recur
     if b:
         try:
             for c_id in canonical_ids:
-                log.debug("Adding '%s' permission for bucket '%s' for users '%s'" % (permission, bucket_name, c_id))
+                log.debug("Adding '%s' permission for bucket '%s' for users '%s'" %
+                          (permission, bucket_name, c_id))
                 b.add_user_grant(permission, c_id, recursive)
             return True
         except S3ResponseError as e:
-            log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
+            log.error("Could not add permission '%s' for bucket '%s': %s" % (
+                permission, bucket_name, e))
     return False
+
 
 def add_key_user_grant(s3_conn, bucket_name, key_name, permission, canonical_ids):
     """
@@ -294,12 +322,15 @@ def add_key_user_grant(s3_conn, bucket_name, key_name, permission, canonical_ids
             k = Key(b, key_name)
             if k.exists():
                 for c_id in canonical_ids:
-                    log.debug("Adding '%s' permission for key '%s' for user '%s'" % (permission, key_name, c_id))
+                    log.debug("Adding '%s' permission for key '%s' for user '%s'" % (
+                        permission, key_name, c_id))
                     k.add_user_grant(permission, c_id)
                 return True
         except S3ResponseError as e:
-            log.error("Could not add permission '%s' for bucket '%s': %s" % (permission, bucket_name, e))
+            log.error("Could not add permission '%s' for bucket '%s': %s" % (
+                permission, bucket_name, e))
     return False
+
 
 def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_power_users=True):
     """
@@ -327,7 +358,7 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
     :param exclude_power_users: If True, folder users with FULL_CONTROL grant
                    are not included in the folder user list
     """
-    users=[] # Current list of users retrieved from folder's ACL
+    users = []  # Current list of users retrieved from folder's ACL
     key_list = None
     key_acl = None
     b = get_bucket(s3_conn, bucket_name)
@@ -337,28 +368,36 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
             # for k in key_list:
             #     print k.name#, k.get_acl().acl.grants[0].type
             if len(key_list) > 0:
-                key = key_list[0] # Just get one key assuming all keys will have the same ACL
+                key = key_list[0]
+                    # Just get one key assuming all keys will have the same ACL
                 key_acl = key.get_acl()
             if key_acl:
                 power_users = []
                 for grant in key_acl.acl.grants:
-                    # log.debug("folder_name: %s, %s, %s, %s, %s." % (folder_name, key.name, grant.type, grant.display_name, grant.permission))
+                    # log.debug("folder_name: %s, %s, %s, %s, %s." %
+                    # (folder_name, key.name, grant.type, grant.display_name,
+                    # grant.permission))
                     if grant.permission == 'FULL_CONTROL':
                         power_users.append(grant.display_name)
                     if grant.type == 'Group' and 'Group' not in users:
-                        # Group grants (i.e., public) are simply listed as Group under grant.type so catch that
+                        # Group grants (i.e., public) are simply listed as
+                        # Group under grant.type so catch that
                         users.append(u'Group')
                     elif grant.permission == 'READ' and grant.type != 'Group' and grant.display_name not in users:
                         users.append(grant.display_name)
-                # Users w/ FULL_CONTROL are optionally not included in the folder user list
+                # Users w/ FULL_CONTROL are optionally not included in the
+                # folder user list
                 if exclude_power_users:
                     for pu in power_users:
                         if pu in users:
                             users.remove(pu)
         except S3ResponseError as e:
-            log.error("Error getting list of folder '%s' users for bucket '%s': %s" % (folder_name, bucket_name, e))
-    # log.debug("List of users for folder '%s' in bucket '%s': %s" % (folder_name, bucket_name, users))
+            log.error("Error getting list of folder '%s' users for bucket '%s': %s" % (
+                folder_name, bucket_name, e))
+    # log.debug("List of users for folder '%s' in bucket '%s': %s" %
+    # (folder_name, bucket_name, users))
     return users
+
 
 def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
     """
@@ -380,10 +419,14 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
                         and compared to other (shared) folders in the same bucket.
                         A valid example would be 'shared/2011-03-31--19-43/'
     """
-    users_with_grant = [] # List of users with grant on given folder and no other (shared) folder in bucket
-    other_users = [] # List of users on other (shared) folders in given bucket
-    folder_users = get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name)
-    # log.debug("List of users on to-be-deleted shared folder '%s': %s" % (folder_name, folder_users))
+    users_with_grant = []
+        # List of users with grant on given folder and no other (shared) folder
+        # in bucket
+    other_users = []  # List of users on other (shared) folders in given bucket
+    folder_users = get_list_of_bucket_folder_users(
+        s3_conn, bucket_name, folder_name)
+    # log.debug("List of users on to-be-deleted shared folder '%s': %s" %
+    # (folder_name, folder_users))
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
@@ -393,7 +436,8 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
             # with grants on those folders
             for f in folder_list:
                 if f.name != folder_name:
-                    fu = get_list_of_bucket_folder_users(s3_conn, bucket_name, f.name)
+                    fu = get_list_of_bucket_folder_users(
+                        s3_conn, bucket_name, f.name)
                     for u in fu:
                         if u not in other_users:
                             other_users.append(u)
@@ -404,10 +448,12 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
                 if u not in other_users:
                     users_with_grant.append(u)
         except S3ResponseError as e:
-            log.error("Error isolating list of folder '%s' users for bucket '%s': %s" % (folder_name, bucket_name, e))
-    log.debug("List of users whose bucket grant is to be removed because shared folder '%s' is being deleted: %s" \
-        % (folder_name, users_with_grant))
+            log.error("Error isolating list of folder '%s' users for bucket '%s': %s" % (
+                folder_name, bucket_name, e))
+    log.debug("List of users whose bucket grant is to be removed because shared folder '%s' is being deleted: %s"
+              % (folder_name, users_with_grant))
     return users_with_grant
+
 
 def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
     """
@@ -433,15 +479,18 @@ def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
             # whose grant to remove and create a list of bucket grants to keep
             for g in bucket.get_acl().acl.grants:
                 # log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
-                # Public (i.e., group) permissions are kept under 'type' field so check that first
+                # Public (i.e., group) permissions are kept under 'type' field
+                # so check that first
                 if g.type == 'Group' and 'Group' in users_whose_grant_to_remove:
                     pass
                 elif g.display_name not in users_whose_grant_to_remove:
                     grants_to_keep.append(g)
             # Manipulate bucket's ACL now
-            bucket_policy = bucket.get_acl() # Object for bucket's current policy (which holds the ACL)
-            acl = ACL() # Object for bucket's to-be ACL
-            # Add all of the exiting (i.e., grants_to_keep) grants to the new ACL object
+            bucket_policy = bucket.get_acl(
+            )  # Object for bucket's current policy (which holds the ACL)
+            acl = ACL()  # Object for bucket's to-be ACL
+            # Add all of the exiting (i.e., grants_to_keep) grants to the new
+            # ACL object
             for gtk in grants_to_keep:
                 acl.add_grant(gtk)
             # Update the policy and set bucket's ACL
@@ -449,12 +498,16 @@ def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
             bucket.set_acl(bucket_policy)
             # log.debug("List of kept grants for bucket '%s'" % bucket_name)
             # for g in bucket_policy.acl.grants:
-            #     log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
-            log.debug("Removed grants on bucket '%s' for these users: %s" % (bucket_name, users_whose_grant_to_remove))
+            # log.debug("Grant -> permission: %s, user name: %s, grant type:
+            # %s" % (g.permission, g.display_name, g.type))
+            log.debug("Removed grants on bucket '%s' for these users: %s" %
+                      (bucket_name, users_whose_grant_to_remove))
             return True
         except S3ResponseError as e:
-            log.error("Error adjusting ACL for bucket '%s': %s" % (bucket_name, e))
+            log.error(
+                "Error adjusting ACL for bucket '%s': %s" % (bucket_name, e))
     return False
+
 
 def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
     """Check if remote_filename exists in bucket bucket_name.
@@ -469,8 +522,10 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
             if k.exists():
                 return True
         except S3ResponseError:
-            log.debug("Key '%s' in bucket '%s' does not exist." % (remote_filename, bucket_name))
+            log.debug("Key '%s' in bucket '%s' does not exist." % (
+                remote_filename, bucket_name))
     return False
+
 
 def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local_filename):
     """ Check if the file in bucket has been modified before the local file.
@@ -482,80 +537,101 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
     key = bucket.get_key(remote_filename)
     if key is not None:
         try:
-            # Time format must be matched the time provided by boto field .last_modified
-            k_ts = dt.datetime.strptime(key.last_modified, "%a, %d %b %Y %H:%M:%S GMT")
+            # Time format must be matched the time provided by boto field
+            # .last_modified
+            k_ts = dt.datetime.strptime(
+                key.last_modified, "%a, %d %b %Y %H:%M:%S GMT")
         except Exception as e:
-            log.debug("Could not get last modified timestamp for key '%s': %s" % (remote_filename, e))
+            log.debug("Could not get last modified timestamp for key '%s': %s" %
+                      (remote_filename, e))
             return True
         try:
             return k_ts < dt.datetime.fromtimestamp(os.path.getmtime(local_filename))
         except Exception as e:
-            log.debug("Trouble comparing local (%s) and remote (%s) file modified times: %s" % (local_filename, remote_filename, e))
+            log.debug("Trouble comparing local (%s) and remote (%s) file modified times: %s" % (
+                local_filename, remote_filename, e))
             return True
     else:
-        log.debug("Checking age of file in bucket (%s) against local file (%s) but file in bucket is None; updating file in bucket." \
-            % (remote_filename, local_filename))
+        log.debug("Checking age of file in bucket (%s) against local file (%s) but file in bucket is None; updating file in bucket."
+                  % (remote_filename, local_filename))
         return True
 
-def get_file_from_bucket( conn, bucket_name, remote_filename, local_file, validate=True ):
+
+def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=True):
     if bucket_exists(conn, bucket_name, validate):
         b = get_bucket(conn, bucket_name, validate)
         k = Key(b, remote_filename)
         try:
             k.get_contents_to_filename(local_file)
-            log.debug( "Retrieved file '%s' from bucket '%s' to '%s'." \
-                         % (remote_filename, bucket_name, local_file))
+            log.debug("Retrieved file '%s' from bucket '%s' to '%s'."
+                      % (remote_filename, bucket_name, local_file))
         except S3ResponseError as e:
-            log.debug( "Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
-            os.remove(local_file) # Don't leave a partially downloaded or touched file
+            log.debug("Failed to get file '%s' from bucket '%s': %s" % (
+                remote_filename, bucket_name, e))
+            os.remove(local_file)
+                      # Don't leave a partially downloaded or touched file
             return False
     else:
-        log.debug("Bucket '%s' does not exist, did not get remote file '%s'" % (bucket_name, remote_filename))
+        log.debug("Bucket '%s' does not exist, did not get remote file '%s'" % (
+            bucket_name, remote_filename))
         return False
     return True
 
-def save_file_to_bucket( conn, bucket_name, remote_filename, local_file ):
+
+def save_file_to_bucket(conn, bucket_name, remote_filename, local_file):
     b = get_bucket(conn, bucket_name)
     if b:
-        k = Key( b, remote_filename )
+        k = Key(b, remote_filename)
         try:
-            k.set_contents_from_filename( local_file )
-            log.debug( "Saved file '%s' of size %sB to bucket '%s'"
-                % ( remote_filename, k.size, bucket_name ) )
-            # Store some metadata (key-value pairs) about the contents of the file being uploaded
+            k.set_contents_from_filename(local_file)
+            log.debug("Saved file '%s' of size %sB to bucket '%s'"
+                      % (remote_filename, k.size, bucket_name))
+            # Store some metadata (key-value pairs) about the contents of the
+            # file being uploaded
             k.set_metadata('date_uploaded', dt.datetime.utcnow())
         except S3ResponseError as e:
-            log.error( "Failed to save file local file '%s' to bucket '%s' as file '%s': %s" % ( local_file, bucket_name, remote_filename, e ) )
+            log.error("Failed to save file local file '%s' to bucket '%s' as file '%s': %s" % (
+                local_file, bucket_name, remote_filename, e))
             return False
         return True
     else:
-        log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (bucket_name, remote_filename))
+        log.debug("Could not connect to bucket '%s'; remote file '%s' not saved to the bucket" % (
+            bucket_name, remote_filename))
         return False
+
 
 def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename, preserve_acl=True, validate=True):
     b = get_bucket(s3_conn, src_bucket_name, validate)
     if b:
         try:
-            log.debug("Establishing handle with key object '%s'" % orig_filename)
+            log.debug(
+                "Establishing handle with key object '%s'" % orig_filename)
             k = Key(b, orig_filename)
-            log.debug("Copying file '%s/%s' to file '%s/%s'" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename))
+            log.debug(
+                "Copying file '%s/%s' to file '%s/%s'" % (src_bucket_name,
+                                                          orig_filename, dest_bucket_name, copy_filename))
             k.copy(dest_bucket_name, copy_filename, preserve_acl=preserve_acl)
             return True
         except S3ResponseError as e:
-            log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
+            log.debug("Error copying file '%s/%s' to file '%s/%s': %s" % (
+                src_bucket_name, orig_filename, dest_bucket_name, copy_filename, e))
     return False
+
 
 def delete_file_from_bucket(conn, bucket_name, remote_filename):
     b = get_bucket(conn, bucket_name)
     if b:
         try:
-            k = Key( b, remote_filename )
-            log.debug( "Deleting key object '%s' from bucket '%s'" % (remote_filename, bucket_name))
+            k = Key(b, remote_filename)
+            log.debug("Deleting key object '%s' from bucket '%s'" % (
+                remote_filename, bucket_name))
             k.delete()
             return True
         except S3ResponseError as e:
-            log.error("Error deleting key '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e))
+            log.error("Error deleting key '%s' from bucket '%s': %s" % (
+                remote_filename, bucket_name, e))
     return False
+
 
 def delete_bucket(conn, bucket_name):
     """
@@ -574,18 +650,21 @@ def delete_bucket(conn, bucket_name):
         log.error("Error deleting bucket '%s': %s" % (bucket_name, e))
     return True
 
+
 def get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     """
     Get metadata value for the given key. If ``bucket_name`` or ``remote_filename``
     is not found, return ``None``.
     """
-    log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" % (metadata_key, remote_filename, bucket_name))
+    log.debug("Getting metadata '%s' for file '%s' from bucket '%s'" %
+              (metadata_key, remote_filename, bucket_name))
     b = get_bucket(conn, bucket_name)
     if b:
         k = b.get_key(remote_filename)
         if k and metadata_key:
             return k.get_metadata(metadata_key)
     return None
+
 
 def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata_value):
     """
@@ -595,7 +674,8 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     :return: If specified bucket and remote_filename exist, return True.
              Else, return False
     """
-    log.debug("Setting metadata '%s' for file '%s' in bucket '%s'" % (metadata_key, remote_filename, bucket_name))
+    log.debug("Setting metadata '%s' for file '%s' in bucket '%s'" % (
+        metadata_key, remote_filename, bucket_name))
 
     b = get_bucket(conn, bucket_name)
     if b:
@@ -603,13 +683,17 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
         if k and metadata_key:
             # Simply setting the metadata through set_metadata does not work.
             # Instead, must create in-place copy of the file with altered metadata:
-            # http://groups.google.com/group/boto-users/browse_thread/thread/9968d3fc4fc18842/29c680aad6e31b3e#29c680aad6e31b3e
+            # http://groups.google.com/group/boto-
+            # users/browse_thread/thread/9968d3fc4fc18842/29c680aad6e31b3e#29c680aad6e31b3e
             try:
-                k.copy(bucket_name, remote_filename, metadata={metadata_key:metadata_value}, preserve_acl=True)
+                k.copy(bucket_name, remote_filename, metadata={
+                       metadata_key: metadata_value}, preserve_acl=True)
                 return True
             except S3ResponseError as e:
-                log.debug("Could not set metadata for file '%s' in bucket '%s': %e" % (remote_filename, bucket_name, e))
+                log.debug("Could not set metadata for file '%s' in bucket '%s': %e" % (
+                    remote_filename, bucket_name, e))
     return False
+
 
 def run(cmd, err=None, ok=None, quiet=False):
     """
@@ -625,7 +709,8 @@ def run(cmd, err=None, ok=None, quiet=False):
         err = "---> PROBLEM"
     if ok is None:
         ok = "'%s' command OK" % cmd
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
@@ -637,8 +722,9 @@ def run(cmd, err=None, ok=None, quiet=False):
     else:
         if not quiet:
             log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'"
-                % (err, cmd, process.returncode, stderr))
+                      % (err, cmd, process.returncode, stderr))
         return False
+
 
 def replace_string(file_name, pattern, subst):
     """
@@ -655,7 +741,7 @@ def replace_string(file_name, pattern, subst):
     """
     # Create temp file
     fh, abs_path = mkstemp()
-    new_file = open(abs_path,'w')
+    new_file = open(abs_path, 'w')
     old_file = open(file_name)
     for line in old_file:
         new_file.write(line.replace(pattern, subst))
@@ -668,6 +754,7 @@ def replace_string(file_name, pattern, subst):
     # Move new file
     shutil.move(abs_path, file_name)
 
+
 def _if_not_installed(prog_name):
     """
     Decorator that checks if a callable program is installed.
@@ -677,7 +764,8 @@ def _if_not_installed(prog_name):
     def argcatcher(func):
         def decorator(*args, **kwargs):
             log.debug("Checking if {0} is installed".format(prog_name))
-            process = subprocess.Popen(prog_name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                prog_name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = process.communicate()
             if process.returncode == 127:
                 log.debug("{0} is *not* installed".format(prog_name))
@@ -688,12 +776,13 @@ def _if_not_installed(prog_name):
         return decorator
     return argcatcher
 
+
 def add_to_etc_hosts(hostname, ip_address):
     """
     Add ``hostname`` and its ``ip_address`` to ``/etc/hosts``
     """
     try:
-        etc_hosts = open('/etc/hosts','r')
+        etc_hosts = open('/etc/hosts', 'r')
         tmp = NamedTemporaryFile()
         for l in etc_hosts:
             if not hostname in l:
@@ -712,12 +801,13 @@ def add_to_etc_hosts(hostname, ip_address):
     except (IOError, OSError) as e:
         log.error('could not update /etc/hosts. {0}'.format(e))
 
+
 def remove_from_etc_hosts(hostname):
     """
     Remove ``hostname`` from ``/etc/hosts``
     """
     try:
-        etc_hosts = open('/etc/hosts','r')
+        etc_hosts = open('/etc/hosts', 'r')
         tmp = NamedTemporaryFile()
         for l in etc_hosts:
             if not hostname in l:
@@ -734,18 +824,21 @@ def remove_from_etc_hosts(hostname):
     except (IOError, OSError) as e:
         log.error('could not update /etc/hosts. {0}'.format(e))
 
-class Sleeper( object ):
+
+class Sleeper(object):
     """
     Provides a 'sleep' method that sleeps for a number of seconds *unless*
     the notify method is called (from a different thread).
     """
-    def __init__( self ):
+    def __init__(self):
         self.condition = threading.Condition()
-    def sleep( self, seconds ):
+
+    def sleep(self, seconds):
         self.condition.acquire()
-        self.condition.wait( seconds )
+        self.condition.wait(seconds)
         self.condition.release()
-    def wake( self ):
+
+    def wake(self):
         self.condition.acquire()
         self.condition.notify()
         self.condition.release()

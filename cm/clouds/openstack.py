@@ -32,11 +32,11 @@ class OSInterface(EC2Interface):
         self.s3_conn_path = self.user_data.get('s3_conn_path', None)
         self.calling_format = OrdinaryCallingFormat()
 
-    def get_ec2_connection( self ):
+    def get_ec2_connection(self):
         if self.ec2_conn == None:
             try:
                 if self.app.TESTFLAG is True:
-                    log.debug("Attempted to establish Nova connection, but TESTFLAG is set. " \
+                    log.debug("Attempted to establish Nova connection, but TESTFLAG is set. "
                               "Returning a default connection.")
                     self.ec2_conn = self._get_default_ec2_conn()
                     return self.ec2_conn
@@ -45,9 +45,10 @@ class OSInterface(EC2Interface):
                 # Do a simple query to test if provided credentials are valid
                 try:
                     self.ec2_conn.get_all_instances()
-                    log.debug("Got boto Nova connection for region {0}".format(self.ec2_conn.region.name))
+                    log.debug("Got boto Nova connection for region {0}".format(
+                        self.ec2_conn.region.name))
                 except EC2ResponseError, e:
-                    log.error("Cannot validate provided OpenStack credentials or configuration " \
+                    log.error("Cannot validate provided OpenStack credentials or configuration "
                               "(AK:{0}, SK:{1}): {2}".format(self.aws_access_key, self.aws_secret_key, e))
                     self.ec2_conn = None
             except Exception, e:
@@ -58,14 +59,15 @@ class OSInterface(EC2Interface):
         ec2_conn = None
         try:
             if region is None:
-                region = RegionInfo(name=self.region_name, endpoint=self.region_endpoint)
+                region = RegionInfo(
+                    name=self.region_name, endpoint=self.region_endpoint)
             ec2_conn = boto.connect_ec2(aws_access_key_id=self.aws_access_key,
                                         aws_secret_access_key=self.aws_secret_key,
                                         is_secure=self.is_secure,
                                         region=region,
                                         port=self.ec2_port,
                                         path=self.ec2_conn_path,
-                                        validate_certs=False) # https://github.com/boto/boto/wiki/2.6.0-release-notes
+                                        validate_certs=False)  # https://github.com/boto/boto/wiki/2.6.0-release-notes
         except EC2ResponseError, e:
             log.error("Trouble creating a Nova connection: {0}".format(e))
         return ec2_conn
@@ -77,13 +79,14 @@ class OSInterface(EC2Interface):
         if self.s3_conn == None:
             log.debug("Establishing a boto Swift connection.")
             try:
-                self.s3_conn = boto.connect_s3(aws_access_key_id=self.aws_access_key,
-                                               aws_secret_access_key=self.aws_secret_key,
-                                               is_secure=self.is_secure,
-                                               host=self.s3_host,
-                                               port=self.s3_port,
-                                               path=self.s3_conn_path,
-                                               calling_format=self.calling_format)
+                self.s3_conn = boto.connect_s3(
+                    aws_access_key_id=self.aws_access_key,
+                    aws_secret_access_key=self.aws_secret_key,
+                    is_secure=self.is_secure,
+                    host=self.s3_host,
+                    port=self.s3_port,
+                    path=self.s3_conn_path,
+                    calling_format=self.calling_format)
                 log.debug('Got boto Swift connection.')
                 # try:
                 #     self.s3_conn.get_bucket('cloudman') # Any bucket name will do - just testing the call
@@ -95,7 +98,7 @@ class OSInterface(EC2Interface):
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
 
-    def get_public_ip( self ):
+    def get_public_ip(self):
         """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
             returns empty so do some monkey patching.
         """
@@ -110,24 +113,23 @@ class OSInterface(EC2Interface):
                     if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
-                        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
+                        fp = urllib.urlopen(
+                            'http://169.254.169.254/latest/meta-data/local-ipv4')
                         self.self_public_ip = fp.read()
                         fp.close()
                     if self.self_public_ip:
                         break
                 except Exception, e:
-                    log.error ( "Error retrieving FQDN: %s" % e )
+                    log.error("Error retrieving FQDN: %s" % e)
 
         return self.self_public_ip
 
-
     def add_tag(self, resource, key, value):
-        log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not " \
-            "support tags".format(key=key, value=value, resource=resource))
+        log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not "
+                  "support tags".format(key=key, value=value, resource=resource))
         pass
 
     def get_tag(self, resource, key):
-        log.debug("Would get tag {key} from resource {resource} but OpenStack does not support tags" \
-            .format(key=key, resource=resource))
+        log.debug("Would get tag {key} from resource {resource} but OpenStack does not support tags"
+                  .format(key=key, resource=resource))
         pass
-

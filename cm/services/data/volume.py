@@ -25,35 +25,37 @@ import logging
 log = logging.getLogger('cloudman')
 
 
-MIN_TIME_BETWEEN_STATUS_CHECKS = 2 # seconds to wait before updating volume status
+MIN_TIME_BETWEEN_STATUS_CHECKS = 2  # seconds to wait before updating volume status
 volume_status_map = {
-                     'creating'    : volume_status.CREATING,
-                     'available'   : volume_status.AVAILABLE,
-                     'in-use'      : volume_status.IN_USE,
-                     'attached'    : volume_status.ATTACHED,
-                     'deleting'    : volume_status.DELETING,
-                     }
+    'creating': volume_status.CREATING,
+    'available': volume_status.AVAILABLE,
+    'in-use': volume_status.IN_USE,
+    'attached': volume_status.ATTACHED,
+    'deleting': volume_status.DELETING,
+}
+
 
 class Volume(BlockStorage):
 
-    def __init__(self, filesystem, vol_id=None, device=None, attach_device=None,
-                 size=0, from_snapshot_id=None, static=False):
+    def __init__(
+        self, filesystem, vol_id=None, device=None, attach_device=None,
+            size=0, from_snapshot_id=None, static=False):
         super(Volume, self).__init__(filesystem.app)
         self.fs = filesystem
         self.app = self.fs.app
-        self.volume = None # boto instance object representing the current volume
-        self.device = device # Device ID visible by the operating system
+        self.volume = None  # boto instance object representing the current volume
+        self.device = device  # Device ID visible by the operating system
         self.size = size
         self.from_snapshot_id = from_snapshot_id
         self.device = None
-        self.static = static # Indicates if a volume is created from a snapshot
+        self.static = static  # Indicates if a volume is created from a snapshot
                              # AND can be deleted upon cluster termination
         self.snapshot_progress = None
         self.snapshot_status = None
         self._status = volume_status.NONE
         self._last_status_check = None
 
-        if (vol_id): # get the volume object immediately, if id is passed
+        if (vol_id):  # get the volume object immediately, if id is passed
             self.update(vol_id)
         elif from_snapshot_id:
             self.create()
@@ -78,14 +80,15 @@ class Volume(BlockStorage):
         """
         Volume-specific details for this file system
         """
-        details['DoT']      = "Yes" if self.static else "No"
-        details['device']   = self.device
-        details['volume_id']= self.volume_id
+        details['DoT'] = "Yes" if self.static else "No"
+        details['device'] = self.device
+        details['volume_id'] = self.volume_id
         details['from_snap'] = self.from_snapshot_id
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
-        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg'] = None if details.get(
+            'err_msg', '') == '' else details['err_msg']
         return details
 
     def update(self, vol_id):
@@ -99,19 +102,23 @@ class Volume(BlockStorage):
         if isinstance(vol_id, basestring):
             vols = None
             try:
-                log.debug("Retrieving a reference to the Volume object for ID {0}".format(vol_id))
-                vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(volume_ids=(vol_id, ))
+                log.debug("Retrieving a reference to the Volume object for ID {0}".format(
+                    vol_id))
+                vols = self.app.cloud_interface.get_ec2_connection(
+                ).get_all_volumes(volume_ids=(vol_id, ))
             except EC2ResponseError, e:
-                log.error("Trouble getting volume reference for volume {0}: {1}"\
-                    .format(vol_id, e))
+                log.error("Trouble getting volume reference for volume {0}: {1}"
+                          .format(vol_id, e))
             if not vols:
-                log.error('Attempting to connect to a non-existent volume {0}'.format(vol_id))
+                log.error(
+                    'Attempting to connect to a non-existent volume {0}'.format(vol_id))
                 self.volume = None
                 self.device = None
             vol = vols[0]
         else:
             vol = vol_id
-        log.debug("Updating current volume reference '%s' to a new one '%s'" % (self.volume_id, vol.id))
+        log.debug("Updating current volume reference '%s' to a new one '%s'" % (
+            self.volume_id, vol.id))
         if vol.attachment_state() == 'attached' and vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id():
             log.error('Attempting to connect to a volume ({0} that is already attached "\
                 "to a different instance ({1}'.format(vol.volume_id, vol.attach_data.instance_id))
@@ -123,22 +130,27 @@ class Volume(BlockStorage):
             if run('ls {0}'.format(attach_device), quiet=True):
                 self.device = attach_device
             else:
-                # Attach device is different than the system device so figure it out
-                log.debug("Volume {0} (attached as {1}) is visible as something else???"\
-                    .format(vol.id, attach_device))
+                # Attach device is different than the system device so figure
+                # it out
+                log.debug("Volume {0} (attached as {1}) is visible as something else???"
+                          .format(vol.id, attach_device))
                 try:
-                    device_id = attach_device[-1] # Letter-only based device IDs (e.g., /dev/xvdc)
+                    device_id = attach_device[-1]
+                        # Letter-only based device IDs (e.g., /dev/xvdc)
                     if (str(device_id).isdigit()):
-                        device_id = attach_device[-2:] # Number-based device IDs (e.g., /dev/sdg1)
+                        device_id = attach_device[-
+                                                  2:]  # Number-based device IDs (e.g., /dev/sdg1)
                     attach_device = '/dev/xvd' + device_id
-                    log.debug("Trying visible device {0}...".format(attach_device))
+                    log.debug(
+                        "Trying visible device {0}...".format(attach_device))
                 except Exception, e:
-                    log.error("Attach device's ID ({0}) too short? {1}".format(attach_device, e))
+                    log.error("Attach device's ID ({0}) too short? {1}".format(
+                        attach_device, e))
                 if run('ls {0}'.format(attach_device), quiet=True):
                     self.device = attach_device
                 else:
-                    log.error("Problems discovering volume {0} attach device {0} vs. system device ?"\
-                        .format(vol.id, attach_device))
+                    log.error("Problems discovering volume {0} attach device {0} vs. system device ?"
+                              .format(vol.id, attach_device))
                     self.device = None
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
@@ -179,16 +191,18 @@ class Volume(BlockStorage):
         else:
             try:
                 self.volume.update()
-                status = volume_status_map.get(self.volume.status,None)
+                status = volume_status_map.get(self.volume.status, None)
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
                 if not status:
-                    log.error('Unknown volume status {0}. Assuming volume_status.NONE'.format(self.volume.status))
+                    log.error('Unknown volume status {0}. Assuming volume_status.NONE'.format(
+                        self.volume.status))
                     status = volume_status.NONE
                 self._status = status
                 self._last_status_check = time.time()
             except EC2ResponseError as e:
-                log.error('Cannot retrieve status of current volume. {0}'.format(e))
+                log.error(
+                    'Cannot retrieve status of current volume. {0}'.format(e))
                 status = volume_status.NONE
         return status
 
@@ -200,8 +214,9 @@ class Volume(BlockStorage):
         Note that this may potentially be forever.
         """
         if self.status == volume_status.NONE:
-            log.debug('Attempted to wait for a status ({0}) on a non-existent volume'.format(status))
-            return False # no volume means not worth waiting
+            log.debug('Attempted to wait for a status ({0}) on a non-existent volume'.format(
+                status))
+            return False  # no volume means not worth waiting
         else:
             start_time = time.time()
             end_time = start_time + timeout
@@ -211,22 +226,23 @@ class Volume(BlockStorage):
                 wait_forever = True
             else:
                 checks = 10
-                wait_time = float(timeout)/checks
+                wait_time = float(timeout) / checks
                 wait_forever = False
             while wait_forever or time.time() <= end_time:
                 if self.status == status:
-                    log.debug('Volume {0} ({1}) has reached status {2}'.format(self.volume_id,
+                    log.debug(
+                        'Volume {0} ({1}) has reached status {2}'.format(self.volume_id,
                         self.fs.get_full_name(), status))
                     return True
                 else:
                     log.debug('Waiting for volume {0} (status "{1}"; {2}) to reach status "{3}". '
-                        'Remaining checks: {4}'.format(self.volume_id, self.status,
-                        self.fs.get_full_name(), status, checks))
+                              'Remaining checks: {4}'.format(self.volume_id, self.status,
+                                                             self.fs.get_full_name(), status, checks))
                     if timeout != -1:
                         checks -= 1
                     time.sleep(wait_time)
-            log.debug('Wait for volume {0} ({1}) to reach status {2} timed out. Current status {3}.'\
-                .format(self.volume_id, self.fs.get_full_name(), status, self.status))
+            log.debug('Wait for volume {0} ({1}) to reach status {2} timed out. Current status {3}.'
+                      .format(self.volume_id, self.fs.get_full_name(), status, self.status))
             return False
 
     def create(self, filesystem=None):
@@ -239,7 +255,8 @@ class Volume(BlockStorage):
 
         if self.status == volume_status.NONE:
             try:
-                # Temp code (Dec 2012) - required by the NeCTAR Research Cloud until general volumes arrive
+                # Temp code (Dec 2012) - required by the NeCTAR Research Cloud
+                # until general volumes arrive
                 if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
                     if zone != 'melbourne-qh2':
@@ -252,27 +269,40 @@ class Volume(BlockStorage):
                         return None
                 if self.from_snapshot_id and self.size == 0:
                     try:
-                        s = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([self.from_snapshot_id])[0]
+                        s = self.app.cloud_interface.get_ec2_connection(
+                        ).get_all_snapshots([self.from_snapshot_id])[0]
                         self.size = s.volume_size
                     except EC2ResponseError, e:
-                        log.error("Error retrieving snapshot %s size: %s" % (self.from_snapshot_id, e))
-                log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
-                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
-                self.size = int(self.volume.size or 0) # when creating from a snapshot in Euca, volume.size may be None
-                log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
+                        log.error("Error retrieving snapshot %s size: %s" %
+                                  (self.from_snapshot_id, e))
+                log.debug(
+                    "Creating a new volume of size '%s' in zone '%s' from snapshot '%s'" % (self.size,
+                                                                                            self.app.cloud_interface.get_zone(), self.from_snapshot_id))
+                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(
+                    self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
+                self.size = int(self.volume.size or 0)
+                                # when creating from a snapshot in Euca,
+                                # volume.size may be None
+                log.debug(
+                    "Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'" % (self.size,
+                                                                                                      self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
             except EC2ResponseError, e:
                 log.error("Error creating volume: %s" % e)
         else:
-            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" % (self.status, self.volume_id))
+            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" %
+                      (self.status, self.volume_id))
 
         # Add tags to newly created volumes (do this outside the inital if/else
         # to ensure the tags get assigned even if using an existing volume vs.
         # creating a new one)
         try:
-            self.app.cloud_interface.add_tag(self.volume, 'clusterName', self.app.ud['cluster_name'])
-            self.app.cloud_interface.add_tag(self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+            self.app.cloud_interface.add_tag(
+                self.volume, 'clusterName', self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(
+                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
-                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(
+                    self.volume, 'filesystem', filesystem)
         except EC2ResponseError, e:
             log.error("Error adding tags to volume: %s" % e)
 
@@ -286,7 +316,8 @@ class Volume(BlockStorage):
             log.debug("Deleted volume '%s'" % volume_id)
             self.volume = None
         except EC2ResponseError, e:
-            log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" % (self.volume_id, e))
+            log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" %
+                      (self.volume_id, e))
 
     # attachment helper methods
 
@@ -319,7 +350,7 @@ class Volume(BlockStorage):
         if letter < 'f':
             letter = 'e'
         # Get the next device in line
-        new_id = base + chr(ord(letter)+1)
+        new_id = base + chr(ord(letter) + 1)
         return new_id
 
     def _get_likely_next_devices(self, devices=None):
@@ -337,19 +368,21 @@ class Volume(BlockStorage):
         """
         if not devices:
             devices = self._get_device_list()
-        device_map = map(lambda x:(x.split('/')[-1], x), devices)  # create a dict of id:/dev/id from devices
+        device_map = map(lambda x: (x.split(
+            '/')[-1], x), devices)  # create a dict of id:/dev/id from devices
         # in order, we want vd?, xvd?, or sd?
-        vds = sorted( (d[1] for d in device_map if d[0][0] == 'v' ) )
-        xvds = sorted( ( d[1] for d in device_map if d[0][0:2] == 'xv' ) )
-        sds = sorted( ( d[1] for d in device_map if d[0][0] == 's'  ) )
+        vds = sorted((d[1] for d in device_map if d[0][0] == 'v'))
+        xvds = sorted((d[1] for d in device_map if d[0][0:2] == 'xv'))
+        sds = sorted((d[1] for d in device_map if d[0][0] == 's'))
         if vds:
-            return ( self._increment_device_id(vds[-1] ), )
+            return (self._increment_device_id(vds[-1]), )
         elif xvds:
-            return ( self._increment_device_id(xvds[-1] ), )
+            return (self._increment_device_id(xvds[-1]), )
         elif sds:
-            return ( self._increment_device_id( sds[-1] ), '/dev/vda', '/dev/xvda' )
+            return (self._increment_device_id(sds[-1]), '/dev/vda', '/dev/xvda')
         else:
-            log.error("Could not determine next available device from {0}".format(devices))
+            log.error("Could not determine next available device from {0}".format(
+                devices))
             return None
 
     def _do_attach(self, attach_device):
@@ -360,10 +393,12 @@ class Volume(BlockStorage):
         try:
             if attach_device is not None:
                 log.debug("Attaching volume '%s' to instance '%s' as device '%s'" %
-                    (self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device))
-                self.volume.attach(self.app.cloud_interface.get_instance_id(), attach_device)
+                         (self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device))
+                self.volume.attach(
+                    self.app.cloud_interface.get_instance_id(), attach_device)
             else:
-                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (self.volume_id,  self.app.cloud_interface.get_instance_id()))
+                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device." % (
+                    self.volume_id, self.app.cloud_interface.get_instance_id()))
                 return False
         except EC2ResponseError, e:
             for er in e.errors:
@@ -375,8 +410,8 @@ class Volume(BlockStorage):
                     log.error(msg)
                 else:
                     log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. "
-                        "Exception: %s (%s)" % (self.volume_id,
-                        self.app.cloud_interface.get_instance_id(), attach_device, er[0], er[1]))
+                              "Exception: %s (%s)" % (self.volume_id,
+                                                      self.app.cloud_interface.get_instance_id(), attach_device, er[0], er[1]))
             return False
         return self.status
 
@@ -386,56 +421,67 @@ class Volume(BlockStorage):
         Try it for some time.
         Returns the attached device path, or None if it can't attach
         """
-        log.debug('Starting volume.attach for volume {0} ({1})'.format(self.volume_id,
+        log.debug(
+            'Starting volume.attach for volume {0} ({1})'.format(self.volume_id,
             self.fs.get_full_name()))
         # Bail if the volume doesn't exist, or is already attached
         if self.status == volume_status.NONE or self.status == volume_status.DELETING:
-            log.error('Attempt to attach non-existent volume {0}'.format(self.volume_id))
+            log.error('Attempt to attach non-existent volume {0}'.format(
+                self.volume_id))
             return None
         elif self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE:
-            log.debug('Volume {0} already attached as {1}'.format(self.volume_id, self.device))
+            log.debug('Volume {0} already attached as {1}'.format(
+                self.volume_id, self.device))
             return self.device
 
         # Wait for the volume to become available
         if self.from_snapshot_id and self.status == volume_status.CREATING:
-            # Eucalyptus can take an inordinate amount of time to create a volume from a snapshot
+            # Eucalyptus can take an inordinate amount of time to create a
+            # volume from a snapshot
             log.debug("Waiting for volume to be created from a snapshot...")
             if not self.wait_for_status(volume_status.AVAILABLE):
-                log.error('Volume never reached available from creating status. Status is {0}'.format(self.status))
+                log.error('Volume never reached available from creating status. Status is {0}'.format(
+                    self.status))
         elif self.status != volume_status.AVAILABLE:
             if not self.wait_for_status(volume_status.AVAILABLE):
-                log.error('Volume never became available to attach. Status is {0}'.format(self.status))
+                log.error('Volume never became available to attach. Status is {0}'.format(
+                    self.status))
                 return None
 
         # attempt to attach
         for attempted_device in self._get_likely_next_devices():
             pre_devices = self._get_device_list()
-            log.debug('Before attach, devices = {0}'.format(' '.join(pre_devices)))
+            log.debug(
+                'Before attach, devices = {0}'.format(' '.join(pre_devices)))
             if self._do_attach(attempted_device):
                 if self.wait_for_status(volume_status.ATTACHED):
-                    time.sleep(10) # give a few seconds for the device to show up in the OS
+                    time.sleep(
+                        10)  # give a few seconds for the device to show up in the OS
                     post_devices = self._get_device_list()
-                    log.debug('After attach, devices = {0}'.format(' '.join(post_devices)))
+                    log.debug('After attach, devices = {0}'.format(
+                        ' '.join(post_devices)))
                     new_devices = post_devices - pre_devices
-                    log.debug('New devices = {0}'.format(' '.join(new_devices)))
+                    log.debug(
+                        'New devices = {0}'.format(' '.join(new_devices)))
                     if len(new_devices) == 0:
-                        log.debug('Could not find attached device for volume {0}. Attempted device = {1}'.format(self.volume_id, attempted_device))
+                        log.debug('Could not find attached device for volume {0}. Attempted device = {1}'.format(
+                            self.volume_id, attempted_device))
                     elif attempted_device in new_devices:
                         self.device = attempted_device
                         return attempted_device
                     elif len(new_devices) > 1:
                         log.error("Multiple devices (%s) added to OS during process, and none are the requested device. Can't determine new device. Aborting"
-                              % ', '.join(new_devices))
+                                  % ', '.join(new_devices))
                         return None
                     else:
                         device = tuple(new_devices)[0]
-                        self.device= device
+                        self.device = device
                         return device
                 # requested device didn't attach, for whatever reason
                 if self.status != volume_status.AVAILABLE and attempted_device[-3:-1] != 'vd':
-                    self.detach() # in case it attached invisibly
+                    self.detach()  # in case it attached invisibly
                 self.wait_for_status(volume_status.AVAILABLE, 60)
-        return None # no device properly attached
+        return None  # no device properly attached
 
     def detach(self):
         """
@@ -446,21 +492,26 @@ class Volume(BlockStorage):
             try:
                 self.volume.detach()
             except EC2ResponseError, e:
-                log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
+                log.error(
+                    "Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id,
+                                                                                        self.app.cloud_interface.get_instance_id(), e))
                 return False
-            self.wait_for_status(volume_status.AVAILABLE,240)
+            self.wait_for_status(volume_status.AVAILABLE, 240)
             if self.status != volume_status.AVAILABLE:
                 log.debug('Attempting to detach again.')
                 try:
                     self.volume.detach()
                 except EC2ResponseError, e:
-                    log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
+                    log.error("Detaching volume '%s' from instance '%s' failed. Exception: %s" % (
+                        self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                     return False
-                if not self.wait_for_status(volume_status.AVAILABLE,60):
-                    log.warning('Volume {0} did not detach properly. Left in state {1}'.format(self.volume_id,self.status))
+                if not self.wait_for_status(volume_status.AVAILABLE, 60):
+                    log.warning('Volume {0} did not detach properly. Left in state {1}'.format(
+                        self.volume_id, self.status))
                     return False
         else:
-            log.warning("Cannot detach volume '%s' in state '%s'" % (self.volume_id, self.status))
+            log.warning("Cannot detach volume '%s' in state '%s'" % (
+                self.volume_id, self.status))
             return False
         return True
 
@@ -469,27 +520,31 @@ class Volume(BlockStorage):
         Crete a point-in-time snapshot of the current volume, optionally specifying
         a description for the snapshot.
         """
-        log.info("Initiating creation of a snapshot for the volume '%s'" % self.volume_id)
+        log.info("Initiating creation of a snapshot for the volume '%s'" %
+                 self.volume_id)
         try:
-            snapshot = self.volume.create_snapshot(description=snap_description)
+            snapshot = self.volume.create_snapshot(
+                description=snap_description)
         except EC2ResponseError as ex:
-            log.error("Error creating a snapshot from volume '%s': %s" % (self.volume_id, ex))
+            log.error("Error creating a snapshot from volume '%s': %s" %
+                      (self.volume_id, ex))
             raise
         if snapshot:
             while snapshot.status != 'completed':
-                log.debug("Snapshot '%s' progress: '%s'; status: '%s'" \
-                    % (snapshot.id, snapshot.progress, snapshot.status))
+                log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
+                          % (snapshot.id, snapshot.progress, snapshot.status))
                 self.snapshot_progress = snapshot.progress
                 self.snapshot_status = snapshot.status
                 time.sleep(6)
                 snapshot.update()
-            log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'" \
-                % (self.volume_id, snapshot.id))
-            self.snapshot_progress = None # Reset because of the UI
-            self.snapshot_status = None # Reset because of the UI
+            log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
+                     % (self.volume_id, snapshot.id))
+            self.snapshot_progress = None  # Reset because of the UI
+            self.snapshot_status = None  # Reset because of the UI
             return str(snapshot.id)
         else:
-            log.error("Could not create snapshot from volume '%s'" % self.volume_id)
+            log.error(
+                "Could not create snapshot from volume '%s'" % self.volume_id)
             return None
 
     def get_from_snap_id(self):
@@ -510,9 +565,10 @@ class Volume(BlockStorage):
         # Note that if a volume is marked as 'static', it is assumed it
         # can be deleted upon cluster termination!
         if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and self.from_snapshot_id is not None:
-            log.debug("Marked volume '%s' from file system '%s' as 'static'" % (self.volume_id, self.fs.name))
+            log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
+                self.volume_id, self.fs.name))
             self.static = True
-            self.fs.kind= 'snapshot'
+            self.fs.kind = 'snapshot'
         else:
             self.fs.kind = 'volume'
         if self.attach():
@@ -524,11 +580,14 @@ class Volume(BlockStorage):
         file system, detaching the volume, and, optionally, deleting the volume.
         """
         self.unmount(mount_point)
-        log.debug("Detaching volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
+        log.debug("Detaching volume {0} as {1}".format(
+            self.volume_id, self.fs.get_full_name()))
         if self.detach():
-            log.debug("Detached volume {0} as {1}".format(self.volume_id, self.fs.get_full_name()))
+            log.debug("Detached volume {0} as {1}".format(
+                self.volume_id, self.fs.get_full_name()))
             if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and delete_vols:
-                log.debug("Deleting volume {0} as part of {1}".format(self.volume_id, self.fs.get_full_name()))
+                log.debug("Deleting volume {0} as part of {1}".format(
+                    self.volume_id, self.fs.get_full_name()))
                 self.delete()
 
     def mount(self, mount_point):
@@ -542,61 +601,78 @@ class Volume(BlockStorage):
                     # Check if the mount location is empty
                     if len(os.listdir(mount_point)) != 0:
                         log.warning("A file system at {0} already exists and is not empty; cannot "
-                        "mount volume {1}".format(mount_point, self.volume_id))
+                                    "mount volume {1}".format(mount_point, self.volume_id))
                         return False
                 else:
                     os.mkdir(mount_point)
                 # Potentially wait for the device to actually become available in the system
-                # TODO: Do something if the device is not available in the given time period
+                # TODO: Do something if the device is not available in the
+                # given time period
                 for i in range(10):
                     if os.path.exists(self.device):
-                        log.debug("Device path {0} checked and it exists.".format(self.device))
+                        log.debug("Device path {0} checked and it exists.".format(
+                            self.device))
                         break
                     else:
-                        log.debug("Device path {0} does not yet exist; waiting...".format(self.device))
+                        log.debug("Device path {0} does not yet exist; waiting...".format(
+                            self.device))
                         time.sleep(4)
                 # Until the underlying issue is fixed (see FIXME below), mask this
-                # even more by custom-handling the run command and thus not printing the err
+                # even more by custom-handling the run command and thus not
+                # printing the err
                 cmd = '/bin/mount %s %s' % (self.device, mount_point)
-                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                process = subprocess.Popen(
+                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 _, _ = process.communicate()
                 if process.returncode != 0:
                     # FIXME: Assume if a file system cannot be mounted that it's because
-                    # there is not a file system on the device so try creating one
+                    # there is not a file system on the device so try creating
+                    # one
                     if run('/sbin/mkfs.xfs %s' % self.device,
-                        "Failed to create a files ystem on device %s" % self.device,
-                        "Created a file system on device %s" % self.device):
-                        if not run('/bin/mount %s %s' % (self.device, mount_point),
-                            "Error mounting file system %s from %s" % (mount_point, self.device),
-                            "Successfully mounted file system %s from %s" % (mount_point, self.device)):
+                           "Failed to create a files ystem on device %s" % self.device,
+                           "Created a file system on device %s" % self.device):
+                        if not run(
+                            '/bin/mount %s %s' % (self.device, mount_point),
+                            "Error mounting file system %s from %s" % (
+                                mount_point, self.device),
+                                "Successfully mounted file system %s from %s" % (mount_point, self.device)):
                             log.error("Failed to mount device '%s' to mount point '%s'"
-                                % (self.device, mount_point))
+                                      % (self.device, mount_point))
                             return False
                 else:
-                    log.info("Successfully mounted file system {0} from {1}".format(mount_point,
+                    log.info(
+                        "Successfully mounted file system {0} from {1}".format(mount_point,
                         self.device))
                 try:
-                    # Default owner of all mounted file systems to `galaxy` user
-                    os.chown(mount_point, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
-                    # Add Galaxy- and CloudBioLinux-required files under the 'data' dir
+                    # Default owner of all mounted file systems to `galaxy`
+                    # user
+                    os.chown(mount_point, pwd.getpwnam(
+                        "galaxy")[2], grp.getgrnam("galaxy")[2])
+                    # Add Galaxy- and CloudBioLinux-required files under the
+                    # 'data' dir
                     if ServiceRole.GALAXY_DATA in self.fs.svc_roles:
                         for sd in ['files', 'tmp', 'upload_store', 'export']:
-                            path = os.path.join(self.app.path_resolver.galaxy_data, sd)
+                            path = os.path.join(
+                                self.app.path_resolver.galaxy_data, sd)
                             if not os.path.exists(path):
                                 os.mkdir(path)
                             # Make 'export' dir that's shared over NFS be
                             # owned by `ubuntu` user so it's accesible
                             # for use to the rest of the cluster
                             if sd == 'export':
-                                os.chown(path, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+                                os.chown(path, pwd.getpwnam(
+                                    "ubuntu")[2], grp.getgrnam("ubuntu")[2])
                             else:
-                                os.chown(path, pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                                os.chown(path, pwd.getpwnam(
+                                    "galaxy")[2], grp.getgrnam("galaxy")[2])
                 except OSError, e:
-                    log.debug("Tried making 'galaxyData' sub-dirs but failed: %s" % e)
+                    log.debug(
+                        "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
                 # Lastly, share the newly mounted file system over NFS
                 if self.fs.add_nfs_share(mount_point):
                     return True
-            log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (self.volume_id,
+            log.warning(
+                "Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (self.volume_id,
                 self.status, counter))
             time.sleep(2)
 
@@ -606,8 +682,9 @@ class Volume(BlockStorage):
         NFS in the process.
         """
         try:
-            mp = mount_point.replace('/', '\/') # Escape slashes for sed
-            # Because we're unmounting the file systems in separate threads, use a lock file
+            mp = mount_point.replace('/', '\/')  # Escape slashes for sed
+            # Because we're unmounting the file systems in separate threads,
+            # use a lock file
             with flock(self.fs.nfs_lock_file):
                 if run("/bin/sed -i 's/^%s/#%s/' /etc/exports" % (mp, mp),
                         "Error removing '%s' from '/etc/exports'" % mount_point,
@@ -618,25 +695,28 @@ class Volume(BlockStorage):
             return False
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
-            log.debug("Unmounting volume-based FS from {0}".format(mount_point))
+            log.debug(
+                "Unmounting volume-based FS from {0}".format(mount_point))
             for counter in range(10):
                 if run('/bin/umount %s' % mount_point,
                         "Error unmounting file system '%s'" % mount_point,
                         "Successfully unmounted file system '%s'" % mount_point):
-                    # Clean up the system path now that the file system is unmounted
+                    # Clean up the system path now that the file system is
+                    # unmounted
                     try:
                         os.rmdir(mount_point)
                     except OSError, e:
-                        log.error("Error removing unmounted path {0}: {1}".format(mount_point, e))
+                        log.error("Error removing unmounted path {0}: {1}".format(
+                            mount_point, e))
                     break
                 if counter == 9:
-                    log.warning("Could not unmount file system at '%s'" % mount_point)
+                    log.warning(
+                        "Could not unmount file system at '%s'" % mount_point)
                     return False
                 counter += 1
                 time.sleep(3)
             return True
         else:
-            log.debug("Did not unmount file system '%s' because it is not in state "\
-                "'running' or 'shutting-down'" % self.fs.get_full_name())
+            log.debug("Did not unmount file system '%s' because it is not in state "
+                      "'running' or 'shutting-down'" % self.fs.get_full_name())
             return False
-

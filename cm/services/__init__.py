@@ -5,18 +5,18 @@ import datetime as dt
 from cm.util.bunch import Bunch
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 
 service_states = Bunch(
     UNSTARTED="Unstarted",
     WAITING_FOR_USER_ACTION="Waiting for user action",
     CONFIGURING="Configuring",
     STARTING="Starting",
-    RUNNING = "Running",
-    SHUTTING_DOWN = "Shutting down",
+    RUNNING="Running",
+    SHUTTING_DOWN="Shutting down",
     SHUT_DOWN="Shut down",
     ERROR="Error"
- )
+)
 
 
 class ServiceType(object):
@@ -27,15 +27,19 @@ class ServiceType(object):
 class ServiceRole(object):
     SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
     GALAXY = {'type': ServiceType.APPLICATION, 'name': "Galaxy"}
-    GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name': "Postgres DB for Galaxy"}
-    GALAXY_REPORTS = {'type': ServiceType.APPLICATION, 'name': "Galaxy Reports"}
+    GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name':
+                       "Postgres DB for Galaxy"}
+    GALAXY_REPORTS = {'type': ServiceType.APPLICATION, 'name':
+                      "Galaxy Reports"}
     AUTOSCALE = {'type': ServiceType.APPLICATION, 'name': "Autoscale"}
     PSS = {'type': ServiceType.APPLICATION, 'name': "Post Start Script"}
-    GALAXY_DATA  = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Data FS"}
-    GALAXY_INDICES  = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Indices FS"}
+    GALAXY_DATA = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Data FS"}
+    GALAXY_INDICES = {'type': ServiceType.FILE_SYSTEM, 'name':
+                      "Galaxy Indices FS"}
     GALAXY_TOOLS = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Tools FS"}
     GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'name': "Generic FS"}
-    TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name': "Transient NFS FS"}
+    TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
+                     "Transient NFS FS"}
 
     @staticmethod
     def get_type(role):
@@ -80,18 +84,19 @@ class ServiceRole(object):
         elif val == "TransientNFS":
             return ServiceRole.TRANSIENT_NFS
         else:
-            log.warn("Attempt to convert unknown role name from string: {0}".format(val))
+            log.warn(
+                "Attempt to convert unknown role name from string: {0}".format(val))
             return None
 
     @staticmethod
     def to_string(svc_roles):
         if not isinstance(svc_roles, list):
-            svc_roles = [svc_roles] # Not a list, therefore, convert to list
+            svc_roles = [svc_roles]  # Not a list, therefore, convert to list
         str_roles = ""
         for role in svc_roles:
             if role:
                 str_roles = str_roles + "," + ServiceRole._role_to_string(role)
-        return str_roles[1:] # strip leading comma
+        return str_roles[1:]  # strip leading comma
 
     @staticmethod
     def _role_to_string(svc_role):
@@ -118,7 +123,8 @@ class ServiceRole(object):
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
         else:
-            raise Exception("Unrecognized role {0}. Cannot convert to string".format(svc_role))
+            raise Exception(
+                "Unrecognized role {0}. Cannot convert to string".format(svc_role))
 
     @staticmethod
     def fulfills_roles(svc_roles, list_to_check):
@@ -186,9 +192,9 @@ class ServiceDependency(object):
         return self.service_role in service.svc_roles
 
 
-class Service( object):
+class Service(object):
 
-    def __init__( self, app, service_type=None ):
+    def __init__(self, app, service_type=None):
         self.app = app
         self.state = service_states.UNSTARTED
         self.last_state_change_time = dt.datetime.utcnow()
@@ -196,7 +202,7 @@ class Service( object):
         self.svc_roles = []
         self.reqs = []
 
-    def add (self):
+    def add(self):
         """
         Add a given service to the pool of services managed by CloudMan, giving
         CloudMan the abilty to monitor and control the service. This is a base
@@ -209,24 +215,27 @@ class Service( object):
             # log.debug("Trying to add service '%s'" % self.name)
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
-            failed_prereqs = [] # List of service prerequisites that have not been satisfied
+            failed_prereqs = []
+                # List of service prerequisites that have not been satisfied
             for dependency in self.reqs:
-                #log.debug("'%s' service checking its prerequisite '%s:%s'" \
+                # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
                 for svc in self.app.manager.services:
-                    #log.debug("Checking service %s state." % svc.name)
+                    # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
-                        #log.debug("Service %s:%s running: %s" % (svc.name, svc.name, svc.running()))
+                        # log.debug("Service %s:%s running: %s" % (svc.name,
+                        # svc.name, svc.running()))
                         if not svc.running():
                             failed_prereqs.append(svc.get_full_name())
             if len(failed_prereqs) == 0:
-                log.info("{0} service prerequisites OK; starting the service".format(self.get_full_name()))
+                log.info("{0} service prerequisites OK; starting the service".format(
+                    self.get_full_name()))
                 self.start()
                 return True
             else:
-                log.debug("{0} service prerequisites are not yet satisfied, missing: {2}. "\
-                        "Setting {0} service state to '{1}'"\
-                        .format(self.get_full_name(), service_states.UNSTARTED, failed_prereqs))
+                log.debug("{0} service prerequisites are not yet satisfied, missing: {2}. "
+                          "Setting {0} service state to '{1}'"
+                          .format(self.get_full_name(), service_states.UNSTARTED, failed_prereqs))
                 # Reset state so it get picked back up by monitor
                 self.state = service_states.UNSTARTED
                 return False
@@ -241,7 +250,8 @@ class Service( object):
         for service in self.app.manager.services:
             for dependency in service.reqs:
                 if (dependency.is_satisfied_by(self)):
-                    log.debug("Dependency {0} found. Removing...".format(service.name))
+                    log.debug("Dependency {0} found. Removing...".format(
+                        service.name))
                     service.remove()
 
     def running(self):

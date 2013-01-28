@@ -29,8 +29,10 @@ P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 
 try:
-    # Get only the first 3 chars of the version since that's all that's used for dir name
-    pg_ver = load = (commands.getoutput("dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
+    # Get only the first 3 chars of the version since that's all that's used
+    # for dir name
+    pg_ver = load = (commands.getoutput(
+        "dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
     P_PG_HOME = "/usr/lib/postgresql/{0}/bin".format(pg_ver)
 except Exception, e:
     P_PG_HOME = "/usr/lib/postgresql/9.1/bin"
@@ -51,7 +53,8 @@ def get_path(name, default_path):
         if path is None:
             downloaded_pd_file = 'pd.yaml'
             if os.path.exists(downloaded_pd_file):
-                path = misc.load_yaml_file(downloaded_pd_file).get(name, default_path)
+                path = misc.load_yaml_file(
+                    downloaded_pd_file).get(name, default_path)
     except:
         pass
     if not path:
@@ -59,10 +62,14 @@ def get_path(name, default_path):
     return path
 
 P_MOUNT_ROOT = "/mnt"
-P_GALAXY_TOOLS = get_path("galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
-P_GALAXY_HOME = get_path("galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
-P_GALAXY_DATA = get_path("galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
-P_GALAXY_INDICES = get_path("galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
+P_GALAXY_TOOLS = get_path(
+    "galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
+P_GALAXY_HOME = get_path(
+    "galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
+P_GALAXY_DATA = get_path(
+    "galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
+P_GALAXY_INDICES = get_path(
+    "galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
 
 IMAGE_CONF_SUPPORT_FILE = os.path.join(P_BASE_INSTALL_DIR, 'imageConfig.yaml')
 
@@ -73,7 +80,8 @@ class PathResolver(object):
 
     @property
     def galaxy_tools(self):
-        galaxy_tool_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        galaxy_tool_fs = self.manager.get_services(
+            svc_role=ServiceRole.GALAXY_TOOLS)
         if galaxy_tool_fs:
             return galaxy_tool_fs[0].mount_point
         else:  # For backward compatibility
@@ -88,7 +96,8 @@ class PathResolver(object):
             print "Using galaxy_home from user data: %s" % gh
             return gh
         # Get the required file system where Galaxy should be kept
-        galaxy_tools_fs_svc = self.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        galaxy_tools_fs_svc = self.manager.get_services(
+            svc_role=ServiceRole.GALAXY_TOOLS)
         if galaxy_tools_fs_svc:
             # Test directories that were used in the past as potential
             # Galaxy-home directories on the required file system
@@ -101,7 +110,8 @@ class PathResolver(object):
 
     @property
     def galaxy_data(self):
-        galaxy_data_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
+        galaxy_data_fs = self.manager.get_services(
+            svc_role=ServiceRole.GALAXY_DATA)
         if galaxy_data_fs:
             return galaxy_data_fs[0].mount_point
         else:
@@ -114,7 +124,8 @@ class PathResolver(object):
 
     @property
     def galaxy_indices(self):
-        galaxy_index_fs = self.manager.get_services(svc_role=ServiceRole.GALAXY_INDICES)
+        galaxy_index_fs = self.manager.get_services(
+            svc_role=ServiceRole.GALAXY_INDICES)
         if galaxy_index_fs:
             return galaxy_index_fs[0].mount_point
         else:  # For backward compatibility
