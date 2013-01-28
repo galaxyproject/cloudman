@@ -371,13 +371,12 @@ class Filesystem(DataService):
                     if hadoo_mnt_point == sp:
                         hadoop_set = True
 
-                ## TODO:: change the follwoing line and make hadoop a file system
+                # TODO:: change the follwoing line and make hadoop a file
+                # system
                 if not hadoop_set:
                     hdp_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
                         .format(mp="/opt/hadoop", perms='rw')
                     shared_paths.append(hdp_line)
-
-
 
                 # If the mount point is already in /etc/exports, replace the existing
                 # entry with the newly composed ee_line (thus supporting change of

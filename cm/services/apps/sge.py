@@ -33,7 +33,7 @@ class SGEService(ApplicationService):
         self.state = service_states.STARTING
         if self.unpack_sge():
             self.configure_sge()
-            #self.app.manager.services.append(HadoopService(self.app))
+            # self.app.manager.services.append(HadoopService(self.app))
         else:
             log.error("Error adding service '%s'" % self.name)
             self.state = service_states.ERROR
@@ -180,12 +180,13 @@ class SGEService(ApplicationService):
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
             all_q_template = Template(templates.ALL_Q_TEMPLATE)
             all_q_params = {
-              "prolog_path": os.path.join(paths.P_HADOOP_HOME,paths.P_HADOOP_INTEGRATION_FOLDER+"/hdfsstart.sh"),
-              "epilog_path": os.path.join(paths.P_HADOOP_HOME,paths.P_HADOOP_INTEGRATION_FOLDER+"/hdfsstop.sh")
-            }  
+                "prolog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstart.sh"),
+                "epilog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstop.sh")
+            }
 
             with open(SGE_allq_file, 'w') as f:
-                print >> f, all_q_template.substitute(all_q_params) #templates.ALL_Q_TEMPLATE
+                print >> f, all_q_template.substitute(
+                    all_q_params)  # templates.ALL_Q_TEMPLATE
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
             log.debug(
