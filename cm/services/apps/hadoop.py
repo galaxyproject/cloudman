@@ -10,7 +10,6 @@ from cm.services import ServiceDependency
 from cm.util import misc
 from distutils.version import StrictVersion
 
-import sys
 import urlparse
 import urllib2
 import re
@@ -31,43 +30,49 @@ class HadoopService(ApplicationService):
 
     def start(self):
         """
-        Starting hadoop. Starting hadoop is nothing but downloading
-        and extracting hadoop into its folders and set up the environment        for furthur use by hadoop.
+        Start Hadoop. This entails downloading and extracting Hadoop
+        binaries into its folders and setting up the environment
+        so Hadoop jobs can be submitted.
         """
-        log.debug("configuring hadoop")
+        log.debug("Configuring Hadoop")
         self.state = service_states.STARTING
         if self.unpack_hadoop():
             self.configure_hadoop()
             self.state = service_states.RUNNING
+            log.info("Done adding Hadoop service; service running.")
         else:
             log.error("Error adding service '%s'" % self.svc_type)
             self.state = service_states.ERROR
 
     def remove(self):
-        "Removing Hadoop related files."
+        """
+        Remove Hadoop related files from the system.
+        """
         log.info("Removing Hadoop service")
         self.state = service_states.SHUTTING_DOWN
         self._clean()
         self.state = service_states.SHUT_DOWN
 
     def _clean(self):
-        """ Clean up the system as if Hadoop was never installed. """
+        """
+        Clean up the system as if Hadoop was never installed.
+        """
         if self.state == service_states.SHUT_DOWN:
             misc.run('rm -rf %s/*' % paths.P_HADOOP_HOME)
 
     def unpack_hadoop(self):
         """
-        Download and extract hadoop into the specified folders. This function look for
-        hadoop both in predefined folder and the cloud and the one with the latest version
-        will be always extracted to be used in the system.
+        Download and extract Hadoop into the ``paths.P_HADOOP_HOME`` folder.
+
+        This function first looks for Hadoop in that folder and, if not found,
+        downloads the tar ball from the ``cloudman`` bucket.
         """
         all_done = False
-        log.debug("unpack hadoop")
-
+        log.debug("Unpacking Hadoop")
         hadoop_path = os.path.join(paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_TAR)
-        log.debug("hadoop path is " + hadoop_path)
+        log.debug("Hadoop path is " + hadoop_path)
         hadoop_intg_path = os.path.join(paths.P_HADOOP_TARS_PATH, paths.P_HADOOP_INTEGRATION_TAR)
-        log.debug("hadoop integ path is " + hadoop_intg_path)
+        log.debug("Hadoop SGE integration path is " + hadoop_intg_path)
         try:
             if not os.path.exists(paths.P_HADOOP_HOME):
                 os.makedirs(paths.P_HADOOP_HOME)
@@ -80,7 +85,7 @@ class HadoopService(ApplicationService):
             img_intg_ver = "0.0"
             if len(hdp) > 0:
                 hdp_file = os.path.basename(hdp[0])
-                img_hdp_ver, img_intg_ver = self.get_fileversion(hdp_file)
+                img_hdp_ver, img_intg_ver = self.get_file_version(hdp_file)
 
             u = urllib2.urlopen(paths.P_HADOOP_TAR_URL)
             s = u.read()
@@ -92,57 +97,56 @@ class HadoopService(ApplicationService):
             serv_intg_ver = "0.0"
 
             if m != None:
-                serv_hdp_ver, serv_intg_ver = self.get_fileversion(srv_hdp)
+                serv_hdp_ver, serv_intg_ver = self.get_file_version(srv_hdp)
                 m = re.search(paths.P_HADOOP_INTEGRATION_TAR, s)
                 srv_hdp_intg = m.group(0)
-            log.debug(srv_hdp)
-            log.debug(img_hdp_ver)
-            log.debug(serv_hdp_ver)
-            log.debug(img_intg_ver)
-            log.debug(serv_intg_ver)
+            # log.debug(srv_hdp)
+            # log.debug(img_hdp_ver)
+            # log.debug(serv_hdp_ver)
+            # log.debug(img_intg_ver)
+            # log.debug(serv_intg_ver)
             if StrictVersion(serv_hdp_ver) > StrictVersion(img_hdp_ver) or StrictVersion(serv_intg_ver) > StrictVersion(img_intg_ver):
-                log.debug("downloading hadoop")
                 u = urllib2.urlopen(urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp))
-                #log.debug("downloading hadoop URL:;")
+                log.debug("Downloading Hadoop from {0}".format(u))
                 localFile = open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp, 'w')
                 localFile.write(u.read())
                 localFile.close()
-                log.debug("downloaded hadoop")
+                log.debug("Downloaded Hadoop")
             if not os.path.exists(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg):
-                log.debug("downloading hadoop integ")
                 u = urllib2.urlopen(urlparse.urljoin(paths.P_HADOOP_TAR_URL, srv_hdp_intg))
-                #log.debug("downloading hadoop integ URL::")
+                log.debug("Downloading Hadoop SGE integration from {0}".format(u))
                 localFile = open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg, 'w')
                 localFile.write(u.read())
                 localFile.close()
-                log.debug("integr downloaded")
+                log.debug("Hadoop SGE integration downloaded")
             tar = tarfile.open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp)
             tar.extractall(paths.P_HADOOP_HOME)
             tar.close()
-            log.debug("hadoop extracted")
+            log.debug("Hadoop extracted to {0}".format(paths.P_HADOOP_HOME))
             tar = tarfile.open(paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg)
             tar.extractall(paths.P_HADOOP_HOME)
             tar.close()
-            log.debug("hadoop integ extracted")
+            log.debug("Hadoop SGE integration extracted to {0}".format(paths.P_HADOOP_HOME))
             misc.run("chown -R -c ubuntu " + paths.P_HADOOP_TARS_PATH + "/" + srv_hdp_intg)
             misc.run("chown -R -c ubuntu " + paths.P_HADOOP_TARS_PATH + "/" + srv_hdp)
             all_done = True
-        except:
-            log.debug("Error in downloading HADOOP")
-            log.debug(str(sys.exc_info()[:2]))
+        except Exception, e:
+            log.debug("Error downloading Hadoop: {0}".format(e))
             all_done = False
         return all_done
 
-    def get_fileversion(self, file_name):
+    def get_file_version(self, file_name):
         """
-        Extract and return the file version from the file name passed into it i.e.
-        Hadoop version , Program version. Our standard for vesrioning hadoo integration
-        versioning is hadoop.<hadoop version>.__.<release version>.<builde versio>.tar.gz.
-        If no version has found from the file name the version 0.0,0.0 will be returned.
-        The returned values should be compatible with from StrictVersion distutils.version
-        module.
+        Extract and return the file version from the file name passed into
+        the method, namely, Hadoop and program version.
+
+        Our standard for versioning Hadoop and SGE integration is as follows:
+        ``hadoop.<hadoop version>.__.<release version>.<builde versio>.tar.gz``
+
+        If no version is found from the file name, version ``0.0`` will be returned.
+        The returned values should be compatible with from StrictVersion
+        ``distutils.version`` module.
         """
-        log.debug(file_name)
         hdp_file_ver = file_name.lstrip('hadoop.').rstrip('tar.gz').rstrip('.')
         versions = hdp_file_ver.split('__')
         hadoop_version = "0.0"
@@ -150,30 +154,30 @@ class HadoopService(ApplicationService):
         try:
             hadoop_version = versions[0]
             build_version = versions[1]
-        except:
-            log.debug("Error in fileversion HADOOP")
-            log.debug(str(sys.exc_info()[:2]))
+        except Exception, e:
+            log.debug("Error extracting Hadoop's file version: {0}".format(e))
             hadoop_version = "0.0"
             build_version = "0.0"
-        log.debug(str(hadoop_version))
-        log.debug(str(build_version))
+        log.debug("Extracted Hadoop vererion: {0}".format(hadoop_version))
+        log.debug("Extracted Hadoop build version: {0}".format(build_version))
         return hadoop_version, build_version
 
     def configure_hadoop(self):
         """
-        Configure environment for running hadoop on demand.
+        Configure environment for running Hadoop on demand.
         """
         all_done = False
         try:
-            log.debug("hadoop env set")
+            log.debug("Setting up Hadoop environment")
             etcFile = open("/etc/environment", "a")
             etcFile.write("JAVA_HOME=\"/usr\"\n")
             etcFile.flush()
             etcFile.close()
-            log.debug("hadoop id_rsa set from::" + self.id_rsa_path)
-            shutil.copy(self.id_rsa_path, "/home/ubuntu/.ssh/id_rsa")
-            misc.run("chown -c ubuntu /home/ubuntu/.ssh/id_rsa")
-            log.debug("hadoop authFile set")
+            log.debug("Hadoop id_rsa set from::" + self.id_rsa_path)
+            hadoop_id_rsa = "/home/ubuntu/.ssh/id_rsa"
+            shutil.copy(self.id_rsa_path, hadoop_id_rsa)
+            misc.run("chown -c ubuntu {0}".format(hadoop_id_rsa))
+            log.debug("Hadoop authFile saved to {0}".format(hadoop_id_rsa))
             authFile = open("/home/ubuntu/.ssh/authorized_keys", "a")
             pubKeyFile = open(self.id_rsa_pub_key_path)
             authFile.write(pubKeyFile.read())
@@ -182,9 +186,8 @@ class HadoopService(ApplicationService):
             pubKeyFile.close()
             misc.run("chown -c ubuntu /home/ubuntu/.ssh/authorized_keys")
             all_done = True
-        except:
-            log.debug("Error in configuring HADOOP")
-            log.debug(str(sys.exc_info()[:2]))
+        except Exception, e:
+            log.debug("Error while configuring HADOOP: {0}".format(e))
             all_done = False
         return all_done
 
@@ -196,8 +199,7 @@ class HadoopService(ApplicationService):
         ``check_sge``) by setting ``self.state``, whose value is always the method's
         return value.
         """
-        ## TODO:: this method will be submitted every 5 sec
-        ## make sure the HADOOP might run
+        ## TODO: Add actual logic to make sure  Hadoop jobs run
         if self.state == service_states.RUNNING:
             return service_states.RUNNING
         else:
