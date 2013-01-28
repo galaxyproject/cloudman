@@ -80,8 +80,8 @@ rerun                 FALSE
 slots                 1
 tmpdir                /mnt/galaxyData/tmp
 shell                 /bin/bash
-prolog                NONE
-epilog                NONE
+prolog                $prolog_path
+epilog                $epilog_path
 shell_start_mode      posix_compliant
 starter_method        NONE
 suspend_method        NONE

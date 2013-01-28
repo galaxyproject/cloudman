@@ -260,7 +260,7 @@ def _get_s3connection(ud):
             log.info('connecting to Amazon S3 at {0}'.format(s3_url))
         else:
             log.info('connecting to custom S3 url: {0}'.format(s3_url))
-        url = urlparse.urlparse(s3_url)
+        url = urlparse(s3_url)
         if url.scheme == 'https':
             is_secure = True
         else:

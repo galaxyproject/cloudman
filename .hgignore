@@ -3,6 +3,7 @@ syntax: regexp
 \.svn$
 lib/*
 bin/*
+build/*
 
 syntax: glob
 
