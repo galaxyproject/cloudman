@@ -4,7 +4,7 @@ from cm.util import paths
 from cm.framework import messages
 from cm.clouds.cloud_config import CloudConfig
 
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
 logging.getLogger('boto').setLevel(logging.INFO)
 
 
@@ -20,11 +20,11 @@ class CMLogHandler(logging.Handler):
         self.logmessages.append(self.formatter.format(record))
 
 
-class UniverseApplication( object ):
+class UniverseApplication(object):
     """Encapsulates the state of a Universe application"""
-    def __init__( self, **kwargs ):
+    def __init__(self, **kwargs):
         print "Python version: ", sys.version_info[:2]
-        self.PERSISTENT_DATA_VERSION = 3 # Current expected and generated PD version
+        self.PERSISTENT_DATA_VERSION = 3  # Current expected and generated PD version
         cc = CloudConfig(app=self)
         # Get the type of cloud currently running on
         self.cloud_type = cc.get_cloud_type()
@@ -38,7 +38,7 @@ class UniverseApplication( object ):
         # (OpenNebula and dummy clouds do not support volumes yet so skip those)
         self.use_volumes = self.ud.get("use_volumes", self.cloud_type not in ['opennebula', 'dummy'])
         # Read config file and check for errors
-        self.config = config.Configuration( **kwargs )
+        self.config = config.Configuration(**kwargs)
         self.config.check()
         # Setup logging
         self.logger = CMLogHandler(self)
@@ -57,7 +57,7 @@ class UniverseApplication( object ):
             self.logger.setLevel(logging.INFO)
         log.addHandler(self.logger)
         config.configure_logging(self.config, self.ud)
-        log.debug( "Initializing app" )
+        log.debug("Initializing app")
         log.debug("Running on '{0}' type of cloud in zone '{1}' using image '{2}'."
             .format(self.cloud_type, self.cloud_interface.get_zone(),
             self.cloud_interface.get_ami()))
@@ -84,18 +84,17 @@ class UniverseApplication( object ):
                 self.ud = misc.normalize_user_data(self, self.ud)
         if self.ud.has_key('role'):
             if self.ud['role'] == 'master':
-                log.info( "Master starting" )
+                log.info("Master starting")
                 from cm.util import master
                 self.manager = master.ConsoleManager(self)
             elif self.ud['role'] == 'worker':
-                log.info( "Worker starting" )
+                log.info("Worker starting")
                 from cm.util import worker
                 self.manager = worker.ConsoleManager(self)
             self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
         else:
             log.error("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
-
 
     def shutdown(self, delete_cluster=False):
         if self.manager:

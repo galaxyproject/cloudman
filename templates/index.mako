@@ -384,14 +384,14 @@ vertical-align: top;
             % endif
 	                    Specify the initial storage size (in Gigabytes):
 	                </span>
-	                <div style="text-align:center;">
+	                <div style="text-align:left;margin-left: 18px">
 	                <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-	                Default size (10GB)
-	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:30px"> 
-	                Custom Size:
-	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="10">GB
+	                Default size (${default_data_size} GB)
+	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px"> 
+	                Custom size:
+	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
 	                </div>
-	                <span style="margin-left: 20px;" id="g_pss_vtag"></span>
+	                <span style="margin-left: 247px;" id="g_pss_vtag"></span>
                 </p>
         </div>
         <div id='extra_startup_options'>
@@ -957,7 +957,7 @@ $(document).ready(function() {
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
         var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        g_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
