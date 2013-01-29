@@ -23,8 +23,7 @@ class CM(BaseController):
         if self.app.ud['role'] == 'worker':
             return trans.fill_template('worker_index.mako', master_ip=self.app.ud['master_ip'])
         else:
-            permanent_storage_size = self.app.manager.get_permanent_storage_size(
-            )
+            permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
@@ -34,21 +33,18 @@ class CM(BaseController):
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
                     system_message = f.read()
             return trans.fill_template('index.mako',
-                                       permanent_storage_size=permanent_storage_size,
-                                       initial_cluster_type=initial_cluster_type,
-                                       cluster_name=cluster_name,
-                                       master_instance_type=self.app.cloud_interface.get_type(
-                                       ),
-                                       use_autoscaling=bool(self.app.manager.get_services(
-                                                            svc_role=ServiceRole.AUTOSCALE)),
-                                       image_config_support=BunchToo(
-                                       self.app.config.ic),
-                                       CM_url=CM_url,
-                                       cloud_type=self.app.ud.get(
-                                       'cloud_type', 'ec2'),
-                                       cloud_name=self.app.ud.get(
-                                       'cloud_name', 'amazon').lower(),
-                                       system_message=system_message)
+                                        permanent_storage_size=permanent_storage_size,
+                                        initial_cluster_type=initial_cluster_type,
+                                        cluster_name=cluster_name,
+                                        master_instance_type=self.app.cloud_interface.get_type(),
+                                        use_autoscaling=bool(self.app.manager.get_services(
+                                                             svc_role=ServiceRole.AUTOSCALE)),
+                                        image_config_support=BunchToo(self.app.config.ic),
+                                        CM_url=CM_url,
+                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                        cloud_name=self.app.ud.get('cloud_name', 'amazon').lower(),
+                                        system_message=system_message,
+                                        default_data_size=self.app.manager.get_default_data_size())
 
     @expose
     @TestFlag({})
@@ -71,14 +67,16 @@ class CM(BaseController):
                 return self.instance_state_json(trans)
             if startup_opt == "Galaxy" or startup_opt == "Data":
                 # Initialize form on the main UI contains two fields named ``pss``,
-                # which arrive as a list so pull out the actual storage size
-                # value
-                if isinstance(pss, list):
-                    ss = None
-                    for x in pss:
-                        if x:
-                            ss = x
-                    pss = ss
+                # which arrive as a list so pull out the actual storage size value
+                if galaxy_data_option == "custom-size":
+                    if isinstance(pss, list):
+                        ss = None
+                        for x in pss:
+                            if x:
+                                ss = x
+                        pss = ss
+                else:
+                    pss = self.app.manager.get_default_data_size()
                 if pss and pss.isdigit():
                     pss = int(pss)
                     self.app.manager.init_cluster(startup_opt, pss)
@@ -101,18 +99,14 @@ class CM(BaseController):
 
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
-        if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
+        if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):
             try:
-                CM_url = trans.app.config.get(
-                    "CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
-                # num_changes = int(changesets['default_CM_rev']) -
-                # int(changesets['user_CM_rev'])
-                CM_url += changesets['user_CM_rev'] + \
-                    '::' + changesets['default_CM_rev']
+                CM_url = trans.app.config.get("CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
+                # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
+                CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
             except Exception, e:
-                log.debug(
-                    "Error calculating changeset range for CM 'What's new' link: %s" % e)
+                log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
         return None
 
     @expose
@@ -125,8 +119,7 @@ class CM(BaseController):
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances': [self.app.manager.get_status_dict(
-        )] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -143,21 +136,18 @@ class CM(BaseController):
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
         if not fs_name:
-            fs_name = self.app.manager.get_services(
-                svc_role=ServiceRole.GALAXY_DATA)[0]
+            fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
         if delete_snap:
             delete_snap = True
-        log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "
-                  "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
-                                          "will" if delete_snap else "will not"))
+        log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
+                "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
+                "will" if delete_snap else "will not"))
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
-                # log.debug("Data volume size before expansion: '%s'" %
-                # self.app.manager.get_permanent_storage_size())
+                # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
                 if new_vol_size > self.app.manager.get_permanent_storage_size() and new_vol_size < 1000:
-                    self.app.manager.expand_user_data_volume(
-                        new_vol_size, vol_expand_desc, delete_snap)
+                    self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc, delete_snap)
         except ValueError, e:
             log.error("You must provide valid values: %s" % e)
             return "ValueError exception. Check the log."
@@ -176,11 +166,11 @@ class CM(BaseController):
 
     @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
-                        new_disk_size='', new_vol_fs_name='',
-                        vol_id=None, vol_fs_name='',
-                        snap_id=None, snap_fs_name='',
-                        bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-                        nfs_server=None, nfs_fs_name='', **kwargs):
+            new_disk_size='', new_vol_fs_name='',
+            vol_id=None, vol_fs_name='',
+            snap_id=None, snap_fs_name='',
+            bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
+            nfs_server=None, nfs_fs_name='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
@@ -205,8 +195,7 @@ class CM(BaseController):
         """
         dot = True if dot == 'on' else False
         persist = True if persist == 'on' else False
-        log.debug(
-            "Wanting to add a {1} file system of kind {0}".format(fs_kind,
+        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind,
             "persistent" if persist else "temporary"))
         if fs_kind == 'bucket':
             if bucket_name != '':
@@ -220,27 +209,23 @@ class CM(BaseController):
                     bucket_s_key = None
                 else:
                     bucket_s_key = bucket_s_key.strip()
-                self.app.manager.add_fs(
-                    bucket_name.strip(), bucket_fs_name.strip(),
+                self.app.manager.add_fs(bucket_name.strip(), bucket_fs_name.strip(),
                     bucket_a_key=bucket_a_key, bucket_s_key=bucket_s_key, persistent=persist)
             else:
-                log.error(
-                    "Wanted to add a new file system from a bucket but no bucket name was provided")
+                log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
-                log.debug("Adding '{2}' file system based on an existing {0}, {1}"
-                          .format(
-                          fs_kind, vol_id if fs_kind == 'volume' else snap_id,
-                          vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+                log.debug("Adding '{2}' file system based on an existing {0}, {1}"\
+                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
         elif fs_kind == 'new_volume':
-            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "
-                      "be deleted, of size {1}"
-                      .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
+            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "\
+                "be deleted, of size {1}"\
+                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
         elif fs_kind == 'nfs':
-            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
-                      .format(nfs_fs_name, ('' if persist else ' not')))
+            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."\
+                .format(nfs_fs_name, ('' if persist else ' not')))
         else:
-            log.error("Wanted to add a file system but did not recognize kind {0}".format(
-                fs_kind))
+            log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
 
     @expose
@@ -273,8 +258,7 @@ class CM(BaseController):
         if delete_cluster:
             delete_cluster = True
         if terminate_master_instance:
-            self.app.manager.terminate_master_instance(
-                delete_cluster=delete_cluster)
+            self.app.manager.terminate_master_instance(delete_cluster=delete_cluster)
             return self.instance_state_json(trans)
         self.app.shutdown(delete_cluster=delete_cluster)
         return self.instance_state_json(trans)
@@ -325,8 +309,8 @@ class CM(BaseController):
         try:
             number_nodes = int(number_nodes)
             force_termination = True if force_termination == 'True' else False
-            log.debug("Num nodes requested to terminate: %s, force termination: %s"
-                      % (number_nodes, force_termination))
+            log.debug("Num nodes requested to terminate: %s, force termination: %s" \
+                % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
@@ -344,8 +328,7 @@ class CM(BaseController):
     def tail(self, file_name, num_lines):
         """ Read num_lines from file_name starting at the end (using UNIX tail cmd)
         """
-        ps = subprocess.Popen("tail -n %s %s" % (
-            num_lines, file_name), shell=True, stdout=subprocess.PIPE)
+        ps = subprocess.Popen("tail -n %s %s" % (num_lines, file_name), shell=True, stdout=subprocess.PIPE)
         return str(ps.communicate()[0])
 
     @expose
@@ -353,37 +336,31 @@ class CM(BaseController):
         # Choose log file path based on service name
         log = "No '%s' log available." % service_name
         if service_name == 'Galaxy':
-            log_file = os.path.join(
-                self.app.path_resolver.galaxy_home, 'main.log')
+            log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
         elif service_name == 'SGE':
-            # For SGE, we can get either the service log file or the queue conf
-            # file
+            # For SGE, we can get either the service log file or the queue conf file
             q = kwargs.get('q', None)
             if q == 'conf':
-                log_file = os.path.join(
-                    self.app.path_resolver.sge_root, 'all.q.conf')
+                log_file = os.path.join(self.app.path_resolver.sge_root, 'all.q.conf')
             elif q == 'qstat':
                 log_file = os.path.join('/tmp', 'qstat.out')
-                # Save qstat output into a file so it can be read in the same
-                # way as log files
+                # Save qstat output into a file so it can be read in the same way as log files
                 try:
                     cmd = ('%s - galaxy -c "export SGE_ROOT=%s;\
                         . %s/default/common/settings.sh; \
                         %s/bin/lx24-amd64/qstat -f > %s"'
-                           % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, log_file))
+                        % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, log_file))
                     subprocess.call(cmd, shell=True)
                 except OSError:
                     pass
             else:
-                log_file = os.path.join(
-                    self.app.path_resolver.sge_cell, 'messages')
+                log_file = os.path.join(self.app.path_resolver.sge_cell, 'messages')
         elif service_name == 'CloudMan':
             log_file = "paster.log"
         elif service_name == 'GalaxyReports':
-            log_file = os.path.join(
-                self.app.path_resolver.galaxy_home, 'reports_webapp.log')
+            log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
         # Set log length
         if num_lines:
             if show == 'more':
@@ -428,17 +405,15 @@ class CM(BaseController):
     @expose
     def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
-        # status_dict['filesystems'] =
-        # self.app.manager.get_all_filesystems_status()
+        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
         status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
         status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
         snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status': str(snap_status[0]),
-                                   'progress': str(snap_status[1])}
+        status_dict['snapshot'] = {'status' : str(snap_status[0]),
+                                   'progress' : str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
-        status_dict['messages'] = self.messages_string(
-            self.app.msgs.get_messages())
+        status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
 
@@ -696,15 +671,11 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_public_hostname(
-                                   ),
-                                   key_pair_name=self.app.cloud_interface.get_key_pair_name(
-                                   ),
+                                   ip=self.app.cloud_interface.get_public_hostname(),
+                                   key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
-                                   bucket_cluster=self.app.ud[
-                                       'bucket_cluster'],
-                                   cloud_type=self.app.ud.get(
-                                       'cloud_type', 'ec2'),
+                                   bucket_cluster=self.app.ud['bucket_cluster'],
+                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'),
                                    initial_cluster_type=self.app.manager.initial_cluster_type)
 
     @expose
@@ -734,17 +705,14 @@ class CM(BaseController):
         """
         g_s = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
         if g_s and g_s[0].state == service_states.RUNNING:
-            # dns = 'http://%s' % str(
-            # self.app.cloud_interface.get_public_hostname() )
+            # dns = 'http://%s' % str( self.app.cloud_interface.get_public_hostname() )
             try:
                 dns = trans.request.host_url
             except:
                 # Default to the old method in case of error.
-                dns = 'http://%s' % str(
-                    self.app.cloud_interface.get_public_hostname())
+                dns = 'http://%s' % str(self.app.cloud_interface.get_public_hostname())
         else:
-            # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' %
-            # str( 'localhost:8080' )
+            # dns = '<a href="http://%s" target="_blank">Access Galaxy</a>' % str( 'localhost:8080' )
             dns = '#'
         return dns
 
@@ -799,12 +767,9 @@ class CM(BaseController):
         if brand:
             brand = "<span class='brand'>/%s</span>" % brand
         CM_url = self.get_CM_url(trans)
-        wiki_url = trans.app.config.get(
-            "wiki_url", "http://g2.trac.bx.psu.edu/")
-        bugs_email = trans.app.config.get(
-            "bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
-        blog_url = trans.app.config.get(
-            "blog_url", "http://g2.trac.bx.psu.edu/blog")
-        screencasts_url = trans.app.config.get(
-            "screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
+        wiki_url = trans.app.config.get("wiki_url", "http://g2.trac.bx.psu.edu/")
+        bugs_email = trans.app.config.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
+        blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
+        screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
         return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
+

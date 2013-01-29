@@ -56,7 +56,7 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances(
+        self.worker_instances = self.get_worker_instances()
         ) if self.app.cloud_type == 'ec2' else []
         self.disk_total = "0"
         self.disk_used = "0"
@@ -68,6 +68,9 @@ class ConsoleManager(BaseConsoleManager):
         self.master_exec_host = True
         self.initial_cluster_type = None
         self.services = []
+        # Static data - get snapshot IDs from the default bucket and add respective file systems
+        self.snaps = self._load_snapshot_data()
+        self.default_galaxy_data_size = 10
 
     def add_master_service(self, new_service):
         self.services.append(new_service)
@@ -180,6 +183,27 @@ class ConsoleManager(BaseConsoleManager):
             return ("configuring", None)
         return (None, None)
 
+    def _load_snapshot_data(self):
+        # Static data - get snapshot IDs from the default bucket and add respective file systems
+        s3_conn = self.app.cloud_interface.get_s3_connection()
+        snaps_file = 'cm_snaps.yaml'
+        snaps = None
+        # Get a list of auto-mount/default/read-only/reference data sources
+        if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+            snaps_file = misc.load_yaml_file(snaps_file)
+            snaps = snaps_file['static_filesystems']
+        return snaps
+
+    @TestFlag(10)
+    def get_default_data_size(self):
+        if not self.default_galaxy_data_size:
+            for snap in self.snaps:
+                roles = ServiceRole.from_string(snap['roles'])
+                if ServiceRole.GALAXY_DATA in roles:
+                    self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0]
+                    self.default_galaxy_data_size = self.snapshot.volume_size
+        return self.default_galaxy_data_size
+
     @TestFlag(False)
     def start(self):
         """
@@ -196,7 +220,7 @@ class ConsoleManager(BaseConsoleManager):
         # this should happen before SGE is added
         self.get_root_public_key()
 
-        # Always add SGE service
+       # Always add SGE service
         self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
         tfs = Filesystem(
@@ -219,8 +243,7 @@ class ConsoleManager(BaseConsoleManager):
             return False
         self.manager_started = True
 
-        # Check if a previously existing cluster is being recreated or if it is
-        # a new one
+        # Check if a previously existing cluster is being recreated or if it is a new one
         if not self.initial_cluster_type:  # this can get set by _handle_old_cluster_conf_format
             self.initial_cluster_type = self.app.ud.get('cluster_type', None)
             if self.initial_cluster_type is not None:
@@ -329,8 +352,8 @@ class ConsoleManager(BaseConsoleManager):
                         self.add_master_service(service_class(self.app))
                         processed_service = True
                     if (not processed_service) and (ServiceRole.SGE not in service_roles):  # SGE is added by default
-                        log.warning("Could not find service class matching userData service entry: %s"
-                                    % srvc['name'])
+                        log.warning("Could not find service class matching userData service entry: %s"\
+                                % srvc['name'])
             return True
         except Exception, e:
             log.error(
@@ -407,20 +430,15 @@ class ConsoleManager(BaseConsoleManager):
                     self.initial_cluster_type = 'Galaxy'
             if "data_filesystems" in self.app.ud:
                 for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
-                    log.debug(
-                        "Adding a previously existing data filesystem: '%s'" % fs)
-                    fs = Filesystem(self.app, fs)
-                                    # NGTODO: Something needs to be done here
-                                    # to pass correct svc_role
+                    log.debug("Adding a previously existing data filesystem: '%s'" % fs)
+                    fs = Filesystem(self.app, fs)  # NGTODO: Something needs to be done here to pass correct svc_role
                     for vol in vol_array:
                         fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
                     self.add_master_service(fs)
                     self.initial_cluster_type = 'Data'
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_name = srvc['service']
-                        # NGTODO: This is going on old format and using name.
-                        # Should be fixed after format conversion is done.
+                    service_name = srvc['service']  # NGTODO: This is going on old format and using name. Should be fixed after format conversion is done.
                     log.debug("Adding service: '%s'" % service_name)
                     # TODO: translation from predefined service names into
                     # classes is not quite ideal...
@@ -440,8 +458,7 @@ class ConsoleManager(BaseConsoleManager):
                                     service_name)
             return True
         except (BotoClientError, BotoServerError) as e:
-            log.error(
-                "Error reading existing cluster configuration file: %s" % e)
+            log.error("Error reading existing cluster configuration file: %s" % e)
             self.manager_started = False
             return False
 
@@ -512,8 +529,7 @@ class ConsoleManager(BaseConsoleManager):
         svcs = []
         for s in self.services:
             if s.name is None:  # Sanity check
-                log.error(
-                    "A name has not been assigned to the service. A value must be assigned to the svc.name property.")
+                log.error("A name has not been assigned to the service. A value must be assigned to the svc.name property.")
             elif s.name == svc_name:
                 return [s]  # Only one match possible - so return it immediately
             elif svc_role in s.svc_roles:
@@ -670,21 +686,18 @@ class ConsoleManager(BaseConsoleManager):
         if r == 3:
             dummy[0]['status'] = "Adding"
         if r == 4:  # NGTODO: Hardcoded links below to tools and indices?
-            dummy.append(
-                {"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
-                 "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
-                 "size": "10G", "size_used": "1.9G", "size_pct": "19%",
-                 "error_msg": None, "from_snap": "snap-bdr2whd"})
-            dummy.append(
-                {"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
-                 "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
-                 "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
-                 "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
-            dummy.append(
-                {"name": "custom", "status": "Available", "device": "/dev/sdg4",
-                 "kind": "Volume", "mount_point": "/mnt/custom", "DoT": "No",
-                 "size": "70G", "NFS_shared": True, "size_used": "53G", "size_pct": "7%",
-                 "error_msg": ""})
+            dummy.append({"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
+            "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
+            "size": "10G", "size_used": "1.9G", "size_pct": "19%",
+            "error_msg": None, "from_snap": "snap-bdr2whd"})
+            dummy.append({"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
+            "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
+            "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
+            "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
+            dummy.append({"name": "custom", "status": "Available", "device": "/dev/sdg4",
+            "kind": "Volume", "mount_point": "/mnt/custom", "DoT": "No",
+            "size": "70G", "NFS_shared": True, "size_used": "53G", "size_pct": "7%",
+            "error_msg": ""})
         return dummy
 
     @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
@@ -700,8 +713,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         status_dict = {}
         for srvc in self.services:
-            status_dict[
-                srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
+            status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
         return status_dict
 
     def get_galaxy_rev(self):
@@ -749,10 +761,8 @@ class ConsoleManager(BaseConsoleManager):
             if len(fs_arr) > 0:
                 fs_name = fs_arr[0].name
                 # NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
-                # We may later have to think about sanitizing/securing/escaping
-                # user input if the issue arises.
-                disk_usage = commands.getoutput(
-                    "df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
+                # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
+                disk_usage = commands.getoutput("df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
                 disk_usage = disk_usage.split(' ')
                 if len(disk_usage) == 3:
                     self.disk_total = disk_usage[0]
@@ -819,8 +829,7 @@ class ConsoleManager(BaseConsoleManager):
                     i = Instance(self.app, inst=reservation.instances[0],
                                  m_state=reservation.instances[0].state, reboot_required=True)
                     instances.append(i)
-                    log.info("Instance '%s' found alive (will configure it later)." %
-                             reservation.instances[0].id)
+                    log.info("Instance '%s' found alive (will configure it later)." % reservation.instances[0].id)
         except EC2ResponseError, e:
             log.debug("Error checking for live instances: %s" % e)
         return instances
@@ -924,9 +933,9 @@ class ConsoleManager(BaseConsoleManager):
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster shut down at %s (uptime: %s). If not done automatically, "
-                 "manually terminate the master instance (and any remaining instances "
-                 "associated with this cluster) from the %s cloud console."
-                 % (dt.datetime.utcnow(), (dt.datetime.utcnow() - self.startup_time), self.app.ud.get('cloud_name', '')))
+            "manually terminate the master instance (and any remaining instances "
+            "associated with this cluster) from the %s cloud console." \
+            % (dt.datetime.utcnow(), (dt.datetime.utcnow() - self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
@@ -936,9 +945,8 @@ class ConsoleManager(BaseConsoleManager):
         # back with a cluster after a reboot so cancel those
         self.shutdown(sd_filesystems=False, sd_instances=False, rebooting=True)
         if soft:
-            if misc.run(
-                "{0} restart".format(os.path.join(self.app.ud['boot_script_path'],
-                                                  self.app.ud['boot_script_name']))):
+            if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'], \
+                self.app.ud['boot_script_name']))):
                 return True
             else:
                 log.error(
@@ -1025,8 +1033,7 @@ class ConsoleManager(BaseConsoleManager):
         jobs. Return a list of ``Instance`` objects.
         """
         # log.debug( "Looking for idle instances" )
-        idle_instances = []
-            # List of Instance objects corresponding to idle instances
+        idle_instances = []  # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
             proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
                                     "%s/bin/lx24-amd64/qstat -f | grep all.q" % (
@@ -1035,21 +1042,16 @@ class ConsoleManager(BaseConsoleManager):
             qstat_out = proc.communicate()[0]
             # log.debug( "qstat output: %s" % qstat_out )
             instances = qstat_out.splitlines()
-            nodes_list = []
-                # list of nodes containing node's domain name and number of
-                # used processing slots
+            nodes_list = []  # list of nodes containing node's domain name and number of used processing slots
             idle_instances_dn = []  # list of domain names of idle instances
             for inst in instances:
-                # Get instance domain name and # of used processing slots:
-                # ['domU-12-31-38-00-48-D1.c:0']
-                nodes_list.append(inst.split(
-                    '@')[1].split(' ')[0] + ':' + inst.split('/')[1])
+                # Get instance domain name and # of used processing slots: ['domU-12-31-38-00-48-D1.c:0']
+                nodes_list.append(inst.split('@')[1].split(' ')[0] + ':' + inst.split('/')[1])
             # if len( nodes_list ) > 0:
             #     log.debug( "Processed qstat output: %s" % nodes_list )
 
             for node in nodes_list:
-                # If number of used slots on given instance is 0, mark it as
-                # idle
+                # If number of used slots on given instance is 0, mark it as idle
                 if int(node.split(':')[1]) == 0:
                     idle_instances_dn.append(node.split(':')[0])
             # if len( idle_instances_dn ) > 0:
@@ -1121,8 +1123,7 @@ class ConsoleManager(BaseConsoleManager):
             log.warning(
                 "Tried to remove an instance but did not receive instance ID")
             return False
-        log.debug(
-            "Specific termination of instance '%s' requested." % instance_id)
+        log.debug("Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
@@ -1175,20 +1176,15 @@ class ConsoleManager(BaseConsoleManager):
         """
         try:
             log.debug("Adding live instance '%s'" % instance_id)
-            reservation = self.app.cloud_interface.get_all_instances(
-                instance_id)
+            reservation = self.app.cloud_interface.get_all_instances(instance_id)
             if reservation and len(reservation[0].instances) == 1:
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
-                    i = Instance(
-                        self.app, inst=instance, m_state=instance.state)
-                    self.app.cloud_interface.add_tag(
-                        instance, 'clusterName', self.app.ud['cluster_name'])
-                    self.app.cloud_interface.add_tag(
-                        instance, 'role', 'worker')  # Default to 'worker' role tag
+                    i = Instance(self.app, inst=instance, m_state=instance.state)
+                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')  # Default to 'worker' role tag
                     self.worker_instances.append(i)
-                    i.send_alive_request(
-                    )  # to make sure info like ip-address and hostname are updated
+                    i.send_alive_request()  # to make sure info like ip-address and hostname are updated
                     log.debug('Added instance {0}....'.format(instance_id))
                 else:
                     log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." %
@@ -1199,7 +1195,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem adding a live instance (tried ID: %s): %s" % (instance_id, e))
         return False
 
-    def init_cluster(self, cluster_type, pss=1):
+    def init_cluster(self, cluster_type, pss=0):
         """
         Initialize the type for this cluster and start appropriate services,
         storing the cluster configuration into the cluster's bucket.
@@ -1235,37 +1231,28 @@ class ConsoleManager(BaseConsoleManager):
         self.initial_cluster_type = cluster_type
         log.info("Initializing '%s' cluster type." % cluster_type)
         if cluster_type == 'Galaxy':
-            # Static data - get snapshot IDs from the default bucket and add
-            # respective file systems
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            snaps_file = 'cm_snaps.yaml'
-            snaps = None
-            # Get a list of auto-mount/default/read-only/reference data sources
-            if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
-                snaps_file = misc.load_yaml_file(snaps_file)
-                snaps = snaps_file['static_filesystems']
             # Turn those data sources into file systems
-            if snaps:
+            if self.snaps:
                 attached_volumes = self.get_attached_volumes()
-                for snap in snaps:
-                    fs = Filesystem(self.app, snap['filesystem'], svc_roles=ServiceRole.from_string(
-                        snap['roles']))  # NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
-                    # Check if an already attached volume maps to the current
-                    # filesystem
-                    att_vol = self.get_vol_if_fs(
-                        attached_volumes, snap['filesystem'])
+                for snap in self.snaps:
+                    fs = Filesystem(self.app, snap['filesystem'], svc_roles=ServiceRole.from_string(snap['roles']))  # NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
+                    # Check if an already attached volume maps to the current filesystem
+                    att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
                     if att_vol:
                         log.debug("{0} file system has volume(s) already attached".format(
                             snap['filesystem']))
                         fs.add_volume(vol_id=att_vol.id,
                                       size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                        snap_size = att_vol.size
                     else:
-                        log.debug("There are no volumes already attached for file system {0}".format(
-                            snap['filesystem']))
-                        fs.add_volume(size=snap.get(
-                            'size', 0), from_snapshot_id=snap['snap_id'])
-                    log.debug("Adding a static filesystem '{0}' with volumes '{1}'"
-                              .format(fs.get_full_name(), fs.volumes))
+                        log.debug("There are no volumes already attached for file system {0}".format(snap['filesystem']))
+                        size = 0
+                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string(snap['roles']):
+                            size = pss
+                        fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
+                        snap_size = snap.get('size', 0)
+                    log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
+                        .format(fs.get_full_name(), fs.volumes))
                     self.add_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
@@ -1489,10 +1476,8 @@ class ConsoleManager(BaseConsoleManager):
         # instances can know what to get with minimim permissions
         fl = "shared_instance_file_list.txt"
         misc.dump_yaml_to_file(copied_key_names, fl)
-        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],
-                                 os.path.join(shared_names_root, fl), fl)
-        copied_key_names.append(os.path.join(
-            shared_names_root, fl))  # Add it to the list so it's permissions get set
+        misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'], os.path.join(shared_names_root, fl), fl)
+        copied_key_names.append(os.path.join(shared_names_root, fl))  # Add it to the list so it's permissions get set
         # Adjust permissions on the new keys and the created snapshots
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
         for snap_id in snap_ids:
@@ -1573,7 +1558,7 @@ class ConsoleManager(BaseConsoleManager):
                         tmp_ud = misc.load_yaml_file(tmp_pd)
                         # Currently, only a single volume snapshot can be associated
                         # a shared instance so pull it out of the list
-                        if 'shared_data_snaps' in tmp_ud and len(tmp_ud['shared_data_snaps']) == 1:
+                        if tmp_ud.has_key('shared_data_snaps') and len(tmp_ud['shared_data_snaps']) == 1:
                             snap_id = tmp_ud['shared_data_snaps'][0]
                         else:
                             snap_id = "Missing-ERROR"
@@ -1618,8 +1603,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Tried deleting shared instance for folder '%s' and snap '%s' but TESTFLAG is set." % (
                 shared_instance_folder, snap_id))
             return True
-        log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (
-            shared_instance_folder, snap_id))
+        log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
         ok = True  # Mark if encountered error but try to delete as much as possible
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1672,8 +1656,7 @@ class ConsoleManager(BaseConsoleManager):
         6. Unsuspend services
         """
         if self.app.TESTFLAG is True:
-            log.debug("Attempted to update file system '%s', but TESTFLAG is set." %
-                      file_system_name)
+            log.debug("Attempted to update file system '%s', but TESTFLAG is set." % file_system_name)
             return None
         log.info("Initiating file system '%s' update." % file_system_name)
         self.cluster_manipulation_in_progress = True
@@ -1694,10 +1677,8 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Removing file system '%s' service as part of the file system update"
                               % file_system_name)
                     svc.remove()
-                    # self.services.remove(svc) # Done by the
-                    # Filesystem.__remove method now
-                    log.debug("Creating file system '%s' from snaps '%s'" %
-                              (file_system_name, snap_ids))
+                    # self.services.remove(svc) # Done by the Filesystem.__remove method now
+                    log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
                     fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
@@ -1789,8 +1770,8 @@ class ConsoleManager(BaseConsoleManager):
             return None
         if self.check_for_new_version_of_CM():
             log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
-                     "It will be automatically available the next time this cluster is instantiated."
-                     % self.app.ud['bucket_cluster'])
+                "It will be automatically available the next time this cluster is instantiated." \
+                % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
             # called 'copy_name' and 'copy_boot_name', respectivley
@@ -1862,8 +1843,7 @@ class ConsoleManager(BaseConsoleManager):
         if self.root_pub_key is None:
             if not os.path.exists('id_rsa'):
                 log.debug("Generating root user's public key...")
-                ret_code = subprocess.call(
-                    'ssh-keygen -t rsa -N "" -f id_rsa', shell=True)
+                ret_code = subprocess.call('ssh-keygen -t rsa -N "" -f id_rsa', shell=True)
                 if ret_code == 0:
                     log.debug("Successfully generated root user's public key.")
                     f = open('id_rsa.pub')
@@ -1875,18 +1855,15 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug(
                         "Successfully retrieved root user's public key from file.")
                 else:
-                    log.error(
-                        "Encountered a problem while creating root user's public key, process returned error code '%s'." % ret_code)
+                    log.error("Encountered a problem while creating root user's public key, process returned error code '%s'." % ret_code)
             else:  # This is master restart, so
                 f = open('id_rsa.pub')
                 self.root_pub_key = f.readline()
                 f.close()
                 if not os.path.exists('/root/.ssh/id_rsa'):
-                    # Must copy private key at least to /root/.ssh for
-                    # passwordless login to work
+                    # Must copy private key at least to /root/.ssh for passwordless login to work
                     shutil.copy2('id_rsa', '/root/.ssh/id_rsa')
-                log.info(
-                    "Successfully retrieved root user's public key from file.")
+                log.info("Successfully retrieved root user's public key from file.")
         return self.root_pub_key
 
     @TestFlag(None)
@@ -1914,14 +1891,12 @@ class ConsoleManager(BaseConsoleManager):
         if worker_id:
             log.info("Checking status of instance '%s'" % worker_id)
             try:
-                reservation = self.app.cloud_interface.get_all_instances(
-                    worker_id.strip())
+                reservation = self.app.cloud_interface.get_all_instances(worker_id.strip())
                 if reservation:
                     workers_status[reservation[0]
                                    .instances[0].id] = reservation[0].instances[0].state
             except Exception, e:
-                log.error(
-                    "Error while updating instance '%s' status: %s" % (worker_id, e))
+                log.error("Error while updating instance '%s' status: %s" % (worker_id, e))
         else:
             logging.info("Checking status of all worker nodes... ")
             for w_instance in self.worker_instances:
@@ -2017,12 +1992,8 @@ class ConsoleManager(BaseConsoleManager):
                     'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
-            num_cpus = int(commands.getoutput(
-                "cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput(
-                "cat /proc/loadavg | cut -d' ' -f1-3")).strip()
-                    # Returns system load in format "0.00 0.02 0.39" for the
-                    # past 1, 5, and 15 minutes, respectivley
+            num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
+            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2110,8 +2081,7 @@ class ConsoleMonitor(object):
         :type inst_id: string
         :type state: string
         """
-        log.debug("Updating local ref to instance '%s' state to '%s'" %
-                  (inst_id, state))
+        log.debug("Updating local ref to instance '%s' state to '%s'" % (inst_id, state))
         for inst in self.app.manager.worker_instances:
             if inst.id == inst_id:
                 inst.sw_state = state
@@ -2124,7 +2094,7 @@ class ConsoleMonitor(object):
         # Grow galaxyData filesystem
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if ServiceRole.GALAXY_DATA in svc.svc_role:
+            if ServiceRole.GALAXY_DATA in svc.svc_roles:
                 log.debug("Expanding '%s'" % svc.get_full_name())
                 svc.expand()
 
@@ -2321,8 +2291,8 @@ class ConsoleMonitor(object):
                 return match
 
             if not do_match():
-                log.debug("No instance (%s) match found for message %s; will add instance now!"
-                          % (m.properties['reply_to'], m.body))
+                log.debug("No instance (%s) match found for message %s; will add instance now!" \
+                    % (m.properties['reply_to'], m.body))
                 if self.app.manager.add_live_instance(m.properties['reply_to']):
                     do_match()
                 else:
@@ -2359,8 +2329,7 @@ class ConsoleMonitor(object):
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
                 for s in self.app.manager.services:
-                    svcs_state += "%s..%s; " % (s.get_full_name(
-                    ), 'OK' if s.state == 'Running' else s.state)
+                    svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances
                 for w_instance in self.app.manager.worker_instances:
@@ -2418,13 +2387,11 @@ class Instance(object):
         self.is_alive = False
         self.node_ready = False
         self.num_cpus = 1
-        self.time_rebooted = dt.datetime(
-            2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.time_rebooted = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
         self.reboot_count = 0
         self.REBOOT_COUNT_THRESHOLD = self.TERMINATE_COUNT_THRESHOLD = 4
         self.terminate_attempt_count = 0
-        self.last_comm = dt.datetime(
-            2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.last_comm = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -2481,10 +2448,8 @@ class Instance(object):
             log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
                 "last m_state change before {3} | time_rebooted before {4}".format(
                 self.get_desc(), instance_states.RUNNING,
-                dt.timedelta(
-                    seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
-                dt.timedelta(seconds=(
-                    dt.datetime.utcnow() - self.last_m_state_change).seconds),
+                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
+                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_m_state_change).seconds),
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.time_rebooted).seconds)))
             if (dt.datetime.utcnow() - self.last_comm).seconds > 100 and \
                (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
@@ -2600,9 +2565,8 @@ class Instance(object):
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
                     self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatSeconds(
-                dt.datetime.utcnow() - self.last_m_state_change),
-                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
+            return [self.id, self.m_state, misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), \
+                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
                     self.sge_started, self.worker_status]
 
     def get_id(self):
@@ -2631,8 +2595,7 @@ class Instance(object):
         """ Reboot this instance.
         """
         if self.inst is not None:
-            log.info("Rebooting instance {0} (reboot #{1}).".format(
-                self.id, self.reboot_count + 1))
+            log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
             try:
                 self.inst.reboot()
                 self.time_rebooted = dt.datetime.utcnow()
@@ -2728,7 +2691,6 @@ class Instance(object):
     def send_alive_request(self):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id
                                                     )
-
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2740,13 +2702,8 @@ class Instance(object):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
         if self.app.TESTFLAG is True:
             return
-        self.app.manager.console_monitor.conn.send(
-            'RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
+        self.app.manager.console_monitor.conn.send('RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
         log.info("\tMT: Sent RESTART message to worker '%s'" % self.id)
-
-    def send_sync_etc_host(self, msg):
-        self.app.manager.console_monitor.conn.send(
-            'SYNC_ETC_HOSTS | ' + msg, self.id)
 
     def update_spot(self, force=False):
         """ Get an update on the state of a Spot request. If the request has entered
@@ -2793,8 +2750,7 @@ class Instance(object):
         return self.spot_state
 
     def get_private_ip(self):
-        # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id,
-        # self.private_ip ) )
+        # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
         if self.app.TESTFLAG is True:
             log.debug(
                 "Attempted to get instance private IP, but TESTFLAG is set. Returning 127.0.0.1")
@@ -2856,17 +2812,15 @@ class Instance(object):
             "Sent mount points %s to worker %s" % (mount_points, self.id))
 
     def send_master_pubkey(self):
-        # log.info("\tMT: Sending MASTER_PUBKEY message: %s" %
-        # self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s'
+        # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
+        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s' \
             % self.app.manager.get_root_public_key(), self.id)
         log.debug("Sent master public key to worker instance '%s'." % self.id)
-        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'"
+        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'" \
             % (self.app.manager.get_root_public_key(), self.id))
 
     def send_start_sge(self):
-        log.debug(
-            "\tMT: Sending START_SGE message to instance '%s'" % self.id)
+        log.debug("\tMT: Sending START_SGE message to instance '%s'" % self.id)
         self.app.manager.console_monitor.conn.send('START_SGE', self.id)
 
     def send_add_s3fs(self, bucket_name, svc_roles):
@@ -2913,8 +2867,7 @@ class Instance(object):
             elif msg_type == "MOUNT_DONE":
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
-                if self.app.cloud_type in ('openstack', 'eucalyptus', 'ec2'):
-                    hdp_hosts = ''
+                if self.app.cloud_type in ('openstack', 'eucalyptus'):
                     hn2 = ''
                     if '.' in self.local_hostname:
                         hn2 = (self.local_hostname).split('.')[0]
@@ -2936,7 +2889,7 @@ class Instance(object):
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
-                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts"
+                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" \
                     % self.id)
                 try:
                     sge_svc = self.app.manager.get_services(
@@ -2990,3 +2943,4 @@ class Instance(object):
                 log.debug("Unknown Message: %s" % msg)
         else:
             log.error("Epic Failure, squeue not available?")
+
