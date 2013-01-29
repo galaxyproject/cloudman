@@ -28,20 +28,21 @@ class CM(BaseController):
             CM_url = self.get_CM_url(trans)
             system_message = None
             if os.path.exists(paths.SYSTEM_MESSAGES_FILE):
-                #Cloudman system messages from cm_boot exist
+                # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
                     system_message = f.read()
-            return trans.fill_template( 'index.mako',
-                                        permanent_storage_size = permanent_storage_size,
-                                        initial_cluster_type = initial_cluster_type,
-                                        cluster_name = cluster_name,
-                                        master_instance_type = self.app.cloud_interface.get_type(),
-                                        use_autoscaling = bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
-                                        image_config_support = BunchToo(self.app.config.ic),
-                                        CM_url = CM_url,
-                                        cloud_type = self.app.ud.get('cloud_type', 'ec2'),
-                                        cloud_name = self.app.ud.get('cloud_name', 'amazon').lower(),
-                                        system_message = system_message)
+            return trans.fill_template('index.mako',
+                                        permanent_storage_size=permanent_storage_size,
+                                        initial_cluster_type=initial_cluster_type,
+                                        cluster_name=cluster_name,
+                                        master_instance_type=self.app.cloud_interface.get_type(),
+                                        use_autoscaling=bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
+                                        image_config_support=BunchToo(self.app.config.ic),
+                                        CM_url=CM_url,
+                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                        cloud_name=self.app.ud.get('cloud_name', 'amazon').lower(),
+                                        system_message=system_message,
+                                        default_data_size=self.app.manager.get_default_data_size())
 
     @expose
     @TestFlag({})
@@ -75,7 +76,7 @@ class CM(BaseController):
                                 ss = x
                         pss = ss
                 else:
-                    pss = 10  # TODO: Should get this value from snapshot both here and in UI
+                    pss = self.app.manager.get_default_data_size()
                 if pss and pss.isdigit():
                     pss = int(pss)
                     self.app.manager.init_cluster(startup_opt, pss)
