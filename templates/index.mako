@@ -384,11 +384,13 @@ vertical-align: top;
 	                <div style="text-align:left;margin-left: 18px">
 	                <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
 	                Default size (${default_data_size} GB)
-	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px"> 
+	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
 	                Custom size:
 	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
 	                </div>
-	                <span style="margin-left: 247px;" id="g_pss_vtag"></span>
+                    <div style="height: 5px;">
+    	                <span style="margin-left: 247px;" id="g_pss_vtag"></span>
+                    </div>
                 </p>
         </div>
         <div id='extra_startup_options'>
@@ -1005,7 +1007,7 @@ $(document).ready(function() {
     $('#galaxy-custom-size').click(function() {
         $('#g_pss').focus();
     });
-    $('#g_pss').focus(function() {    
+    $('#g_pss').focus(function() {
         $('#galaxy-cluster').attr('checked', 'checked');
         $('#galaxy-custom-size').attr('checked', 'checked');
     });

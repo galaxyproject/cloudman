@@ -365,15 +365,13 @@ div.form-row-input > input{max-width:300px;}
     right:0px;
     z-index:100;
 }
-#voloverlay{
-    position:absolute;
-}
 
 #volume_config{
     width: 500px;
     margin-left: -250px;
     left: 50%;
     z-index: 101;
+    position: absolute;
 }
 
 a.boxclose{
