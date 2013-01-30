@@ -17,6 +17,7 @@ P_LN = "/bin/ln"
 # Configs
 C_PSQL_PORT = "5840"
 USER_DATA_FILE = "userData.yaml"
+SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/profile"
 
 # Paths
@@ -30,8 +31,8 @@ P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 # in the file hdfs-start.sh from sge_integration
 P_HADOOP_HOME = "/opt/hadoop/"
 P_HADOOP_TARS_PATH = "/opt/hadoop/"
-## P_HADOOP_TAR is a regex format file name to find the latest hadoop from the site or directory
-## the standard for the versioning here is "hadoop.<hadoop release number>__<release numbere.build number>.tar.gz"
+# # P_HADOOP_TAR is a regex format file name to find the latest hadoop from the site or directory
+# # the standard for the versioning here is "hadoop.<hadoop release number>__<release numbere.build number>.tar.gz"
 # if no version is set it is assumed 0.0 and would be replaced if any
 # newer is found
 P_HADOOP_TAR = "hadoop\.((([|0-9])*\.)*[0-9]*__([0-9]*\.)*[0-9]+){0,1}\.{0,1}tar\.gz"

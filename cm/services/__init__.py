@@ -40,6 +40,7 @@ class ServiceRole(object):
     GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'name': "Generic FS"}
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
                      "Transient NFS FS"}
+    HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
 
     @staticmethod
     def get_type(role):
