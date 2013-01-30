@@ -99,7 +99,7 @@ class CM(BaseController):
 
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
-        if changesets.has_key('default_CM_rev') and changesets.has_key('user_CM_rev'):
+        if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
             try:
                 CM_url = trans.app.config.get("CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])

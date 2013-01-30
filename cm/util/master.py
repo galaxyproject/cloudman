@@ -1557,7 +1557,7 @@ class ConsoleManager(BaseConsoleManager):
                         tmp_ud = misc.load_yaml_file(tmp_pd)
                         # Currently, only a single volume snapshot can be associated
                         # a shared instance so pull it out of the list
-                        if tmp_ud.has_key('shared_data_snaps') and len(tmp_ud['shared_data_snaps']) == 1:
+                        if 'shared_data_snaps' in tmp_ud and len(tmp_ud['shared_data_snaps']) == 1:
                             snap_id = tmp_ud['shared_data_snaps'][0]
                         else:
                             snap_id = "Missing-ERROR"
