@@ -56,8 +56,7 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances()
-        ) if self.app.cloud_type == 'ec2' else []
+        self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
@@ -2222,16 +2221,16 @@ class ConsoleMonitor(object):
         misc.save_file_to_bucket(
             s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz',
             os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
-            try:
-                # Corrently, metadata only works on ec2 so set it only there
-                if self.app.cloud_type == 'ec2':
-                    with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
-                        rev = rev_file.read()
-                misc.set_file_metadata(s3_conn, self.app.ud[
-                                       'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
-            except Exception, e:
-                log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
-                          'bucket_cluster'], e))
+        try:
+            # Corrently, metadata only works on ec2 so set it only there
+            if self.app.cloud_type == 'ec2':
+                with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+                    rev = rev_file.read()
+            misc.set_file_metadata(s3_conn, self.app.ud[
+                                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+        except Exception, e:
+            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
+                      'bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful
         # as a reference)
         cn_file = os.path.join(self.app.ud['cloudman_home'],
@@ -2240,9 +2239,9 @@ class ConsoleMonitor(object):
         # if not misc.file_exists_in_bucket(s3_conn,
         # self.app.ud['bucket_cluster'], "%s.clusterName" %
         # self.app.ud['cluster_name']):
-            with open(cn_file, 'w'):
-                pass
-            if os.path.exists(cn_file):
+        with open(cn_file, 'w'):
+            pass
+        if os.path.exists(cn_file):
             log.debug("Saving '%s' file to cluster bucket '%s' as '%s.clusterName'" % (
                 cn_file, self.app.ud['bucket_cluster'], self.app.ud['cluster_name']))
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],

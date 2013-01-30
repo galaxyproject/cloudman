@@ -48,7 +48,7 @@ class CM(BaseController):
 
     @expose
     @TestFlag({})
-    def initialize_cluster(self, trans, startup_opt, pss=None, shared_bucket=None):
+    def initialize_cluster(self, trans, startup_opt, galaxy_data_option="custom-size", pss=None, shared_bucket=None):
         """
         Call this method if the current cluster has not yet been initialized to
         initialize it. This method should be called only once.

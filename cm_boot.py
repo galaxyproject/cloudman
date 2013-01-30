@@ -260,7 +260,7 @@ def _get_s3connection(ud):
             log.info('connecting to Amazon S3 at {0}'.format(s3_url))
         else:
             log.info('connecting to custom S3 url: {0}'.format(s3_url))
-        url = urlparse(s3_url)
+        url = urlparse.urlparse(s3_url)
         if url.scheme == 'https':
             is_secure = True
         else:
@@ -489,7 +489,7 @@ def _system_message(message_contents):
             f.write(message_contents)
     # Copy message to appropriate places in nginx err_502.html pages.
     # possible_nginx_paths = ['/opt/galaxy/pkg/nginx/html/errdoc/gc2_502.html',
-                            #'/usr/nginx/html/errdoc/gc2_502.html']
+                            # '/usr/nginx/html/errdoc/gc2_502.html']
 
 
 def migrate_1():
@@ -498,7 +498,7 @@ def migrate_1():
     # Upgrade DB
     # copy tools FS to the data FS
     # adjust directory names/paths to match the new FS structure
-    # sed for predefined full old paths (eg, Galaxy’s env.sh files, EMBOSS tools?)
+    # sed for predefined full old paths (eg, Galaxy's env.sh files, EMBOSS tools?)
     # create new directory structure with any missing dirs
     # unmount file systems from persistent_data.yaml
     # update persistent_data.yaml
