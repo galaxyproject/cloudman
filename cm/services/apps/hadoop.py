@@ -1,19 +1,19 @@
-import shutil
-import tarfile
 import os
-
-from cm.services.apps import ApplicationService
-from cm.util import paths
-from cm.services import service_states
-from cm.services import ServiceRole
-from cm.services import ServiceDependency
-from cm.util import misc
-from distutils.version import StrictVersion
-
-import urlparse
-import urllib2
 import re
 import glob
+import shutil
+import tarfile
+import urllib2
+import urlparse
+import threading
+from distutils.version import StrictVersion
+
+from cm.util import misc
+from cm.util import paths
+from cm.services import ServiceRole
+from cm.services import service_states
+from cm.services import ServiceDependency
+from cm.services.apps import ApplicationService
 
 import logging
 log = logging.getLogger('cloudman')
@@ -37,6 +37,14 @@ class HadoopService(ApplicationService):
         """
         log.debug("Configuring Hadoop")
         self.state = service_states.STARTING
+        threading.Thread(target=self.__start).start()
+
+    def __start(self):
+        """
+        Do the actual unpacking and configuring for Hadoop.
+        This method is intended to be called in a separate thread
+        and this is because the file download may take a while.
+        """
         if self.unpack_hadoop():
             self.configure_hadoop()
             self.state = service_states.RUNNING
