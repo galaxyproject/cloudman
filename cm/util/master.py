@@ -2739,10 +2739,12 @@ class Instance(object):
                         elif self.spot_state == spot_states.ACTIVE:
                             # We should have an instance now
                             self.id = req.instance_id
-                            self.get_cloud_instance_object()
+                            instance = self.get_cloud_instance_object()
                             log.info("Spot request {0} filled with instance {1}"
                                 .format(self.spot_request_id, self.id))
-
+                            self.app.cloud_interface.add_tag(instance,
+                                'clusterName', self.app.ud['cluster_name'])
+                            self.app.cloud_interface.add_tag(instance, 'role', 'worker')
             except EC2ResponseError, e:
                 log.error("Trouble retrieving spot request {0}: {1}".format(
                     self.spot_request_id, e))
