@@ -139,7 +139,7 @@ class CM(BaseController):
             fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
         if delete_snap:
             delete_snap = True
-        log.debug("Initating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
+        log.debug("Initiating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
                 "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
                 "will" if delete_snap else "will not"))
         try:
@@ -157,12 +157,12 @@ class CM(BaseController):
         except Exception, g_ex:
             log.error("Unknown Exception: %s" % g_ex)
             return "Unknown exception. Check the log for details."
-        return "Initated '{0}' file system expansion".format(fs_name)
+        return "Initiated '{0}' file system expansion".format(fs_name)
 
     @expose
     def update_file_system(self, trans, fs_name):
         self.app.manager.update_file_system(fs_name)
-        return "Initiated persisiting of '{0}' file system".format(fs_name)
+        return "Initiated persisting of '{0}' file system".format(fs_name)
 
     @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
