@@ -317,16 +317,16 @@ class ConsoleManager(BaseConsoleManager):
         self.console_monitor.send_node_status()
         return ret_code
 
-    ## Configure hadoop necessary environment for further use
-    ## by hadoop instalation process through SGE
+    # # Configure hadoop necessary environment for further use
+    # # by hadoop instalation process through SGE
     def start_hadoop(self):
         # KWS: Optionally add Hadoop service based on config setting
         self.hadoop = HadoopService(self.app)
         self.hadoop.configure_hadoop()
 
-    ##<KWS>
+    # #<KWS>
     # Updating etc host by fetching the master's etc/hosts file
-    ## this is necessary for hadoop ssh component
+    # # this is necessary for hadoop ssh component
     def sync_etc_host(self, sync_path=paths.P_ETC_TRANSIENT_PATH):
 
         shutil.copyfile(sync_path, "/etc/hosts")
@@ -499,7 +499,7 @@ class ConsoleMonitor(object):
         elif message.startswith('ALIVE_REQUEST'):
             self.send_alive_message()
         elif message.startswith('SYNC_ETC_HOSTS'):
-            ##<KWS> synching etc host using the master one
+            # #<KWS> synching etc host using the master one
             sync_path = message.split(' | ')[1]
             self.app.manager.sync_etc_host()
 

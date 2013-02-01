@@ -40,7 +40,7 @@ class Filesystem(DataService):
         self.transient_storage = []  # Instance's transient storage
         self.name = name  # File system name
         self.persistent = persistent  # Whether it should be part of the cluster config
-        self.size = None      # Total size of this file system
+        self.size = None  # Total size of this file system
         self.size_used = None  # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
         self.dirty = False
@@ -210,7 +210,7 @@ class Filesystem(DataService):
             # Create a snapshot of the detached volume
             for vol in self.volumes:
                 smaller_vol_ids.append(vol.volume_id)
-                snap_id = vol.snapshot(self.grow['snap_description'])
+                snap_id = vol.create_snapshot(self.grow['snap_description'])
                 # Reset the reference to the cloud volume resource object
                 vol.volume = None
                 # Set the size for the new volume
@@ -259,7 +259,7 @@ class Filesystem(DataService):
                       self.get_full_name())
             return False
 
-    def snapshot(self, snap_description=None):
+    def create_snapshot(self, snap_description=None):
         """
         Create a snapshot of this file system.
 
@@ -270,7 +270,7 @@ class Filesystem(DataService):
         snap_ids = []
         # Create a snapshot of the detached volumes
         for vol in self.volumes:
-            snap_ids.append(vol.snapshot(snap_description=snap_description))
+            snap_ids.append(vol.create_snapshot(snap_description=snap_description))
         # After the snapshot is done, add the file system back as a cluster
         # service
         log.debug("{0} snapshot process completed; adding self to the list of master services"

@@ -1,6 +1,5 @@
 import os
 import threading
-
 from cm.util import misc
 from cm.util import cluster_status
 from cm.services import service_states

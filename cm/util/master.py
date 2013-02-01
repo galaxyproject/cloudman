@@ -1412,7 +1412,7 @@ class ConsoleManager(BaseConsoleManager):
         svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles:
-                snap_ids = svc.snapshot(snap_description="CloudMan share-a-cluster %s; %s"
+                snap_ids = svc.create_snapshot(snap_description="CloudMan share-a-cluster %s; %s"
                                         % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
@@ -1669,7 +1669,7 @@ class ConsoleManager(BaseConsoleManager):
             if svc.name == file_system_name:
                 found_fs_name = True
                 # Create a snapshot of the given volume/file system
-                snap_ids = svc.snapshot(snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s"
+                snap_ids = svc.create_snapshot(snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s"
                                         % (file_system_name, self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
                 # Remove the old volume by removing the entire service
                 if len(snap_ids) > 0:
