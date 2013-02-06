@@ -16,13 +16,13 @@ function update_application_status(id, content) {
     $(id).html(content);
     // Set color for services - `Running`: green, 'Error': red; anything else is tan
     if (content === 'Running') {
-        $(id).css("color", "#639B41");
+        $(id).css("color", "#037f26");
     }
     else if (content === 'Error') {
         $(id).css("color", "#BF3030");
     }
     else {
-        $(id).css("color", "#BFB795");
+        $(id).css("color", "#6F6C61");
     }
 }
 

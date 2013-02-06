@@ -402,18 +402,49 @@ def _unpack_cm():
                 os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
 
 
+def _virtualenv_exists(venv_name='CM'):
+    """
+    Check if virtual-burrito is installed and if a virtualenv named ``venv_name``
+    exists. If so, return ``True``; ``False`` otherwise.
+    """
+    vb_path = os.path.join(os.environ['HOME'], '.venvburrito/startup.sh')
+    if os.path.exists(vb_path):
+        cm_venv = _run("/bin/bash -l -c '. {0}; lsvirtualenv | grep {1}'".format(vb_path, venv_name))
+        if cm_venv and venv_name in cm_venv:
+            return True
+    return False
+
+
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
+    """
+    Compose a system level command used to control (i.e., start/stop) CloudMan.
+    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``
+    or ``--reload``. Note that this method will check if a virtualenv
+    ``cm_venv_name`` exists and, if it does, the returned control command
+    will include activation of the virtualenv.
+
+    Example return string: ``cd /mnt/cm; sh run.sh --daemon``
+    """
+    if _virtualenv_exists(cm_venv_name):
+        cmd = "/bin/bash -l -c '. $HOME/.venvburrito/startup.sh; workon {0}; cd {1}; sh run.sh {2}'"\
+            .format(cm_venv_name, CM_HOME, action)
+    else:
+        cmd = "cd {0}; sh run.sh {1}".format(CM_HOME, action)
+    return cmd
+
+
 def _start_cm():
     log.debug("Copying user data file from '%s' to '%s'" %
              (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE)))
     shutil.copyfile(os.path.join(
         CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
-    _run('cd %s; sh run.sh --daemon' % CM_HOME)
+    _run(_get_cm_control_command(action='--daemon'))
 
 
 def _stop_cm(clean=False):
     log.info("<< Stopping CloudMan from %s >>" % CM_HOME)
-    _run('cd %s; sh run.sh --stop-daemon' % CM_HOME)
+    _run(_get_cm_control_command(action='--stop-daemon'))
     if clean:
         _run('rm -rf {0}'.format(CM_HOME))
 
@@ -507,13 +538,15 @@ def migrate_1():
 def main():
     global log
     log = _setup_global_logger()
-    # _run('easy_install -U boto') # Update boto
-    _run('easy_install oca')
-         # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
-    _run('easy_install Mako==0.7.0')
-         # required for Galaxy Cloud AMI ami-da58aab3
-    _run('easy_install boto==2.6.0')  # required for older AMIs
-    _run('easy_install hoover')  # required for Loggly based cloud logging
+    if not _virtualenv_exists():
+        # TODO: It would probably be best to just use CloudMan's
+        # ``requirements.txt`` file and make sure all the libs are installed
+        # vs. installing them individually here? Maybe as part of CloudMan's
+        # ``run.sh``?
+        _run('easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
+        _run('easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
+        _run('easy_install boto==2.6.0')  # required for older AMIs
+        _run('easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     if len(sys.argv) > 1:

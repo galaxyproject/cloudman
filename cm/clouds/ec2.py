@@ -389,10 +389,9 @@ class EC2Interface(CloudInterface):
         log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
                   "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
                   "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
-                  .format(
-                  iid=self.get_ami(), min_num=min_num, num=num, key=self.get_key_pair_name(),
-                      sgs=", ".join(self.get_security_groups()), ud=worker_ud_str, type=instance_type,
-                      zone=self.get_zone()))
+                  .format(iid=self.get_ami(), min_num=min_num, num=num,
+                    key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
+                    ud=worker_ud_str, type=instance_type, zone=self.get_zone()))
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
@@ -400,23 +399,19 @@ class EC2Interface(CloudInterface):
             reservation = ec2_conn.run_instances(image_id=self.get_ami(),
                                                  min_count=min_num,
                                                  max_count=num,
-                                                 key_name=self.get_key_pair_name(
-                                                 ),
-                                                 security_groups=self.get_security_groups(
-                                                 ),
+                                                 key_name=self.get_key_pair_name(),
+                                                 security_groups=self.get_security_groups(),
                                                  user_data=worker_ud_str,
                                                  instance_type=instance_type,
                                                  placement=self.get_zone())
             time.sleep(3)  # Rarely, instances take a bit to register,
-                          # so wait a few seconds (although this is a very poor
-                          # 'solution')
+                           # so wait a few seconds (although this is a very poor
+                           # 'solution')
             if reservation:
                 for instance in reservation.instances:
-                    self.add_tag(
-                        instance, 'clusterName', self.app.ud['cluster_name'])
+                    self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.add_tag(instance, 'role', worker_ud['role'])
-                    i = Instance(
-                        app=self.app, inst=instance, m_state=instance.state)
+                    i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
         except BotoServerError, e:
@@ -440,28 +435,24 @@ class EC2Interface(CloudInterface):
                   "ec2_conn.request_spot_instances(price='{price}', image_id='{iid}', "
                   "count='{num}', key_name='{key}', security_groups=['{sgs}'], "
                   "instance_type='{type}', placement='{zone}', user_data='{ud}')"
-                  .format(
-                      price=price, iid=self.get_ami(), num=num, key=self.get_key_pair_name(),
-                  sgs=", ".join(self.get_security_groups()), type=instance_type,
-                  zone=self.get_zone(), ud=worker_ud_str))
+                  .format(price=price, iid=self.get_ami(), num=num, key=self.get_key_pair_name(),
+                    sgs=", ".join(self.get_security_groups()), type=instance_type,
+                    zone=self.get_zone(), ud=worker_ud_str))
         reqs = None
         try:
             ec2_conn = self.get_ec2_connection()
             reqs = ec2_conn.request_spot_instances(price=price,
                                                    image_id=self.get_ami(),
                                                    count=num,
-                                                   key_name=self.get_key_pair_name(
-                                                   ),
-                                                   security_groups=self.get_security_groups(
-                                                   ),
+                                                   key_name=self.get_key_pair_name(),
+                                                   security_groups=self.get_security_groups(),
                                                    instance_type=instance_type,
                                                    placement=self.get_zone(),
                                                    user_data=worker_ud_str)
             if reqs is not None:
                 for req in reqs:
                     i = Instance(app=self.app, spot_request_id=req.id)
-                    log.debug("Adding Spot request {0} as an Instance".format(
-                        req.id))
+                    log.debug("Adding Spot request {0} as an Instance".format(req.id))
                     self.app.manager.worker_instances.append(i)
         except EC2ResponseError, e:
             log.error("Trouble issuing a spot instance request: {0}".format(e))

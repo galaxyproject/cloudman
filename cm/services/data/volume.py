@@ -525,6 +525,11 @@ class Volume(BlockStorage):
                 snapshot.update()
             log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'" \
                 % (self.volume_id, snapshot.id))
+            self.app.cloud_interface.add_tag(snapshot, 'clusterName',
+                self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(
+                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+            self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
             self.snapshot_progress = None  # Reset because of the UI
             self.snapshot_status = None  # Reset because of the UI
             return str(snapshot.id)

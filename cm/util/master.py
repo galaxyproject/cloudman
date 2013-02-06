@@ -201,7 +201,7 @@ class ConsoleManager(BaseConsoleManager):
                 if ServiceRole.GALAXY_DATA in roles:
                     self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0]
                     self.default_galaxy_data_size = self.snapshot.volume_size
-        return self.default_galaxy_data_size
+        return str(self.default_galaxy_data_size)
 
     @TestFlag(False)
     def start(self):
@@ -214,7 +214,7 @@ class ConsoleManager(BaseConsoleManager):
 
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
-        # This is required for cnfiguring Hadoop the main hadoop worker still needs to be
+        # This is required for configuring Hadoop the main Hadoop worker still needs to be
         # bale to ssh into itself!!!
         # this should happen before SGE is added
         self.get_root_public_key()
@@ -858,6 +858,9 @@ class ConsoleManager(BaseConsoleManager):
         except EC2ResponseError, e:
             log.debug("Error checking for attached volumes: %s" % e)
         log.debug("Attached volumes: %s" % attached_volumes)
+        # Add ``clusterName`` tag to any attached volumes
+        for att_vol in attached_volumes:
+            self.app.cloud_interface.add_tag(att_vol, 'clusterName', self.app.ud['cluster_name'])
         return attached_volumes
 
     @TestFlag(None)
@@ -2731,18 +2734,25 @@ class Instance(object):
                     # If the state has changed, do a deeper update
                     if self.spot_state != old_state:
                         if self.spot_state == spot_states.CANCELLED:
-                            # The request was cancelled so remove this Instance
+                            # The request was canceled so remove this Instance
                             # object
-                            log.info("Spot request {0} was cancelled; removing Instance object {1}"
+                            log.info("Spot request {0} was canceled; removing Instance object {1}"
                                 .format(self.spot_request_id, self.id))
                             self._remove_instance()
                         elif self.spot_state == spot_states.ACTIVE:
                             # We should have an instance now
                             self.id = req.instance_id
-                            self.get_cloud_instance_object()
                             log.info("Spot request {0} filled with instance {1}"
                                 .format(self.spot_request_id, self.id))
-
+                            # Potentially give it a few seconds so everything gets registered
+                            for i in range(3):
+                                instance = self.get_cloud_instance_object()
+                                if instance:
+                                    self.app.cloud_interface.add_tag(instance,
+                                        'clusterName', self.app.ud['cluster_name'])
+                                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')
+                                    break
+                                time.sleep(5)
             except EC2ResponseError, e:
                 log.error("Trouble retrieving spot request {0}: {1}".format(
                     self.spot_request_id, e))
