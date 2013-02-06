@@ -86,7 +86,7 @@ class BlockStorage(object):
         """
         raise NotImplementedError()
 
-    def snapshot(self, snap_description=None):
+    def create_snapshot(self, snap_description=None):
         """ Create a point-in-time snapshot of this block storage resource
 
         :rtype: string

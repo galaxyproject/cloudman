@@ -501,7 +501,7 @@ class Volume(BlockStorage):
             return False
         return True
 
-    def snapshot(self, snap_description=None):
+    def create_snapshot(self, snap_description=None):
         """
         Crete a point-in-time snapshot of the current volume, optionally specifying
         a description for the snapshot.
