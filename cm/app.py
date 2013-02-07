@@ -89,6 +89,8 @@ class UniverseApplication(object):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
                 self.ud = misc.normalize_user_data(self, self.ud)
+
+    def startup(self):
         if 'role' in self.ud:
             if self.ud['role'] == 'master':
                 log.info("Master starting")

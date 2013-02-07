@@ -76,10 +76,10 @@ class CM(BaseController):
                                 ss = x
                         pss = ss
                 else:
-                    pss = self.app.manager.get_default_data_size()
+                    pss = str(self.app.manager.get_default_data_size())
                 if pss and pss.isdigit():
-                    pss = int(pss)
-                    self.app.manager.init_cluster(startup_opt, pss)
+                    pss_int = int(pss)
+                    self.app.manager.init_cluster(startup_opt, pss_int)
                     return self.instance_state_json(trans)
                 else:
                     msg = "Wrong or no value provided for the persistent "\
