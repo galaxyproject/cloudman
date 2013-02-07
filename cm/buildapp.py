@@ -48,6 +48,7 @@ def app_factory(global_conf, **kwargs):
     """Return a wsgi application serving the root object"""
     # Create the CM application
     app = UniverseApplication(global_conf=global_conf, **kwargs)
+    app.startup()
     atexit.register(app.shutdown)
     # Create the universe WSGI application
     webapp = cm.framework.WebApplication(app)
@@ -123,7 +124,7 @@ def wrap_in_middleware(app, global_conf, **local_conf):
     else:
         # Not in interactive debug mode, just use the regular error middleware
         from paste.exceptions import errormiddleware
-        app = errormiddleware.ErrorMiddleware(app, conf)
+        app = errormiddleware.ErrorMiddleware(app, conf, show_exceptions_in_wsgi_errors=True, error_log=log)
         log.debug("Enabling 'error' middleware")
     # Transaction logging (apache access.log style)
     if asbool(conf.get('use_translogger', True)):
