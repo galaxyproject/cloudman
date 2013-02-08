@@ -688,8 +688,7 @@ class Volume(BlockStorage):
             return False
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
-            log.debug(
-                "Unmounting volume-based FS from {0}".format(mount_point))
+            log.debug("Unmounting volume-based FS from {0}".format(mount_point))
             for counter in range(10):
                 if run('/bin/umount %s' % mount_point,
                         "Error unmounting file system '%s'" % mount_point,

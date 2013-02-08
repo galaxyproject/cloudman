@@ -407,7 +407,7 @@ def _virtualenv_exists(venv_name='CM'):
     Check if virtual-burrito is installed and if a virtualenv named ``venv_name``
     exists. If so, return ``True``; ``False`` otherwise.
     """
-    vb_path = os.path.join(os.getenv('HOME', '/root'), '.venvburrito/startup.sh')
+    vb_path = '/home/ubuntu/.venvburrito/startup.sh'
     if os.path.exists(vb_path):
         cm_venv = _run("/bin/bash -l -c '. {0}; lsvirtualenv | grep {1}'".format(vb_path, venv_name))
         if cm_venv and venv_name in cm_venv:

@@ -123,7 +123,7 @@ class PathResolver(object):
                 gh = os.path.join(galaxy_tools_fs_svc[0].mount_point, g_dir)
                 if os.path.exists(gh):
                     return gh
-        log.debug("Warning: Returning default path for galaxy_home")
+        # log.debug("Warning: Returning default path for galaxy_home")
         return P_GALAXY_HOME
 
     @property
