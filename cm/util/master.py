@@ -1702,7 +1702,11 @@ class ConsoleManager(BaseConsoleManager):
                       file_system_name)
             return False
 
-    def add_fs(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS], bucket_a_key=None, bucket_s_key=None, persistent=False):
+    def add_fs_bucket(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS],
+        bucket_a_key=None, bucket_s_key=None, persistent=False):
+        """
+        Add a new file system service for a bucket-based file system.
+        """
         log.info("Adding a {4} file system {3} from bucket {0} (w/ creds {1}:{2})"
                  .format(bucket_name, bucket_a_key, bucket_s_key, fs_name, persistent))
         fs = Filesystem(self.app, fs_name or bucket_name,
@@ -1714,6 +1718,24 @@ class ConsoleManager(BaseConsoleManager):
         for w_inst in self.worker_instances:
             w_inst.send_add_s3fs(bucket_name, fs_roles)
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
+
+    @TestFlag(None)
+    def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+        """
+        Add a new file system service for a NFS-based file system. Optionally,
+        provide password-based credentials (``username`` and ``pwd``) for
+        accessing the NFS server.
+        """
+        log.info("Adding a NFS-based file system {0} from NFS server {1}".format(fs_name, nfs_server))
+        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+        fs.add_nfs(nfs_server, username, pwd)
+        self.add_master_service(fs)
+        # Inform all workers to add the same FS (the file system will be the same
+        # and sharing it over NFS does not seems to work)
+        for w_inst in self.worker_instances:
+            w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+        log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
     def stop_worker_instances(self):
         """
@@ -2812,13 +2834,11 @@ class Instance(object):
         for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
             mount_points.append(
                 {'nfs_server': self.app.cloud_interface.get_public_ip(),
-                                 'shared_mount_path': fs.get_details()['mount_point'],
-                                 'fs_name': fs.get_details()['name']
-                                 })
+                 'shared_mount_path': fs.get_details()['mount_point'],
+                 'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})
         self.app.manager.console_monitor.conn.send('MOUNT | %s' % jmp, self.id)
-        log.debug(
-            "Sent mount points %s to worker %s" % (mount_points, self.id))
+        log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
 
     def send_master_pubkey(self):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
@@ -2833,10 +2853,26 @@ class Instance(object):
         self.app.manager.console_monitor.conn.send('START_SGE', self.id)
 
     def send_add_s3fs(self, bucket_name, svc_roles):
-        msg = 'ADDS3FS | {0} | {1}'.format(
-            bucket_name, ServiceRole.to_string(svc_roles))
-        log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(
-            msg=msg, inst=self.id))
+        msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
+        self._send_msg(msg)
+
+    def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
+        """
+        Send a message to the worker node requesting it to mount a new file system
+        form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
+        """
+        nfs_server_info = {
+            'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
+            'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
+        }
+        msg = json.dumps({'nfs_server_info': nfs_server_info})
+        self._send_msg(msg)
+
+    def _send_msg(self, msg):
+        """
+        An internal convenience method to log and send a message to the current instance.
+        """
+        log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(msg=msg, inst=self.id))
         self.app.manager.console_monitor.conn.send(msg, self.id)
 
     def handle_message(self, msg):
