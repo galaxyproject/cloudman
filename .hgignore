@@ -45,3 +45,7 @@ upload_cm_to_S3.py
 
 # For vim
 *.swp
+
+# Dev files
+.coverage
+htmlcov
