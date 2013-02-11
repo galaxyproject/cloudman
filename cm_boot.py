@@ -409,9 +409,13 @@ def _virtualenv_exists(venv_name='CM'):
     """
     vb_path = os.path.join(os.getenv('HOME', '/root'), '.venvburrito/startup.sh')
     if os.path.exists(vb_path):
+        log.debug("virtual-burrito seems to be installed")
         cm_venv = _run("/bin/bash -l -c '. {0}; lsvirtualenv | grep {1}'".format(vb_path, venv_name))
         if cm_venv and venv_name in cm_venv:
+            log.debug("'{0}' virtualenv found".format(venv_name))
             return True
+    log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist"
+        .format(venv_name))
     return False
 
 
@@ -507,7 +511,7 @@ def _fix_etc_hosts():
         _run('echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(
             ip=ip, hn1=hn, hn2=hn.split('.')[0]))
     except Exception, e:
-        log.error("Troble fixing /etc/hosts on NeCTAR: {0}".format(e))
+        log.error("Trouble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
 
 def _system_message(message_contents):

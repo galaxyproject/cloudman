@@ -341,6 +341,9 @@
         <% if (typeof(from_snap) != "undefined") { %>
             <tr><th>From snapshot:</th><td><%= from_snap %></td>
         <% } %>
+        <% if (typeof(nfs_server) != "undefined") { %>
+            <tr><th>NFS server:</th><td><%= nfs_server %></td>
+        <% } %>
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
         <tr><th>Persistent:</th><td><%= persistent %></td>

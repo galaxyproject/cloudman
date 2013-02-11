@@ -2156,6 +2156,8 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'snapshot':
                             fs['ids'] = [
                                 v.from_snapshot_id for v in srvc.volumes]
+                        elif srvc.kind == 'nfs':
+                            fs['nfs_server'] = srvc.nfs_fs.nfs_server
                         else:
                             log.error("Unknown filesystem kind {0}".format(
                                 srvc.kind))
@@ -2247,12 +2249,12 @@ class ConsoleMonitor(object):
             s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz',
             os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
         try:
-            # Corrently, metadata only works on ec2 so set it only there
+            # Currently, metadata only works on ec2 so set it only there
             if self.app.cloud_type == 'ec2':
                 with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
                     rev = rev_file.read()
-            misc.set_file_metadata(s3_conn, self.app.ud[
-                                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+                misc.set_file_metadata(s3_conn, self.app.ud[
+                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
         except Exception, e:
             log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
                       'bucket_cluster'], e))
@@ -2865,7 +2867,7 @@ class Instance(object):
             'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
             'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
         }
-        msg = json.dumps({'nfs_server_info': nfs_server_info})
+        msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
         self._send_msg(msg)
 
     def _send_msg(self, msg):

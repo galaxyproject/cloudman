@@ -75,6 +75,8 @@ class Filesystem(DataService):
             details = b._get_details(details)
         for ts in self.transient_storage:
             details = ts._get_details(details)
+        if self.kind == 'nfs':
+            details = self.nfs_fs._get_details(details)
         return details
 
     def _get_details(self, details):
@@ -140,8 +142,9 @@ class Filesystem(DataService):
                     self.get_full_name(), e))
                 return False
             self.status()
-            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3})"
-                      .format(self.get_full_name(), self.volumes, self.buckets, self.transient_storage))
+            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4})"
+                      .format(self.get_full_name(), self.volumes, self.buckets,
+                      self.transient_storage, self.nfs_fs.nfs_server))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"
