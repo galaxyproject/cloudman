@@ -27,6 +27,12 @@ class NfsFS(object):
     def __repr__(self):
         return str(self.nfs_server)
 
+    def _get_details(self, details):
+        details['nfs_server'] = self.nfs_server
+        details['DoT'] = "No"
+        details['kind'] = 'External NFS'
+        return details
+
     def start(self):
         """
         Start NfsFS service.
