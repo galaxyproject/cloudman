@@ -1,4 +1,4 @@
-## CloudMan
+## CloudMan ---
 
 Easily create a [compute cluster][9] on top of a [cloud computing infrastructure][11].
 

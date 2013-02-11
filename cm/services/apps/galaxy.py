@@ -19,7 +19,10 @@ class GalaxyService(ApplicationService):
         self.svc_type = "Galaxy"
         self.configured = False # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
-        self.env_vars = {"SGE_ROOT": paths.P_SGE_ROOT}
+        self.env_vars = {
+                         "SGE_ROOT": paths.P_SGE_ROOT,
+                         "DRMAA_LIBRARY_PATH" : "/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0"
+                         }
         self.reqs = {'Postgres': None,
                      'Filesystem': 'galaxyData',
                      'Filesystem': 'galaxyIndices',

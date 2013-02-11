@@ -266,8 +266,8 @@ class Volume(BlockStorage):
         # AWS-specific munging
         if base == '/dev/xvd':
             base = '/dev/sd'
-        if letter < 'f':
-            letter = 'e'
+#        if letter < 'f':
+#            letter = 'e'
         # Get the next device in line
         new_id = base + chr(ord(letter)+1)
         return new_id
