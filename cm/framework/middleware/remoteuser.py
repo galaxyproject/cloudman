@@ -49,8 +49,9 @@ UCSC_ARCHAEA_SERVERS = (
     'lowepub.cse.ucsc.edu',
 )
 
-class RemoteUser( object ):
-    def __init__( self, app, maildomain=None, ucsc_display_sites=[] ):
+
+class RemoteUser(object):
+    def __init__(self, app, maildomain=None, ucsc_display_sites=[]):
         self.app = app
         self.maildomain = maildomain
         self.allow_ucsc_main = False
@@ -59,33 +60,35 @@ class RemoteUser( object ):
             self.allow_ucsc_main = True
         if 'archaea' in ucsc_display_sites:
             self.allow_ucsc_archaea = True
-    def __call__( self, environ, start_response ):
+
+    def __call__(self, environ, start_response):
         # Allow through UCSC if the UCSC display links are enabled
-        if ( self.allow_ucsc_main or self.allow_ucsc_archaea ) and environ.has_key( 'REMOTE_ADDR' ):
+        if (self.allow_ucsc_main or self.allow_ucsc_archaea) and 'REMOTE_ADDR' in environ:
             try:
-                host = socket.gethostbyaddr( environ[ 'REMOTE_ADDR' ] )[0]
-            except( socket.error, socket.herror, socket.gaierror, socket.timeout ):
+                host = socket.gethostbyaddr(environ['REMOTE_ADDR'])[0]
+            except(socket.error, socket.herror, socket.gaierror, socket.timeout):
                 # in the event of a lookup failure, deny access
                 host = None
             if ( self.allow_ucsc_main and host in UCSC_MAIN_SERVERS ) or \
-               ( self.allow_ucsc_archaea and host in UCSC_ARCHAEA_SERVERS ):
-                environ[ 'HTTP_REMOTE_USER' ] = 'ucsc_browser_display@example.org'
-                return self.app( environ, start_response )
+               (self.allow_ucsc_archaea and host in UCSC_ARCHAEA_SERVERS):
+                environ[
+                    'HTTP_REMOTE_USER'] = 'ucsc_browser_display@example.org'
+                return self.app(environ, start_response)
         # Apache sets REMOTE_USER to the string '(null)' when using the
         # Rewrite* method for passing REMOTE_USER and a user is
         # un-authenticated.  Any other possible values need to go here as well.
-        if environ.has_key( 'HTTP_REMOTE_USER' ) and environ[ 'HTTP_REMOTE_USER' ] != '(null)':
+        if 'HTTP_REMOTE_USER' in environ and environ['HTTP_REMOTE_USER'] != '(null)':
             path_info = environ.get('PATH_INFO', '')
-            if path_info.startswith( '/user' ):
+            if path_info.startswith('/user'):
                 title = "Access to Galaxy user controls is disabled"
                 message = """
                     User controls are disabled when Galaxy is configured
                     for external authentication.
                 """
-                return self.error( start_response, title, message )
-            elif not environ[ 'HTTP_REMOTE_USER' ].count( '@' ):
+                return self.error(start_response, title, message)
+            elif not environ['HTTP_REMOTE_USER'].count('@'):
                 if self.maildomain is not None:
-                    environ[ 'HTTP_REMOTE_USER' ] += '@' + self.maildomain
+                    environ['HTTP_REMOTE_USER'] += '@' + self.maildomain
                 else:
                     title = "Access to Galaxy is denied"
                     message = """
@@ -98,8 +101,8 @@ class RemoteUser( object ):
                         variable <code>remote_user_maildomain</code> must be set
                         before you may access Galaxy.
                     """
-                    return self.error( start_response, title, message )
-            return self.app( environ, start_response )
+                    return self.error(start_response, title, message)
+            return self.app(environ, start_response)
         else:
             title = "Access to Galaxy is denied"
             message = """
@@ -109,7 +112,8 @@ class RemoteUser( object ):
                 generally due to a misconfiguration in the upstream server.</p>
                 <p>Please contact your local Galaxy administrator.
             """
-            return self.error( start_response, title, message )
-    def error( self, start_response, title="Access denied", message="Please contact your local Galaxy administrator." ):
-        start_response( '403 Forbidden', [('Content-type', 'text/html')] )
+            return self.error(start_response, title, message)
+
+    def error(self, start_response, title="Access denied", message="Please contact your local Galaxy administrator."):
+        start_response('403 Forbidden', [('Content-type', 'text/html')])
         return [errorpage % (title, message)]

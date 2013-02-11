@@ -1,8 +1,8 @@
-class Bunch( object ):
+class Bunch(object):
     """
     http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52308
 
-    Often we want to just collect a bunch of stuff together, naming each item of 
+    Often we want to just collect a bunch of stuff together, naming each item of
     the bunch; a dictionary's OK for that, but a small do-nothing class is even handier, and prettier to use.
     """
     def __init__(self, **kwds):
@@ -26,8 +26,9 @@ class Bunch( object ):
     def __setitem__(self, k, v):
         self.__dict__.__setitem__(k, v)
 
+
 class BunchToo:
-    """ A Bunch that allows keys of an existing dict to be recalled as object 
+    """ A Bunch that allows keys of an existing dict to be recalled as object
     fields. For example:
     d = {'a':1, 'b':{'foo':2}}
     b = Bunch(d)

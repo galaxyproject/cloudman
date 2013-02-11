@@ -38,10 +38,11 @@ class TransientStorage(BlockStorage):
         """
         Transient storage-specific file system details
         """
-        details['DoT']      = "Yes"
-        details['device']   = self.device
+        details['DoT'] = "Yes"
+        details['device'] = self.device
         # TODO: keep track of any errors
-        details['err_msg']  = None if details.get('err_msg', '') == '' else details['err_msg']
+        details['err_msg'] = None if details.get(
+            'err_msg', '') == '' else details['err_msg']
         return details
 
     def add(self):
@@ -50,17 +51,20 @@ class TransientStorage(BlockStorage):
         and exporting it over NFS. Set the owner of the repo as ``ubuntu`` user.
         """
         try:
-            log.debug("Adding transient file system at {0}".format(self.fs.mount_point))
+            log.debug("Adding transient file system at {0}".format(
+                self.fs.mount_point))
             if not os.path.exists(self.fs.mount_point):
                 os.mkdir(self.fs.mount_point)
-            os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2], grp.getgrnam("ubuntu")[2])
+            os.chown(self.fs.mount_point, pwd.getpwnam(
+                "ubuntu")[2], grp.getgrnam("ubuntu")[2])
             self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
-                    % self.fs.mount_point)
+                                             % self.fs.mount_point)
             if self.fs.add_nfs_share(self.fs.mount_point):
                 self.status()
                 return True
             else:
-                log.warning('Trouble sharing {0} over NFS?'.format(self.fs.mount_point))
+                log.warning('Trouble sharing {0} over NFS?'.format(
+                    self.fs.mount_point))
         except OSError, e:
             log.debug("Trouble adding transient file system: {0}".format(e))
 
@@ -70,7 +74,8 @@ class TransientStorage(BlockStorage):
         Because the backend storage will be gone after an instance is terminated,
         here we just need to remove the NFS share point.
         """
-        log.debug("Removing transient instance storage from {0}".format(self.fs.mount_point))
+        log.debug("Removing transient instance storage from {0}".format(
+            self.fs.mount_point))
         self.fs.remove_nfs_share()
         self.state = service_states.SHUT_DOWN
 
@@ -79,15 +84,17 @@ class TransientStorage(BlockStorage):
         Update the status of this data service: ake sure the mount point exists
         and that it is in /etc/exports for NFS
         """
-        #log.debug("Checking the status of {0}".format(self.fs.mount_point))
+        # log.debug("Checking the status of {0}".format(self.fs.mount_point))
         if self.fs._service_transitioning():
-            #log.debug("Data service {0} transitioning".format(self.fs.get_full_name()))
+            # log.debug("Data service {0}
+            # transitioning".format(self.fs.get_full_name()))
             pass
         elif self.fs._service_starting():
-            #log.debug("Data service {0} starting".format(self.fs.get_full_name()))
+            # log.debug("Data service {0}
+            # starting".format(self.fs.get_full_name()))
             pass
         elif not os.path.exists(self.fs.mount_point):
-            #log.debug("Data service {0} dir {1} not there?".format(self.fs.get_full_name(),\
+            # log.debug("Data service {0} dir {1} not there?".format(self.fs.get_full_name(),\
             #        self.fs.mount_point))
             self.fs.state = service_states.UNSTARTED
         else:
@@ -106,9 +113,10 @@ class TransientStorage(BlockStorage):
                         return
                 # Or should this set it to UNSTARTED? Because this FS is just an
                 # NFS-exported file path...
-                log.warning("Data service {0} not found in {1}; error!"\
-                        .format(self.fs.get_full_name(), ee_file))
+                log.warning("Data service {0} not found in {1}; error!"
+                            .format(self.fs.get_full_name(), ee_file))
                 self.fs.state = service_states.ERROR
             except Exception, e:
-                log.error("Error checking the status of {0} service: {1}".format(self.fs.get_full_name(), e))
+                log.error("Error checking the status of {0} service: {1}".format(
+                    self.fs.get_full_name(), e))
                 self.fs.state = service_states.ERROR
