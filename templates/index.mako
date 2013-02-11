@@ -334,7 +334,7 @@ vertical-align: top;
                                 <span class="share_cluster_help_text">CSV numbers</span>
                             </div>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
-                                <input type="text" id="cannonical_ids" name="cannonical_ids" size="40" value="" />
+                                <input type="text" id="canonical_ids" name="canonical_ids" size="40" value="" />
                                 <span class="share_cluster_help_text">CSV HEX numbers</span>
                             </div>
                         </div>
@@ -357,9 +357,9 @@ vertical-align: top;
 <div id="voloverlay" class="overlay" style="display:none"></div>
 <div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
-    <h2>Initial CloudMan Platform Configuration</h2>
+    <h2 style="text-align:center;">Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
-        <p>Welcome to CloudMan. This application will allow you to manage this cluster platform and
+        <p style="text-align:justify;">Welcome to CloudMan. This application will allow you to manage this cluster platform and
         the services provided within. To get started, choose the type of platform you'd like to work
         with and provide the associated value, if any.</p>
     </div>
@@ -367,45 +367,60 @@ vertical-align: top;
         <div class="form-row">
             ## Allow Galaxy-cluster only if the underlying image/system supports it
             % if 'galaxy' in image_config_support.apps:
-                <p><input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true'>
-                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
-                    Specify the initial storage size (in Gigabytes):
-                </p>
-                <input style="margin-left:20px" type="text" name="pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <p style="text-align:justify;">
             % else:
-                <p class='disabled'>
-                    <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" disabled='true'>
-                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets,
-                    SGE job manager, and a data volume. <u>NOTE</u>: The current machine image
-                    does not support this cluster type option; click on 'Show more startup options'
-                    so see the available cluster configuration options.
-                    <br/>Specify the initial storage size (in Gigabytes):
-                </p>
-                <input disabled='true' style="margin-left:20px" type="text" name="pss" class="LV_field" id="g_pss" value="" size="3">GB<span id="g_pss_vtag"></span>
+                <p style="text-align:justify;" class='disabled'>
             % endif
+                <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
+	                <span style="display: block;margin-left: 20px;">
+	                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
+			% if 'galaxy' not in image_config_support.apps:
+						<u>NOTE</u>: The current machine image
+	                    does not support this cluster type option; click on 'Show more startup options'
+	                    so see the available cluster configuration options.
+            % endif
+	                    Specify the initial storage size (in Gigabytes):
+	                </span>
+	                <div style="text-align:left;margin-left: 18px">
+	                <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
+	                Default size (${default_data_size} GB)
+	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
+	                Custom size:
+	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
+	                </div>
+                    <div style="height: 5px;">
+    	                <span style="margin-left: 247px;" id="g_pss_vtag"></span>
+                    </div>
+                </p>
         </div>
         <div id='extra_startup_options'>
             <div class="form-row">
-                <p><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster">
-                    <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
-                    Specify the provided cluster share-string (for example,
-                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+                <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
+                	<span style="display: block;margin-left: 20px;">
+	                    <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
+	                    Specify the provided cluster share-string (for example,
+	                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+                    </span>
                 </p>
                 <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
                     Cluster share-string
             </div>
 
             <div class="form-row">
-                <p><input id="data-cluster" type="radio" name="startup_opt" value="Data">
-                    <b>Data Cluster</b>: a persistent data volume and SGE.
-                    Specify the initial storage size (in Gigabytes):
+                <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
+                	<span style="display: block;margin-left: 20px;">
+	                    <b>Data Cluster</b>: a persistent data volume and SGE.
+	                    Specify the initial storage size (in Gigabytes):
+                    </span>
                 </p>
                 <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
             </div>
 
             <div class="form-row">
-                <p><input type="radio" name="startup_opt" value="SGE">
-                <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
+                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left">
+                <span style="display: block;margin-left: 20px;">
+                	<b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
+                </span>
             </div>
         </div>
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
@@ -749,7 +764,7 @@ $(document).ready(function() {
     $('#shared_visibility').click(function() {
         $('#user_permissions').show();
         $('#user_ids').val("");
-        $('#cannonical_ids').val("");
+        $('#canonical_ids').val("");
     });
     $('#public_visibility').click(function() {$('#user_permissions').hide();});
 
@@ -941,7 +956,7 @@ $(document).ready(function() {
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
         var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        g_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
         d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
     }
@@ -986,11 +1001,24 @@ $(document).ready(function() {
     $('#expand_vol').tipsy({gravity: 'w', fade: true});
 
     // Enable onclick events for the option in the initial cluster configuration box
+    $('#galaxy-default-size').click(function() {
+        $('#galaxy-cluster').attr('checked', 'checked');
+    });
+    $('#galaxy-custom-size').click(function() {
+        $('#g_pss').focus();
+    });
     $('#g_pss').focus(function() {
         $('#galaxy-cluster').attr('checked', 'checked');
+        $('#galaxy-custom-size').attr('checked', 'checked');
+    });
+    $('#share-cluster').click(function() {
+        $('#shared_bucket').focus();
     });
     $('#shared_bucket').focus(function() {
         $('#share-cluster').attr('checked', 'checked');
+    });
+    $('#data-cluster').click(function() {
+        $('#d_pss').focus();
     });
     $('#d_pss').focus(function() {
         $('#data-cluster').attr('checked', 'checked');

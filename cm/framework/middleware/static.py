@@ -12,11 +12,13 @@ from paste.httpheaders import ETAG
 
 from paste.urlparser import StaticURLParser
 
-class CacheableStaticURLParser( StaticURLParser ):
-    def __init__( self, directory, cache_seconds=None ):
-        StaticURLParser.__init__( self, directory )
+
+class CacheableStaticURLParser(StaticURLParser):
+    def __init__(self, directory, cache_seconds=None):
+        StaticURLParser.__init__(self, directory)
         self.cache_seconds = cache_seconds
-    def __call__( self, environ, start_response ):
+
+    def __call__(self, environ, start_response):
         path_info = environ.get('PATH_INFO', '')
         if not path_info:
             return self.add_slash(environ, start_response)
@@ -39,12 +41,13 @@ class CacheableStaticURLParser( StaticURLParser ):
             if str(mytime) == if_none_match:
                 headers = []
                 ETAG.update(headers, mytime)
-                start_response('304 Not Modified',headers)
-                return [''] # empty body
+                start_response('304 Not Modified', headers)
+                return ['']  # empty body
         app = fileapp.FileApp(full)
         if self.cache_seconds:
-            app.cache_control( max_age = int( self.cache_seconds ) )
+            app.cache_control(max_age=int(self.cache_seconds))
         return app(environ, start_response)
-        
-def make_static( global_conf, document_root, cache_seconds=None ):
-    return CacheableStaticURLParser( document_root, cache_seconds )
+
+
+def make_static(global_conf, document_root, cache_seconds=None):
+    return CacheableStaticURLParser(document_root, cache_seconds)

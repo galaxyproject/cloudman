@@ -1,4 +1,5 @@
-import urllib, socket
+import urllib
+import socket
 from cm.clouds import CloudInterface
 from cm.services.data.filesystem import Volume
 
@@ -15,16 +16,17 @@ import struct
 import subprocess
 
 import logging
-log = logging.getLogger( 'cloudman' )
+log = logging.getLogger('cloudman')
+
 
 class ONInterface(CloudInterface):
-    
+
     def __init__(self, aws_access_key=None, aws_secret_key=None, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
         super(ONInterface, self).__init__()
         self.app = app
         self.bridge = 72
         self.tags = {}
-    
+
     def set_configuration(self):
         if self.user_data is None:
             self.get_user_data()
@@ -34,40 +36,41 @@ class ONInterface(CloudInterface):
         self.on_password = self.user_data.get('on_password', None)
         self.on_host = self.user_data.get('on_host', None)
         self.on_proxy = self.user_data.get('on_proxy', None)
-    
+
     def _getIpAddress(self, ifname):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             ip = socket.inet_ntoa(fcntl.ioctl(
-                                            s.fileno(),
-                                            0x8915,  # SIOCGIFADDR
-                                            struct.pack('256s', ifname[:15])
-                                            )[20:24])
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15])
+            )[20:24])
         except IOError:
             return None
         return ip
 
     def _getMacAddress(self, ifname):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', ifname[:15]))
+        info = fcntl.ioctl(
+            s.fileno(), 0x8927, struct.pack('256s', ifname[:15]))
         return ''.join(['%02x:' % ord(char) for char in info[18:24]])[:-1]
 
-    def get_ami( self ):
+    def get_ami(self):
         pass
-    
-    def get_type( self ):
-        #return 'worker'
+
+    def get_type(self):
+        # return 'worker'
         pass
-    
-    def get_instance_id( self ):
+
+    def get_instance_id(self):
         # There does not exist a method (yet) to get the instance
         # of a running virtual machine
         # The instance is now identified by its MAC address
         # All connected instances are checked if they
-        # match with the current mac address and that VM ID 
+        # match with the current mac address and that VM ID
         # is returned
         mac = self._getMacAddress('eth0')
-        #log.debug(mac)
+        # log.debug(mac)
         vmpool = VirtualMachinePool(self.s3_conn)
         vmpool.info(CONNECTED)
         for vm in list(vmpool):
@@ -75,102 +78,107 @@ class ONInterface(CloudInterface):
             if mac in vm_info:
                 return str(vm.id)
         return None
-    
-    def get_zone( self ):
+
+    def get_zone(self):
         pass
-    
-    def get_security_groups( self ):
+
+    def get_security_groups(self):
         pass
-    
-    def get_key_pair_name( self ):
+
+    def get_key_pair_name(self):
         pass
-    
-    def get_private_ip( self ):
+
+    def get_private_ip(self):
         # TODO: Change this to the masters IP
         log.debug("Asking for private IP")
         return self._getIpAddress('eth1')
-    
-    def get_public_ip( self ):
+
+    def get_public_ip(self):
         # TODO: Change this to the masters IP
         log.debug("Asking for public IP")
         return self._getIpAddress('eth0')
-    
+
     def get_fqdn(self):
         # Return the hostname
         return socket.getfqdn()
-    
-    def get_ec2_connection( self ):
-        log.debug( 'Getting OpenNebula connection' )
+
+    def get_ec2_connection(self):
+        log.debug('Getting OpenNebula connection')
         if self.ec2_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.ec2_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
-                self.ec2_conn.lookup = new.instancemethod(lookup, self.ec2_conn, self.ec2_conn.__class__)
-                self.ec2_conn.create_bucket = new.instancemethod(create_bucket, self.ec2_conn, self.ec2_conn.__class__)
+                self.ec2_conn = Client("%s:%s" % (
+                    self.on_username, self.on_password), self.on_host, self.on_proxy)
+                self.ec2_conn.lookup = new.instancemethod(
+                    lookup, self.ec2_conn, self.ec2_conn.__class__)
+                self.ec2_conn.create_bucket = new.instancemethod(
+                    create_bucket, self.ec2_conn, self.ec2_conn.__class__)
 
                 try:
-                     vmpool = VirtualMachinePool(self.ec2_conn)
-                     vmpool.info(CONNECTED)
-                     list(vmpool)
-                     log.debug( 'Got OpenNebula connection.' )
+                    vmpool = VirtualMachinePool(self.ec2_conn)
+                    vmpool.info(CONNECTED)
+                    list(vmpool)
+                    log.debug('Got OpenNebula connection.')
                 except OpenNebulaException, e:
-                     log.error("Cannot validate provided credentials: %s" % e)
-                     self.ec2_conn = False
+                    log.error("Cannot validate provided credentials: %s" % e)
+                    self.ec2_conn = False
             except Exception, e:
                 log.error(e)
         return self
-    
-    def get_s3_connection( self ):
-        #Note: S3 = storage (bucket)
-        #Opennebula cloud has no storage
-        log.debug( 'Getting OpenNebula connection' )
+
+    def get_s3_connection(self):
+        # Note: S3 = storage (bucket)
+        # Opennebula cloud has no storage
+        log.debug('Getting OpenNebula connection')
         if self.s3_conn == None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
-                self.s3_conn = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
-                self.s3_conn.lookup = new.instancemethod(lookup, self.s3_conn, self.s3_conn.__class__)
-                self.s3_conn.create_bucket = new.instancemethod(create_bucket, self.s3_conn, self.s3_conn.__class__)
- 
-                           
+                self.s3_conn = Client("%s:%s" % (
+                    self.on_username, self.on_password), self.on_host, self.on_proxy)
+                self.s3_conn.lookup = new.instancemethod(
+                    lookup, self.s3_conn, self.s3_conn.__class__)
+                self.s3_conn.create_bucket = new.instancemethod(
+                    create_bucket, self.s3_conn, self.s3_conn.__class__)
+
                 try:
-                     vmpool = VirtualMachinePool(self.s3_conn)
-                     vmpool.info(CONNECTED)
-                     list(vmpool)
-                     log.debug( 'Got OpenNebula connection.' )
+                    vmpool = VirtualMachinePool(self.s3_conn)
+                    vmpool.info(CONNECTED)
+                    list(vmpool)
+                    log.debug('Got OpenNebula connection.')
                 except OpenNebulaException, e:
-                     log.error("Cannot validate provided credentials: %s" % e)
-                     self.s3_conn = False
+                    log.error("Cannot validate provided credentials: %s" % e)
+                    self.s3_conn = False
             except socket.error, e:
-                log.debug( "Socket error: %s:" % e )
+                log.debug("Socket error: %s:" % e)
                 log.debug("Trying to reboot the machine")
                 # It should be prevented that its reboot on a local machine (kvm)
                 # local machine hwaddr = 00:22:64:ae:3d:fd
                 # TODO
                 if self._getMacAddress('eth0') != '00:22:64:ae:3d:fd':
-                #if int(self.get_private_ip().split('.')[2]) == int(self.bridge):
-                    ret_code = subprocess.call( 'sudo telinit 6', shell=True )
+                # if int(self.get_private_ip().split('.')[2]) ==
+                # int(self.bridge):
+                    ret_code = subprocess.call('sudo telinit 6', shell=True)
 
-                
             except Exception, e:
                 log.error(e)
         return self.s3_conn
-        #return None
-    
+        # return None
+
     def run_instances(self, num, instance_type, **kwargs):
 
-        #TODO: Change this!!
+        # TODO: Change this!!
         username = 'mdhollander'
         diskimage = 'vm-lucid-amd64-serial-galaxy-worker.img'
         vmname = "Cloudman_Node"
-        
+
         log.debug("Adding {0} OpenNebula Worker nodes".format(num))
         # TODO: Remove public NIC? Save disk?
 #        vmtemplatestring ="""
-#NAME=\"%s\" MEMORY=1024 CPU=1 OS=[BOOT=\"hd\"] 
-#GRAPHICS=[type=\"vnc\"] 
-#DISK=[TYPE=\"disk\", SOURCE=\"/home/%s/images/%s\", TARGET=\"hda\", CLONE=\"yes\", SAVE=\"no\", READONLY=\"n\" ]
-#NIC=[NETWORK=\"%s\", MODEL=\"virtio\"]
-#NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
+# NAME=\"%s\" MEMORY=1024 CPU=1 OS=[BOOT=\"hd\"]
+# GRAPHICS=[type=\"vnc\"]
+# DISK=[TYPE=\"disk\", SOURCE=\"/home/%s/images/%s\", TARGET=\"hda\", CLONE=\"yes\", SAVE=\"no\", READONLY=\"n\" ]
+# NIC=[NETWORK=\"%s\", MODEL=\"virtio\"]
+# NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
 #""" % (vmname, username, diskimage, username)
 
         vmtemplatestring = """
@@ -199,44 +207,47 @@ TEMPLATE_ID=397
 VCPU=1
 """
         r = Reservations()
-        for i in range(1,num+1):
+        for i in range(1, num + 1):
             new_vm_id = VirtualMachine.allocate(self.s3_conn, vmtemplatestring)
-            
+
             # Get the just initiated instances
             # TODO: Is there another way to retrieve it? Using new_vm_id?
             vmpool = VirtualMachinePool(self.s3_conn)
             vmpool.info(CONNECTED)
             vm_instance = list(vmpool)[-1]
-            
-            vm_instance.add_tag = new.instancemethod(add_tag, vm_instance, vm_instance.__class__)
-            vm_instance.update = new.instancemethod(update, vm_instance, vm_instance.__class__)
 
-            #vm_instance.id = str(vm_instance.id)
-            
+            vm_instance.add_tag = new.instancemethod(
+                add_tag, vm_instance, vm_instance.__class__)
+            vm_instance.update = new.instancemethod(
+                update, vm_instance, vm_instance.__class__)
+
+            # vm_instance.id = str(vm_instance.id)
+
             # Add tags dictionary
             vm_instance.tags = {}
 
             r.instances.append(vm_instance)
-        
+
         return r
 
 # Emulate EC2 objects
 
     def get_all_instances(self, filters={}, *args, **kwargs):
-        client = Client("%s:%s" % (self.on_username, self.on_password), self.on_host, self.on_proxy)
+        client = Client("%s:%s" % (
+            self.on_username, self.on_password), self.on_host, self.on_proxy)
         vmpool = VirtualMachinePool(client)
         vmpool.info(CONNECTED)
         reservations = []
         log.debug("Get all instances")
-        
+
         for vm_instance in vmpool:
             # Make a distinction between worker and the master node
             # The workers nodes have a role defined as worker (dictionary)
             # The master node has a empty list as filter string
-            
+
             # Instance ID needs to be a string
             vm_instance.id = str(vm_instance.id)
-            
+
             # Hold tags in a dictionary
             vm_instance.tags = {}
             try:
@@ -244,49 +255,56 @@ VCPU=1
                 if int(req_id) == int(vm_instance.id):
                     reservations = []
                     r = Reservations()
-                    vm_instance.add_tag = new.instancemethod(add_tag, vm_instance, vm_instance.__class__)
-                    vm_instance.update = new.instancemethod(update, vm_instance, vm_instance.__class__)
+                    vm_instance.add_tag = new.instancemethod(
+                        add_tag, vm_instance, vm_instance.__class__)
+                    vm_instance.update = new.instancemethod(
+                        update, vm_instance, vm_instance.__class__)
                     r.instances.append(vm_instance)
                     reservations.append(r)
                     return reservations
             except:
                 pass
-            # TODO Add tags to instance? (unsure if this it the right way to do it)
+            # TODO Add tags to instance? (unsure if this it the right way to do
+            # it)
             try:
                 for key, value in filters.iteritems():
                     tag = key.split(':')[1]
                     vm_instance.tags[tag] = value
             except AttributeError:
                 pass
-            
+
             try:
-                role = filters['tag:role'] 
+                role = filters['tag:role']
                 if role == "worker" and vm_instance.name.strip() == "Cloudman_Node":
                     r = Reservations()
-                    vm_instance.add_tag = new.instancemethod(add_tag, vm_instance, vm_instance.__class__)
-                    vm_instance.update = new.instancemethod(update, vm_instance, vm_instance.__class__)
-                    #vm_instance.get_m_state = get_m_state
-                    
+                    vm_instance.add_tag = new.instancemethod(
+                        add_tag, vm_instance, vm_instance.__class__)
+                    vm_instance.update = new.instancemethod(
+                        update, vm_instance, vm_instance.__class__)
+                    # vm_instance.get_m_state = get_m_state
+
                     r.instances.append(vm_instance)
                     reservations.append(r)
-            except TypeError :
+            except TypeError:
                 # TODO: don't hardcode the name of the master instance
-                #if vm_instance.name.strip() == "Galaxy_Main":
+                # if vm_instance.name.strip() == "Galaxy_Main":
                 if vm_instance.name.strip() == "one-1592":
                     r = Reservations()
-                    vm_instance.add_tag = new.instancemethod(add_tag, vm_instance, vm_instance.__class__)
-                    vm_instance.update = new.instancemethod(update, vm_instance, vm_instance.__class__)
+                    vm_instance.add_tag = new.instancemethod(
+                        add_tag, vm_instance, vm_instance.__class__)
+                    vm_instance.update = new.instancemethod(
+                        update, vm_instance, vm_instance.__class__)
                     r.instances.append(vm_instance)
                     reservations.append(r)
-                    
+
         return reservations
 
     def get_all_volumes(self, *args, **kwargs):
         pass
-    
+
     def terminate_instances(self, instances):
         log.debug("Terminate instances")
-        
+
         return True
 
     def reboot_instances(self, instances, *args, **kwargs):
@@ -307,7 +325,7 @@ VCPU=1
                         log.debug("rebooting")
                         vm_instance.resume()
                         return True
-                    
+
     # EC2 can add volumes to a image
     # For ON we will create a filesystem
     # Call: Filesystem.add
@@ -321,15 +339,19 @@ VCPU=1
 
     def add_tag(self, key, value, *args, **kwargs):
         self.tags[key] = value
-        
+
+
 class Reservations(object):
     def __init__(self):
         self.instances = []
 
 # A EC2 instance object has a add_tag method
 # which is lacking in the OpenNebula object
+
+
 def add_tag(self, key, value, *args, **kwargs):
     self.tags[key] = value
+
 
 def update(self):
     """Should update instance"""
@@ -338,16 +360,15 @@ def update(self):
     log.debug("Instance id: %s" % self.id)
 
 
-
-#def get_m_state(self):
+# def get_m_state(self):
 #    print "GET M STATE"
 #    print self.state
-
-#TODO: Work on Bucket System!!
+# TODO: Work on Bucket System!!
 # A EC2 connection object has lookup method
 # which is lacking in the oca Client object
 def lookup(self, *args, **kwargs):
     pass
+
 
 def create_bucket(self, *args, **kwargs):
     pass

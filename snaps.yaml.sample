@@ -1,7 +1,7 @@
 static_filesystems:
     - filesystem: galaxyIndices
-      snap_id: snap-84e771ef 
-      size: 200
-    - filesystem: galaxyTools
-      snap_id: snap-506d233b
-      size: 1
+      snap_id: snap-5b030634
+      roles: galaxyIndices,
+    - filesystem: galaxy
+      snap_id: snap-2105f96f
+      roles: galaxyTools,galaxyData

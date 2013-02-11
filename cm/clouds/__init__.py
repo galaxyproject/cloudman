@@ -4,6 +4,7 @@ from cm.util import paths
 import logging
 log = logging.getLogger('cloudman')
 
+
 class CloudInterface(object):
     # Global fields
     ec2_conn = None
@@ -14,13 +15,14 @@ class CloudInterface(object):
     ami = None
     instance_type = None
     instance_id = None
-    instance = None # boto object representation of the instance
+    instance = None  # boto object representation of the instance
     zone = None
     security_groups = None
     key_pair_name = None
     self_private_ip = None
     local_hostname = None
     self_public_ip = None
+    public_hostname = None
     instance_type = None
     fqdn = None
     user_data = None
@@ -76,4 +78,3 @@ class CloudInterface(object):
         """
         log.warning("Unimplemented")
         pass
-
