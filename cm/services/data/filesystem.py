@@ -144,7 +144,7 @@ class Filesystem(DataService):
             self.status()
             log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4})"
                       .format(self.get_full_name(), self.volumes, self.buckets,
-                      self.transient_storage, self.nfs_fs.nfs_server))
+                      self.transient_storage, self.nfs_fs.nfs_server if self.nfs_fs else '-'))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"

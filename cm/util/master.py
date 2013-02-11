@@ -1734,7 +1734,8 @@ class ConsoleManager(BaseConsoleManager):
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
-            w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+            # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+            w_inst.send_mount_points()
         log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
     def stop_worker_instances(self):
@@ -2834,8 +2835,12 @@ class Instance(object):
     def send_mount_points(self):
         mount_points = []
         for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
+            if fs.nfs_fs:
+                nfs_server = fs.nfs_fs.nfs_server
+            else:
+                nfs_server = self.app.cloud_interface.get_public_ip()
             mount_points.append(
-                {'nfs_server': self.app.cloud_interface.get_public_ip(),
+                {'nfs_server': nfs_server,
                  'shared_mount_path': fs.get_details()['mount_point'],
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})
@@ -2858,17 +2863,17 @@ class Instance(object):
         msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
         self._send_msg(msg)
 
-    def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
-        """
-        Send a message to the worker node requesting it to mount a new file system
-        form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
-        """
-        nfs_server_info = {
-            'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
-            'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
-        }
-        msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
-        self._send_msg(msg)
+    # def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
+    #     """
+    #     Send a message to the worker node requesting it to mount a new file system
+    #     form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
+    #     """
+    #     nfs_server_info = {
+    #         'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
+    #         'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
+    #     }
+    #     msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
+    #     self._send_msg(msg)
 
     def _send_msg(self, msg):
         """
