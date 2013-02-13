@@ -40,7 +40,7 @@ log = None
 
 def _setup_global_logger():
     formatter = logging.Formatter(
-        "[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
+        "%(asctime)s %(levelname)-5s %(module)8s:%(lineno)-3d - %(message)s")
     console = logging.StreamHandler()  # log to console - used during testing
     # console.setLevel(logging.INFO) # accepts >INFO levels
     console.setFormatter(formatter)
@@ -61,8 +61,7 @@ def usage():
 
 
 def _run(cmd):
-    process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         log.debug("Successfully ran '%s'" % cmd)
@@ -71,11 +70,20 @@ def _run(cmd):
         else:
             return True
     else:
-        log.error(
-            "Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd,
-                                                                                         process.returncode, stderr))
+        log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" %
+            (cmd, process.returncode, stderr))
         return False
 
+
+def _is_running(process_name):
+    """
+    Check if a process with ``process_name`` is running. Return ``True`` is so,
+    ``False`` otherwise.
+    """
+    p = _run("ps xa | grep {0} | grep -v grep".format(process_name))
+    if p and process_name in p:
+        return True
+    return False
 
 def _make_dir(path):
     log.debug("Checking existence of directory '%s'" % path)
@@ -150,11 +158,15 @@ def _start_nginx(ud):
         log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
         os.makedirs(upload_store_dir)
     # TODO: Use nginx_dir as well vs. this hardcoded path
-    if not _run('/opt/galaxy/sbin/nginx'):
-        _run('/etc/init.d/apache2 stop')
-        _run('/etc/init.d/tntnet stop')
-             # On Ubuntu 12.04, this server also starts?
-        _run('/opt/galaxy/sbin/nginx')
+    if not _is_running('nginx'):
+        if not _run('/opt/galaxy/sbin/nginx'):
+            _run('/etc/init.d/apache2 stop')
+            _run('/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
+            _run('/opt/galaxy/sbin/nginx')
+    else:
+        # nginx already running, so reload
+        log.debug("nginx already running; reloading it")
+        _run('/opt/galaxy/sbin/nginx -s reload')
     if rmdir:
         _run('rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
