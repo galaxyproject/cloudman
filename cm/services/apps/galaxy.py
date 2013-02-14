@@ -33,9 +33,10 @@ class GalaxyService(ApplicationService):
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {
                          "SGE_ROOT": self.app.path_resolver.sge_root,
-                         "DRMAA_LIBRARY_PATH" : self.app.path_resolver.drmaa_library_path
+                         "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
                          }
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+        self.dependencies = [ServiceDependency(self, ServiceRole.SGE),
+                     ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
                      ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
@@ -53,13 +54,15 @@ class GalaxyService(ApplicationService):
         self.manage_galaxy(True)
         self.status()
 
-    def remove(self):
+    def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
-        super(GalaxyService, self).remove()
+        super(GalaxyService, self).remove(synchronous)
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.last_state_change_time = datetime.utcnow()
             self.manage_galaxy(False)
+        elif self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         else:
             log.debug("Galaxy service not running (state: {0}) so not stopping it."
                       .format(self.state))
@@ -122,26 +125,23 @@ class GalaxyService(ApplicationService):
                                    'shed_tool_conf.xml',
                                    'datatypes_conf.xml']:
                         f_path = os.path.join(self.galaxy_home, f_name)
-                        if (not os.path.exists(f_path) and
-                            not misc.get_file_from_bucket(s3_conn,
-                                                         self.app.ud[
-                                                         'bucket_cluster'],
-                                                         '{0}.cloud'.format(
-                                                         f_name), f_path)):
-                            # We did not get the config file from cluster's bucket;
-                            # get one from the default bucket
-                            log.debug("Did not get Galaxy configuration file " +
-                                      "'{0}' from cluster bucket '{1}'"
-                                      .format(f_name, self.app.ud['bucket_cluster']))
-                            log.debug("Trying to retrieve one ({0}.cloud) "
-                                      "from the default '{1}' bucket."
-                                      .format(f_name, self.app.ud['bucket_default']))
-                            local_file = os.path.join(self.galaxy_home, f_name)
-                            misc.get_file_from_bucket(s3_conn,
-                                                      self.app.ud[
-                                                      'bucket_default'],
-                                                      '{0}.cloud'.format(f_name), local_file)
-                            attempt_chown_galaxy_if_exists(local_file)
+                        if not os.path.exists(f_path):
+                            if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                                '{0}.cloud'.format(f_name), f_path):
+                                # We did not get the config file from cluster's
+                                # bucket so get it from the default bucket
+                                log.debug("Did not get Galaxy configuration file " +
+                                          "'{0}' from cluster bucket '{1}'"
+                                          .format(f_name, self.app.ud['bucket_cluster']))
+                                log.debug("Trying to retrieve one ({0}.cloud) "
+                                          "from the default '{1}' bucket."
+                                          .format(f_name, self.app.ud['bucket_default']))
+                                local_file = os.path.join(self.galaxy_home, f_name)
+                                misc.get_file_from_bucket(s3_conn,
+                                                          self.app.ud[
+                                                          'bucket_default'],
+                                                          '{0}.cloud'.format(f_name), local_file)
+                                attempt_chown_galaxy_if_exists(local_file)
 
                 # Make sure the temporary job_working_directory exists on user
                 # data volume (defined in universe_wsgi.ini.cloud)
@@ -307,3 +307,15 @@ class GalaxyService(ApplicationService):
                 os.path.join(nginx_dir, 'sbin', 'nginx'), nginx_config_file))
         else:
             log.warning("Cannot find nginx directory to reload nginx config")
+
+    def get_service_actions(self):
+        """
+        Returns a list of actions that this service supports
+        """
+        svc_list = []
+        svc_list.append({'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'})
+        svc_list.append({'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'})
+        svc_list.append({'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'})
+        svc_list.append({'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'})
+        svc_list.append({'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'})
+        return svc_list

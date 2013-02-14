@@ -7,6 +7,7 @@ from pwd import getpwnam
 from grp import getgrnam
 
 from .misc import run
+from cm.util import paths
 
 import logging
 log = logging.getLogger('cloudman')
@@ -69,7 +70,7 @@ def populate_dynamic_options(option_manager):
                 option_manager.set_properties({key: value}, section=section)
 
 
-## High-level funcitons that utilize option_manager interface (defined below)
+## High-level functions that utilize option_manager interface (defined below)
 ## to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
@@ -126,15 +127,17 @@ def galaxy_option_manager(app):
 
 def populate_galaxy_paths(option_manager):
     """
-    Turn `path_resolver` paths into Galaxy options using
-    specified `option_manager`.
+    Turn ``path_resolver`` paths and configurations into Galaxy options using
+    specified ``option_manager``.
     """
     properties = {}
     path_resolver = option_manager.app.path_resolver
+    properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
+        .format(paths.C_PSQL_PORT)
     properties["genome_data_path"] = \
         join(path_resolver.galaxy_indices, "genomes")
     properties["len_file_path"] = \
-        join(path_resolver.galaxy_indices, "len")
+        join(path_resolver.galaxy_data, "configuration_data", "len")
     properties["tool_dependency_dir"] = \
         join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
@@ -186,10 +189,12 @@ class DirectoryGalaxyOptionManager(object):
     manage Galaxy's options.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, conf_dir=None, conf_file_name=OPTIONS_FILE_NAME):
         self.app = app
-        conf_dir = app.ud["galaxy_conf_dir"]
+        if not conf_dir:
+            conf_dir = app.ud["galaxy_conf_dir"]
         self.conf_dir = conf_dir
+        self.conf_file_name = conf_file_name
 
     def setup(self):
         """ Setup the configuration directory and return conf_dir. """
@@ -200,12 +205,12 @@ class DirectoryGalaxyOptionManager(object):
         conf_dir = self.conf_dir
         if not exists(conf_dir):
             makedirs(conf_dir)
-            defaults_destination = join(conf_dir, "010_%s" % OPTIONS_FILE_NAME)
+            defaults_destination = join(conf_dir, "010_%s" % self.conf_file_name)
             galaxy_home = self.app.path_resolver.galaxy_home
-            universe_wsgi = join(galaxy_home, OPTIONS_FILE_NAME)
+            universe_wsgi = join(galaxy_home, self.conf_file_name)
             if not exists(universe_wsgi):
                 # Fresh install, take the oppertunity to just link in defaults
-                sample_name = "%s.sample" % OPTIONS_FILE_NAME
+                sample_name = "%s.sample" % self.conf_file_name
                 defaults_source = join(galaxy_home, sample_name)
                 symlink(defaults_source, defaults_destination)
             else:
@@ -213,7 +218,7 @@ class DirectoryGalaxyOptionManager(object):
                 # option enabled. Users may have made modifications to
                 # universe_wsgi.ini that I guess we should preserve for
                 # backward compatibility.
-                defaults_source = join(galaxy_home, OPTIONS_FILE_NAME)
+                defaults_source = join(galaxy_home, self.conf_file_name)
                 copyfile(defaults_source, defaults_destination)
 
     def set_properties(self, properties, section="app:main", description=None):

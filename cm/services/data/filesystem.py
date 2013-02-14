@@ -151,7 +151,7 @@ class Filesystem(DataService):
                       .format(self.get_full_name(), service_states.UNSTARTED, self.state))
         return False
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Initiate removal of this file system from the system; do it in a
         separate thread and return without waiting for the process to complete.
@@ -162,6 +162,8 @@ class Filesystem(DataService):
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread(target=self.__remove)
         r_thread.start()
+        if synchronous:
+            r_thread.join()
 
     def __remove(self, delete_vols=True, remove_from_master=True):
         """
@@ -170,7 +172,7 @@ class Filesystem(DataService):
         is set to ``True``, the service is automatically removed
         from the list of services monitored by the master.
         """
-        super(Filesystem, self).remove()
+        super(Filesystem, self).remove(synchronous=True)
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
@@ -479,7 +481,7 @@ class Filesystem(DataService):
         For example: ``335G 199M 1%``
         """
         if not cmd:
-            cmd = "df -h | grep %s$  | awk '{print $2, $3, $5}'" % self.name
+            cmd = "df | grep %s$  | awk '{print $2, $3, $5}'" % self.name
         # Get size & usage
         try:
             disk_usage = commands.getoutput(cmd)
@@ -487,7 +489,7 @@ class Filesystem(DataService):
             if len(disk_usage) == 3:
                 self.size = disk_usage[0]  # or should this the device size?
                 self.size_used = disk_usage[1]
-                self.size_pct = disk_usage[2]
+                self.size_pct = disk_usage[2].replace("%", "")
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))

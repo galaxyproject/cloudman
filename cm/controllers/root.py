@@ -3,7 +3,6 @@ import re
 import logging
 import subprocess
 import json
-# from datetime import datetime
 
 from cm.framework import expose
 from cm.base.controller import BaseController
@@ -123,7 +122,7 @@ class CM(BaseController):
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -131,11 +130,12 @@ class CM(BaseController):
         return trans.fill_template('mini_control.mako')
 
     @expose
-    def get_cluster_type(self, trans):
+    def cluster_type(self, trans):
         """
-        Get the type of the cluster that's been configured
+        Get the type of the cluster that's been configured as a JSON dict
         """
-        return self.app.manager.initial_cluster_type
+        cluster_type = {'cluster_type': self.app.manager.initial_cluster_type}
+        return json.dumps(cluster_type)
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
@@ -243,6 +243,23 @@ class CM(BaseController):
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
+
+    @expose
+    def reassign_services(self, trans, **kwargs):
+        """
+        Reassign the service fullfilling a particular dependency. Currently only
+        works with filesystems. For example, a filesystem fulfilling the role GALAXY_DATA
+        could be reassigned to a new file system.  If the copy_across parameter is set, the
+        old filesystem will be rsynced with the new one. This is mainly so that users using one type
+        of filesystem (say volumes) can easily migate 
+        """
+        service_to_process = json.loads(trans.request.body)
+        svc_name = service_to_process.get('svc_name', None)
+        svc = self.app.manager.get_services(svc_name=svc_name)
+        if svc:
+            return "Initiating file system reassignment"
+        else:
+            return "Service not found!"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -419,23 +436,12 @@ class CM(BaseController):
                            'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
-    def get_all_services_status(self, trans):
+    def get_cloudman_system_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
-        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
-        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
-        snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status' : str(snap_status[0]),
-                                   'progress' : str(snap_status[1])}
-        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
-
-    @expose
-    def get_all_filesystems(self, trans):
-        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
@@ -539,6 +545,29 @@ class CM(BaseController):
                 return comment
         else:
             comment = "No admin users provided: '%s'" % admin_users
+            log.warning(comment)
+            return comment
+
+    @expose
+    def add_flocking_ip(self, trans, fDNS):
+        """
+        adding remote resource IP as a flocking IP into condor,
+        allowing a local condor job to be run over a remote condor
+        machine.
+
+        The remote resource should have provided us with enough
+        privilege such as allow_write and flock_from variables
+        in their condor config file.
+        """
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.HTCONDOR)
+        if len(svcs) > 0:
+            svcs[0].modify_htcondor("FLOCK_TO", "{0}".format(fDNS))
+            svcs[0].modify_htcondor("ALLOW_WRITE", "{0}".format(fDNS))
+            msg = "HTCondor flock IP {0} added".format(fDNS)
+            log.info(msg)
+            return msg
+        else:
+            comment = "HTCondor service not found."
             log.warning(comment)
             return comment
 

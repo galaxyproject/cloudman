@@ -20,8 +20,10 @@ from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.pss import PSS
+from cm.services.apps.migration_service import MigrationService
 from cm.services.apps.sge import SGEService
 from cm.services.apps.hadoop import HadoopService
+from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
@@ -30,7 +32,7 @@ from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
+from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -90,20 +92,19 @@ class ConsoleManager(BaseConsoleManager):
         assigned service property is set to null for all services
         which depend on the new service.
         """
-        log.debug(
-            "Updating dependencies for service {0}".format(new_service.name))
+        log.debug("Updating dependencies for service {0}".format(new_service.name))
         for svc in self.services:
             if action == "ADD":
-                for req in new_service.reqs:
+                for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
-                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                            req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
+                        #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = svc
             elif action == "REMOVE":
-                for req in svc.reqs:
+                for req in svc.dependencies:
                     if req.is_satisfied_by(new_service):
-                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                            req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
+                        #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = None
 
     def _stop_app_level_services(self):
@@ -225,7 +226,7 @@ class ConsoleManager(BaseConsoleManager):
     def get_default_data_size(self):
         if not self.default_galaxy_data_size:
             for snap in self.snaps:
-                roles = ServiceRole.from_string(snap['roles'])
+                roles = ServiceRole.from_string_array(snap['roles'])
                 if ServiceRole.GALAXY_DATA in roles:
                     self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0]
                     self.default_galaxy_data_size = self.snapshot.volume_size
@@ -247,6 +248,9 @@ class ConsoleManager(BaseConsoleManager):
         # this should happen before SGE is added
         self.get_root_public_key()
 
+       # Always add migration service
+        self.add_master_service(MigrationService(self.app))
+
        # Always add SGE service
         self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
@@ -256,6 +260,8 @@ class ConsoleManager(BaseConsoleManager):
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
+
+        self.add_master_service(HTCondorService(self.app, "master"))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.ud.get('hadoop_enabled', True):
             self.add_master_service(HadoopService(self.app))
@@ -306,21 +312,18 @@ class ConsoleManager(BaseConsoleManager):
         Inspect the cluster configuration and persistent data to add any
         previously defined cluster services.
         """
-        log.debug(
-            "Checking for and adding any previously defined cluster services")
-        self.cluster_status = cluster_status.STARTING
+        log.debug("Checking for and adding any previously defined cluster services")
+        return self.add_preconfigured_filesystems() and self.add_preconfigured_applications()
+
+    def add_preconfigured_filesystems(self):
         try:
-            attached_volumes = self.get_attached_volumes()
-            # Test if deprecated cluster config is used and handle it
-            if "static_filesystems" in self.app.ud or "data_filesystems" in self.app.ud:
-                log.debug("Handling deprecated cluster config")
-                return self._handle_old_cluster_conf_format(attached_volumes)
             # Process the current cluster config
-            log.debug("Processing an existing cluster config")
+            log.debug("Processing filesystems in an existing cluster config")
+            attached_volumes = self.get_attached_volumes()
             if 'filesystems' in self.app.ud:
-                for fs in self.app.ud['filesystems']:
+                for fs in self.app.ud.get('filesystems') or []:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string(
+                    filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string_array(
                         fs['roles']), mount_point=fs.get('mount_point', None))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
@@ -363,11 +366,21 @@ class ConsoleManager(BaseConsoleManager):
                         log.debug("Adding a previously existing filesystem '{0}' of "
                                   "kind '{1}'".format(fs['name'], fs['kind']))
                         self.add_master_service(filesystem)
+            return True
+        except Exception, e:
+            log.error(
+                "Error processing filesystems in existing cluster configuration: %s" % e)
+            self.manager_started = False
+            return False
+
+    def add_preconfigured_applications(self):
+        try:
+            # Process the current cluster config
+            log.debug("Processing application services in an existing cluster config")
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_roles = ServiceRole.from_string(
+                    service_roles = ServiceRole.from_string_array(
                         srvc.get('roles', srvc['name']))
-                    log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into
                     # classes is not quite ideal...
                     processed_service = False
@@ -382,7 +395,7 @@ class ConsoleManager(BaseConsoleManager):
             return True
         except Exception, e:
             log.error(
-                "Error processing existing cluster configuration: %s" % e)
+                "Error processing applications in existing cluster configuration: %s" % e)
             self.manager_started = False
             return False
 
@@ -405,87 +418,6 @@ class ConsoleManager(BaseConsoleManager):
                     vol.id, filesystem_name))
                 return vol
         return None
-
-    def _handle_old_cluster_conf_format(self, attached_volumes):
-        """
-        For backward compatibility, handle the old/deprecated cluster
-        configuration/persistent data file format, e.g.,::
-            data_filesystems:
-              galaxyData:
-              - size: 20
-                vol_id: vol-edfc9280
-            galaxy_home: /mnt/galaxyTools/galaxy-central
-            services:
-            - service: SGE
-            - service: Postgres
-            - service: Galaxy
-            static_filesystems:
-            - filesystem: galaxyIndices
-              size: 700
-              snap_id: !!python/unicode 'snap-5b030634'
-            - filesystem: galaxyTools
-              size: 2
-              snap_id: !!python/unicode 'snap-1688b978'
-        """
-        try:
-            # First make a backup of the deprecated config file
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            misc.copy_file_in_bucket(
-                s3_conn, self.app.ud[
-                    'bucket_cluster'], self.app.ud['bucket_cluster'],
-                'persistent_data.yaml', 'persistent_data-deprecated.yaml', validate=False)
-            # Process the deprecated configuration now
-            if "static_filesystems" in self.app.ud:
-                for vol in self.app.ud['static_filesystems']:
-                    fs = Filesystem(self.app, vol['filesystem'],
-                                    svc_roles=ServiceRole.from_string(vol['roles']))
-                    # Check if an already attached volume maps to the current
-                    # filesystem
-                    att_vol = self.get_vol_if_fs(
-                        attached_volumes, vol['filesystem'])
-                    if att_vol:
-                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size,
-                                      from_snapshot_id=att_vol.snapshot_id)
-                    else:
-                        fs.add_volume(
-                            size=vol['size'], from_snapshot_id=vol['snap_id'])
-                    log.debug(
-                        "Adding static filesystem: '%s'" % vol['filesystem'])
-                    self.add_master_service(fs)
-                    self.initial_cluster_type = 'Galaxy'
-            if "data_filesystems" in self.app.ud:
-                for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
-                    log.debug("Adding a previously existing data filesystem: '%s'" % fs)
-                    fs = Filesystem(self.app, fs)  # NGTODO: Something needs to be done here to pass correct svc_role
-                    for vol in vol_array:
-                        fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
-                    self.add_master_service(fs)
-                    self.initial_cluster_type = 'Data'
-            if "services" in self.app.ud:
-                for srvc in self.app.ud['services']:
-                    service_name = srvc['service']  # NGTODO: This is going on old format and using name. Should be fixed after format conversion is done.
-                    log.debug("Adding service: '%s'" % service_name)
-                    # TODO: translation from predefined service names into
-                    # classes is not quite ideal...
-                    processed_service = False
-                    service_class = APP_SERVICES.get(service_name, None)
-                    if service_class:
-                        self.add_master_service(service_class(self.app))
-                        if service_name in ['Postgres', 'Galaxy']:
-                            self.initial_cluster_type = 'Galaxy'
-                        processed_service = True
-                        log.debug(
-                            "Processed adding service '%s'" % service_name)
-                    if service_name == 'SGE':
-                        processed_service = True  # SGE gets added by default
-                    if not processed_service:
-                        log.warning("Could not find service class matching service entry '%s'?" %
-                                    service_name)
-            return True
-        except (BotoClientError, BotoServerError) as e:
-            log.error("Error reading existing cluster configuration file: %s" % e)
-            self.manager_started = False
-            return False
 
     def start_autoscaling(self, as_min, as_max, instance_type):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -536,7 +468,7 @@ class ConsoleManager(BaseConsoleManager):
             count += 1
             if svc.state == service_states.ERROR:
                 return "red"
-            elif svc.state != service_states.RUNNING:
+            elif not (svc.state == service_states.RUNNING or svc.state == service_states.COMPLETED):
                 return "yellow"
         if count != 0:
             return "green"
@@ -660,20 +592,64 @@ class ConsoleManager(BaseConsoleManager):
             return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
+    @TestFlag([{'svc_name': 'Galaxy',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'},
+                            {'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'}],
+                'requirements': [{'display_name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
+                                 {'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
+                                 {'display_name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
+                                 {'display_name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
+                'status': 'Running'},
+               {'svc_name': 'PostgreSQL',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Postgres'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'}],
+                'requirements': [{'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
+                'status': 'Running'},
+               {'svc_name': 'SGE',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=SGE'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=SGE&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=SGE'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=SGE'},
+                            {'name': 'Q conf', 'action_url': 'service_log?service_name=SGE&q=conf'},
+                            {'name': 'qstat', 'action_url': 'service_log?service_name=SGE&q=qstat'}],
+                'requirements': [],
+                'status': 'Running'},
+               {'svc_name': 'GalaxyReports',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=GalaxyReports'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
+                'requirements': [{'display_name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
+                'status': 'Running'}], quiet=True)
+    def get_all_application_status(self):
+        service_list = []
+        services = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
+        for svc in services:
+            svc_dict = {'svc_name': svc.name, 'status': svc.state,
+                        'actions': svc.get_service_actions(),
+                        'requirements': svc.get_service_requirements()}
+            service_list.append(svc_dict)
+        return service_list
+
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
                 "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
-                "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",
+                "device": "/dev/vdb", "size_pct": "1", "DoT": "Yes", "size": "60G",
                 "persistent": "No"},
                {"size_used": "33M", "status": "Running", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
                 "err_msg": None, "snapshot_progress": None, "from_snap": None,
-                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
+                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4",
                 "DoT": "No", "size": "1014M", "persistent": "Yes"},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
                 "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
                 "snapshot_progress": "10%", "from_snap": "snap-760fd33d",
-                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2%",
+                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2",
                 "DoT": "No", "size": "5.0G"}], quiet=True)
     def get_all_filesystems_status(self):
         """
@@ -725,8 +701,6 @@ class ConsoleManager(BaseConsoleManager):
             "error_msg": ""})
         return dummy
 
-    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
-               "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
@@ -737,8 +711,11 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        for srvc in self.services:
-            status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
+        status_dict['applications'] = self.get_all_application_status()
+        status_dict['file_systems'] = self.get_all_filesystems_status()
+        status_dict['galaxy_rev'] = self.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.get_galaxy_admins()
+        status_dict['master_is_exec_host'] = self.master_exec_host
         return status_dict
 
     def get_galaxy_rev(self):
@@ -904,29 +881,12 @@ class ConsoleManager(BaseConsoleManager):
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
-        if sd_galaxy:
-            svcs = self.get_services(svc_role=ServiceRole.GALAXY)
-            for service in svcs:
-                service.remove()
-        if sd_postgres:
-            svcs = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
-            for service in svcs:
-                service.remove()
+        full_svc_list = self.services[:]  # A copy to ensure consistency
+        for svc in full_svc_list:
+            log.debug("Initiating removal of service {0}".format(svc.name))
+            svc.remove()
         if sd_instances:
             self.stop_worker_instances()
-        if sd_filesystems:
-            svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
-            to_remove = []
-            for service in svcs:
-                to_remove.append(service)
-            for service in to_remove:
-                log.debug("Requesting removal of '%s' as part of shutdown" %
-                          service.get_full_name())
-                service.remove()
-        if sd_sge:
-            svcs = self.get_services(svc_role=ServiceRole.SGE)
-            for service in svcs:
-                service.remove()
         if sd_spot_requests:
             for wi in self.worker_instances:
                 if wi.is_spot() and not wi.spot_was_filled():
@@ -1266,7 +1226,7 @@ class ConsoleManager(BaseConsoleManager):
                 attached_volumes = self.get_attached_volumes()
                 for snap in self.snaps:
                     fs = Filesystem(self.app, snap['name'],
-                        svc_roles=ServiceRole.from_string(snap['roles']))
+                        svc_roles=ServiceRole.from_string_array(snap['roles']))
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
                     if att_vol:
@@ -1279,7 +1239,7 @@ class ConsoleManager(BaseConsoleManager):
                         log.debug("There are no volumes already attached for file system {0}"
                             .format(snap['name']))
                         size = 0
-                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string(snap['roles']):
+                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                             size = pss
                         fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
                         # snap_size = snap.get('size', 0)
@@ -1467,7 +1427,7 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = []  # Shared file systems list
         for fs in fsl:
-            roles = ServiceRole.from_string(fs['roles'])
+            roles = ServiceRole.from_string_array(fs['roles'])
             if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
@@ -2038,11 +1998,22 @@ class ConsoleManager(BaseConsoleManager):
         shutil.copy("%s-tmp" % file_name, file_name)
 
     def update_etc_host(self):
-
-        # misc.add_to_etc_hosts(self.app.cloud_interface.get_local_hostname(),self.app.cloud_interface.get_public_ip().split('.')[0])
+        """
+        This method is for syncing hosts files in all workers with the master.
+        It will copy the master etc hosts into a shared folder and send a message
+        to the workers to inform them of the change.
+        """
         shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
         for wrk in self.worker_instances:
             wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+
+    def update_condor_host(self, new_worker_ip):
+        """
+        Add the new pool to the condor big pool
+        """
+        srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
+        #log.debug("HTCondor service found" + str(len(srvs)))
+        srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
         """
@@ -2193,7 +2164,7 @@ class ConsoleMonitor(object):
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
-                        fs['roles'] = ServiceRole.to_string(srvc.svc_roles)
+                        fs['roles'] = ServiceRole.to_string_array(srvc.svc_roles)
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -2214,7 +2185,7 @@ class ConsoleMonitor(object):
                 else:
                     s = {}
                     s['name'] = srvc.name
-                    s['roles'] = ServiceRole.to_string(srvc.svc_roles)
+                    s['roles'] = ServiceRole.to_string_array(srvc.svc_roles)
                     if ServiceRole.GALAXY in srvc.svc_roles:
                         s['home'] = self.app.path_resolver.galaxy_home
                     svcs.append(s)
@@ -2222,6 +2193,9 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
+            # If 'deployment_version' is not in UD, don't store it in the config
+            if 'deployment_version' in self.app.ud:
+                cc['deployment_version'] = self.app.ud['deployment_version']
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
@@ -2529,7 +2503,7 @@ class Instance(object):
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_m_state_change).seconds),
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.time_rebooted).seconds)))
-            if (dt.datetime.utcnow() - self.last_comm).seconds > 100 and \
+            if (dt.datetime.utcnow() - self.last_comm).seconds > 180 and \
                (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
                (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
                 reboot_terminate_logic()
@@ -2768,6 +2742,9 @@ class Instance(object):
     @TestFlag(None)
     def send_alive_request(self):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
+
+    def send_sync_etc_host(self, msg):
+        self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
 
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
@@ -3030,6 +3007,12 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
+                ##<KWS>
+
+                log.debug("update condor host through master")
+                self.app.manager.update_condor_host(self.public_ip)
+                log.debug("update etc host through master")
+                self.app.manager.update_etc_host()
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split(' | ')
                 self.nfs_data = msplit[1]
@@ -3048,4 +3031,3 @@ class Instance(object):
                 log.debug("Unknown Message: %s" % msg)
         else:
             log.error("Epic Failure, squeue not available?")
-

@@ -155,7 +155,7 @@ tool_dependency_dir = /mnt/galaxy/tools
 #tool_data_path = tool-data
 
 # Directory where chrom len files are kept, currently mainly used by trackster
-len_file_path = /mnt/galaxy/len
+len_file_path = /mnt/galaxy/configuration_data/len
 
 # Datatypes config file, defines what data (file) types are available in
 # Galaxy.
@@ -511,7 +511,7 @@ allow_user_dataset_purge = True
 
 # Enable authentication via OpenID.  Allows users to log in to their Galaxy
 # account by authenticating with an OpenID provider.
-#enable_openid = False
+enable_openid = True
 #openid_config_file = openid_conf.xml
 
 # Optional list of email addresses of API users who can make calls on behalf of

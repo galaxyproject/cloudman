@@ -13,6 +13,7 @@ service_states = Bunch(
     CONFIGURING="Configuring",
     STARTING="Starting",
     RUNNING="Running",
+    COMPLETED="Completed",
     SHUTTING_DOWN="Shutting down",
     SHUT_DOWN="Shut down",
     ERROR="Error"
@@ -20,8 +21,8 @@ service_states = Bunch(
 
 
 class ServiceType(object):
-    FILE_SYSTEM = "FileSystem"
-    APPLICATION = "Application"
+    FILE_SYSTEM = "FILE_SYSTEM"
+    APPLICATION = "APPLICATION"
 
 
 class ServiceRole(object):
@@ -41,6 +42,8 @@ class ServiceRole(object):
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
                      "Transient NFS FS"}
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
+    HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
+    MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
 
     @staticmethod
     def get_type(role):
@@ -59,6 +62,20 @@ class ServiceRole(object):
             if role:
                 svc_roles.append(role)
         return svc_roles
+
+    @staticmethod
+    def from_string_array(roles_str_array):
+        """
+        Convert a list of roles as strings ``roles_str`` into a list of
+        ``ServiceRole`` objects and return that list.
+        """
+        if not isinstance(roles_str_array, list):  # preserve backward compatibility
+            return ServiceRole.from_string(roles_str_array)
+        else:
+            svs_roles = []
+            for role in roles_str_array:
+                svs_roles = svs_roles + ServiceRole.from_string(role)
+            return svs_roles
 
     @staticmethod
     def _role_from_string(val):
@@ -86,6 +103,10 @@ class ServiceRole(object):
             return ServiceRole.TRANSIENT_NFS
         elif val == "Hadoop":
             return ServiceRole.HADOOP
+        elif val == "Migration":
+            return ServiceRole.MIGRATION
+        elif val == "HTCondor":
+            return ServiceRole.HTCONDOR
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -100,6 +121,10 @@ class ServiceRole(object):
             if role:
                 str_roles = str_roles + "," + ServiceRole._role_to_string(role)
         return str_roles[1:]  # strip leading comma
+
+    @staticmethod
+    def to_string_array(svc_roles):
+        return [ServiceRole.to_string(role) for role in svc_roles]
 
     @staticmethod
     def _role_to_string(svc_role):
@@ -125,8 +150,12 @@ class ServiceRole(object):
             return "GenericFS"
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
+        elif svc_role == ServiceRole.HTCONDOR:
+            return "HTCondor"
         elif svc_role == ServiceRole.HADOOP:
             return "Hadoop"
+        elif svc_role == ServiceRole.MIGRATION:
+            return "Migration"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))
@@ -149,7 +178,7 @@ class ServiceRole(object):
         Legacy name to role conversion support. Supports the conversion of
         known service names such as SGE, galaxyData, galaxyTools etc. to role types.
         """
-        known_roles = ServiceRole.from_string([name])
+        known_roles = ServiceRole.from_string(name)
         if not known_roles:
             known_roles = [ServiceRole.GENERIC_FS]
         return ServiceRole.to_string(known_roles)
@@ -169,6 +198,12 @@ class ServiceDependency(object):
         self._owning_service = owning_service
         self._service_role = service_role
         self._assigned_service = assigned_service
+
+    def __repr__(self):
+        return "<ServiceRole:{0},Owning:{1},Assigned:{2}>".format(
+                ServiceRole.to_string(self.service_role),
+                "None" if self.owning_service is None else self.owning_service.name,
+                "None" if self.assigned_service is None else self.assigned_service.name)
 
     @property
     def owning_service(self):
@@ -205,12 +240,12 @@ class Service(object):
         self.last_state_change_time = dt.datetime.utcnow()
         self.name = None
         self.svc_roles = []
-        self.reqs = []
+        self.dependencies = []
 
     def add(self):
         """
         Add a given service to the pool of services managed by CloudMan, giving
-        CloudMan the abilty to monitor and control the service. This is a base
+        CloudMan the ability to monitor and control the service. This is a base
         implementation of the service ``add`` method which calls service's internal
         ``start`` method. Before calling the ``start`` method, service prerequisites
         are checked and, if satisfied, the service is started. If the prerequisites
@@ -220,32 +255,33 @@ class Service(object):
             # log.debug("Trying to add service '%s'" % self.name)
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
-            failed_prereqs = []
+            failed_prereqs = self.dependencies[:]
                 # List of service prerequisites that have not been satisfied
-            for dependency in self.reqs:
+            for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
                 for svc in self.app.manager.services:
                     # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
                         # log.debug("Service %s:%s running: %s" % (svc.name,
-                        # svc.name, svc.running()))
-                        if not svc.running():
-                            failed_prereqs.append(svc.get_full_name())
+                        # svc.name, svc.state))
+                        if svc.running() or svc.completed():
+                            if dependency in failed_prereqs:
+                                failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
                 log.info("{0} service prerequisites OK; starting the service".format(
                     self.get_full_name()))
                 self.start()
                 return True
             else:
-                log.debug("{0} service prerequisites are not yet satisfied, missing: {2}. "
+                log.debug("{0} service prerequisites are not yet satisfied, waiting for: {2}. "
                           "Setting {0} service state to '{1}'"
                           .format(self.get_full_name(), service_states.UNSTARTED, failed_prereqs))
                 # Reset state so it get picked back up by monitor
                 self.state = service_states.UNSTARTED
                 return False
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Recursively removes a service and all services that depend on it.
         Child classes which override this method should ensure this is called
@@ -253,10 +289,8 @@ class Service(object):
         """
         log.debug("Removing dependencies of service: {0}".format(self.name))
         for service in self.app.manager.services:
-            for dependency in service.reqs:
+            for dependency in service.dependencies:
                 if (dependency.is_satisfied_by(self)):
-                    log.debug("Dependency {0} found. Removing...".format(
-                        service.name))
                     service.remove()
 
     def running(self):
@@ -265,8 +299,33 @@ class Service(object):
         """
         return self.state == service_states.RUNNING
 
+    def completed(self):
+        """
+        Return ``True`` is service is in state ``COMPLETED``, ``False`` otherwise
+        """
+        return self.state == service_states.COMPLETED
+
     def get_full_name(self):
         """
         Return full name of the service (useful if different from service type)
         """
         return "{0}".format(self.name)
+
+    def get_service_actions(self):
+        """
+        Returns a list of actions that this service supports
+        """
+        return []
+
+    def get_service_requirements(self):
+        """
+        Returns a list of the services that this service requires
+        """
+        reqs_list = []
+        for req in self.reqs:
+            reqs_dict = {'display_name': req.service_role['display_name'],
+                         'type': req.service_role['type'],
+                         'role': ServiceRole.to_string(req.service_role),
+                         'assigned_service': (req.assigned_service.name if req.assigned_service else "")}
+            reqs_list.append(reqs_dict)
+        return reqs_list
