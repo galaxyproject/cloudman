@@ -2,6 +2,7 @@ import time
 import urllib
 import socket
 
+import boto
 from boto.exception import BotoServerError
 from boto.exception import EC2ResponseError
 from boto.s3.connection import S3Connection
@@ -24,6 +25,10 @@ class EC2Interface(CloudInterface):
         self.update_frequency = 60
         self.public_hostname_updated = time.time()
         self.set_configuration()
+        try:
+            log.debug("Using boto version {0}".format(boto.__version__))
+        except:
+            pass
 
     def get_ami(self):
         if self.ami is None:
@@ -268,33 +273,47 @@ class EC2Interface(CloudInterface):
                 pass
         return self.fqdn
 
+    def get_region_name(self):
+        """
+        Return the name of the region where currently running.
+        """
+        if not self.region_name:
+            r = self.get_region()
+            self.region_name = r.name
+            log.debug("Got region name as '{0}'".format(self.region_name))
+        return self.region_name
+
+    def get_region(self):
+        """
+        Return a ``boto`` object representing the region where currently running.
+        """
+        if not self.region:
+            # Get instance zone and figure out the region from there
+            zone = self.get_zone()[:-1]  # truncate zone and be left with region name
+            tmp_conn = EC2Connection(self.aws_access_key,
+                                     self.aws_secret_key)  # get conn in the default region
+            try:
+                regions = tmp_conn.get_all_regions()
+            except EC2ResponseError, e:
+                log.error("Cannot validate provided AWS credentials: %s" % e)
+            for r in regions:
+                if zone in r.name:
+                    self.region = r
+                    log.debug("Got region as '{0}'".format(self.region))
+                    break
+        return self.region
+
     def get_ec2_connection(self):
         if self.ec2_conn == None:
             try:
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
                               "Returning default EC2 connection.")
-                    self.ec2_conn = EC2Connection(
-                        self.aws_access_key, self.aws_secret_key)
+                    self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
                     return self.ec2_conn
                 log.debug('Establishing boto EC2 connection')
-                # In order to get a connection for the correct region, get
-                # instance zone and go from there
-                zone = self.get_zone(
-                )[:-1]  # truncate zone and be left with region name
-                tmp_conn = EC2Connection(self.aws_access_key,
-                                         self.aws_secret_key)  # get conn in default region
-                try:
-                    regions = tmp_conn.get_all_regions()
-                except EC2ResponseError, e:
-                    log.error(
-                        "Cannot validate provided AWS credentials: %s" % e)
-                # Find region that matches instance zone and then create
-                # ec2_conn
-                for r in regions:
-                    if zone in r.name:
-                        region = r
-                        break
+                # Make sure we get a connection for the correct region
+                region = self.get_region()
                 self.ec2_conn = EC2Connection(
                     self.aws_access_key, self.aws_secret_key, region=region)
                 # Do a simple query to test if provided credentials are valid
@@ -411,6 +430,8 @@ class EC2Interface(CloudInterface):
                 for instance in reservation.instances:
                     self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.add_tag(instance, 'role', worker_ud['role'])
+                    self.add_tag(instance, 'Name', "Worker: {0}"
+                        .format(self.app.ud['cluster_name']))
                     i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
@@ -512,6 +533,7 @@ class EC2Interface(CloudInterface):
         """
         worker_ud = {}
         worker_ud['role'] = 'worker'
+        worker_ud['master_public_ip'] = self.get_public_ip()
         worker_ud['master_ip'] = self.get_private_ip()
         worker_ud['master_hostname'] = self.get_local_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
@@ -541,9 +563,10 @@ class EC2Interface(CloudInterface):
         :rtype: list of :class:`boto.ec2.volume.Volume`
         :return: The requested Volume objects
         """
-        if not isinstance(volume_ids, list):
+        if volume_ids and not isinstance(volume_ids, list):
             volume_ids = [volume_ids]
-        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids, filters=filters)
+        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids,
+            filters=filters)
 
     def get_all_instances(self, instance_ids=None, filters=None):
         """
@@ -565,6 +588,6 @@ class EC2Interface(CloudInterface):
         :rtype: list
         :return: A list of  :class:`boto.ec2.instance.Reservation`
         """
-        if not isinstance(instance_ids, list):
+        if instance_ids and not isinstance(instance_ids, list):
             instance_ids = [instance_ids]
         return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids, filters=filters)

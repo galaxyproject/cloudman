@@ -1,12 +1,9 @@
 import os
-import pwd
-import grp
 import shutil
 import urllib2
 import subprocess
 from datetime import datetime
 from string import Template
-from ConfigParser import SafeConfigParser
 
 from cm.services.apps import ApplicationService
 from cm.services import service_states
@@ -15,6 +12,12 @@ from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
 from cm.util import templates
+from cm.util.galaxy_conf import attempt_chown_galaxy, attempt_chown_galaxy_if_exists
+from cm.util.galaxy_conf import galaxy_option_manager
+from cm.util.galaxy_conf import populate_process_options
+from cm.util.galaxy_conf import populate_dynamic_options
+from cm.util.galaxy_conf import populate_galaxy_paths
+from cm.util.galaxy_conf import populate_admin_users
 
 import logging
 log = logging.getLogger('cloudman')
@@ -28,12 +31,17 @@ class GalaxyService(ApplicationService):
         self.svc_roles = [ServiceRole.GALAXY]
         self.configured = False  # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
-        self.env_vars = {"SGE_ROOT": self.app.path_resolver.sge_root}
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+        self.env_vars = {
+                         "SGE_ROOT": self.app.path_resolver.sge_root,
+                         "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
+                         }
+        self.dependencies = [ServiceDependency(self, ServiceRole.SGE),
+                     ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
                      ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
                      ]
+        self.option_manager = galaxy_option_manager(app)
 
     @property
     def galaxy_home(self):
@@ -46,13 +54,15 @@ class GalaxyService(ApplicationService):
         self.manage_galaxy(True)
         self.status()
 
-    def remove(self):
+    def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
-        super(GalaxyService, self).remove()
+        super(GalaxyService, self).remove(synchronous)
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.last_state_change_time = datetime.utcnow()
             self.manage_galaxy(False)
+        elif self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         else:
             log.debug("Galaxy service not running (state: {0}) so not stopping it."
                       .format(self.state))
@@ -70,13 +80,19 @@ class GalaxyService(ApplicationService):
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         os.putenv("GALAXY_HOME", self.galaxy_home)
         os.putenv("TEMP", self.app.path_resolver.galaxy_temp)
-        # Setup configuration directory for galaxy if galaxy_conf_dir specified
-        # in user-data.
-        if self.has_config_dir():
-            self.setup_config_dir()
-        # TODO: Pick better name
-        if self.app.ud.get("configure_multiple_galaxy_processes", False):
-            self.configure_multiple_galaxy_processes()
+        conf_dir = self.option_manager.setup()
+        if conf_dir:
+            self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
+
+        if self._multiple_processes():
+            self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
+            # HACK: Galaxy has a known problem when starting from a fresh configuration
+            # in multiple process mode. Each process attempts to create the same directories
+            # and one or more processes can fail to start because it "failed" to create
+            # said directories (because another process created them first). This hack staggers
+            # the process starts in an attempt to circumvent this problem.
+            patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 10/\" %s/run.sh" % self.galaxy_home
+            misc.run(patch_run_sh_command)
             self.extra_daemon_args = ""
         else:
             # Instead of sticking with default paster.pid and paster.log, explicitly
@@ -100,41 +116,39 @@ class GalaxyService(ApplicationService):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
                     return False
-                # Retrieve config files from a persistent data repository
-                # (i.e., S3)
+                # If a configuration file is not already in Galaxy's dir,
+                # retrieve it from a persistent data repository (i.e., S3)
                 if s3_conn:
                     for f_name in ['universe_wsgi.ini',
                                    'tool_conf.xml',
                                    'tool_data_table_conf.xml',
                                    'shed_tool_conf.xml',
                                    'datatypes_conf.xml']:
-                        if not misc.get_file_from_bucket(s3_conn,
-                                                         self.app.ud[
-                                                         'bucket_cluster'],
-                                                         '{0}.cloud'.format(
-                                                             f_name),
-                                                         os.path.join(self.galaxy_home, f_name)):
-                            # We did not get the config file from cluster's bucket;
-                            # get one from the default bucket
-                            log.debug("Did not get Galaxy configuration file " +
-                                      "'{0}' from cluster bucket '{1}'".format(f_name,
-                                                                               self.app.ud['bucket_cluster']))
-                            log.debug("Trying to retrieve one ({0}.cloud) "
-                                      "from the default '{1}' bucket.".format(f_name,
-                                                                              self.app.ud['bucket_default']))
-                            local_file = os.path.join(self.galaxy_home, f_name)
-                            misc.get_file_from_bucket(s3_conn,
-                                                      self.app.ud[
-                                                      'bucket_default'],
-                                                      '{0}.cloud'.format(f_name), local_file)
-                            self._attempt_chown_galaxy_if_exists(local_file)
-                self.add_dynamic_galaxy_options()
+                        f_path = os.path.join(self.galaxy_home, f_name)
+                        if not os.path.exists(f_path):
+                            if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                                '{0}.cloud'.format(f_name), f_path):
+                                # We did not get the config file from cluster's
+                                # bucket so get it from the default bucket
+                                log.debug("Did not get Galaxy configuration file " +
+                                          "'{0}' from cluster bucket '{1}'"
+                                          .format(f_name, self.app.ud['bucket_cluster']))
+                                log.debug("Trying to retrieve one ({0}.cloud) "
+                                          "from the default '{1}' bucket."
+                                          .format(f_name, self.app.ud['bucket_default']))
+                                local_file = os.path.join(self.galaxy_home, f_name)
+                                misc.get_file_from_bucket(s3_conn,
+                                                          self.app.ud[
+                                                          'bucket_default'],
+                                                          '{0}.cloud'.format(f_name), local_file)
+                                attempt_chown_galaxy_if_exists(local_file)
+
                 # Make sure the temporary job_working_directory exists on user
                 # data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/tmp/job_working_directory/' %
                                 self.app.path_resolver.galaxy_data)
-                self._attempt_chown_galaxy(
+                attempt_chown_galaxy(
                     '%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
                 # Setup environment for the FTP server and start it
                 if not os.path.exists('%s/tmp/ftp' % self.app.path_resolver.galaxy_data):
@@ -179,7 +193,8 @@ class GalaxyService(ApplicationService):
                 start_command = self.galaxy_run_command(
                     "%s --daemon" % self.extra_daemon_args)
                 log.debug(start_command)
-                if not misc.run(start_command, "Error invoking Galaxy", "Successfully initiated Galaxy start."):
+                if not misc.run(start_command, "Error invoking Galaxy",
+                    "Successfully initiated Galaxy start from {0}.".format(self.galaxy_home)):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
             else:
@@ -194,6 +209,9 @@ class GalaxyService(ApplicationService):
                 # Move all log files
                 subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime(
                     '%H_%M'), shell=True)
+
+    def _multiple_processes(self):
+        return self.app.ud.get("configure_multiple_galaxy_processes", False)
 
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (
@@ -256,181 +274,15 @@ class GalaxyService(ApplicationService):
         except:
             return False
 
-    def has_config_dir(self):
-        return self.app.ud.get("galaxy_conf_dir", None) is not None
-
-    def setup_config_dir(self):
-        conf_dir = self.get_galaxy_conf_dir()
-        GalaxyService.initialize_galaxy_config_dir(
-            conf_dir, 'universe_wsgi.ini')
-        # This will ensure galaxy's run.sh file picks up the config dir.
-        self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
-
-    @staticmethod
-    def initialize_galaxy_config_dir(conf_dir, defaults_name):
-        # If config dir does not exist, create it and put default
-        # properties in with low priority.
-        if not os.path.exists(conf_dir):
-            os.makedirs(conf_dir)
-            defaults_destination = os.path.join(
-                conf_dir, "010_%s" % defaults_name)
-            universe_wsgi = os.path.join(
-                self.app.path_resolver.galaxy_home, defaults_name)
-            if not os.path.exists(universe_wsgi):
-                # Fresh install, take the oppertunity to just link in defaults
-                defaults_source = os.path.join(
-                    self.app.path_resolver.galaxy_home, "%s.sample" % defaults_name)
-                os.symlink(defaults_source, defaults_destination)
-            else:
-                # CloudMan has previously been run without the galaxy_conf_dir
-                # option enabled. Users may have made modifications to universe_wsgi.ini
-                # that I guess we should preserve for backward compatibility.
-                defaults_source = os.path.join(
-                    self.app.path_resolver.galaxy_home, defaults_name)
-                shutil.copyfile(defaults_source, defaults_destination)
-
-    def get_galaxy_conf_dir(self):
-        return self.app.ud.get("galaxy_conf_dir", None)
-
-    def configure_multiple_galaxy_processes(self):
-        if not self.has_config_dir():
-            log.warn(
-                "Must specify a galaxy configuration directory (via galaxy_conf_dir) in order to create a multiple Galaxy processes.")
-            return
-        web_thread_count = int(self.app.ud.get("web_thread_count", 1))
-        handler_thread_count = int(self.app.ud.get("handler_thread_count", 1))
-        [self.add_server_process(
-            i, "web", 8080) for i in range(web_thread_count)]
-        handlers = [self.add_server_process(
-            i, "handler", 9080) for i in range(handler_thread_count)]
-        self.add_server_process(0, "manager", 8079)
-        self.add_universe_option("job_manager", "manager0")
-        self.add_universe_option("job_handlers", ",".join(handlers))
-        self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
-
-        # HACK: Galaxy has a known problem when starting from a fresh configuration
-        # in multiple process mode. Each process attempts to create the same directories
-        # and one or more processes can fail to start because it "failed" to create
-        # said directories (because another process created them first). This hack staggers
-        # the process starts in an attempt to circumvent this problem.
-        patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 10/\" %s/run.sh" % self.galaxy_home
-        misc.run(patch_run_sh_command)
-
-    def add_server_process(self, index, prefix, initial_port):
-        port = initial_port + index
-        server_options = {"use": "egg:Paste#http",
-                          "port": port,
-                          "use_threadpool": True,
-                          "threadpool_workers": self.app.ud.get("threadpool_workers", "7")
-                          }
-        server_name = "%s%d" % (prefix, index)
-        if port == 8080:
-            # Special case, server on port 8080 must be called main unless we want
-            # to start deleting chunks of universe_wsgi.ini.
-            server_name = "main"
-        self.add_universe_options(server_options, "server_%s" % server_name,
-                                  section="server:%s" % server_name)
-        return server_name
-
-    def add_universe_option(self, name, value, section="app:main"):
-        options = {name: value}
-        self.add_universe_options(options, name, section)
-
-    def add_universe_options(self, options, description, section="app:main"):
-        prefix = self.app.ud.get("option_priority", "400")
-        conf_dir = self.get_galaxy_conf_dir()
-        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, description)
-        conf_file = os.path.join(conf_dir, conf_file_name)
-        props_str = "\n".join(
-            ["%s=%s" % (k, v) for k, v in options.iteritems()])
-        open(conf_file, "w").write("[%s]\n%s" % (section, props_str))
-
-    def add_dynamic_galaxy_options(self):
-        if not self.has_config_dir():
-            return False
-        dynamic_option_types = {"galaxy_universe_": "app:main",
-                                "galaxy_tool_runner_": "galaxy:tool_runners",
-                                }
-        for option_prefix, section in dynamic_option_types.iteritems():
-            for key, value in self.app.ud.iteritems():
-                if key.startswith(option_prefix):
-                    key = key[len(option_prefix):]
-                    self.add_universe_option(key, value, section)
-
     def update_galaxy_config(self):
-        self.set_galaxy_paths()
-        self.add_galaxy_admin_users()
-
-    def set_galaxy_paths(self):
-        section = "app:main"
-        config_file_path = os.path.join(self.galaxy_home, "universe_wsgi.ini")
-        parser = SafeConfigParser()
-        with open(config_file_path, 'rt') as configfile:
-            parser.readfp(configfile)
-            parser.set(section, "genome_data_path", os.path.join(
-                self.app.path_resolver.galaxy_indices, "genomes"))
-            parser.set(section, "len_file_path", os.path.join(
-                self.app.path_resolver.galaxy_indices, "len"))
-            parser.set(section, "tool_dependency_dir", os.path.join(
-                self.app.path_resolver.galaxy_tools, "tools"))
-            parser.set(section, "file_path", os.path.join(
-                self.app.path_resolver.galaxy_data, "files"))
-            temp_dir = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
-            parser.set(section, "new_file_path", temp_dir)
-            parser.set(section, "job_working_directory",
-                       os.path.join(temp_dir, "job_working_directory"))
-            parser.set(section, "cluster_files_directory",
-                       os.path.join(temp_dir, "pbs"))
-            parser.set(
-                section, "ftp_upload_dir", os.path.join(temp_dir, "ftp"))
-            parser.set(section, "nginx_upload_store", os.path.join(
-                self.app.path_resolver.galaxy_data, "upload_store"))
-        with open(config_file_path, 'wt') as configfile:
-            parser.write(configfile)
+        if self._multiple_processes():
+            populate_process_options(self.option_manager)
+        populate_dynamic_options(self.option_manager)
+        populate_galaxy_paths(self.option_manager)
+        populate_admin_users(self.option_manager)
 
     def add_galaxy_admin_users(self, admins_list=[]):
-        """ Galaxy admin users can now be added by providing them in user data
-            (see below) or by calling this method and providing a user list.
-            YAML format for user data for providing admin users
-            (note that these users will still have to manually register on the given cloud instance):
-            admin_users:
-             - user@example.com
-             - user2@anotherexample.edu """
-        for admin in self.app.ud.get('admin_users', []):
-            if admin not in admins_list:
-                    admins_list.append(admin)
-        if len(admins_list) == 0:
-            return False
-        log.info('Adding Galaxy admin users: %s' % admins_list)
-        if self.has_config_dir():
-            self.add_universe_option("admin_users", ",".join(admins_list))
-        else:
-            config_file_path = os.path.join(
-                self.galaxy_home, 'universe_wsgi.ini')
-            new_config_file_path = os.path.join(
-                self.galaxy_home, 'universe_wsgi.ini.new')
-            admins_str = ', '.join(str(a) for a in admins_list)
-            with open(config_file_path, 'rt') as configfile:
-                parser = SafeConfigParser()
-                parser.readfp(configfile)
-                parser.set("app:main", "admin_users", admins_str)
-            with open(new_config_file_path, 'wt') as output_file:
-                parser.write(output_file)
-            shutil.move(new_config_file_path, config_file_path)
-            # Change the owner of the file to galaxy user
-            self._attempt_chown_galaxy(config_file_path)
-
-    def _attempt_chown_galaxy_if_exists(self, path):
-        if os.path.exists(path):
-            self._attempt_chown_galaxy(path)
-
-    def _attempt_chown_galaxy(self, path):
-        try:
-            galaxy_uid = pwd.getpwnam("galaxy")[2]
-            galaxy_gid = grp.getgrnam("galaxy")[2]
-            os.chown(path, galaxy_uid, galaxy_gid)
-        except OSError:
-            misc.run("chown galaxy:galaxy '%s'" % path)
+        populate_admin_users(self.option_manager, admins_list)
 
     def configure_nginx(self):
         """

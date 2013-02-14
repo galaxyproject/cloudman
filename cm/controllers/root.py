@@ -3,7 +3,6 @@ import re
 import logging
 import subprocess
 import json
-# from datetime import datetime
 
 from cm.framework import expose
 from cm.base.controller import BaseController
@@ -28,6 +27,10 @@ class CM(BaseController):
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
             system_message = None
+            cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
+            # Unify all Amazon regions and/or name variations to a single one
+            if 'amazon' in cloud_name:
+                cloud_name = 'amazon'
             if os.path.exists(paths.SYSTEM_MESSAGES_FILE):
                 # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
@@ -42,7 +45,7 @@ class CM(BaseController):
                                         image_config_support=BunchToo(self.app.config.ic),
                                         CM_url=CM_url,
                                         cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                        cloud_name=self.app.ud.get('cloud_name', 'amazon').lower(),
+                                        cloud_name=cloud_name,
                                         system_message=system_message,
                                         default_data_size=self.app.manager.get_default_data_size())
 
@@ -119,7 +122,7 @@ class CM(BaseController):
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -127,11 +130,12 @@ class CM(BaseController):
         return trans.fill_template('mini_control.mako')
 
     @expose
-    def get_cluster_type(self, trans):
+    def cluster_type(self, trans):
         """
-        Get the type of the cluster that's been configured
+        Get the type of the cluster that's been configured as a JSON dict
         """
-        return self.app.manager.initial_cluster_type
+        cluster_type = {'cluster_type': self.app.manager.initial_cluster_type}
+        return json.dumps(cluster_type)
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
@@ -170,7 +174,7 @@ class CM(BaseController):
             vol_id=None, vol_fs_name='',
             snap_id=None, snap_fs_name='',
             bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-            nfs_server=None, nfs_fs_name='', **kwargs):
+            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
@@ -209,24 +213,53 @@ class CM(BaseController):
                     bucket_s_key = None
                 else:
                     bucket_s_key = bucket_s_key.strip()
-                self.app.manager.add_fs(bucket_name.strip(), bucket_fs_name.strip(),
+                self.app.manager.add_fs_bucket(bucket_name.strip(), bucket_fs_name.strip(),
                     bucket_a_key=bucket_a_key, bucket_s_key=bucket_s_key, persistent=persist)
             else:
-                log.error("Wanted to add a new file system from a bucket but no bucket name was provided")
+                log.error("Wanted to add a new file system from a bucket but no "
+                    "bucket name was provided.")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
-                log.debug("Adding '{2}' file system based on an existing {0}, {1}"\
-                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
-                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            log.debug("Adding '{2}' file system based on an existing {0}, {1}"
+                .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            if fs_kind == 'volume':
+                self.app.manager.add_fs_volume(vol_id=vol_id, fs_kind='volume',
+                    fs_name=vol_fs_name, persistent=persist, dot=dot)
+            else:
+                self.app.manager.add_fs_volume(snap_id=snap_id, fs_kind='snapshot',
+                    fs_name=snap_fs_name, persistent=persist, dot=dot)
         elif fs_kind == 'new_volume':
-            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "\
-                "be deleted, of size {1}"\
-                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'), ('' if dot else ' not')))
+            log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "
+                "be deleted, of size {1}"
+                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'),
+                ('' if dot else ' not')))
+            self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
+                vol_size=new_disk_size, persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
-            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."\
+            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
+            self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name, username=nfs_username,
+                pwd=nfs_pwd, persistent=persist)
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
+
+    @expose
+    def reassign_services(self, trans, **kwargs):
+        """
+        Reassign the service fullfilling a particular dependency. Currently only
+        works with filesystems. For example, a filesystem fulfilling the role GALAXY_DATA
+        could be reassigned to a new file system.  If the copy_across parameter is set, the
+        old filesystem will be rsynced with the new one. This is mainly so that users using one type
+        of filesystem (say volumes) can easily migate 
+        """
+        service_to_process = json.loads(trans.request.body)
+        svc_name = service_to_process.get('svc_name', None)
+        svc = self.app.manager.get_services(svc_name=svc_name)
+        if svc:
+            return "Initiating file system reassignment"
+        else:
+            return "Service not found!"
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -403,27 +436,12 @@ class CM(BaseController):
                            'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
-    def get_all_services_status(self, trans):
+    def get_cloudman_system_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
-        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
-        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
-        snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status' : str(snap_status[0]),
-                                   'progress' : str(snap_status[1])}
-        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
-
-    @expose
-    def get_application_services(self, trans):
-        return json.dumps(self.app.manager.get_application_services())
-
-    @expose
-    def get_all_filesystems(self, trans):
-        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
@@ -527,6 +545,29 @@ class CM(BaseController):
                 return comment
         else:
             comment = "No admin users provided: '%s'" % admin_users
+            log.warning(comment)
+            return comment
+
+    @expose
+    def add_flocking_ip(self, trans, fDNS):
+        """
+        adding remote resource IP as a flocking IP into condor,
+        allowing a local condor job to be run over a remote condor
+        machine.
+
+        The remote resource should have provided us with enough
+        privilege such as allow_write and flock_from variables
+        in their condor config file.
+        """
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.HTCONDOR)
+        if len(svcs) > 0:
+            svcs[0].modify_htcondor("FLOCK_TO", "{0}".format(fDNS))
+            svcs[0].modify_htcondor("ALLOW_WRITE", "{0}".format(fDNS))
+            msg = "HTCondor flock IP {0} added".format(fDNS)
+            log.info(msg)
+            return msg
+        else:
+            comment = "HTCondor service not found."
             log.warning(comment)
             return comment
 
@@ -675,7 +716,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_public_hostname(),
+                                   ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],

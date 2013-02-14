@@ -1,3 +1,20 @@
+HTCONDOR_MASTER_CONF_TEMPLATE = """
+## USER defined bits
+FLOCK_TO=$flock_host
+HIGHPORT=9700
+LOWPORT=9600
+START=true
+SUSPEND=false
+"""
+HTCONDOR_WOORKER_CONF_TEMPLATE = """
+## USER defined bits
+CONDOR_HOST=$host
+HIGHPORT=9700
+LOWPORT=9600
+DAEMON_LIST=MASTER, STARTD, SCHEDD
+"""
+
+
 SGE_INSTALL_TEMPLATE = \
     """SGE_ROOT="/opt/sge"
 SGE_QMASTER_PORT="6444"
@@ -135,8 +152,8 @@ xuser_lists       NONE
 start_proc_args   /opt/sge/mpi/startmpi.sh $pe_hostfile
 stop_proc_args    /opt/sge/mpi/stopmpi.sh
 allocation_rule   $round_robin
-control_slaves    FALSE
-job_is_first_task TRUE
+control_slaves    TRUE
+job_is_first_task FALSE
 urgency_slots     min
 accounting_summary FALSE
 """

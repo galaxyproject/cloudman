@@ -56,7 +56,7 @@ class PSS(ApplicationService):
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
             for srvc in self.app.manager.services:
-                if srvc != self and not srvc.running():
+                if srvc != self and not (srvc.running() or srvc.completed()):
                     log.debug("%s not running (%s), %s service prerequisites not met afterall,"
                               "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
                     self.state = service_states.UNSTARTED  # Reset state so it gets picked up by monitor again
@@ -150,8 +150,10 @@ class PSS(ApplicationService):
             log.debug("A current post start script {0} already exists in bucket {1}; not updating it"
                       .format(self.pss_filename, self.app.ud['bucket_cluster']))
 
-    def remove(self):
-        super(PSS, self).remove()
+    def remove(self, synchronous=False):
+        super(PSS, self).remove(synchronous)
+        if self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         if self.state == service_states.SHUT_DOWN:
             log.debug(
                 "Removing %s service from master list of services" % self.name)

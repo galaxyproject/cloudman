@@ -10,12 +10,12 @@ from datetime import datetime
 
 from boto.exception import EC2ResponseError
 
-from cm.util import paths
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import DataService
+from cm.services.data.nfs import NfsFS
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 from cm.services.data.transient_storage import TransientStorage
@@ -38,22 +38,22 @@ class Filesystem(DataService):
         self.volumes = []  # A list of cm.services.data.volume.Volume objects
         self.buckets = []  # A list of cm.services.data.bucket.Bucket objects
         self.transient_storage = []  # Instance's transient storage
+        self.nfs_fs = None  # NFS file system object implementing this file system's device
         self.name = name  # File system name
         self.persistent = persistent  # Whether it should be part of the cluster config
         self.size = None  # Total size of this file system
         self.size_used = None  # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
         self.dirty = False
-        self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', or 'transient'
+        self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
         self.mount_point = mount_point if mount_point is not None else os.path.join(
             self.app.path_resolver.mount_root, self.name)
         self.grow = None  # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
                          # the file system; use following dict structure:
                          # {'new_size': <size>, 'snap_desc': <snapshot description>}
-        self.started_starting = datetime.utcnow(
-        )  # A time stamp when the state changed to STARTING.
-                                                  # It is used to avoid brief ERROR states during
-                                                  # the system configuration.
+        self.started_starting = datetime.utcnow()  # A time stamp when the state changed to
+                                                   # STARTING; it is used to avoid brief ERROR
+                                                   # states during the system configuration.
 
     def get_full_name(self):
         """
@@ -75,6 +75,8 @@ class Filesystem(DataService):
             details = b._get_details(details)
         for ts in self.transient_storage:
             details = ts._get_details(details)
+        if self.kind == 'nfs':
+            details = self.nfs_fs._get_details(details)
         return details
 
     def _get_details(self, details):
@@ -116,6 +118,10 @@ class Filesystem(DataService):
                     self.get_full_name()))
                 self.state = service_states.STARTING
                 self.started_starting = datetime.utcnow()
+                # TODO: devices must be added to a file system before one can
+                # be `added` and thus we know what `kind` a FS is. So, instead of
+                # iterating over all devices, just use `self.kind`-based if/else, right?
+                # See `nfs` case as an example
                 for vol in self.volumes:
                     # Threading has some issues w/ race conditions over device IDs
                     # threading.Thread(target=vol.add).start()
@@ -129,30 +135,35 @@ class Filesystem(DataService):
                     self.kind = 'transient'
                     self.persistent = False
                     ts.add()
+                if self.kind == 'nfs':
+                    self.nfs_fs.start()
             except Exception, e:
                 log.error("Error adding file system service {0}: {1}".format(
                     self.get_full_name(), e))
                 return False
             self.status()
-            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3})"
-                      .format(self.get_full_name(), self.volumes, self.buckets, self.transient_storage))
+            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4})"
+                      .format(self.get_full_name(), self.volumes, self.buckets,
+                      self.transient_storage, self.nfs_fs.nfs_server if self.nfs_fs else '-'))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"
                       .format(self.get_full_name(), service_states.UNSTARTED, self.state))
         return False
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Initiate removal of this file system from the system; do it in a
         separate thread and return without waiting for the process to complete.
         """
-        log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, and "
-                 "transient storage {3}".format(self.get_full_name(), self.volumes, self.buckets,
-                                                self.transient_storage))
+        log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, "
+                 "transient storage {3}, and nfs server {4}".format(self.get_full_name(),
+                 self.volumes, self.buckets, self.transient_storage, self.nfs_fs))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread(target=self.__remove)
         r_thread.start()
+        if synchronous:
+            r_thread.join()
 
     def __remove(self, delete_vols=True, remove_from_master=True):
         """
@@ -161,7 +172,7 @@ class Filesystem(DataService):
         is set to ``True``, the service is automatically removed
         from the list of services monitored by the master.
         """
-        super(Filesystem, self).remove()
+        super(Filesystem, self).remove(synchronous=True)
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
@@ -170,6 +181,8 @@ class Filesystem(DataService):
             b.unmount()
         for t in self.transient_storage:
             t.remove()
+        if self.nfs_fs:
+            self.nfs_fs.stop()
         log.debug("Setting state of %s to '%s'" % (
             self.get_full_name(), service_states.SHUT_DOWN))
         self.state = service_states.SHUT_DOWN
@@ -325,8 +338,8 @@ class Filesystem(DataService):
                         self.app.cloud_interface.add_tag(
                             att_vol, 'clusterName', self.app.ud['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
-                        self.app.cloud_interface.add_tag(
-                            att_vol, 'filesystem', self.name)
+                        self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
+                    self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml)
                     # in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()
@@ -468,7 +481,7 @@ class Filesystem(DataService):
         For example: ``335G 199M 1%``
         """
         if not cmd:
-            cmd = "df -h | grep %s$  | awk '{print $2, $3, $5}'" % self.name
+            cmd = "df | grep %s$  | awk '{print $2, $3, $5}'" % self.name
         # Get size & usage
         try:
             disk_usage = commands.getoutput(cmd)
@@ -476,7 +489,7 @@ class Filesystem(DataService):
             if len(disk_usage) == 3:
                 self.size = disk_usage[0]  # or should this the device size?
                 self.size_used = disk_usage[1]
-                self.size_pct = disk_usage[2]
+                self.size_pct = disk_usage[2].replace("%", "")
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
@@ -546,7 +559,7 @@ class Filesystem(DataService):
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'"
                       % (self.name, self.mount_point, self.state))
 
-    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None):
+    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None, dot=False):
         """
         Add a volume device to this file system.
 
@@ -556,7 +569,7 @@ class Filesystem(DataService):
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"
                   .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size,
-                            from_snapshot_id=from_snapshot_id))
+                            from_snapshot_id=from_snapshot_id, static=dot))
 
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         """
@@ -579,3 +592,11 @@ class Filesystem(DataService):
         log.debug("Configuring instance transient storage at {0} with NFS.".format(
             self.mount_point))
         self.transient_storage.append(TransientStorage(self))
+
+    def add_nfs(self, nfs_server, username=None, pwd=None):
+        """
+        Add a NFS server (e.g., ``172.22.169.17:/nfs_dir``) to mount the file system from
+        """
+        log.debug("Adding NFS server {0} to file system {1}".format(nfs_server, self.name))
+        self.kind = 'nfs'
+        self.nfs_fs = NfsFS(self, nfs_server, username, pwd)

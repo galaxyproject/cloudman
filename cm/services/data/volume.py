@@ -83,7 +83,7 @@ class Volume(BlockStorage):
         details['DoT'] = "Yes" if self.static else "No"
         details['device'] = self.device
         details['volume_id'] = self.volume_id
-        details['from_snap'] = self.from_snapshot_id
+        details['from_snap'] = "No" if not self.from_snapshot_id else self.from_snapshot_id
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
@@ -186,7 +186,8 @@ class Volume(BlockStorage):
         else:
             try:
                 self.volume.update()
-                status = volume_status_map.get(self.volume.status, None)
+                # Take only the first word of the status as openstack adds some extra info after a space
+                status = volume_status_map.get(self.volume.status.split(' ')[0], None)
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
                 if not status:
@@ -247,7 +248,7 @@ class Volume(BlockStorage):
             log.error('Cannot add a volume without a size or snapshot ID')
             return None
 
-        if self.from_snapshot_id:
+        if self.from_snapshot_id and not self.volume:
             self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([self.from_snapshot_id])[0]
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
@@ -290,8 +291,10 @@ class Volume(BlockStorage):
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
-                self.app.cloud_interface.add_tag(
-                    self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
+                self.app.cloud_interface.add_tag(self.volume, 'roles',
+                    ServiceRole.to_string(self.fs.svc_roles))
         except EC2ResponseError, e:
             log.error("Error adding tags to volume: %s" % e)
 
@@ -333,11 +336,17 @@ class Volume(BlockStorage):
         """
         base = device_id[0:-1]
         letter = device_id[-1]
+
         # AWS-specific munging
-        if base == '/dev/xvd':
-            base = '/dev/sd'
-        if letter < 'f':
-            letter = 'e'
+        # Perhaps should be moved to the interface anyway does not work for openstack
+        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())
+        if self.app.ud.get('cloud_type', 'ec2').lower() == 'ec2':
+            log.debug('Applying AWS-specific munging to next device id calculation')
+            if base == '/dev/xvd':
+                base = '/dev/sd'
+            if letter < 'f':
+                letter = 'e'
+
         # Get the next device in line
         new_id = base + chr(ord(letter) + 1)
         return new_id
@@ -392,8 +401,8 @@ class Volume(BlockStorage):
             for er in e.errors:
                 if er[0] == 'InvalidVolume.ZoneMismatch':
                     msg = "Volume '{0}' is located in the wrong availability zone for this instance. "\
-                        "You MUST terminate this instance and start a new one in zone '{1}'."\
-                        .format(self.volume_id, self.app.cloud_interface.get_zone())
+                        "You MUST terminate this instance and start a new one in zone '{1}' instead of '{2}'."\
+                        .format(self.volume_id, self.volume.zone.name, self.app.cloud_interface.get_zone())
                     self.app.msgs.critical(msg)
                     log.error(msg)
                 else:
@@ -541,7 +550,7 @@ class Volume(BlockStorage):
     def get_from_snap_id(self):
         """
         Returns the ID of the snapshot this volume was created from, ``None``
-        of the volume was not created from a snapshot.
+        if the volume was not created from a snapshot.
         """
         return self.from_snapshot_id
 
@@ -558,6 +567,11 @@ class Volume(BlockStorage):
         if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and self.from_snapshot_id is not None:
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
+            # FIXME: This is a major problem - any new volumes added from a snapshot
+            # will be assumed 'static'. This is OK before being able to add an
+            # arbitrary volume as a file system but is no good any more. The
+            # problem is in automatically detecting volumes that are supposed
+            # to be static and are being added automatically at startup
             self.static = True
             self.fs.kind = 'snapshot'
         else:
@@ -632,10 +646,9 @@ class Volume(BlockStorage):
                             return False
                 # Resize the volume if it was created from a snapshot
                 else:
-                    if self.volume.size > self.snapshot.volume_size:
+                    if self.from_snapshot_id and self.volume.size > self.snapshot.volume_size:
                         run('/usr/sbin/xfs_growfs %s' % mount_point)
-                    log.info(
-                        "Successfully mounted file system {0} from {1}".format(mount_point,
+                    log.info("Successfully mounted file system {0} from {1}".format(mount_point,
                         self.device))
                 try:
                     # Default owner of all mounted file systems to `galaxy`
@@ -688,28 +701,30 @@ class Volume(BlockStorage):
             return False
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
-            log.debug(
-                "Unmounting volume-based FS from {0}".format(mount_point))
-            for counter in range(10):
-                if run('/bin/umount %s' % mount_point,
-                        "Error unmounting file system '%s'" % mount_point,
-                        "Successfully unmounted file system '%s'" % mount_point):
-                    # Clean up the system path now that the file system is
-                    # unmounted
-                    try:
-                        os.rmdir(mount_point)
-                    except OSError, e:
-                        log.error("Error removing unmounted path {0}: {1}".format(
-                            mount_point, e))
-                    break
-                if counter == 9:
-                    log.warning(
-                        "Could not unmount file system at '%s'" % mount_point)
-                    return False
-                counter += 1
-                time.sleep(3)
-            return True
-        else:
-            log.debug("Did not unmount file system '%s' because it is not in state "
-                      "'running' or 'shutting-down'" % self.fs.get_full_name())
-            return False
+            log.debug("Unmounting volume-based FS from {0}".format(mount_point))
+            if os.path.exists(mount_point):
+                for counter in range(10):
+                    if run('/bin/umount %s' % mount_point,
+                            "Error unmounting file system '%s'" % mount_point,
+                            "Successfully unmounted file system '%s'" % mount_point):
+                        # Clean up the system path now that the file system is
+                        # unmounted
+                        try:
+                            os.rmdir(mount_point)
+                        except OSError, e:
+                            log.error("Error removing unmounted path {0}: {1}".format(
+                                mount_point, e))
+                        break
+                    if counter == 9:
+                        log.warning("Could not unmount file system at '%s'" % mount_point)
+                        return False
+                    counter += 1
+                    time.sleep(3)
+                return True
+            else:
+                log.debug("Did not unmount file system {0} because its mount point "
+                    "{1} does not exist".format(self.fs.get_full_name(), mount_point))
+                return False
+        log.debug("Did not unmount file system '%s' because it is not in state "
+                  "'running' or 'shutting-down'" % self.fs.get_full_name())
+        return False

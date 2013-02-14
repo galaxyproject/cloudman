@@ -40,7 +40,7 @@ log = None
 
 def _setup_global_logger():
     formatter = logging.Formatter(
-        "[%(levelname)s] %(module)s:%(lineno)d %(asctime)s: %(message)s")
+        "%(asctime)s %(levelname)-5s %(module)8s:%(lineno)-3d - %(message)s")
     console = logging.StreamHandler()  # log to console - used during testing
     # console.setLevel(logging.INFO) # accepts >INFO levels
     console.setFormatter(formatter)
@@ -61,8 +61,7 @@ def usage():
 
 
 def _run(cmd):
-    process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         log.debug("Successfully ran '%s'" % cmd)
@@ -71,11 +70,20 @@ def _run(cmd):
         else:
             return True
     else:
-        log.error(
-            "Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd,
-                                                                                         process.returncode, stderr))
+        log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" %
+            (cmd, process.returncode, stderr))
         return False
 
+
+def _is_running(process_name):
+    """
+    Check if a process with ``process_name`` is running. Return ``True`` is so,
+    ``False`` otherwise.
+    """
+    p = _run("ps xa | grep {0} | grep -v grep".format(process_name))
+    if p and process_name in p:
+        return True
+    return False
 
 def _make_dir(path):
     log.debug("Checking existence of directory '%s'" % path)
@@ -126,7 +134,7 @@ def _start_nginx(ud):
     _configure_nginx(ud)
     _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
-    upload_store_dir = ''
+    upload_store_dir = '/mnt/galaxyData/upload_store'
     nginx_dir = _get_nginx_dir()
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
@@ -150,11 +158,15 @@ def _start_nginx(ud):
         log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
         os.makedirs(upload_store_dir)
     # TODO: Use nginx_dir as well vs. this hardcoded path
-    if not _run('/opt/galaxy/sbin/nginx'):
-        _run('/etc/init.d/apache2 stop')
-        _run('/etc/init.d/tntnet stop')
-             # On Ubuntu 12.04, this server also starts?
-        _run('/opt/galaxy/sbin/nginx')
+    if not _is_running('nginx'):
+        if not _run('/opt/galaxy/sbin/nginx'):
+            _run('/etc/init.d/apache2 stop')
+            _run('/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
+            _run('/opt/galaxy/sbin/nginx')
+    else:
+        # nginx already running, so reload
+        log.debug("nginx already running; reloading it")
+        _run('/opt/galaxy/sbin/nginx -s reload')
     if rmdir:
         _run('rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
@@ -229,6 +241,11 @@ def _fix_nginx_upload(ud):
         nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
     elif os.path.exists("/usr/nginx/conf/nginx.conf"):
         nginx_conf_path = "/usr/nginx/conf/nginx.conf"
+    elif os.path.exists("/opt/cloudman/pkg/nginx/conf/nginx.conf"):
+        nginx_conf_path = "/opt/cloudman/pkg/nginx/conf/nginx.conf"
+    else:
+        # TODO: Search for nginx.conf?
+        nginx_conf_path = ''
     nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
     log.info("Attempting to configure max_client_body_size in {0}".format(
         nginx_conf_path))
@@ -407,11 +424,15 @@ def _virtualenv_exists(venv_name='CM'):
     Check if virtual-burrito is installed and if a virtualenv named ``venv_name``
     exists. If so, return ``True``; ``False`` otherwise.
     """
-    vb_path = os.path.join(os.environ['HOME'], '.venvburrito/startup.sh')
+    vb_path = os.path.join(os.getenv('HOME', '/home/ubuntu'), '.venvburrito/startup.sh')
     if os.path.exists(vb_path):
+        log.debug("virtual-burrito seems to be installed")
         cm_venv = _run("/bin/bash -l -c '. {0}; lsvirtualenv | grep {1}'".format(vb_path, venv_name))
         if cm_venv and venv_name in cm_venv:
+            log.debug("'{0}' virtualenv found".format(venv_name))
             return True
+    log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist"
+        .format(venv_name))
     return False
 
 
@@ -507,7 +528,7 @@ def _fix_etc_hosts():
         _run('echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(
             ip=ip, hn1=hn, hn2=hn.split('.')[0]))
     except Exception, e:
-        log.error("Troble fixing /etc/hosts on NeCTAR: {0}".format(e))
+        log.error("Trouble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
 
 def _system_message(message_contents):
@@ -545,7 +566,7 @@ def main():
         # ``run.sh``?
         _run('easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
         _run('easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run('easy_install boto==2.6.0')  # required for older AMIs
+        _run('easy_install boto==2.3.0')  # required for older AMIs
         _run('easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
