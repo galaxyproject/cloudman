@@ -77,13 +77,68 @@
             Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
             target='_blank'>${initial_cluster_type}</a>' type of cluster.
         </div>
-        <table width="700px" style="margin:10px 0;">
+        <table width="700px" style="margin:10px 0; text-align:left" ng-app ng-controller="ServiceController">
+        	<thead>
+        		<tr>
+	        		<th width="2%"></th>
+	                <th width="20%">Service name</th>
+	                <th width="15%">Status</th>
+	                <th width="65%" colspan="6"></th>
+                </tr>
+            </thead>
+            
+            <tbody ng-repeat="svc in services">
+	        	<tr id="service_row_{{svc.svc_name}}" style="text-align:left">
+	        		<td><a ng-click="expandServiceDetails()" ng-show="svc.requirements">+</a></td>
+	        		<td ng-bind="svc.svc_name" />
+	                <td ng-bind="svc.status" />
+	                <td ng-repeat="action in svc.actions">
+	                	<a ng-href="{{action.action_url}}" ng-bind="action.name"></a>
+	                </td>
+	                <td colspan=4 />
+	        	</tr>
+	        	<tr id="service_detail_row_{{svc.svc_name}}" ng-show="is_service_visible()">
+	            	<td></td>
+	            	<td colspan="8">
+	            		<div>
+	            			<br />
+	            			Required Services:
+	            		 	<table width="600px" style="margin:10px 0; text-align:left">
+	            		 		<thead>
+	            		 			<tr>
+	            		 				<th width="30%">Requirement Name</th>
+	            		 				<th width="20%">Type</th>
+	            		 				<th width="20%">Assigned Service</th>
+	            		 			</tr>
+	            		 		</thead>
+	            		 		<tr ng-repeat="req in svc.requirements">
+	            		 			<td>{{req.display_name}}</td>
+	            		 			<td>{{req.type}}</td>
+	            		 			<td>
+	            		 				<div ng-switch on="req.type">
+	            		 					<div ng-switch-when="APPLICATION">{{req.assigned_service}}</div>
+	            		 					<div ng-switch-when="FILE_SYSTEM">
+												 <select id="assigned_fs_{{svc.name}}_{{req.role}" ng-model="req.assigned_service" ng-options="fs.name as fs.name for fs in available_file_systems"/>
+											</div>
+										</div>	
+	            		 			</td>	            		 		
+								</tr>
+							</table>
+						</div>            		
+	            	</td>
+            	</tr>
+            	</tbody>
+        </table> 
+        <!--    
+        <table width="700px" style="margin:10px 0">
             <tr style="text-align:left">
+            	<th width="2%"></th>
                 <th width="20%">Service name</th>
                 <th width="15%">Status</th>
                 <th width="65%" colspan="6"></th>
             </tr>
             <tr>
+            	<td><a ng-click="expandServiceDetails('galaxy')">+</a></td>            
                 <td>Galaxy</td>
                 <td><span id="galaxy_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Galaxy">Log</a></td>
@@ -91,8 +146,19 @@
                 <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy" target="_blank">Start</a></td>
                 <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Galaxy" target="_blank">Restart</a></td>
                 <td><a class='action' href="${h.url_for(controller='root',action='update_galaxy')}?db_only=True" target='_blank'>Update DB</a></td>
+                <td />
             </tr>
+            <tr id="service_detail_row_galaxy" ng-show="visible_flag_galaxy">
+            	<td></td>
+            	<td colspan="8">
+            		Assigned file system: 
+            		<select id="galaxy_assigned_fs" name="galaxy-assigned-fs">
+					  <option ng-repeat="fs in available_file_systems" ng-model="fs.name">{{fs.name}}</option>
+					</select>            		
+            	</td>
+            </tr>            
             <tr>
+            	<td><a href="javascript:expandServiceDetails('galaxy')">+</a></td>            
                 <td>PostgreSQL</td>
                 <td><span id="postgres_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Postgres">Log</a></td>
@@ -101,6 +167,7 @@
                 <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
             </tr>
             <tr>
+            	<td><a href="javascript:expandServiceDetails('galaxy')">+</a></td>            
                 <td>SGE</td>
                 <td><span id="sge_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE">Log</a></td>
@@ -111,6 +178,7 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
             <tr>
+            	<td><a href="javascript:expandServiceDetails('galaxy')">+</a></td>
                 <td>Galaxy Reports</td>
                 <td><span id="galaxy_reports_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=GalaxyReports">Log</a></td>
@@ -124,6 +192,8 @@
             ##    <td><span id="dummy"></span></td>
             ##</tr>
         </table>
+        !-->
+        
         <strong>File systems</strong>
         ## backbone-managed
         <div id='fs-details-container'></div>
@@ -300,6 +370,7 @@
         // Place URLs here so that url_for can be used to generate them
         var get_all_services_status_url = "${h.url_for(controller='root',action='get_all_services_status')}";
         var get_all_filesystems_url = "${h.url_for(controller='root',action='get_all_filesystems')}";
+        var get_application_services_url = "${h.url_for(controller='root',action='get_application_services')}";
         var manage_service_url = "${h.url_for(controller='root',action='manage_service')}";
         var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
         var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
@@ -442,4 +513,5 @@
     <script type='text/javascript' src="${h.url_for('/static/scripts/backbone.marionette.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/Backbone.ModalDialog.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
+    <script type='text/javascript' src="http://code.angularjs.org/1.1.2/angular.min.js"></script>
 </%def>

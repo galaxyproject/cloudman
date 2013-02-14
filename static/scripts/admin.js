@@ -853,3 +853,55 @@ jQuery.fn.serializeObject = function() {
     }
     updateFS();
 } (jQuery));
+
+
+
+function ServiceController($scope, $http) {
+	$scope.visibility_flags = new Object();
+	$scope.services = [];
+	$scope.available_file_systems = [];
+	
+	$scope.expandServiceDetails = function() {			
+		var service = this.svc.svc_name;
+		
+		// Unselect all previous rows
+		for (val in $scope.services) {
+			service_row = $scope.services[val].svc_name;
+			if (service_row != service)
+				$scope.visibility_flags[service_row] = false;
+				
+			$('#service_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+			$('#service_detail_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+		}
+		
+		// Show newly selected row
+		if ($scope.visibility_flags[service]) {
+			$('#service_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+			$('#service_detail_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+		}
+		else {
+			$('#service_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+			$('#service_detail_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+		}
+	
+		$scope.visibility_flags[service] = !$scope.visibility_flags[service];
+	};
+	
+	$scope.is_service_visible = function() {
+		return $scope.visibility_flags[this.svc.svc_name];
+	}
+	
+	$scope.is_fs_selected = function() {
+		return this.req.assigned_service == this.fs.name;		
+	}	
+    
+    $http.get(get_all_filesystems_url).success(function (data) {
+            $scope.available_file_systems = data;
+        });
+        
+	$http.get(get_application_services_url).success(function (data) {
+		$scope.services = data;
+		for (svc in data)
+			$scope.visibility_flags[data[svc].svc_name] = false;
+    });
+}
