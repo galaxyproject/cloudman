@@ -1,0 +1,17 @@
+access_key: <your access key>
+secret_key: <your secret key>
+cluster_name: Sample cluster on NeCTAR
+password: pwd
+freenxpass: pwd
+cloud_name: NeCTAR
+bucket_default: cloudman-os
+s3_port: 8888
+cloud_type: openstack
+region_name: NeCTAR
+cidr_range: 115.146.92.0/22
+region_endpoint: nova.rc.nectar.org.au
+ec2_port: 8773
+s3_host: swift.rc.nectar.org.au
+is_secure: False
+s3_conn_path: /
+ec2_conn_path: /services/Cloud
