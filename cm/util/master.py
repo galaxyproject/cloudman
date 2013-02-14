@@ -634,6 +634,50 @@ class ConsoleManager(BaseConsoleManager):
             return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
+    @TestFlag([{'svc_name': 'Galaxy',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'},
+                            {'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'}],
+                'requirements': [{'display_name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
+                                 {'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
+                                 {'display_name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
+                                 {'display_name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
+                'status': 'Running'},
+               {'svc_name': 'PostgreSQL',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Postgres'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'}],
+                'requirements': [{'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
+                'status': 'Running'},
+               {'svc_name': 'SGE',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=SGE'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=SGE&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=SGE'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=SGE'},
+                            {'name': 'Q conf', 'action_url': 'service_log?service_name=SGE&q=conf'},
+                            {'name': 'qstat', 'action_url': 'service_log?service_name=SGE&q=qstat'}],
+                'requirements': [],
+                'status': 'Running'},
+               {'svc_name': 'GalaxyReports',
+                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=GalaxyReports'},
+                            {'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'},
+                            {'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'},
+                            {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
+                'requirements': [{'display_name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
+                'status': 'Running'}], quiet=True)
+    def get_application_services(self):
+        service_list = []
+        services = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
+        for svc in services:
+            svc_dict = {'svc_name': svc.name, 'status': svc.state,
+                        'actions': svc.get_service_actions(),
+                        'requirements': svc.get_service_requirements()}
+            service_list.append(svc_dict)
+        return service_list
+
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
                 "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
                 "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",

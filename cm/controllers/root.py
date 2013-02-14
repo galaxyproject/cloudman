@@ -422,6 +422,10 @@ class CM(BaseController):
         return json.dumps(status_dict)
 
     @expose
+    def get_application_services(self, trans):
+        return json.dumps(self.app.manager.get_application_services())
+
+    @expose
     def get_all_filesystems(self, trans):
         return json.dumps(self.app.manager.get_all_filesystems_status())
 
