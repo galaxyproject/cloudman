@@ -571,7 +571,7 @@ def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validat
             try:
                 os.remove(local_file) # Don't leave a partially downloaded or touched file
             except:
-                pass    
+                pass # Just in case the file does not exist at all (we still want to return False not an exception)   
             return False
     else:
         log.debug("Bucket '%s' does not exist, did not get remote file '%s'" % (
