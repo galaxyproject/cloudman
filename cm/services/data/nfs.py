@@ -8,6 +8,7 @@ import time
 import subprocess
 
 from cm.util.misc import run
+from cm.services import service_states
 
 import logging
 log = logging.getLogger('cloudman')
@@ -76,11 +77,11 @@ class NfsFS(object):
         """
         log.debug("Unmounting NFS-based FS from {0}".format(self.fs.mount_point))
         for counter in range(10):
-            if run('/bin/umount %s' % self.fs.mount_point):
+            if (self.fs.state == service_states.RUNNING and
+                run('/bin/umount %s' % self.fs.mount_point)):
                 break
             if counter == 9:
-                log.warning(
-                    "Could not unmount file system at '%s'" % self.fs.mount_point)
+                log.warning("Could not unmount file system at '%s'" % self.fs.mount_point)
                 return False
             counter += 1
             time.sleep(3)

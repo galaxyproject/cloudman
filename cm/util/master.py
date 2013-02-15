@@ -2366,6 +2366,8 @@ class ConsoleMonitor(object):
                             # Wait until the Spot request has been filled to start
                             # treating the instance as a regular Instance
                             continue
+                    # Send current mount points to ensure master and workers FSs are in sync
+                    w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(

@@ -29,8 +29,8 @@ P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 
 # the value for P_HADOOP_HOME must be equal to the directory
 # in the file hdfs-start.sh from sge_integration
-P_HADOOP_HOME = "/opt/hadoop/"
-P_HADOOP_TARS_PATH = "/opt/hadoop/"
+P_HADOOP_HOME = "/opt/hadoop"
+P_HADOOP_TARS_PATH = "/opt/hadoop"
 # # P_HADOOP_TAR is a regex format file name to find the latest hadoop from the site or directory
 # # the standard for the versioning here is "hadoop.<hadoop release number>__<release numbere.build number>.tar.gz"
 # if no version is set it is assumed 0.0 and would be replaced if any

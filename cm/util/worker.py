@@ -93,11 +93,11 @@ class ConsoleManager(BaseConsoleManager):
         self.app = app
         self.console_monitor = ConsoleMonitor(self.app)
         self.worker_status = worker_states.WAKE
-        self.worker_instances = []
-            # Needed because of UI and number of nodes value
-        self.cluster_type = self.app.ud.get(
-            'cluster_type', 'Galaxy')  # Default to the most comprehensive type
-
+        self.worker_instances = []  # Needed because of UI and number of nodes value
+        # Default to the most comprehensive type
+        self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
+        self.mount_points = []  # A list of current mount points; each list element must have the
+                                # following structure: (label, local_path, nfs_server_ip)
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -202,38 +202,39 @@ class ConsoleManager(BaseConsoleManager):
             mount_points.append(('extra_mount_%d' % i, extra_mount, master_ip))
         # For each main mount point, mount it and set status based on label
         for (label, path, nfs_server) in mount_points:
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from nfs_server: {2}".format(
+                label, path, nfs_server))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
             source_path = None
             # See if a specific path on the nfs_server is used
             if ':' in nfs_server:
+                source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
                 nfs_server = nfs_server.split(':')[0]
-                source_path = nfs_server.split(':')[1]
             ret_code = self.mount_disk(nfs_server, path, source_path)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
-        self.console_monitor.conn.send("MOUNT_DONE")
+        # Filter out any differences between new and old mount points and unmount
+        # the extra ones
+        umount_points = [ump for ump in self.mount_points if ump not in mount_points]
+        for (_, old_path, _) in umount_points:
+            self._umount(old_path)
+        # Update the current list of mount points
+        self.mount_points = mount_points
+        # If the instance is not ``READY``, it means it's still being configured
+        # so send a message to continue the handshake
+        if self.worker_status != worker_states.READY:
+            self.console_monitor.conn.send("MOUNT_DONE")
 
     def unmount_nfs(self):
-        log.info("Unmounting NFS directories...")
-        # TODO enhance this to account for all directories initially mounted in
-        # mount_nfs.
-        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            self._umount(self.app.path_resolver.galaxy_data)
-
-        if self.cluster_type == 'Galaxy':
-            self._umount(self.app.path_resolver.galaxy_tools)
-            self._umount(self.app.path_resolver.galaxy_indices)
-
-        self._umount(self.app.path_resolver.sge_root)
-        for extra_mount in self._get_extra_nfs_mounts():
-            self._umount(extra_mount)
+        log.info("Unmounting NFS directories: {0}".format(self.mount_points))
+        for mp in self.mount_points:
+            self._umount(mp[1])
 
     def _umount(self, path):
         ret_code = subprocess.call("umount -lf '%s'" % path, shell=True)
-        log.debug(
-            "Process unmounting '%s' returned code '%s'" % (path, ret_code))
+        log.debug("Process unmounting '%s' returned code '%s'" % (path, ret_code))
 
     def get_host_cert(self):
         if self.app.TESTFLAG is True:
@@ -489,7 +490,8 @@ class ConsoleMonitor(object):
             self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
-            self.app.manager.mount_nfs(self.app.ud['master_ip'], mount_json=message.split(' | ')[1])
+            self.app.manager.mount_nfs(self.app.ud['master_ip'],
+                mount_json=message.split(' | ')[1])
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
