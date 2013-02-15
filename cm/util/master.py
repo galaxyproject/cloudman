@@ -222,8 +222,7 @@ class ConsoleManager(BaseConsoleManager):
        # Always add SGE service
         self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
-        tfs = Filesystem(
-            self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
+        tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
         self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
@@ -1720,6 +1719,22 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
     @TestFlag(None)
+    def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+        """
+        Add a new file system based on an existing volume, a snapshot, or a new
+        volume. Provide ``fs_kind`` to distinguish between these (accepted values
+        are: ``volume``, ``snapshot``, or ``new_volume``). Depending on which
+        kind is provided, must provide ``vol_id``, ``snap_id``, or ``vol_size``,
+        respectively.
+        """
+        log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
+        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id)
+        self.add_master_service(fs)
+        log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
+
+    @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
         fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
@@ -1799,7 +1814,7 @@ class ConsoleManager(BaseConsoleManager):
                 % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
-            # called 'copy_name' and 'copy_boot_name', respectivley
+            # called 'copy_name' and 'copy_boot_name', respectively
             copy_name = "%s_%s" % (
                 self.app.config.cloudman_source_file_name, dt.date.today())
             copy_boot_name = "%s_%s" % (
@@ -2018,7 +2033,7 @@ class ConsoleManager(BaseConsoleManager):
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2718,8 +2733,8 @@ class Instance(object):
 
     @TestFlag(None)
     def send_alive_request(self):
-        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id
-                                                    )
+        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
+
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2840,7 +2855,7 @@ class Instance(object):
             if fs.nfs_fs:
                 nfs_server = fs.nfs_fs.nfs_server
             else:
-                nfs_server = self.app.cloud_interface.get_public_ip()
+                nfs_server = self.app.cloud_interface.get_private_ip()
             mount_points.append(
                 {'nfs_server': nfs_server,
                  'shared_mount_path': fs.get_details()['mount_point'],

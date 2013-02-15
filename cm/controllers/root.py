@@ -215,14 +215,22 @@ class CM(BaseController):
                 log.error("Wanted to add a new file system from a bucket but no "
                     "bucket name was provided.")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
-                log.debug("Adding '{2}' file system based on an existing {0}, {1}"
-                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
-                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            log.debug("Adding '{2}' file system based on an existing {0}, {1}"
+                .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            if fs_kind == 'volume':
+                self.app.manager.add_fs_volume(vol_id=vol_id, fs_name=vol_fs_name,
+                    persistent=persist)
+            else:
+                self.app.manager.add_fs_volume(snap_id=snap_id, fs_name=snap_fs_name,
+                    persistent=persist)
         elif fs_kind == 'new_volume':
             log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "
                 "be deleted, of size {1}"
                 .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'),
                 ('' if dot else ' not')))
+            self.app.manager.add_fs_volume(vol_size=new_disk_size, fs_name=new_vol_fs_name,
+                persistent=persist)
         elif fs_kind == 'nfs':
             log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
