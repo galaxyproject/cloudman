@@ -305,13 +305,10 @@ class ConsoleManager(BaseConsoleManager):
                                 filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
                         for snap in fs['ids']:
-                            # Check if an already attached volume maps to this
-                            # snapshot
-                            att_vol = self.get_vol_if_fs(
-                                attached_volumes, fs['name'])
+                            # Check if an already attached volume maps to this snapshot
+                            att_vol = self.get_vol_if_fs(attached_volumes, fs['name'])
                             if att_vol:
-                                filesystem.add_volume(
-                                    vol_id=att_vol.id, size=att_vol.size,
+                                filesystem.add_volume(vol_id=att_vol.id, size=att_vol.size,
                                     from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
@@ -326,6 +323,7 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.warning("No bucket name for file system {0}!".format(
                                 fs['name']))
+                    # TODO: include support for `nfs` kind
                     else:
                         # TODO: try to do some introspection on the device ID
                         # to guess the kind before err
@@ -1720,17 +1718,17 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
         """
         Add a new file system based on an existing volume, a snapshot, or a new
         volume. Provide ``fs_kind`` to distinguish between these (accepted values
         are: ``volume``, ``snapshot``, or ``new_volume``). Depending on which
         kind is provided, must provide ``vol_id``, ``snap_id``, or ``vol_size``,
-        respectively.
+        respectively - but not all!
         """
         log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
         fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
-        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id)
+        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
         self.add_master_service(fs)
         log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
 
@@ -2382,7 +2380,8 @@ class ConsoleMonitor(object):
                             # treating the instance as a regular Instance
                             continue
                     # Send current mount points to ensure master and workers FSs are in sync
-                    w_instance.send_mount_points()
+                    if w_instance.node_ready:
+                        w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
