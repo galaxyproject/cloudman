@@ -30,6 +30,7 @@ class OSInterface(EC2Interface):
         self.s3_host = self.user_data.get('s3_host', None)
         self.s3_port = self.user_data.get('s3_port', None)
         self.s3_conn_path = self.user_data.get('s3_conn_path', None)
+        self.use_private_ip = self.user_data.get('openstack_use_private_ip', False)
         self.calling_format = OrdinaryCallingFormat()
 
     def get_ec2_connection(self):
@@ -110,7 +111,8 @@ class OSInterface(EC2Interface):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
-                    if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                    #This is not only nectar specific but I left nectar for backward compatibility
+                    if self.use_private_ip or  self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
                         fp = urllib.urlopen(
