@@ -539,6 +539,29 @@ class CM(BaseController):
             return comment
 
     @expose
+    def add_flocking_ip(self, trans, fDNS):
+        """
+        adding remote resource IP as a flocking IP into condor,
+        allowing a local condor job to be run over a remote condor
+        machine.
+
+        The remote resource should have provided us with enough
+        privilege such as allow_write and flock_from variables
+        in their condor config file.
+        """
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.HTCONDOR)
+        if len(svcs) > 0:
+            svcs[0].modify_htcondor("FLOCK_TO", "{0}".format(fDNS))
+            svcs[0].modify_htcondor("ALLOW_WRITE", "{0}".format(fDNS))
+            msg = "HTCondor flock IP {0} added".format(fDNS)
+            log.info(msg)
+            return msg
+        else:
+            comment = "HTCondor service not found."
+            log.warning(comment)
+            return comment
+
+    @expose
     def manage_service(self, trans, service_name, to_be_started='True', is_filesystem=False):
         """
         Manage a CloudMan service identified by ``service_name``. Currently,
