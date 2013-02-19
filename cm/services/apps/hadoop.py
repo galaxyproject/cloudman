@@ -176,7 +176,7 @@ class HadoopService(ApplicationService):
             log.debug("Error extracting Hadoop's file version: {0}".format(e))
             hadoop_version = "0.0"
             build_version = "0.0"
-        log.debug("Extracted Hadoop vererion: {0}".format(hadoop_version))
+        log.debug("Extracted Hadoop version: {0}".format(hadoop_version))
         log.debug("Extracted Hadoop build version: {0}".format(build_version))
         return hadoop_version, build_version
 

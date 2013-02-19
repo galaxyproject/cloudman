@@ -565,6 +565,11 @@ class Volume(BlockStorage):
         if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and self.from_snapshot_id is not None:
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
+            # FIXME: This is a major problem - any new volumes added from a snapshot
+            # will be assumed 'static'. This is OK before being able to add an
+            # arbitrary volume as a file system but is no good any more. The
+            # problem is in automatically detecting volumes that are supposed
+            # to be static and are being added automatically at startup
             self.static = True
             self.fs.kind = 'snapshot'
         else:

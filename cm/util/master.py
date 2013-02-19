@@ -222,8 +222,7 @@ class ConsoleManager(BaseConsoleManager):
        # Always add SGE service
         self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
-        tfs = Filesystem(
-            self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
+        tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
         self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
@@ -307,13 +306,10 @@ class ConsoleManager(BaseConsoleManager):
                                 filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
                         for snap in fs['ids']:
-                            # Check if an already attached volume maps to this
-                            # snapshot
-                            att_vol = self.get_vol_if_fs(
-                                attached_volumes, fs['name'])
+                            # Check if an already attached volume maps to this snapshot
+                            att_vol = self.get_vol_if_fs(attached_volumes, fs['name'])
                             if att_vol:
-                                filesystem.add_volume(
-                                    vol_id=att_vol.id, size=att_vol.size,
+                                filesystem.add_volume(vol_id=att_vol.id, size=att_vol.size,
                                     from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
@@ -328,6 +324,7 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.warning("No bucket name for file system {0}!".format(
                                 fs['name']))
+                    # TODO: include support for `nfs` kind
                     else:
                         # TODO: try to do some introspection on the device ID
                         # to guess the kind before err
@@ -1721,6 +1718,22 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
     @TestFlag(None)
+    def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
+        """
+        Add a new file system based on an existing volume, a snapshot, or a new
+        volume. Provide ``fs_kind`` to distinguish between these (accepted values
+        are: ``volume``, ``snapshot``, or ``new_volume``). Depending on which
+        kind is provided, must provide ``vol_id``, ``snap_id``, or ``vol_size``,
+        respectively - but not all!
+        """
+        log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
+        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
+        self.add_master_service(fs)
+        log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
+
+    @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
         fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
@@ -1735,7 +1748,8 @@ class ConsoleManager(BaseConsoleManager):
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
-            w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+            # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+            w_inst.send_mount_points()
         log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
     def stop_worker_instances(self):
@@ -1799,7 +1813,7 @@ class ConsoleManager(BaseConsoleManager):
                 % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
-            # called 'copy_name' and 'copy_boot_name', respectivley
+            # called 'copy_name' and 'copy_boot_name', respectively
             copy_name = "%s_%s" % (
                 self.app.config.cloudman_source_file_name, dt.date.today())
             copy_boot_name = "%s_%s" % (
@@ -2018,7 +2032,7 @@ class ConsoleManager(BaseConsoleManager):
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2157,6 +2171,8 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'snapshot':
                             fs['ids'] = [
                                 v.from_snapshot_id for v in srvc.volumes]
+                        elif srvc.kind == 'nfs':
+                            fs['nfs_server'] = srvc.nfs_fs.nfs_server
                         else:
                             log.error("Unknown filesystem kind {0}".format(
                                 srvc.kind))
@@ -2248,12 +2264,12 @@ class ConsoleMonitor(object):
             s3_conn, self.app.ud['bucket_cluster'], 'cm.tar.gz',
             os.path.join(self.app.ud['cloudman_home'], 'cm.tar.gz'))
         try:
-            # Corrently, metadata only works on ec2 so set it only there
+            # Currently, metadata only works on ec2 so set it only there
             if self.app.cloud_type == 'ec2':
                 with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
                     rev = rev_file.read()
-            misc.set_file_metadata(s3_conn, self.app.ud[
-                                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+                misc.set_file_metadata(s3_conn, self.app.ud[
+                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
         except Exception, e:
             log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
                       'bucket_cluster'], e))
@@ -2364,6 +2380,9 @@ class ConsoleMonitor(object):
                             # Wait until the Spot request has been filled to start
                             # treating the instance as a regular Instance
                             continue
+                    # Send current mount points to ensure master and workers FSs are in sync
+                    if w_instance.node_ready:
+                        w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
@@ -2714,8 +2733,8 @@ class Instance(object):
 
     @TestFlag(None)
     def send_alive_request(self):
-        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id
-                                                    )
+        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
+
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2833,8 +2852,12 @@ class Instance(object):
     def send_mount_points(self):
         mount_points = []
         for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
+            if fs.nfs_fs:
+                nfs_server = fs.nfs_fs.nfs_server
+            else:
+                nfs_server = self.app.cloud_interface.get_private_ip()
             mount_points.append(
-                {'nfs_server': self.app.cloud_interface.get_public_ip(),
+                {'nfs_server': nfs_server,
                  'shared_mount_path': fs.get_details()['mount_point'],
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})
@@ -2857,17 +2880,17 @@ class Instance(object):
         msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
         self._send_msg(msg)
 
-    def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
-        """
-        Send a message to the worker node requesting it to mount a new file system
-        form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
-        """
-        nfs_server_info = {
-            'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
-            'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
-        }
-        msg = json.dumps({'nfs_server_info': nfs_server_info})
-        self._send_msg(msg)
+    # def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
+    #     """
+    #     Send a message to the worker node requesting it to mount a new file system
+    #     form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
+    #     """
+    #     nfs_server_info = {
+    #         'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
+    #         'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
+    #     }
+    #     msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
+    #     self._send_msg(msg)
 
     def _send_msg(self, msg):
         """

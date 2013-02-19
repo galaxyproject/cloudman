@@ -93,11 +93,11 @@ class ConsoleManager(BaseConsoleManager):
         self.app = app
         self.console_monitor = ConsoleMonitor(self.app)
         self.worker_status = worker_states.WAKE
-        self.worker_instances = []
-            # Needed because of UI and number of nodes value
-        self.cluster_type = self.app.ud.get(
-            'cluster_type', 'Galaxy')  # Default to the most comprihensive type
-
+        self.worker_instances = []  # Needed because of UI and number of nodes value
+        # Default to the most comprehensive type
+        self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
+        self.mount_points = []  # A list of current mount points; each list element must have the
+                                # following structure: (label, local_path, nfs_server_ip)
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -138,14 +138,21 @@ class ConsoleManager(BaseConsoleManager):
     def mount_disk(self, master_ip, path, source_path=None):
         if source_path is None:
             source_path = path
-        log.debug("Mounting %s:%s to %s..." % (master_ip, source_path, path))
-        if not os.path.exists(path):
-            os.mkdir(path)
-        ret_code = subprocess.call(
-            "mount %s:%s %s" % (master_ip, source_path, path), shell=True)
-        log.debug(
-            "Process mounting '%s' returned code '%s'" % (path, ret_code))
-        return ret_code
+        # Before mounting, check if the file system is already mounted
+        mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2"
+                                                % path)
+        if mnt_location[0] == 0 and mnt_location[1] != '':
+            log.debug("{0} is already mounted".format(path))
+            return mnt_location[0]
+        else:
+            log.debug("Mounting %s:%s to %s..." % (master_ip, source_path, path))
+            if not os.path.exists(path):
+                os.mkdir(path)
+            ret_code = subprocess.call(
+                "mount %s:%s %s" % (master_ip, source_path, path), shell=True)
+            log.debug(
+                "Process mounting '%s' returned code '%s'" % (path, ret_code))
+            return ret_code
 
     def mount_nfs(self, master_ip, mount_json):
         if self.app.TESTFLAG is True:
@@ -164,7 +171,7 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path']))
+                        (mp['fs_name'], mp['shared_mount_path'], mp['nfs_server']))
             else:
                 raise Exception("Mount point parsing failure.")
         except:
@@ -174,54 +181,60 @@ class ConsoleManager(BaseConsoleManager):
             # Build list of mounts based on cluster type
             if self.cluster_type == 'Galaxy':
                 mount_points.append(
-                    ('nfs_tools', self.app.path_resolver.galaxy_tools))
+                    ('nfs_tools', self.app.path_resolver.galaxy_tools, master_ip))
                 mount_points.append(
-                    ('nfs_indices', self.app.path_resolver.galaxy_indices))
+                    ('nfs_indices', self.app.path_resolver.galaxy_indices, master_ip))
             if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
                 mount_points.append(
-                    ('nfs_data', self.app.path_resolver.galaxy_data))
+                    ('nfs_data', self.app.path_resolver.galaxy_data, master_ip))
             # Mount master's transient storage regardless of cluster type
-            mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', master_ip))
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, master_ip))
 
         # <KWS>Mount Hadoop regardless of cluster type
-        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME))
+        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, master_ip))
 
-        # Mount master's transient stroage regardless of cluster type
+        # Mount master's transient storage regardless of cluster type
         # mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
-            mount_points.append(('extra_mount_%d' % i, extra_mount))
+            mount_points.append(('extra_mount_%d' % i, extra_mount, master_ip))
         # For each main mount point, mount it and set status based on label
-        for (label, path) in mount_points:
+        for (label, path, nfs_server) in mount_points:
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from nfs_server: {2}".format(
+                label, path, nfs_server))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
-            ret_code = self.mount_disk(master_ip, path)
+            source_path = None
+            # See if a specific path on the nfs_server is used
+            if ':' in nfs_server:
+                source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
+                nfs_server = nfs_server.split(':')[0]
+            ret_code = self.mount_disk(nfs_server, path, source_path)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
-        self.console_monitor.conn.send("MOUNT_DONE")
+        # Filter out any differences between new and old mount points and unmount
+        # the extra ones
+        umount_points = [ump for ump in self.mount_points if ump not in mount_points]
+        for (_, old_path, _) in umount_points:
+            self._umount(old_path)
+        # Update the current list of mount points
+        self.mount_points = mount_points
+        # If the instance is not ``READY``, it means it's still being configured
+        # so send a message to continue the handshake
+        if self.worker_status != worker_states.READY:
+            self.console_monitor.conn.send("MOUNT_DONE")
 
     def unmount_nfs(self):
-        log.info("Unmounting NFS directories...")
-        # TODO enhance this to account for all directories initially mounted in
-        # mount_nfs.
-        if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-            self._umount(self.app.path_resolver.galaxy_data)
-
-        if self.cluster_type == 'Galaxy':
-            self._umount(self.app.path_resolver.galaxy_tools)
-            self._umount(self.app.path_resolver.galaxy_indices)
-
-        self._umount(self.app.path_resolver.sge_root)
-        for extra_mount in self._get_extra_nfs_mounts():
-            self._umount(extra_mount)
+        log.info("Unmounting NFS directories: {0}".format(self.mount_points))
+        for mp in self.mount_points:
+            self._umount(mp[1])
 
     def _umount(self, path):
         ret_code = subprocess.call("umount -lf '%s'" % path, shell=True)
-        log.debug(
-            "Process unmounting '%s' returned code '%s'" % (path, ret_code))
+        log.debug("Process unmounting '%s' returned code '%s'" % (path, ret_code))
 
     def get_host_cert(self):
         if self.app.TESTFLAG is True:
@@ -477,9 +490,8 @@ class ConsoleMonitor(object):
             self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
-            # Parse the message better
-            self.app.manager.mount_nfs(
-                self.app.ud['master_ip'], message[message.find("|") + 1:])
+            self.app.manager.mount_nfs(self.app.ud['master_ip'],
+                mount_json=message.split(' | ')[1])
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
@@ -496,10 +508,18 @@ class ConsoleMonitor(object):
             fs.add()
             log.debug(
                 "Worker done adding FS from bucket {0}".format(bucket_name))
+        # elif message.startswith("ADD_NFS_FS"):
+        #     nfs_server_info = message.split(' | ')[1]
+        #     # Try to load NFS server info from JSON message body
+        #     try:
+        #         nfs_server_info = json.loads(nfs_server_info.strip())
+        #     except Exception, e:
+        #         log.error("NFS server JSON load exception: %s" % e)
+        #     self.app.manager.add_nfs_fs(nfs_server_info)
         elif message.startswith('ALIVE_REQUEST'):
             self.send_alive_message()
         elif message.startswith('SYNC_ETC_HOSTS'):
-            # #<KWS> synching etc host using the master one
+            # <KWS> syncing etc host using the master one
             sync_path = message.split(' | ')[1]
             self.app.manager.sync_etc_host()
 
