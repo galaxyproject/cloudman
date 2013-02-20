@@ -25,7 +25,6 @@ P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
 P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
-P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
 P_DRMAA_LIBRARY_PATH = "/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0"
 
 # the value for P_HADOOP_HOME must be equal to the directory
