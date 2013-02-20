@@ -26,6 +26,7 @@ P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_PSQL_DIR = "/mnt/galaxyData/pgsql/data"
+P_DRMAA_LIBRARY_PATH = "/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0"
 
 # the value for P_HADOOP_HOME must be equal to the directory
 # in the file hdfs-start.sh from sge_integration
@@ -173,6 +174,10 @@ class PathResolver(object):
     @property
     def sge_cell(self):
         return P_SGE_CELL
+
+    @property
+    def drmaa_library_path(self):
+        return P_DRMAA_LIBRARY_PATH
 
     @property
     def nginx_dir(self):
