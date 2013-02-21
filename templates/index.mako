@@ -200,14 +200,14 @@ vertical-align: top;
             beyond the life of this instance. Next time you wish to start this same
             cluster, simply use the same user data (i.e., cluster name and credentials)
             and CloudMan will reactivate your cluster with your data.</p>
-            <label>Automatically terminate the master instance?</label>
-            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
-            If checked, this master instance will automatically terminate after all services have been shut down.
-            If not checked, you should maually terminate this instance after all services have been shut down.
-            <p></p><label>Also delete this cluster?</label>
-            <input type="checkbox" name="delete_cluster" id="delete_cluster">
-            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
-            <div class="form-row"><input type="submit" value="Yes, power off"></div>
+            <label for="terminate_master_instance"><b>Automatically terminate the master instance?</b></label>
+            <div><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
+            <label for="terminate_master_instance">If checked, this master instance will automatically terminate after all services have been shut down.
+            If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
+            <p></p><b>Also delete this cluster?</b>
+            <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
+            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.</div>
+            <div style="padding-top: 20px;"><input type="submit" value="Yes, power off"></div>
         </div>
     </form>
 </div>
