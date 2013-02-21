@@ -86,7 +86,7 @@ vertical-align: top;
                 <div id="force_termination" class="form-row-input">
                     <div>Force Termination of non-idle nodes?</div>
                     <label for="force_termination_yes">Yes</label><input type="radio" name="force_termination" id="force_termination_yes" value="True">
-                    <label for="force_termination_no">No</label><input type="radio" name="force_termination" id="force_termination_no" value="False"  checked="True"></div>
+                    <label for="force_termination_no">No</label><input type="radio" name="force_termination" id="force_termination_no" value="False"  checked="True">
                 </div>
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;

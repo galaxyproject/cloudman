@@ -843,8 +843,7 @@ class ConsoleManager(BaseConsoleManager):
         filters = {'tag:clusterName': self.app.ud['cluster_name'],
                    'tag:role': 'worker'}
         try:
-            reservations = self.app.cloud_interface.get_all_instances(
-                filters=filters)
+            reservations = self.app.cloud_interface.get_all_instances(filters=filters)
             for reservation in reservations:
                 if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
                     i = Instance(self.app, inst=reservation.instances[0],
@@ -870,10 +869,9 @@ class ConsoleManager(BaseConsoleManager):
                 f = {'attachment.instance-id':
                      self.app.cloud_interface.get_instance_id()}
                 attached_volumes = self.app.cloud_interface.get_ec2_connection(
-                ).get_all_volumes(filters=f)
+                    ).get_all_volumes(filters=f)
             else:
-                volumes = self.app.cloud_interface.get_ec2_connection(
-                ).get_all_volumes()
+                volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
                 for vol in volumes:
                     if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
                         attached_volumes.append(vol)
@@ -1018,9 +1016,12 @@ class ConsoleManager(BaseConsoleManager):
                 vols = self.app.cloud_interface.get_all_volumes(filters=filters)
                 log.debug("Remaining volumes associated with this cluster: {0}".format(vols))
                 for vol in vols:
-                    log.debug(
-                        "As part of cluster deletion, deleting volume '%s'" % vol.id)
-                    vol.delete()
+                    if vol.status == 'available':
+                        log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                        vol.delete()
+                    else:
+                        log.debug("Not deleting volume {0} because it is in state {1}"
+                            .format(vol.id, vol.status))
         except EC2ResponseError, e:
             log.error("Error deleting a volume: %s" % e)
         # Delete cluster bucket on S3
@@ -1205,8 +1206,12 @@ class ConsoleManager(BaseConsoleManager):
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
                     i = Instance(self.app, inst=instance, m_state=instance.state)
-                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
-                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')  # Default to 'worker' role tag
+                    self.app.cloud_interface.add_tag(instance, 'clusterName',
+                        self.app.ud['cluster_name'])
+                    # Default to 'worker' role tag
+                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')
+                    self.app.cloud_interface.add_tag(instance, 'Name',
+                        "Worker: {0}".format(self.app.ud['cluster_name']))
                     self.worker_instances.append(i)
                     i.send_alive_request()  # to make sure info like ip-address and hostname are updated
                     log.debug('Added instance {0}....'.format(instance_id))
@@ -2102,6 +2107,8 @@ class ConsoleMonitor(object):
                     ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(
                     ir[0].instances[0], 'role', self.app.ud['role'])
+                self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
+                    "{0}: {1}".format(self.app.ud['role'], self.app.ud['cluster_name']))
             except Exception, e:
                 log.debug("Error setting tags on the master instance: %s" % e)
         self.monitor_thread.start()
@@ -2816,6 +2823,8 @@ class Instance(object):
                                     self.app.cloud_interface.add_tag(instance,
                                         'clusterName', self.app.ud['cluster_name'])
                                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
+                                    self.app.cloud_interface.add_tag(instance,
+                                        'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
                                     break
                                 time.sleep(5)
             except EC2ResponseError, e:

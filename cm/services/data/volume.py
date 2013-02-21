@@ -291,8 +291,10 @@ class Volume(BlockStorage):
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
-                self.app.cloud_interface.add_tag(
-                    self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'Name', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'roles',
+                    ServiceRole.to_string(self.fs.svc_roles))
         except EC2ResponseError, e:
             log.error("Error adding tags to volume: %s" % e)
 
@@ -337,14 +339,14 @@ class Volume(BlockStorage):
 
         # AWS-specific munging
         # Perhaps should be moved to the interface anyway does not work for openstack
-        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())        
+        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())
         if self.app.ud.get('cloud_type', 'ec2').lower() == 'ec2':
             log.debug('Applying AWS-specific munging to next device id calculation')
             if base == '/dev/xvd':
                 base = '/dev/sd'
             if letter < 'f':
                 letter = 'e'
-            
+
         # Get the next device in line
         new_id = base + chr(ord(letter) + 1)
         return new_id
