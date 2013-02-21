@@ -268,6 +268,36 @@ class EC2Interface(CloudInterface):
                 pass
         return self.fqdn
 
+    def get_region_name(self):
+        """
+        Return the name of the region where currently running.
+        """
+        if not self.region_name:
+            r = self.get_region()
+            self.region_name = r.name
+            log.debug("Got region name as '{0}'".format(self.region_name))
+        return self.region_name
+
+    def get_region(self):
+        """
+        Return a ``boto`` object representing the region where currently running.
+        """
+        if not self.region:
+            # Get instance zone and figure out the region from there
+            zone = self.get_zone()[:-1]  # truncate zone and be left with region name
+            tmp_conn = EC2Connection(self.aws_access_key,
+                                     self.aws_secret_key)  # get conn in the default region
+            try:
+                regions = tmp_conn.get_all_regions()
+            except EC2ResponseError, e:
+                log.error("Cannot validate provided AWS credentials: %s" % e)
+            for r in regions:
+                if zone in r.name:
+                    self.region = r
+                    log.debug("Got region as '{0}'".format(self.region))
+                    break
+        return self.region
+
     def get_ec2_connection(self):
         if self.ec2_conn == None:
             try:
@@ -278,23 +308,8 @@ class EC2Interface(CloudInterface):
                         self.aws_access_key, self.aws_secret_key)
                     return self.ec2_conn
                 log.debug('Establishing boto EC2 connection')
-                # In order to get a connection for the correct region, get
-                # instance zone and go from there
-                zone = self.get_zone(
-                )[:-1]  # truncate zone and be left with region name
-                tmp_conn = EC2Connection(self.aws_access_key,
-                                         self.aws_secret_key)  # get conn in default region
-                try:
-                    regions = tmp_conn.get_all_regions()
-                except EC2ResponseError, e:
-                    log.error(
-                        "Cannot validate provided AWS credentials: %s" % e)
-                # Find region that matches instance zone and then create
-                # ec2_conn
-                for r in regions:
-                    if zone in r.name:
-                        region = r
-                        break
+                # Make sure we get a connection for the correct region
+                region = self.get_region()
                 self.ec2_conn = EC2Connection(
                     self.aws_access_key, self.aws_secret_key, region=region)
                 # Do a simple query to test if provided credentials are valid

@@ -183,14 +183,38 @@ class ConsoleManager(BaseConsoleManager):
         return (None, None)
 
     def _load_snapshot_data(self):
-        # Static data - get snapshot IDs from the default bucket and add respective file systems
+        """
+        Retrieve and return information about the default filesystems.
+        This is done by retrieving ``snaps.yaml`` from the default bucket and
+        parsing it to match the current cloud, region, and deployment.
+        Returns a list of dictionaries.
+        """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         snaps_file = 'cm_snaps.yaml'
         snaps = None
-        # Get a list of auto-mount/default/read-only/reference data sources
+        # Get a list of default file system data sources
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
             snaps_file = misc.load_yaml_file(snaps_file)
-            snaps = snaps_file['static_filesystems']
+            if 'static_filesystems' in snaps_file:
+                # Old snaps.yaml format
+                snaps = snaps_file['static_filesystems']
+                # Convert the old format into the new one and return a
+                # uniform snaps dict
+                for f in snaps:
+                    f['name'] = f['filesystem']  # Rename the key
+                    f.pop('filesystem', None)  # Delete the old key
+            else:
+                for cloud in snaps_file['clouds']:
+                    if cloud['name'] == self.app.ud.get('cloud_name', 'ec2'):
+                        current_cloud = cloud
+                        for r in current_cloud['regions']:
+                            if r['name'] == self.app.cloud_interface.get_region_name():
+                                for d in r['deployments']:
+                                    # TODO: Make the deployment name a UD option
+                                    if d['name'] == 'GalaxyCloud':
+                                        snaps = d['filesystems']
+        log.debug("Loaded default snapshot data: {0}".format(snaps))
         return snaps
 
     @TestFlag(10)
@@ -991,8 +1015,8 @@ class ConsoleManager(BaseConsoleManager):
             # TODO: Fix filtering for non-ec2 clouds
             if self.app.cloud_type == 'ec2':
                 filters = {'tag:clusterName': self.app.ud['cluster_name']}
-                vols = self.app.cloud_interface.get_all_volumes(
-                    filters=filters)
+                vols = self.app.cloud_interface.get_all_volumes(filters=filters)
+                log.debug("Remaining volumes associated with this cluster: {0}".format(vols))
                 for vol in vols:
                     log.debug(
                         "As part of cluster deletion, deleting volume '%s'" % vol.id)
@@ -1195,6 +1219,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem adding a live instance (tried ID: %s): %s" % (instance_id, e))
         return False
 
+    @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0):
         """
         Initialize the type for this cluster and start appropriate services,
@@ -1223,10 +1248,6 @@ class ConsoleManager(BaseConsoleManager):
             fs.add_volume(size=pss)
             self.add_master_service(fs)
 
-        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
-            log.debug(
-                "Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
-            return
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
         log.info("Initializing '%s' cluster type." % cluster_type)
@@ -1235,23 +1256,25 @@ class ConsoleManager(BaseConsoleManager):
             if self.snaps:
                 attached_volumes = self.get_attached_volumes()
                 for snap in self.snaps:
-                    fs = Filesystem(self.app, snap['filesystem'], svc_roles=ServiceRole.from_string(snap['roles']))  # NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
+                    fs = Filesystem(self.app, snap['name'],
+                        svc_roles=ServiceRole.from_string(snap['roles']))
                     # Check if an already attached volume maps to the current filesystem
-                    att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
+                    att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
                     if att_vol:
                         log.debug("{0} file system has volume(s) already attached".format(
-                            snap['filesystem']))
+                            snap['name']))
                         fs.add_volume(vol_id=att_vol.id,
                                       size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                        snap_size = att_vol.size
+                        # snap_size = att_vol.size
                     else:
-                        log.debug("There are no volumes already attached for file system {0}".format(snap['filesystem']))
+                        log.debug("There are no volumes already attached for file system {0}"
+                            .format(snap['name']))
                         size = 0
                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string(snap['roles']):
                             size = pss
                         fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
-                        snap_size = snap.get('size', 0)
-                    log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
+                        # snap_size = snap.get('size', 0)
+                    log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.add_master_service(fs)
             # Add a file system for user's data
@@ -1263,14 +1286,14 @@ class ConsoleManager(BaseConsoleManager):
             self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
-                _add_data_fs()
+            _add_data_fs()
         elif cluster_type == 'SGE':
             # SGE service is automatically added at cluster start (see
             # ``start`` method)
             pass
         else:
-            log.error(
-                "Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
+            log.error("Tried to initialize a cluster but received an unknown type: '%s'"
+                % cluster_type)
 
     @TestFlag(True)
     def init_shared_cluster(self, share_string):
