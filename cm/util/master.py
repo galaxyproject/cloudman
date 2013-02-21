@@ -205,8 +205,12 @@ class ConsoleManager(BaseConsoleManager):
                     f['name'] = f['filesystem']  # Rename the key
                     f.pop('filesystem', None)  # Delete the old key
             else:
+                cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
+                # Unify all Amazon regions and/or name variations to a single one
+                if 'amazon' in cloud_name:
+                    cloud_name = 'amazon'
                 for cloud in snaps_file['clouds']:
-                    if cloud['name'] == self.app.ud.get('cloud_name', 'ec2'):
+                    if cloud['name'] == cloud_name:
                         current_cloud = cloud
                         for r in current_cloud['regions']:
                             if r['name'] == self.app.cloud_interface.get_region_name():
