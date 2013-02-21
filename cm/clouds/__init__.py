@@ -17,6 +17,8 @@ class CloudInterface(object):
     instance_id = None
     instance = None  # boto object representation of the instance
     zone = None
+    region = None
+    region_name = None
     security_groups = None
     key_pair_name = None
     self_private_ip = None

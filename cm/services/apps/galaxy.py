@@ -113,28 +113,29 @@ class GalaxyService(ApplicationService):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
                     return False
-                # Retrieve config files from a persistent data repository
-                # (i.e., S3)
+                # If a configuration file is not already in Galaxy's dir,
+                # retrieve it from a persistent data repository (i.e., S3)
                 if s3_conn:
                     for f_name in ['universe_wsgi.ini',
                                    'tool_conf.xml',
                                    'tool_data_table_conf.xml',
                                    'shed_tool_conf.xml',
                                    'datatypes_conf.xml']:
-                        if not misc.get_file_from_bucket(s3_conn,
+                        f_path = os.path.join(self.galaxy_home, f_name)
+                        if (not os.path.exists(f_path) and
+                            not misc.get_file_from_bucket(s3_conn,
                                                          self.app.ud[
                                                          'bucket_cluster'],
                                                          '{0}.cloud'.format(
-                                                             f_name),
-                                                         os.path.join(self.galaxy_home, f_name)):
+                                                         f_name), f_path)):
                             # We did not get the config file from cluster's bucket;
                             # get one from the default bucket
                             log.debug("Did not get Galaxy configuration file " +
-                                      "'{0}' from cluster bucket '{1}'".format(f_name,
-                                                                               self.app.ud['bucket_cluster']))
+                                      "'{0}' from cluster bucket '{1}'"
+                                      .format(f_name, self.app.ud['bucket_cluster']))
                             log.debug("Trying to retrieve one ({0}.cloud) "
-                                      "from the default '{1}' bucket.".format(f_name,
-                                                                              self.app.ud['bucket_default']))
+                                      "from the default '{1}' bucket."
+                                      .format(f_name, self.app.ud['bucket_default']))
                             local_file = os.path.join(self.galaxy_home, f_name)
                             misc.get_file_from_bucket(s3_conn,
                                                       self.app.ud[
@@ -192,7 +193,8 @@ class GalaxyService(ApplicationService):
                 start_command = self.galaxy_run_command(
                     "%s --daemon" % self.extra_daemon_args)
                 log.debug(start_command)
-                if not misc.run(start_command, "Error invoking Galaxy", "Successfully initiated Galaxy start."):
+                if not misc.run(start_command, "Error invoking Galaxy",
+                    "Successfully initiated Galaxy start from {0}.".format(self.galaxy_home)):
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
             else:
