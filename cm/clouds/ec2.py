@@ -426,6 +426,8 @@ class EC2Interface(CloudInterface):
                 for instance in reservation.instances:
                     self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                     self.add_tag(instance, 'role', worker_ud['role'])
+                    self.add_tag(instance, 'Name', "Worker: {0}"
+                        .format(self.app.ud['cluster_name']))
                     i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)

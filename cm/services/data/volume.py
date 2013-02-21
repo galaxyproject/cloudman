@@ -292,7 +292,7 @@ class Volume(BlockStorage):
                 self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
-                self.app.cloud_interface.add_tag(self.volume, 'Name', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
                 self.app.cloud_interface.add_tag(self.volume, 'roles',
                     ServiceRole.to_string(self.fs.svc_roles))
         except EC2ResponseError, e:
