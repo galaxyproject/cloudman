@@ -28,6 +28,10 @@ class CM(BaseController):
             cluster_name = self.app.ud['cluster_name']
             CM_url = self.get_CM_url(trans)
             system_message = None
+            cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
+            # Unify all Amazon regions and/or name variations to a single one
+            if 'amazon' in cloud_name:
+                cloud_name = 'amazon'
             if os.path.exists(paths.SYSTEM_MESSAGES_FILE):
                 # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
@@ -42,7 +46,7 @@ class CM(BaseController):
                                         image_config_support=BunchToo(self.app.config.ic),
                                         CM_url=CM_url,
                                         cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                        cloud_name=self.app.ud.get('cloud_name', 'amazon').lower(),
+                                        cloud_name=cloud_name,
                                         system_message=system_message,
                                         default_data_size=self.app.manager.get_default_data_size())
 
@@ -215,14 +219,22 @@ class CM(BaseController):
                 log.error("Wanted to add a new file system from a bucket but no "
                     "bucket name was provided.")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
-                log.debug("Adding '{2}' file system based on an existing {0}, {1}"
-                    .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
-                        vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            log.debug("Adding '{2}' file system based on an existing {0}, {1}"
+                .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+            if fs_kind == 'volume':
+                self.app.manager.add_fs_volume(vol_id=vol_id, fs_kind='volume',
+                    fs_name=vol_fs_name, persistent=persist, dot=dot)
+            else:
+                self.app.manager.add_fs_volume(snap_id=snap_id, fs_kind='snapshot',
+                    fs_name=snap_fs_name, persistent=persist, dot=dot)
         elif fs_kind == 'new_volume':
             log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "
                 "be deleted, of size {1}"
                 .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'),
                 ('' if dot else ' not')))
+            self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
+                vol_size=new_disk_size, persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
             log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
@@ -679,7 +691,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_public_hostname(),
+                                   ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],

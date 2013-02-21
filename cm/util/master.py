@@ -183,14 +183,42 @@ class ConsoleManager(BaseConsoleManager):
         return (None, None)
 
     def _load_snapshot_data(self):
-        # Static data - get snapshot IDs from the default bucket and add respective file systems
+        """
+        Retrieve and return information about the default filesystems.
+        This is done by retrieving ``snaps.yaml`` from the default bucket and
+        parsing it to match the current cloud, region, and deployment.
+        Returns a list of dictionaries.
+        """
         s3_conn = self.app.cloud_interface.get_s3_connection()
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         snaps_file = 'cm_snaps.yaml'
         snaps = None
-        # Get a list of auto-mount/default/read-only/reference data sources
+        # Get a list of default file system data sources
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
             snaps_file = misc.load_yaml_file(snaps_file)
-            snaps = snaps_file['static_filesystems']
+            if 'static_filesystems' in snaps_file:
+                # Old snaps.yaml format
+                snaps = snaps_file['static_filesystems']
+                # Convert the old format into the new one and return a
+                # uniform snaps dict
+                for f in snaps:
+                    f['name'] = f['filesystem']  # Rename the key
+                    f.pop('filesystem', None)  # Delete the old key
+            else:
+                cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
+                # Unify all Amazon regions and/or name variations to a single one
+                if 'amazon' in cloud_name:
+                    cloud_name = 'amazon'
+                for cloud in snaps_file['clouds']:
+                    if cloud['name'] == cloud_name:
+                        current_cloud = cloud
+                        for r in current_cloud['regions']:
+                            if r['name'] == self.app.cloud_interface.get_region_name():
+                                for d in r['deployments']:
+                                    # TODO: Make the deployment name a UD option
+                                    if d['name'] == 'GalaxyCloud':
+                                        snaps = d['filesystems']
+        log.debug("Loaded default snapshot data: {0}".format(snaps))
         return snaps
 
     @TestFlag(10)
@@ -222,15 +250,15 @@ class ConsoleManager(BaseConsoleManager):
        # Always add SGE service
         self.add_master_service(SGEService(self.app))
         # Always share instance transient storage over NFS
-        tfs = Filesystem(
-            self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
+        tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
         self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
         # KWS: Optionally add Hadoop service based on config setting
-        self.add_master_service(HadoopService(self.app))
+        if self.app.ud.get('hadoop_enabled', True):
+            self.add_master_service(HadoopService(self.app))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -306,13 +334,10 @@ class ConsoleManager(BaseConsoleManager):
                                 filesystem.add_volume(vol_id=vol_id)
                     elif fs['kind'] == 'snapshot':
                         for snap in fs['ids']:
-                            # Check if an already attached volume maps to this
-                            # snapshot
-                            att_vol = self.get_vol_if_fs(
-                                attached_volumes, fs['name'])
+                            # Check if an already attached volume maps to this snapshot
+                            att_vol = self.get_vol_if_fs(attached_volumes, fs['name'])
                             if att_vol:
-                                filesystem.add_volume(
-                                    vol_id=att_vol.id, size=att_vol.size,
+                                filesystem.add_volume(vol_id=att_vol.id, size=att_vol.size,
                                     from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
@@ -327,6 +352,7 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.warning("No bucket name for file system {0}!".format(
                                 fs['name']))
+                    # TODO: include support for `nfs` kind
                     else:
                         # TODO: try to do some introspection on the device ID
                         # to guess the kind before err
@@ -865,8 +891,7 @@ class ConsoleManager(BaseConsoleManager):
         filters = {'tag:clusterName': self.app.ud['cluster_name'],
                    'tag:role': 'worker'}
         try:
-            reservations = self.app.cloud_interface.get_all_instances(
-                filters=filters)
+            reservations = self.app.cloud_interface.get_all_instances(filters=filters)
             for reservation in reservations:
                 if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
                     i = Instance(self.app, inst=reservation.instances[0],
@@ -892,10 +917,9 @@ class ConsoleManager(BaseConsoleManager):
                 f = {'attachment.instance-id':
                      self.app.cloud_interface.get_instance_id()}
                 attached_volumes = self.app.cloud_interface.get_ec2_connection(
-                ).get_all_volumes(filters=f)
+                    ).get_all_volumes(filters=f)
             else:
-                volumes = self.app.cloud_interface.get_ec2_connection(
-                ).get_all_volumes()
+                volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
                 for vol in volumes:
                     if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id():
                         attached_volumes.append(vol)
@@ -1037,12 +1061,15 @@ class ConsoleManager(BaseConsoleManager):
             # TODO: Fix filtering for non-ec2 clouds
             if self.app.cloud_type == 'ec2':
                 filters = {'tag:clusterName': self.app.ud['cluster_name']}
-                vols = self.app.cloud_interface.get_all_volumes(
-                    filters=filters)
+                vols = self.app.cloud_interface.get_all_volumes(filters=filters)
+                log.debug("Remaining volumes associated with this cluster: {0}".format(vols))
                 for vol in vols:
-                    log.debug(
-                        "As part of cluster deletion, deleting volume '%s'" % vol.id)
-                    vol.delete()
+                    if vol.status == 'available':
+                        log.debug("As part of cluster deletion, deleting volume '%s'" % vol.id)
+                        vol.delete()
+                    else:
+                        log.debug("Not deleting volume {0} because it is in state {1}"
+                            .format(vol.id, vol.status))
         except EC2ResponseError, e:
             log.error("Error deleting a volume: %s" % e)
         # Delete cluster bucket on S3
@@ -1227,8 +1254,12 @@ class ConsoleManager(BaseConsoleManager):
                 instance = reservation[0].instances[0]
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
                     i = Instance(self.app, inst=instance, m_state=instance.state)
-                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
-                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')  # Default to 'worker' role tag
+                    self.app.cloud_interface.add_tag(instance, 'clusterName',
+                        self.app.ud['cluster_name'])
+                    # Default to 'worker' role tag
+                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')
+                    self.app.cloud_interface.add_tag(instance, 'Name',
+                        "Worker: {0}".format(self.app.ud['cluster_name']))
                     self.worker_instances.append(i)
                     i.send_alive_request()  # to make sure info like ip-address and hostname are updated
                     log.debug('Added instance {0}....'.format(instance_id))
@@ -1241,6 +1272,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem adding a live instance (tried ID: %s): %s" % (instance_id, e))
         return False
 
+    @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0):
         """
         Initialize the type for this cluster and start appropriate services,
@@ -1269,10 +1301,6 @@ class ConsoleManager(BaseConsoleManager):
             fs.add_volume(size=pss)
             self.add_master_service(fs)
 
-        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
-            log.debug(
-                "Attempted to initialize a new cluster of type '%s', but TESTFLAG is set." % cluster_type)
-            return
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
         log.info("Initializing '%s' cluster type." % cluster_type)
@@ -1281,23 +1309,25 @@ class ConsoleManager(BaseConsoleManager):
             if self.snaps:
                 attached_volumes = self.get_attached_volumes()
                 for snap in self.snaps:
-                    fs = Filesystem(self.app, snap['filesystem'], svc_roles=ServiceRole.from_string(snap['roles']))  # NGTODO: Check whether svc_role can be obtained this way from snaps.yaml
+                    fs = Filesystem(self.app, snap['name'],
+                        svc_roles=ServiceRole.from_string(snap['roles']))
                     # Check if an already attached volume maps to the current filesystem
-                    att_vol = self.get_vol_if_fs(attached_volumes, snap['filesystem'])
+                    att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
                     if att_vol:
                         log.debug("{0} file system has volume(s) already attached".format(
-                            snap['filesystem']))
+                            snap['name']))
                         fs.add_volume(vol_id=att_vol.id,
                                       size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                        snap_size = att_vol.size
+                        # snap_size = att_vol.size
                     else:
-                        log.debug("There are no volumes already attached for file system {0}".format(snap['filesystem']))
+                        log.debug("There are no volumes already attached for file system {0}"
+                            .format(snap['name']))
                         size = 0
                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string(snap['roles']):
                             size = pss
                         fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
-                        snap_size = snap.get('size', 0)
-                    log.debug("Adding a static filesystem '{0}' with volumes '{1}'"\
+                        # snap_size = snap.get('size', 0)
+                    log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
                         .format(fs.get_full_name(), fs.volumes))
                     self.add_master_service(fs)
             # Add a file system for user's data
@@ -1309,14 +1339,14 @@ class ConsoleManager(BaseConsoleManager):
             self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
-                _add_data_fs()
+            _add_data_fs()
         elif cluster_type == 'SGE':
             # SGE service is automatically added at cluster start (see
             # ``start`` method)
             pass
         else:
-            log.error(
-                "Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
+            log.error("Tried to initialize a cluster but received an unknown type: '%s'"
+                % cluster_type)
 
     @TestFlag(True)
     def init_shared_cluster(self, share_string):
@@ -1764,6 +1794,22 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Master done adding FS from bucket {0}".format(bucket_name))
 
     @TestFlag(None)
+    def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
+        """
+        Add a new file system based on an existing volume, a snapshot, or a new
+        volume. Provide ``fs_kind`` to distinguish between these (accepted values
+        are: ``volume``, ``snapshot``, or ``new_volume``). Depending on which
+        kind is provided, must provide ``vol_id``, ``snap_id``, or ``vol_size``,
+        respectively - but not all!
+        """
+        log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
+        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
+        self.add_master_service(fs)
+        log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
+
+    @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
         fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
@@ -1843,7 +1889,7 @@ class ConsoleManager(BaseConsoleManager):
                 % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
-            # called 'copy_name' and 'copy_boot_name', respectivley
+            # called 'copy_name' and 'copy_boot_name', respectively
             copy_name = "%s_%s" % (
                 self.app.config.cloudman_source_file_name, dt.date.today())
             copy_boot_name = "%s_%s" % (
@@ -2062,7 +2108,7 @@ class ConsoleManager(BaseConsoleManager):
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
+            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2109,6 +2155,8 @@ class ConsoleMonitor(object):
                     ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(
                     ir[0].instances[0], 'role', self.app.ud['role'])
+                self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
+                    "{0}: {1}".format(self.app.ud['role'], self.app.ud['cluster_name']))
             except Exception, e:
                 log.debug("Error setting tags on the master instance: %s" % e)
         self.monitor_thread.start()
@@ -2410,6 +2458,9 @@ class ConsoleMonitor(object):
                             # Wait until the Spot request has been filled to start
                             # treating the instance as a regular Instance
                             continue
+                    # Send current mount points to ensure master and workers FSs are in sync
+                    if w_instance.node_ready:
+                        w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
@@ -2760,8 +2811,8 @@ class Instance(object):
 
     @TestFlag(None)
     def send_alive_request(self):
-        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id
-                                                    )
+        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
+
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2820,6 +2871,8 @@ class Instance(object):
                                     self.app.cloud_interface.add_tag(instance,
                                         'clusterName', self.app.ud['cluster_name'])
                                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
+                                    self.app.cloud_interface.add_tag(instance,
+                                        'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
                                     break
                                 time.sleep(5)
             except EC2ResponseError, e:
@@ -2882,7 +2935,7 @@ class Instance(object):
             if fs.nfs_fs:
                 nfs_server = fs.nfs_fs.nfs_server
             else:
-                nfs_server = self.app.cloud_interface.get_public_ip()
+                nfs_server = self.app.cloud_interface.get_private_ip()
             mount_points.append(
                 {'nfs_server': nfs_server,
                  'shared_mount_path': fs.get_details()['mount_point'],

@@ -78,8 +78,8 @@ class PostgresService(ApplicationService):
                 # Change ownership of just created directory
                 if cont:
                     cont = misc.run(
-                        '%s -R postgres:postgres %s/pgsql' % (
-                            paths.P_CHOWN, self.app.path_resolver.galaxy_data),
+                        '%s -R postgres:postgres %s' % (
+                            paths.P_CHOWN, psql_data_dir),
                         "Error changing ownership of just created directory", "Successfully changed ownership of just created directory")
                 # Initialize/configure database cluster
                 if cont:

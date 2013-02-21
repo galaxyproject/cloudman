@@ -22,7 +22,7 @@ class OSInterface(EC2Interface):
     def set_configuration(self):
         super(OSInterface, self).set_configuration()
         # Cloud details gotten from the user data
-        self.region_name = self.user_data.get('region_name', None)
+        self.region_name = self.user_data.get('region_name', self.region_name)
         self.region_endpoint = self.user_data.get('region_endpoint', None)
         self.ec2_port = self.user_data.get('ec2_port', None)
         self.ec2_conn_path = self.user_data.get('ec2_conn_path', None)
@@ -30,7 +30,11 @@ class OSInterface(EC2Interface):
         self.s3_host = self.user_data.get('s3_host', None)
         self.s3_port = self.user_data.get('s3_port', None)
         self.s3_conn_path = self.user_data.get('s3_conn_path', None)
+        self.use_private_ip = self.user_data.get('openstack_use_private_ip', False)
         self.calling_format = OrdinaryCallingFormat()
+
+    def get_region_name(self):
+        return self.region_name
 
     def get_ec2_connection(self):
         if self.ec2_conn == None:
@@ -110,7 +114,8 @@ class OSInterface(EC2Interface):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
-                    if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                    #This is not only nectar specific but I left nectar for backward compatibility
+                    if self.use_private_ip or  self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
                         fp = urllib.urlopen(

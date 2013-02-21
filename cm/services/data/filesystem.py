@@ -336,8 +336,8 @@ class Filesystem(DataService):
                         self.app.cloud_interface.add_tag(
                             att_vol, 'clusterName', self.app.ud['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
-                        self.app.cloud_interface.add_tag(
-                            att_vol, 'filesystem', self.name)
+                        self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
+                    self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml)
                     # in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()
@@ -557,7 +557,7 @@ class Filesystem(DataService):
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'"
                       % (self.name, self.mount_point, self.state))
 
-    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None):
+    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None, dot=False):
         """
         Add a volume device to this file system.
 
@@ -567,7 +567,7 @@ class Filesystem(DataService):
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"
                   .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size,
-                            from_snapshot_id=from_snapshot_id))
+                            from_snapshot_id=from_snapshot_id, static=dot))
 
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         """

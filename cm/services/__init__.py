@@ -55,7 +55,7 @@ class ServiceRole(object):
         svc_roles = []
         roles_list = roles_str.split(",")
         for val in roles_list:
-            role = ServiceRole._role_from_string(val)
+            role = ServiceRole._role_from_string(val.strip())
             if role:
                 svc_roles.append(role)
         return svc_roles

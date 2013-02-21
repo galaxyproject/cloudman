@@ -118,7 +118,7 @@ database_engine_option_strategy = threadlocal
 # -- Files and directories
 
 # Path where genome builds are stored. This defaults to tool-data/genome
-genome_data_path = /mnt/galaxyIndices/genome
+genome_data_path = /mnt/galaxyIndices/genomes
 
 # URL for rsync server to download pre-built indexes.
 rsync_url = rsync://scofield.bx.psu.edu/indexes
@@ -155,7 +155,7 @@ tool_dependency_dir = /mnt/galaxy/tools
 #tool_data_path = tool-data
 
 # Directory where chrom len files are kept, currently mainly used by trackster
-len_file_path = /mnt/galaxyIndices/len
+len_file_path = /mnt/galaxy/len
 
 # Datatypes config file, defines what data (file) types are available in
 # Galaxy.
@@ -367,7 +367,7 @@ debug = True
 
 # Enable live debugging in your browser.  This should NEVER be enabled on a
 # public site.  Enabled in the sample config for development.
-use_interactive = True
+use_interactive = False
 
 # Write thread status periodically to 'heartbeat.log',  (careful, uses disk
 # space rapidly!).  Useful to determine why your processes may be consuming a

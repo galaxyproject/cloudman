@@ -186,7 +186,8 @@ class Volume(BlockStorage):
         else:
             try:
                 self.volume.update()
-                status = volume_status_map.get(self.volume.status, None)
+                #Take only the first word of the status as openstack adds some extra info after a space
+                status = volume_status_map.get(self.volume.status.split(' ')[0],None)
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
                 if not status:
@@ -290,8 +291,10 @@ class Volume(BlockStorage):
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.ud['bucket_cluster'])
             if filesystem:
-                self.app.cloud_interface.add_tag(
-                    self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
+                self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
+                self.app.cloud_interface.add_tag(self.volume, 'roles',
+                    ServiceRole.to_string(self.fs.svc_roles))
         except EC2ResponseError, e:
             log.error("Error adding tags to volume: %s" % e)
 
@@ -333,11 +336,17 @@ class Volume(BlockStorage):
         """
         base = device_id[0:-1]
         letter = device_id[-1]
+
         # AWS-specific munging
-        if base == '/dev/xvd':
-            base = '/dev/sd'
-        if letter < 'f':
-            letter = 'e'
+        # Perhaps should be moved to the interface anyway does not work for openstack
+        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())
+        if self.app.ud.get('cloud_type', 'ec2').lower() == 'ec2':
+            log.debug('Applying AWS-specific munging to next device id calculation')
+            if base == '/dev/xvd':
+                base = '/dev/sd'
+            if letter < 'f':
+                letter = 'e'
+
         # Get the next device in line
         new_id = base + chr(ord(letter) + 1)
         return new_id
@@ -558,6 +567,11 @@ class Volume(BlockStorage):
         if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and self.from_snapshot_id is not None:
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
+            # FIXME: This is a major problem - any new volumes added from a snapshot
+            # will be assumed 'static'. This is OK before being able to add an
+            # arbitrary volume as a file system but is no good any more. The
+            # problem is in automatically detecting volumes that are supposed
+            # to be static and are being added automatically at startup
             self.static = True
             self.fs.kind = 'snapshot'
         else:

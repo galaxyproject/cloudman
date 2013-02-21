@@ -84,9 +84,9 @@ vertical-align: top;
                     &nbsp;
                 </div>
                 <div id="force_termination" class="form-row-input">
-                    <label>Force Termination of non-idle nodes?</label>
-                    Yes<input type="radio" name="force_termination" id="force_termination" value="True">
-                    No<input type="radio" name="force_termination" id="force_termination" value="False"  checked="True">
+                    <div>Force Termination of non-idle nodes?</div>
+                    <label for="force_termination_yes">Yes</label><input type="radio" name="force_termination" id="force_termination_yes" value="True">
+                    <label for="force_termination_no">No</label><input type="radio" name="force_termination" id="force_termination_no" value="False"  checked="True">
                 </div>
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;
@@ -200,14 +200,14 @@ vertical-align: top;
             beyond the life of this instance. Next time you wish to start this same
             cluster, simply use the same user data (i.e., cluster name and credentials)
             and CloudMan will reactivate your cluster with your data.</p>
-            <label>Automatically terminate the master instance?</label>
-            <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
-            If checked, this master instance will automatically terminate after all services have been shut down.
-            If not checked, you should maually terminate this instance after all services have been shut down.
-            <p></p><label>Also delete this cluster?</label>
-            <input type="checkbox" name="delete_cluster" id="delete_cluster">
-            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.
-            <div class="form-row"><input type="submit" value="Yes, power off"></div>
+            <label for="terminate_master_instance"><b>Automatically terminate the master instance?</b></label>
+            <div><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
+            <label for="terminate_master_instance">If checked, this master instance will automatically terminate after all services have been shut down.
+            If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
+            <p></p><b>Also delete this cluster?</b>
+            <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
+            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.</div>
+            <div style="padding-top: 20px;"><input type="submit" value="Yes, power off"></div>
         </div>
     </form>
 </div>
@@ -372,6 +372,7 @@ vertical-align: top;
                 <p style="text-align:justify;" class='disabled'>
             % endif
                 <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
+                    <label for="galaxy-cluster">
 	                <span style="display: block;margin-left: 20px;">
 	                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
 			% if 'galaxy' not in image_config_support.apps:
@@ -381,11 +382,12 @@ vertical-align: top;
             % endif
 	                    Specify the initial storage size (in Gigabytes):
 	                </span>
+                    </label>
 	                <div style="text-align:left;margin-left: 18px">
 	                <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-	                Default size (${default_data_size} GB)
+	                <label for="galaxy-default-size">Default size (${default_data_size} GB)</label>
 	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
-	                Custom size:
+	                <label for="galaxy-custom-size">Custom size:</label>
 	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
 	                </div>
                     <div style="height: 5px;">
@@ -396,31 +398,37 @@ vertical-align: top;
         <div id='extra_startup_options'>
             <div class="form-row">
                 <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
+                    <label for="share-cluster">
                 	<span style="display: block;margin-left: 20px;">
 	                    <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
 	                    Specify the provided cluster share-string (for example,
 	                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
                     </span>
+                    </label>
                 </p>
                 <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
-                    Cluster share-string
+                    <label for="shared_bucket">Cluster share-string</label>
             </div>
 
             <div class="form-row">
                 <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
+                    <label for="data-cluster">
                 	<span style="display: block;margin-left: 20px;">
 	                    <b>Data Cluster</b>: a persistent data volume and SGE.
 	                    Specify the initial storage size (in Gigabytes):
                     </span>
+                    </label>
                 </p>
                 <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
             </div>
 
             <div class="form-row">
-                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left">
+                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left" id="sge-cluster">
+                <label for="sge-cluster">
                 <span style="display: block;margin-left: 20px;">
                 	<b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
                 </span>
+                </label>
             </div>
         </div>
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
