@@ -1,30 +1,3 @@
-body
-{
-    font: 75% verdana, "Bitstream Vera Sans", geneva, arial, helvetica, helve, sans-serif;
-    background: #FFFFFF;
-    color: #303030;
-    background-image: url(base_bg.png);
-    background-repeat: repeat-x;
-    background-position: top;
-    margin: 0;
-}
-
-a:link, a:visited, a:active
-{
-    color: #303030;
-}
-
-h1, h2, h3, h4
-{
-    color: #023858;
-    /*text-shadow: #bbb 2px 2px 1px;*/
-}
-
-hr
-{
-    border: none;
-    border-bottom: dotted #303030 1px;
-}
 meter{
     width: 100%;
 }
@@ -1237,12 +1210,6 @@ div.volume_expand_popup{
 p.disabled {
     color: #CDCDCD;
 }
-
-#filesystems-table {
-    width: 700px;
-    border-collapse: collapse;
-    /*padding-left: 20px;*/
-}
 .fs-td-10pct {
     width: 10%;
 }
@@ -1255,12 +1222,7 @@ p.disabled {
 .fs-td-spacer{
     width: 15%;
 }
-.filesystem-tr {
-    text-align:left;
-}
-.filesystem-tr td{
-    padding-bottom: 3px;
-}
+
 .fs-details-box {
 /*    display:none;*/
     /*float:right;*/
@@ -1488,8 +1450,6 @@ p.disabled {
     border: 1px solid rgba(0, 0, 0, 0.3);
 }
 .fs-add-form {
-    display:none;
-    width: 694px;
     background-color:#FEF1B5;
     padding: 3px;
     border-top:1px solid #ccc;
@@ -1636,4 +1596,17 @@ fieldset {
         color-stop(0.85, rgb(245,245,245))
     );
     border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+
+/* Styling for the space usage meter element */
+.meter_file_system_space_usage {
+	text-align: center;
+    vertical-align: middle;
+ 	font-size: small;   
+}
+
+/* The percentage */
+.meter_file_system_space_usage:after {
+	content: attr(display-value);
 }

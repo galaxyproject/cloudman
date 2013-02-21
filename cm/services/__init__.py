@@ -20,27 +20,27 @@ service_states = Bunch(
 
 
 class ServiceType(object):
-    FILE_SYSTEM = "FileSystem"
-    APPLICATION = "Application"
+    FILE_SYSTEM = "FILE_SYSTEM"
+    APPLICATION = "APPLICATION"
 
 
 class ServiceRole(object):
-    SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
-    GALAXY = {'type': ServiceType.APPLICATION, 'name': "Galaxy"}
-    GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name':
+    SGE = {'type': ServiceType.APPLICATION, 'display_name': "Sun Grid Engine"}
+    GALAXY = {'type': ServiceType.APPLICATION, 'display_name': "Galaxy"}
+    GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'display_name':
                        "Postgres DB for Galaxy"}
-    GALAXY_REPORTS = {'type': ServiceType.APPLICATION, 'name':
+    GALAXY_REPORTS = {'type': ServiceType.APPLICATION, 'display_name':
                       "Galaxy Reports"}
-    AUTOSCALE = {'type': ServiceType.APPLICATION, 'name': "Autoscale"}
-    PSS = {'type': ServiceType.APPLICATION, 'name': "Post Start Script"}
-    GALAXY_DATA = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Data FS"}
-    GALAXY_INDICES = {'type': ServiceType.FILE_SYSTEM, 'name':
+    AUTOSCALE = {'type': ServiceType.APPLICATION, 'display_name': "Autoscale"}
+    PSS = {'type': ServiceType.APPLICATION, 'display_name': "Post Start Script"}
+    GALAXY_DATA = {'type': ServiceType.FILE_SYSTEM, 'display_name': "Galaxy Data FS"}
+    GALAXY_INDICES = {'type': ServiceType.FILE_SYSTEM, 'display_name':
                       "Galaxy Indices FS"}
-    GALAXY_TOOLS = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Tools FS"}
-    GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'name': "Generic FS"}
-    TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
+    GALAXY_TOOLS = {'type': ServiceType.FILE_SYSTEM, 'display_name': "Galaxy Tools FS"}
+    GENERIC_FS = {'type': ServiceType.FILE_SYSTEM, 'display_name': "Generic FS"}
+    TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'display_name':
                      "Transient NFS FS"}
-    HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
+    HADOOP = {'type': ServiceType.APPLICATION, 'display_name': "Hadoop Service"}
 
     @staticmethod
     def get_type(role):
@@ -270,3 +270,22 @@ class Service(object):
         Return full name of the service (useful if different from service type)
         """
         return "{0}".format(self.name)
+
+    def get_service_actions(self):
+        """
+        Returns a list of actions that this service supports
+        """
+        return []
+
+    def get_service_requirements(self):
+        """
+        Returns a list of the services that this service requires
+        """
+        reqs_list = []
+        for req in self.reqs:
+            reqs_dict = {'display_name': req.service_role['display_name'],
+                         'type': req.service_role['type'],
+                         'role': ServiceRole.to_string(req.service_role),
+                         'assigned_service': (req.assigned_service.name if req.assigned_service else "")}
+            reqs_list.append(reqs_dict)
+        return reqs_list

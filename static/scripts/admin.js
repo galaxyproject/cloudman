@@ -849,7 +849,437 @@ jQuery.fn.serializeObject = function() {
             // Keep updating the display with the fresh data from the server
             FScollection.fetch();
         }
-        window.setTimeout(function(){updateFS();}, 10000);
+        //window.setTimeout(function(){updateFS();}, 10000);
     }
     updateFS();
 } (jQuery));
+
+
+/***************** ANGULAR JS Modules and Controllers **************************/
+
+
+//****************** Slightly modified Popup based on Angular-UI's popup ******************
+
+/**
+ * The main changes were to
+ * 1. Load template from a script block
+ * 2. Change scope to use parent scope, so values bind properly (TODO: Better solution needed?)
+ * 3. Adjust element position detection code so it works within tables
+ * All changes marked with MODIFIED comment
+ */
+angular.module( 'cloudman.popover', [] )
+.directive( 'cloudmanPopup', function () {
+  return {
+    restrict: 'EA',
+    replace: true,
+    // MODIFIED: scope: { popoverTitle: '@', popoverContent: '@', placement: '@', animation: '&', isOpen: '&' },
+    templateUrl: '#/cm-popover.html' //MODIFIED
+  };
+})
+.directive( 'cmPopover', [ '$compile', '$timeout', '$parse', function ( $compile, $timeout, $parse ) {
+  
+  var template = 
+    '<cloudman-popup '+
+      'popover-title="{{tt_title}}" '+
+      'popover-content="{{tt_popover}}" '+
+      'placement="{{tt_placement}}" '+
+      'animation="tt_animation()" '+
+      'is-open="tt_isOpen"'+
+      '>'+
+    '</cloudman-popup>';
+  
+  return {
+    scope: true,
+    link: function ( scope, element, attr ) {
+      var popover = $compile( template )( scope ), 
+          transitionTimeout;
+
+      attr.$observe( 'popover', function ( val ) {
+        scope.tt_popover = val;
+      });
+
+      attr.$observe( 'popoverTitle', function ( val ) {
+        scope.tt_title = val;
+      });
+
+      attr.$observe( 'popoverPlacement', function ( val ) {
+        // If no placement was provided, default to 'top'.
+        scope.tt_placement = val || 'top';
+      });
+
+      attr.$observe( 'popoverAnimation', function ( val ) {
+        scope.tt_animation = $parse( val );
+      });
+
+      // By default, the popover is not open.
+      scope.tt_isOpen = false;
+      
+      // Calculate the current position and size of the directive element.
+      function getPosition() {
+        return {
+          width: element.prop( 'offsetWidth' ),
+          height: element.prop( 'offsetHeight' ),
+          //MODIFIED: top: element.prop( 'offsetTop' ),
+          //MODIFIED: left: element.prop( 'offsetLeft' ),
+          top: element.offset().top,
+          left: element.offset().left
+        };
+      }
+      
+      // Show the popover popup element.
+      function show() {
+        var position,
+            ttWidth,
+            ttHeight,
+            ttPosition;
+          
+        // If there is a pending remove transition, we must cancel it, lest the
+        // toolip be mysteriously removed.
+        if ( transitionTimeout ) {
+          $timeout.cancel( transitionTimeout );
+        }
+        
+        // Set the initial positioning.
+        popover.css({ top: 0, left: 0, display: 'block' });
+        
+        // Now we add it to the DOM because need some info about it. But it's not 
+        // visible yet anyway.
+        element.after( popover );
+        
+        // Get the position of the directive element.
+        position = getPosition();
+        
+        // Get the height and width of the popover so we can center it.
+        ttWidth = popover.prop( 'offsetWidth' );
+        ttHeight = popover.prop( 'offsetHeight' );
+        
+        // Calculate the popover's top and left coordinates to center it with
+        // this directive.
+        switch ( scope.tt_placement ) {
+          case 'right':
+            ttPosition = {
+              top: (position.top + position.height / 2 - ttHeight / 2) + 'px',
+              left: (position.left + position.width) + 'px'
+            };
+            break;
+          case 'bottom':
+            ttPosition = {
+              top: (position.top + position.height) + 'px',
+              left: (position.left + position.width / 2 - ttWidth / 2) + 'px'
+            };
+            break;
+          case 'left':
+            ttPosition = {
+              top: (position.top + position.height / 2 - ttHeight / 2) + 'px',
+              left: (position.left - ttWidth) + 'px'
+            };
+            break;
+          default:
+            ttPosition = {
+              top: (position.top - ttHeight) + 'px',
+              left: (position.left + position.width / 2 - ttWidth / 2) + 'px'
+            };
+            break;
+        }
+        
+        // Now set the calculated positioning.
+        popover.css( ttPosition );
+          
+        // And show the popover.
+        scope.tt_isOpen = true;
+      }
+      
+      // Hide the popover popup element.
+      function hide() {
+        // First things first: we don't show it anymore.
+        //popover.removeClass( 'in' );
+        scope.tt_isOpen = false;
+        
+        // And now we remove it from the DOM. However, if we have animation, we 
+        // need to wait for it to expire beforehand.
+        // FIXME: this is a placeholder for a port of the transitions library.
+        if ( angular.isDefined( scope.tt_animation ) && scope.tt_animation() ) {
+          transitionTimeout = $timeout( function () { popover.remove(); }, 500 );
+        } else {
+          popover.remove();
+        }
+      }
+      
+      // Register the event listeners.
+      element.bind( 'click', function() {
+        if(scope.tt_isOpen){
+            scope.$apply( hide );
+        } else {
+            scope.$apply( show );
+        }
+
+      });
+    }
+  };
+}]);
+
+angular.module("cloudman.popover.fstemplate", []).run(["$templateCache", function($templateCache){
+  $templateCache.put("#/cm-popover.html",
+    "<div class=\"popover {{placement}}\" ng-class=\"{ in: isOpen(), fade: animation() }\">" +
+    "  <div class=\"arrow\"></div>" +
+    "" +
+    "  <div class=\"popover-inner\">" +
+    "      <h3 class=\"popover-title\" ng-bind=\"popoverTitle\" ng-show=\"popoverTitle\"></h3>" +
+    //"      <div class=\"popover-content\" ng-bind-html-unsafe=\"popoverContent\"></div>" +
+    "      <div class=\"popover-content\">" + $("#fs-details-popover-template").html() + "</div>" +
+    "  </div>" +
+    "</div>" +
+    "");
+}]);
+
+//*************** END customized Popup *********************
+
+//********** Cloudman Modules and Controllers **************
+
+var cloumanAdminModule = angular.module('cloudman', ['ui.bootstrap', 'ui.bootstrap.dialog', 'ui.bootstrap.alert', 'cloudman.popover', 'cloudman.popover.fstemplate']);
+
+cloumanAdminModule.service('cmAlertService', function ($timeout) {
+		var alerts = [];
+		
+		var getAlerts = function() {
+	    	return alerts;
+		};
+		
+		var addAlert = function(message, type) {
+			alert = {msg: message, type: type};
+			alerts.push(alert);
+			$timeout(function() { closeAlert(alert); }, 60000, true);
+		};
+		
+		var closeAlert = function(alert) {
+            	var index = alerts.indexOf(alert)
+	    		alerts.splice(index, 1);
+		}
+		
+		return {
+			getAlerts: getAlerts,
+            addAlert: addAlert,
+            closeAlert: closeAlert
+        };
+	});
+	
+cloumanAdminModule.controller('cmAlertController', ['$scope', 'cmAlertService', function ($scope, cmAlertService) {
+		
+		$scope.getAlerts = function () {
+            return cmAlertService.getAlerts();
+        };
+        
+        $scope.closeAlert = function (alert) {
+            cmAlertService.closeAlert(alert);
+        };
+	}]);
+
+cloumanAdminModule.service('cmAdminDataService', function ($http, $timeout) {
+		var services = [];
+		var file_systems = [];
+		
+		(function poll_admin_data() {
+	        // Poll application services
+	        $http.get(get_application_services_url).success(function (data) {
+				services = data;
+    		});
+    		// Poll file systems
+    		$http.get(get_all_filesystems_url).success(function (data) {
+	        	file_systems = data;
+	        });
+			$timeout(poll_admin_data, 10000, true);	        
+	    })();
+	    
+		return {
+            getAllFilesystems: function () {
+                return file_systems;
+            },
+            getAllServices: function () {
+                return services;
+            }
+        };
+	});
+	
+cloumanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdminDataService', function ($scope, $http, cmAdminDataService) {
+		
+		$scope.getServices = function () {
+            return cmAdminDataService.getAllServices();
+        };
+        
+        $scope.getAvailableFileSystems = function () {
+            return cmAdminDataService.getAllFilesystems();
+        };
+		
+		$scope._visibility_flags = {};		
+		
+		$scope.expandServiceDetails = function() {			
+			var service = this.svc.svc_name;
+			
+			// TODO: This DOM manipulation code should not be in controller.
+			// Unselect all previous rows
+			for (val in $scope.services) {
+				service_row = $scope.services[val].svc_name;
+				if (service_row != service)
+					$scope._visibility_flags[service_row] = false;
+					
+				$('#service_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+				$('#service_detail_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+			}
+			
+			// Show newly selected row
+			if ($scope._visibility_flags[service]) {
+				$('#service_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+				$('#service_detail_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+			}
+			else {
+				$('#service_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+				$('#service_detail_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+			}
+		
+			$scope._visibility_flags[service] = !$scope._visibility_flags[service];
+		};
+		
+		$scope.is_service_visible = function() {
+			return $scope._visibility_flags[this.svc.svc_name];
+		}
+		
+		$scope.is_fs_selected = function() {
+			return this.req.assigned_service == this.fs.name;		
+		}	
+	}]);
+
+cloumanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dialog', 'cmAdminDataService', function ($scope, $http, $dialog, cmAdminDataService) {
+		var _opts =  {
+			    backdrop: true,
+			    keyboard: true,
+			    backdropClick: true,
+			    modalFade: true,
+			  };
+			  
+		$scope.getFileSystems = function () {
+            return cmAdminDataService.getAllFilesystems();
+        };
+		
+		$scope.fs_detail_template = $("#fs-details-popover-template").html();
+		
+		$scope.is_ready_fs = function(fs) {
+			return (fs.status == "Available" || fs.status == "Running");
+		}
+		
+		$scope.is_snapshot_in_progress = function(fs) {
+			return (fs.kind == "Volume" && fs.status == "Configuring") && (fs.snapshot_status != "" && fs.snapshot_status != null);
+		}
+		
+		$scope.is_persistable_fs = function(fs) {
+			return ((fs.status === "Available" || fs.status === "Running") && (typeof(fs.from_snap) !== "undefined" && typeof(fs.DoT) !== "undefined" && fs.DoT === "Yes"));
+		}
+		
+		$scope.is_resizable_fs = function(fs) {
+			return (fs.status === "Available" || fs.status === "Running") && (typeof(fs.kind) != "undefined" && fs.kind === "Volume" );
+		}
+		
+		$scope.remove_fs = function($event, fs) {
+			// TODO: DOM access in controller. Should be changed
+			_opts.template = $("#fs-delete-dialog-template").html();
+			_opts.controller = 'FSRemoveDialogController';
+			_opts.resolve = {fs: fs};			
+		
+			var d = $dialog.dialog(_opts);
+	    	d.open().then(function(result) {
+		    });
+		}		
+
+		$scope.persist_fs = function($event, fs) {
+			_opts.template = $("#fs-persist-dialog-template").html(),
+			_opts.controller = 'FSPersistDialogController';
+			_opts.resolve = {fs: fs};
+
+			var d = $dialog.dialog(_opts);
+	    	d.open().then(function(result) {
+		    });
+		}		
+		
+		$scope.resize_fs = function($event, fs) {
+			_opts.template = $("#fs-resize-dialog-template").html(),
+			_opts.controller = 'FSResizeDialogController';
+			_opts.resolve = {fs: fs};
+
+			var d = $dialog.dialog(_opts);
+	    	d.open().then(function(result) {
+		    });
+		}
+		
+	}]);
+
+
+function FSRemoveDialogController($scope, dialog, fs, cmAlertService) {
+	  $scope.fs = fs;
+	  $scope.cancel = function($event, result){
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	  };
+	  $scope.confirm = function($event, result){
+	  	// TODO: DOM access in controller. Should be redone
+		$('#fs_remove_form').ajaxForm({
+	        type: 'GET',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert(response.responseText, "error");
+	        },
+	        success: function(response) {
+	        	cmAlertService.addAlert(response, "info");
+	        }
+	    });
+	  	
+	    dialog.close(result);
+	  };
+}
+
+
+function FSPersistDialogController($scope, dialog, fs, cmAlertService) {
+	  $scope.fs = fs;
+	  $scope.cancel = function($event, result){
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	  };
+	  $scope.confirm = function($event, result){
+	  	// TODO: DOM access in controller. Should be redone
+		$('#fs_persist_form').ajaxForm({
+	        type: 'GET',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert(response.responseText, "error");
+	        },
+	        success: function(response) {
+	        	cmAlertService.addAlert(response, "info");
+	        }
+	    });
+	  	
+	    dialog.close(result);
+	  };
+}
+
+
+function FSResizeDialogController($scope, dialog, fs, cmAlertService) {
+	  $scope.fs = fs;
+	  $scope.resize_details = {};  
+	  $scope.cancel = function($event, result){
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	  };
+	  $scope.resize = function(result){
+		// TODO: DOM access in controller. Should be redone
+		$('#fs_resize_form').ajaxForm({
+	        type: 'POST',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert(response.responseText, "error");
+	        },
+	        success: function(response) {
+	        	cmAlertService.addAlert(response, "info");
+	        }
+	    });
+	  	
+	    dialog.close('confirm');
+	  };
+}
