@@ -556,9 +556,10 @@ class EC2Interface(CloudInterface):
         :rtype: list of :class:`boto.ec2.volume.Volume`
         :return: The requested Volume objects
         """
-        if not isinstance(volume_ids, list):
+        if volume_ids and not isinstance(volume_ids, list):
             volume_ids = [volume_ids]
-        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids, filters=filters)
+        return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids,
+            filters=filters)
 
     def get_all_instances(self, instance_ids=None, filters=None):
         """
@@ -580,6 +581,6 @@ class EC2Interface(CloudInterface):
         :rtype: list
         :return: A list of  :class:`boto.ec2.instance.Reservation`
         """
-        if not isinstance(instance_ids, list):
+        if instance_ids and not isinstance(instance_ids, list):
             instance_ids = [instance_ids]
         return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids, filters=filters)

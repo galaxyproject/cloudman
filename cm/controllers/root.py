@@ -683,7 +683,7 @@ class CM(BaseController):
         for fs in fss:
             filesystems.append(fs.name)
         return trans.fill_template('admin.mako',
-                                   ip=self.app.cloud_interface.get_public_hostname(),
+                                   ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],

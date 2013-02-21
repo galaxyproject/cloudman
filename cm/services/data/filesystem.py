@@ -336,8 +336,8 @@ class Filesystem(DataService):
                         self.app.cloud_interface.add_tag(
                             att_vol, 'clusterName', self.app.ud['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
-                        self.app.cloud_interface.add_tag(
-                            att_vol, 'filesystem', self.name)
+                        self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
+                    self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml)
                     # in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()
