@@ -680,18 +680,18 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
                 "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
-                "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",
+                "device": "/dev/vdb", "size_pct": "1", "DoT": "Yes", "size": "60G",
                 "persistent": "No"},
                {"size_used": "33M", "status": "Running", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
                 "err_msg": None, "snapshot_progress": None, "from_snap": None,
-                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
+                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4",
                 "DoT": "No", "size": "1014M", "persistent": "Yes"},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
                 "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
                 "snapshot_progress": "10%", "from_snap": "snap-760fd33d",
-                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2%",
+                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2",
                 "DoT": "No", "size": "5.0G"}], quiet=True)
     def get_all_filesystems_status(self):
         """
