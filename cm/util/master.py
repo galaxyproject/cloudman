@@ -3048,4 +3048,3 @@ class Instance(object):
                 log.debug("Unknown Message: %s" % msg)
         else:
             log.error("Epic Failure, squeue not available?")
-
