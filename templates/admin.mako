@@ -1,6 +1,6 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-<div>
+<div ng-app="cloudman">
 	<div ng-controller="cmAlertController">
 		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
 	</div>
@@ -173,69 +173,57 @@
 				<!-- Add File System Form -->
 				<div class="row-fluid" ng-show="is_adding_fs">
 					<div class="span12">
-						<form class="fs-add-form">
+						<form class="fs-add-form form-inline" ng-switch on="selected_device">
 						
 							<!-- Intro and close button -->				
-							<div class="row-fluid">
-								<div class="span12">
+							<span class="help-block">
+									<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;</button>
 							    	Through this form you may add a new file system and make it available
 					            	to the rest of this CloudMan platform.
-									<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;</button>
+					         </span>
+							 
+							<!-- Device selection -->
+							<fieldset>
+								<strong>File system source or device:</strong>
+								<label class="radio">
+							      <input type="radio" name="fs_kind" value="bucket" ng-model="selected_device" /> Bucket
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="volume" ng-model="selected_device" /> Volume
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="snapshot" ng-model="selected_device" /> Snapshot
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="new_volume" ng-model="selected_device" /> New volume
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="nfs" ng-model="selected_device" /> NFS
+							    </label>
+						    </fieldset>						        
+
+							<!-- Device selection -->
+							<fieldset ng-switch-when="bucket" class="form-horizontal">
+								<div class="control-group">
+									<label class="control-label" for="bucket_name">Bucket name:</label>
+								    <div class="controls">
+								      <input type="text" id="bucket_name" name="bucket_name" placeholder="e.g., 1000genomes"/>
+								      <span class="help-inline">(AWS S3 buckets only)</span>
+								    </div>					    
 								</div>
-							</div>
-							
-							<!-- FS type selection radios -->
-							<div class="row-fluid" ng-switch on="selected_device">
-								<div class="span3">
-									<strong>File system source or device:</strong>
-								</div>
-								<div class="span9">
-								<fieldset>
-									<ul class="inline">
-										<li>
-							                <input type="radio" name="fs_kind" id="fs-kind-bucket-name" value="bucket" ng-model="selected_device" />
-							                <label for="fs-kind-bucket-name">Bucket</label>
-						                </li>
-						                <li>
-							                <input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-volume"  value="volume" ng-model="selected_device" />
-							                <label for="fs-kind-volume">Volume</label>
-										</li>
-										<li>
-							                <input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-snapshot"  value="snapshot" ng-model="selected_device" />
-							                <label for="fs-kind-snapshot">Snapshot</label>
-						                </li>
-						                <li>
-							                <input disabled="disabled" type="radio" name="fs_kind" id="fs-kind-new-volume"  value="new_volume" ng-model="selected_device" />
-							                <label for="fs-kind-new-volume">New volume</label>
-						                </li>
-						                <li>
-							                <input type="radio" name="fs_kind" id="fs-kind-nfs" value="nfs" ng-model="selected_device" />
-							                <label for="fs-kind-nfs">NFS</label>
-						                </li>
-									</ul>
-							    </fieldset>						        
-							</div>
-							
-							<!-- Bucket form details -->
-							<div class="row-fluid" ng-switch-when="bucket">
-								<div class="span12">
-									<div class="row-fluid">
-										<div class="span12">
-											<table><tr>
-							                    <td><label for="bucket_name">Bucket name: </label></td>
-							                    <td><input type="text" size="20" name="bucket_name" id="bucket_name"
-							                        placeholder="e.g., 1000genomes"/> (AWS S3 buckets only)</td>
-							                    </tr><tr>
-							                    <td><label for="bucket_fs_name">File system name: </label></td>
-							                    <td><input type="text" size="20" name="bucket_fs_name" id="bucket_fs_name">
-							                    (no spaces, alphanumeric characters only)</td>
-							                </tr></table>
-										</div>
-									</div>
-									<!-- Bucket FS creds -->
-									<div class="row-fluid" ui-if="selected_device=='bucket'">
-										<div class="span12">
-											<p> It appears you are not running on the AWS cloud. CloudMan supports
+								<div class="control-group">
+									<label class="control-label" for="bucket_fs_name">File system name:</label>
+								    <div class="controls">
+								      <input type="text" id="bucket_fs_name" name="bucket_fs_name">
+								      <span class="help-inline">(no spaces, alphanumeric characters only)</span>
+								    </div>
+								 </div>
+								 
+								 <p> It appears you are not running on the AWS cloud. CloudMan supports
 						                    using only buckets from AWS S3. So, if the bucket you are trying to
 						                    use is NOT PUBLIC, you must provide the AWS credentials that can be
 						                    used to access this bucket. If the bucket you are trying to use
@@ -247,11 +235,8 @@
 						                        <td><label for"bucket_s_key">AWS secret key: </label></td>
 						                        <td><input type="text" id="bucket_s_key" name="bucket_s_key" size="50" /></td>
 						                    </tr></table>
-						                </div>
-									</div>
-								</div>
-							</div>
-							
+						    </fieldset>		
+						    
 							<!-- Volume form details -->
 							<div class="row-fluid" ng-switch-when="volume">
 								<div class="span12">

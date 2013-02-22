@@ -71,7 +71,7 @@ from routes import url_for
 </%def>
 
 ## Document
-<html lang="en" ng-app="cloudman">
+<html lang="en">
   <head>
     <title>${self.title()}</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />

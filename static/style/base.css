@@ -1,6 +1,17 @@
-meter{
-    width: 100%;
+/* Styling for the space usage meter element */
+.meter_file_system_space_usage {
+	text-align: center;
+    vertical-align: middle;
+ 	font-size: small;
+	width: 100%;   
 }
+
+/* The percentage */
+.meter_file_system_space_usage:after {
+	content: attr(display-value);
+}
+
+
 div.form-row{padding:5px 10px;}
 /*div.form-row label{font-weight:bold;display:block;margin-bottom:.2em;}*/
 div.form-row-input{width:300px;}
@@ -8,9 +19,6 @@ div.form-row-input > input{max-width:300px;}
 
 .right{
     float: right;
-}
-#masthead td, th{
-    vertical-align: middle;
 }
 
 #center_container {
@@ -133,10 +141,7 @@ div.form-row-input > input{max-width:300px;}
     -webkit-box-shadow: 0 1px 5px #333;
     z-index:101;
 }
-.code {
-    font: 100% 'courier', 'helvetica', sans-serif;
-    padding: 5px 0;
-}
+
 .share_cluster_help_text {
 	color: #CCC;
 	float: right;
@@ -375,8 +380,6 @@ a.boxclose{
     position:relative;
     height:120px;
 	margin: 0 auto;
-	width: 700px;
-	padding:0px 15px 0 10px;
 }
 
 #status_svcs{
@@ -543,8 +546,6 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 }
 
 #log_container {
-	margin: 20px auto;
-	width: 700px;
 	-moz-border-radius:10px;
     -webkit-border-radius: 10px;
     -khtml-border-radius: 10px;
@@ -592,7 +593,6 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 #log_container_body {
 	padding: 0 5px;
 	height: 200px;
-	width:690px;
 	overflow: auto;
 	background-color: #f5f6f6;
 	-moz-border-radius: 0 0 10px 10px;
@@ -989,10 +989,6 @@ div.debug
   display: none;
 }
 
-pre {
-    font-size: 80%;
-}
-
 div.cluster_scale_popup{
     background-color: #DCDCDC;
     width:326px;
@@ -1247,16 +1243,6 @@ p.disabled {
     padding: 5px 0;
     color: #5F5F5F;
     font-size: 16px;
-}
-.close{
-    float:right;
-    width:15px;
-    height:15px;
-    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
-    cursor: pointer;
-}
-.close:hover{
-    background-image : url(/cloud/static/images/delete_icon_dark.png);
 }
 .fs-resize-form {
     width: 694px;
@@ -1596,17 +1582,4 @@ fieldset {
         color-stop(0.85, rgb(245,245,245))
     );
     border: 1px solid rgba(0, 0, 0, 0.3);
-}
-
-
-/* Styling for the space usage meter element */
-.meter_file_system_space_usage {
-	text-align: center;
-    vertical-align: middle;
- 	font-size: small;   
-}
-
-/* The percentage */
-.meter_file_system_space_usage:after {
-	content: attr(display-value);
 }

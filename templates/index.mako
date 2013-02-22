@@ -5,19 +5,18 @@ td, th {
 vertical-align: top;
 }
 </style>
-<div class="body" style="max-width: 720px; margin: 0 auto;">
+<div>
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
-    <%include file="bits/messages.html" />
+    <%include file="bits/messages.htm" />
     <div id="main_text">
+    		Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
         %if initial_cluster_type is None:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
             This application allows you to manage this cloud cluster and the services provided within.
             If this is your first time running this cluster, you will need to select an initial data volume
             size. Once the data store is configured, default services will start and you will be able to add
             and remove additional services as well as 'worker' nodes on which jobs are run.
         %else:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
             This application allows you to manage this instance cloud cluster and the services
             provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
             use the controls below to manage services provided by the application.
@@ -96,7 +95,7 @@ vertical-align: top;
         </form>
     </div>
 </div>
-<h2>Status</h2>
+<h3>Status</h3>
 <div id="status_container">
     <div id="cluster_view">
         <div id="cluster_view_tooltip" style="text-align: center;"></div>
