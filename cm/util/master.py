@@ -694,7 +694,7 @@ class ConsoleManager(BaseConsoleManager):
                             {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
                 'requirements': [{'display_name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
                 'status': 'Running'}], quiet=True)
-    def get_application_services(self):
+    def get_all_application_status(self):
         service_list = []
         services = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
         for svc in services:
@@ -769,8 +769,6 @@ class ConsoleManager(BaseConsoleManager):
             "error_msg": ""})
         return dummy
 
-    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
-               "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
@@ -781,8 +779,11 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        for srvc in self.services:
-            status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
+        status_dict['applications'] = self.get_all_application_status()
+        status_dict['file_systems'] = self.get_all_filesystems_status()
+        status_dict['galaxy_rev'] = self.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.get_galaxy_admins()
+        status_dict['master_is_exec_host'] = self.master_exec_host
         return status_dict
 
     def get_galaxy_rev(self):

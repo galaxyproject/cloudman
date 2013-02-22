@@ -27,6 +27,7 @@ from routes import url_for
   <script type='text/javascript' src="${h.url_for('/static/scripts/livevalidation_standalone.compressed.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/bootstrap/js/bootstrap.min.js')}"></script>
   <script type='text/javascript' src="http://code.angularjs.org/1.1.2/angular.min.js"></script>
+  <script type='text/javascript' src="https://raw.github.com/angular-ui/angular-ui/master/build/angular-ui.min.js"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/ui-bootstrap-tpls-0.1.0.js')}"></script>
 </%def>
 
@@ -41,7 +42,7 @@ from routes import url_for
         <div class="container">
           <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan for Galaxy</a>
           <div class="nav-collapse collapse">
-            <ul class="nav pull-right" >
+            <ul class="nav pull-right">
 		      %if CM_url:
 			  <li>
 		        <span id='cm_update_message'>
@@ -94,12 +95,8 @@ from routes import url_for
     ${next.body()}
 
 
-	<hr />
-
     <footer>
-      <p>&copy; CloudMan</p>
 	</footer>
-
 
   </body>
   ## Scripts can be loaded later since they progressively add features to

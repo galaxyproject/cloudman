@@ -419,27 +419,12 @@ class CM(BaseController):
                            'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
-    def get_all_services_status(self, trans):
+    def get_cloudman_system_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
-        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
-        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
-        snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status' : str(snap_status[0]),
-                                   'progress' : str(snap_status[1])}
-        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
-
-    @expose
-    def get_application_services(self, trans):
-        return json.dumps(self.app.manager.get_application_services())
-
-    @expose
-    def get_all_filesystems(self, trans):
-        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):

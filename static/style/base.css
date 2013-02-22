@@ -1487,7 +1487,7 @@ fieldset {
     height:15px;
     background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
     /*cursor: pointer;*/
-    margin: -5px -7px 0 0;
+    margin: -5px 5px 0px 0;
 }
 #fs-add-form-close-btn:hover {
     background-image : url(/cloud/static/images/delete_icon_dark.png);
