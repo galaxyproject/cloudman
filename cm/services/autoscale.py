@@ -2,17 +2,17 @@ import commands
 import datetime
 import time
 
-from cm.util import paths
 from cm.services import Service
 from cm.services import service_states
 from cm.services import ServiceRole
+from cm.services import ServiceDependency
 
 import logging
 log = logging.getLogger('cloudman')
 
 
 class Autoscale(Service):
-    def __init__(self, app, as_min= -1, as_max= -1, instance_type=None):
+    def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
         self.app = app
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
