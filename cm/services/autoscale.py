@@ -12,12 +12,12 @@ log = logging.getLogger('cloudman')
 
 
 class Autoscale(Service):
-    def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
+    def __init__(self, app, as_min= -1, as_max= -1, instance_type=None):
         self.app = app
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
         self.name = ServiceRole.to_string(ServiceRole.AUTOSCALE)
-        self.reqs = []
+        self.reqs = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.as_max = as_max  # Max number of nodes autoscale should maintain
         self.as_min = as_min  # Min number of nodes autoscale should maintain
         self.instance_type = instance_type  # Type of instances to start

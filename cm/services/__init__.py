@@ -41,6 +41,7 @@ class ServiceRole(object):
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
                      "Transient NFS FS"}
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
+    MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
 
     @staticmethod
     def get_type(role):
@@ -86,6 +87,8 @@ class ServiceRole(object):
             return ServiceRole.TRANSIENT_NFS
         elif val == "Hadoop":
             return ServiceRole.HADOOP
+        elif val == "Migration":
+            return ServiceRole.MIGRATION
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -127,6 +130,8 @@ class ServiceRole(object):
             return "TransientNFS"
         elif svc_role == ServiceRole.HADOOP:
             return "Hadoop"
+        elif svc_role == ServiceRole.MIGRATION:
+            return "Migration"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))

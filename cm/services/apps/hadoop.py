@@ -217,7 +217,7 @@ class HadoopService(ApplicationService):
         ``check_sge``) by setting ``self.state``, whose value is always the method's
         return value.
         """
-        ## TODO: Add actual logic to make sure  Hadoop jobs run
+        # # TODO: Add actual logic to make sure  Hadoop jobs run
         if self.state == service_states.RUNNING:
             return service_states.RUNNING
         else:

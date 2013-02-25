@@ -35,7 +35,8 @@ class GalaxyService(ApplicationService):
                          "SGE_ROOT": self.app.path_resolver.sge_root,
                          "DRMAA_LIBRARY_PATH" : self.app.path_resolver.drmaa_library_path
                          }
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+        self.reqs = [ServiceDependency(self, ServiceRole.SGE),
+                     ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
                      ServiceDependency(self, ServiceRole.GALAXY_TOOLS)

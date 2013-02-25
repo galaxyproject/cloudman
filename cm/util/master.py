@@ -20,6 +20,7 @@ from cm.services.autoscale import Autoscale
 from cm.services import service_states
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.pss import PSS
+from cm.services.apps.migration_service import MigrationService
 from cm.services.apps.sge import SGEService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.galaxy import GalaxyService
@@ -246,6 +247,9 @@ class ConsoleManager(BaseConsoleManager):
         # bale to ssh into itself!!!
         # this should happen before SGE is added
         self.get_root_public_key()
+
+       # Always add migration service
+        self.add_master_service(MigrationService(self.app))
 
        # Always add SGE service
         self.add_master_service(SGEService(self.app))
