@@ -154,7 +154,7 @@ class ServiceRole(object):
         Legacy name to role conversion support. Supports the conversion of
         known service names such as SGE, galaxyData, galaxyTools etc. to role types.
         """
-        known_roles = ServiceRole.from_string([name])
+        known_roles = ServiceRole.from_string(name)
         if not known_roles:
             known_roles = [ServiceRole.GENERIC_FS]
         return ServiceRole.to_string(known_roles)

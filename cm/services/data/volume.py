@@ -248,7 +248,7 @@ class Volume(BlockStorage):
             log.error('Cannot add a volume without a size or snapshot ID')
             return None
 
-        if self.from_snapshot_id:
+        if self.from_snapshot_id and not self.volume:
             self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([self.from_snapshot_id])[0]
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
@@ -401,8 +401,8 @@ class Volume(BlockStorage):
             for er in e.errors:
                 if er[0] == 'InvalidVolume.ZoneMismatch':
                     msg = "Volume '{0}' is located in the wrong availability zone for this instance. "\
-                        "You MUST terminate this instance and start a new one in zone '{1}'."\
-                        .format(self.volume_id, self.app.cloud_interface.get_zone())
+                        "You MUST terminate this instance and start a new one in zone '{1}' instead of '{2}'."\
+                        .format(self.volume_id, self.volume.zone.name, self.app.cloud_interface.get_zone())
                     self.app.msgs.critical(msg)
                     log.error(msg)
                 else:
