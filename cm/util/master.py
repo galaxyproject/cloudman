@@ -226,7 +226,7 @@ class ConsoleManager(BaseConsoleManager):
     def get_default_data_size(self):
         if not self.default_galaxy_data_size:
             for snap in self.snaps:
-                roles = ServiceRole.from_string(snap['roles'])
+                roles = ServiceRole.from_string_array(snap['roles'])
                 if ServiceRole.GALAXY_DATA in roles:
                     self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0]
                     self.default_galaxy_data_size = self.snapshot.volume_size
@@ -324,7 +324,7 @@ class ConsoleManager(BaseConsoleManager):
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
-                    filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string(
+                    filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string_array(
                         fs['roles']), mount_point=fs.get('mount_point', None))
                     # Based on the kind, add the appropriate file system. We can
                     # handle 'volume', 'snapshot', or 'bucket' kind
@@ -369,7 +369,7 @@ class ConsoleManager(BaseConsoleManager):
                         self.add_master_service(filesystem)
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
-                    service_roles = ServiceRole.from_string(
+                    service_roles = ServiceRole.from_string_array(
                         srvc.get('roles', srvc['name']))
                     log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into
@@ -442,7 +442,7 @@ class ConsoleManager(BaseConsoleManager):
             if "static_filesystems" in self.app.ud:
                 for vol in self.app.ud['static_filesystems']:
                     fs = Filesystem(self.app, vol['filesystem'],
-                                    svc_roles=ServiceRole.from_string(vol['roles']))
+                                    svc_roles=ServiceRole.from_string_array(vol['roles']))
                     # Check if an already attached volume maps to the current
                     # filesystem
                     att_vol = self.get_vol_if_fs(
@@ -1270,7 +1270,7 @@ class ConsoleManager(BaseConsoleManager):
                 attached_volumes = self.get_attached_volumes()
                 for snap in self.snaps:
                     fs = Filesystem(self.app, snap['name'],
-                        svc_roles=ServiceRole.from_string(snap['roles']))
+                        svc_roles=ServiceRole.from_string_array(snap['roles']))
                     # Check if an already attached volume maps to the current filesystem
                     att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
                     if att_vol:
@@ -1283,7 +1283,7 @@ class ConsoleManager(BaseConsoleManager):
                         log.debug("There are no volumes already attached for file system {0}"
                             .format(snap['name']))
                         size = 0
-                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string(snap['roles']):
+                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                             size = pss
                         fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
                         # snap_size = snap.get('size', 0)
@@ -1471,7 +1471,7 @@ class ConsoleManager(BaseConsoleManager):
         fsl = sud.get('filesystems', [])
         sfsl = []  # Shared file systems list
         for fs in fsl:
-            roles = ServiceRole.from_string(fs['roles'])
+            roles = ServiceRole.from_string_array(fs['roles'])
             if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
@@ -2197,7 +2197,7 @@ class ConsoleMonitor(object):
                     if srvc.persistent:
                         fs = {}
                         fs['name'] = srvc.name
-                        fs['roles'] = ServiceRole.to_string(srvc.svc_roles)
+                        fs['roles'] = ServiceRole.to_string_array(srvc.svc_roles)
                         fs['mount_point'] = srvc.mount_point
                         fs['kind'] = srvc.kind
                         if srvc.kind == 'bucket':
@@ -2218,7 +2218,7 @@ class ConsoleMonitor(object):
                 else:
                     s = {}
                     s['name'] = srvc.name
-                    s['roles'] = ServiceRole.to_string(srvc.svc_roles)
+                    s['roles'] = ServiceRole.to_string_array(srvc.svc_roles)
                     if ServiceRole.GALAXY in srvc.svc_roles:
                         s['home'] = self.app.path_resolver.galaxy_home
                     svcs.append(s)

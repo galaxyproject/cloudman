@@ -503,7 +503,7 @@ class ConsoleMonitor(object):
             log.info(
                 "Adding s3fs file system from bucket {0}".format(bucket_name))
             fs = Filesystem(
-                self.app, bucket_name, ServiceRole.from_string(svc_roles))
+                self.app, bucket_name, ServiceRole.from_string_array(svc_roles)
             fs.add_bucket(bucket_name)
             fs.add()
             log.debug(

@@ -62,6 +62,20 @@ class ServiceRole(object):
         return svc_roles
 
     @staticmethod
+    def from_string_array(roles_str_array):
+        """
+        Convert a list of roles as strings ``roles_str`` into a list of
+        ``ServiceRole`` objects and return that list.
+        """
+        if not isinstance(roles_str_array, list):  # preserve backward compatibility
+            return ServiceRole.from_string(roles_str_array)
+        else:
+            svs_roles = []
+            for role in roles_str_array:
+                svs_roles = svs_roles + ServiceRole.from_string(role)
+            return svs_roles
+
+    @staticmethod
     def _role_from_string(val):
         if val == "SGE":
             return ServiceRole.SGE
@@ -103,6 +117,10 @@ class ServiceRole(object):
             if role:
                 str_roles = str_roles + "," + ServiceRole._role_to_string(role)
         return str_roles[1:]  # strip leading comma
+
+    @staticmethod
+    def to_string_array(svc_roles):
+        return [ServiceRole.to_string(role) for role in svc_roles]
 
     @staticmethod
     def _role_to_string(svc_role):
@@ -175,6 +193,12 @@ class ServiceDependency(object):
         self._service_role = service_role
         self._assigned_service = assigned_service
 
+    def __repr__(self):
+        return "<ServiceRole:{0},Owning:{1},Assigned:{2}>".format(
+                ServiceRole.to_string(self.service_role),
+                "None" if self.owning_service is None else self.owning_service.name,
+                "None" if self.assigned_service is None else self.assigned_service.name)
+
     @property
     def owning_service(self):
         return self._owning_service
@@ -225,7 +249,7 @@ class Service(object):
             # log.debug("Trying to add service '%s'" % self.name)
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
-            failed_prereqs = []
+            failed_prereqs = self.reqs
                 # List of service prerequisites that have not been satisfied
             for dependency in self.reqs:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
@@ -234,16 +258,17 @@ class Service(object):
                     # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
                         # log.debug("Service %s:%s running: %s" % (svc.name,
-                        # svc.name, svc.running()))
-                        if not svc.running():
-                            failed_prereqs.append(svc.get_full_name())
+                        # svc.name, svc.state))
+                        if svc.running():
+                            if dependency in failed_prereqs:
+                                failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
                 log.info("{0} service prerequisites OK; starting the service".format(
                     self.get_full_name()))
                 self.start()
                 return True
             else:
-                log.debug("{0} service prerequisites are not yet satisfied, missing: {2}. "
+                log.debug("{0} service prerequisites are not yet satisfied, waiting for: {2}. "
                           "Setting {0} service state to '{1}'"
                           .format(self.get_full_name(), service_states.UNSTARTED, failed_prereqs))
                 # Reset state so it get picked back up by monitor
