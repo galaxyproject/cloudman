@@ -123,7 +123,7 @@ class CM(BaseController):
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -131,11 +131,12 @@ class CM(BaseController):
         return trans.fill_template('mini_control.mako')
 
     @expose
-    def get_cluster_type(self, trans):
+    def cluster_type(self, trans):
         """
-        Get the type of the cluster that's been configured
+        Get the type of the cluster that's been configured as a JSON dict
         """
-        return self.app.manager.initial_cluster_type
+        cluster_type = {'cluster_type': self.app.manager.initial_cluster_type}
+        return json.dumps(cluster_type)
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
