@@ -275,7 +275,7 @@ class Service(object):
                 self.state = service_states.UNSTARTED
                 return False
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Recursively removes a service and all services that depend on it.
         Child classes which override this method should ensure this is called

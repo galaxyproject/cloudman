@@ -51,16 +51,22 @@ class Migrate1to2:
         self._upgrade_postgres_8_to_9()
         self._move_postgres_location()
 
+    def _as_galaxy(self, cmd):
+        return misc.run('%s - galaxy -c "%s"' % (paths.P_SU, cmd))
+
     def _copy_to_new_fs(self):
         fs_galaxy_data = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
         fs_galaxy_tools = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)[0]
         source_path = os.path.join(fs_galaxy_tools.mount_point, "tools")
         target_path = os.path.join(fs_galaxy_data.mount_point, "tools")
-        misc.run("cp -R {0} {1}".format(source_path, target_path))
+        self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
 
         source_path = os.path.join(fs_galaxy_tools.mount_point, "galaxy-central")
         target_path = os.path.join(fs_galaxy_data.mount_point, "galaxy-app")
-        misc.run("cp -R {0} {1}".format(source_path, target_path))
+        if (os.path.exists(target_path)):
+            log.debug("Target path galaxy-app already exists! Skipping...")
+        else:
+            self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
 
     def _create_missing_dirs(self):
         # TODO: on the file system missing/renamig dirs: galaxyData/'files' will need to be renamed to galaxy/data'
@@ -75,7 +81,7 @@ class Migrate1to2:
         galaxy_data_loc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0].mount_point
         galaxy_loc = os.path.join(galaxy_data_loc, "galaxy-app")
         if os.path.isdir(galaxy_loc):
-            misc.run("sed -i 's/central/dist/' %ss/.hg/hgrc" % galaxy_loc)
+            self._as_galaxy("sed -i 's/central/dist/' %ss/.hg/hgrc" % galaxy_loc)
 
     def _update_user_data(self):
         if 'filesystems' in self.app.ud:
@@ -100,66 +106,32 @@ class Migrate1to2:
             self.app.ud['filesystems'] = new_fs_list
         self.app.ud['cloudman_version'] = 2
 
-
-class MigrationService(ApplicationService, Migrate1to2):
-    def __init__(self, app):
-        super(MigrationService, self).__init__(app)
-
-        self.svc_roles = [ServiceRole.MIGRATION]
-        self.name = ServiceRole.to_string(ServiceRole.MIGRATION)
-        # Wait for galaxy data & indices to come up before attempting migration
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
-                     ServiceDependency(self, ServiceRole.GALAXY_TOOLS),
-                     ServiceDependency(self, ServiceRole.GALAXY_INDICES)]
-
-    def start(self):
-        """
-        Start the migration service
-        """
-        log.debug("Starting migration service...")
-        self.state = service_states.STARTING
-        if self._is_migration_needed():
-            self.state = service_states.RUNNING
-            self._start()
-            self.state = service_states.SHUT_DOWN
-        else:
-            log.debug("No migration required. Service not started.")
-            self.state = service_states.SHUT_DOWN
-
-
-    def _start(self):
-        """
-        Do the actual work
-        """
-        log.debug("Migration is required. Starting...")
-        self._perform_migration()
-
-    def _perform_migration(self):
-        """
-        Based on the version number, carry out appropriate migration actions
-        """
-        if self._get_old_cm_version() <= 1:
-            self.migrate_1()
-
-    def _is_migration_needed(self):
-        return self._get_old_cm_version() < self._get_new_cm_version()
-
-    def _get_new_cm_version(self):
-        return 2  # Whichever version that this upgrade script last understands
-
-    def _get_old_cm_version(self):
-        # TODO: Need old version discovery. Where do we get that from?
-        version = self.app.ud.get('cloudman_version', None)
-        if version is None:
-            version = 1  # A version prior to version number being introduced
-
     def _migrate1_prereqs_satisfied(self):
-        # TODO: Check whether galaxy data has sufficient space to accommodate tools dir
-        return False
+        fs_galaxy_data = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
+        if not fs_galaxy_data:
+            log.warn("Required File system GALAXY_DATA missing. Aborting migrate1to2.")
+            return False
+        fs_galaxy_tools = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        if not fs_galaxy_tools:
+            log.warn("Required File system GALAXY_TOOLS missing. Aborting Aborting migrate1to2.")
+            return False
+#        space_available = int(fs_galaxy_data.size) - int(fs_galaxy_data.size_used)
+#        if space_available < fs_galaxy_tools.size_used:
+#            log.debug("Cannot migrate from 1 to 2: Insufficient space available on Galaxy data volume."
+#                      " Available: {0}, Required: {1}".format(space_available,
+#                                                              fs_galaxy_tools.size_used))
+#            return False
 
-    def migrate_1(self):
+        for svc in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
+            if ServiceRole.GALAXY_TOOLS in svc.svc_roles and ServiceRole.GALAXY_DATA in svc.svc_roles:
+                log.warn("File system appears to have been already migrated! Aborting.")
+                return False
+
+        return True
+
+    def migrate_1to2(self):
         if not self._migrate1_prereqs_satisfied():
-            log.debug("Cannot migrate from version 1 to 2. Pre-requisites not satisfied.")
+            log.warn("Cannot migrate from version 1 to 2. Pre-requisites not satisfied.")
             return
 
         log.debug("Migrating from version 1 to 2...")
@@ -175,18 +147,78 @@ class MigrationService(ApplicationService, Migrate1to2):
         fs_svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         # TODO: Is a clean necessary?
         for svc in fs_svcs:
-            svc.remove()
+            svc.remove(synchronous=True)
 
         log.debug("Migration: Step 6: Migration: Restarting all file system services...")
         # Restart file system services
         self.app.manager.add_preconfigured_services()
         log.debug("Migration from version 1 to 2 complete!")
 
-    def remove(self):
+
+class MigrationService(ApplicationService, Migrate1to2):
+    def __init__(self, app):
+        super(MigrationService, self).__init__(app)
+
+        self.svc_roles = [ServiceRole.MIGRATION]
+        self.name = ServiceRole.to_string(ServiceRole.MIGRATION)
+
+        self.reqs = []
+
+        if 'file_systems' in self.app.ud:
+            log.debug("File Systems in")
+            for fs in self.app.ud['file_systems']:
+                # Wait for galaxy data, indices and tools to come up before attempting migration
+                if  ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
+                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
+                if  ServiceRole.GALAXY_TOOLS in ServiceRole.from_string_array(fs['roles']):
+                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_TOOLS))
+                if  ServiceRole.GALAXY_INDICES in ServiceRole.from_string_array(fs['roles']):
+                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_INDICES))
+
+    def start(self):
+        """
+        Start the migration service
+        """
+        log.debug("Starting migration service...")
+        self.state = service_states.STARTING
+        if self._is_migration_needed():
+            self._start()
+        else:
+            log.debug("No migration required. Service ready.")
+        self.state = service_states.RUNNING
+
+    def _start(self):
+        """
+        Do the actual work
+        """
+        log.debug("Migration is required. Starting...")
+        self._perform_migration()
+
+    def _perform_migration(self):
+        """
+        Based on the version number, carry out appropriate migration actions
+        """
+        if self._get_old_cm_version() <= 1:
+            self.migrate_1to2()
+
+    def _is_migration_needed(self):
+        return self._get_old_cm_version() < self._get_new_cm_version()
+
+    def _get_new_cm_version(self):
+        return 2  # Whichever version that this upgrade script last understands
+
+    def _get_old_cm_version(self):
+        # TODO: Need old version discovery. Where do we get that from?
+        version = self.app.ud.get('cloudman_version', None)
+        if version is None:
+            version = 1  # A version prior to version number being introduced
+
+    def remove(self, synchronous=False):
         """
         Remove the migration service
         """
         log.info("Removing Migration service")
+        super(MigrationService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
         self._clean()
         self.state = service_states.SHUT_DOWN

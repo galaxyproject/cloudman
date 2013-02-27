@@ -371,7 +371,6 @@ class ConsoleManager(BaseConsoleManager):
                 for srvc in self.app.ud['services']:
                     service_roles = ServiceRole.from_string_array(
                         srvc.get('roles', srvc['name']))
-                    log.debug("Adding service: '%s'" % srvc['name'])
                     # TODO: translation from predefined service names into
                     # classes is not quite ideal...
                     processed_service = False
