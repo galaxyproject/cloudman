@@ -241,6 +241,11 @@ def _fix_nginx_upload(ud):
         nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
     elif os.path.exists("/usr/nginx/conf/nginx.conf"):
         nginx_conf_path = "/usr/nginx/conf/nginx.conf"
+    elif os.path.exists("/opt/cloudman/pkg/nginx/conf/nginx.conf"):
+        nginx_conf_path = "/opt/cloudman/pkg/nginx/conf/nginx.conf"
+    else:
+        # TODO: Search for nginx.conf?
+        nginx_conf_path = ''
     nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
     log.info("Attempting to configure max_client_body_size in {0}".format(
         nginx_conf_path))
