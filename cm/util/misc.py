@@ -109,17 +109,18 @@ def normalize_user_data(app, ud):
                 ud.pop('data_filesystems')
                 if 'cluster_type' not in ud:
                     ud['cluster_type'] = 'Data'
-            if 'services' in ud:
-                old_svc_list = ud['services']
-                ud['services'] = []
-                    # clear 'services' and replace with the new format
-                for svc in old_svc_list:
-                    if 'roles' not in svc:
-                        normalized_svc = {'name': svc['service'], 'roles':
-                                          ServiceRole.legacy_convert(svc['service'])}
-                        ud['services'].append(normalized_svc)
             if 'galaxy_home' in ud:
                 ud.pop('galaxy_home')
+        if 'services' in ud and 'service' in ud['services'][0]:
+            log.debug("Normalizing v1 service user data")
+            old_svc_list = ud['services']
+            ud['services'] = []
+                # clear 'services' and replace with the new format
+            for svc in old_svc_list:
+                if 'roles' not in svc:
+                    normalized_svc = {'name': svc['service'], 'roles':
+                                      ServiceRole.legacy_convert(svc['service'])}
+                    ud['services'].append(normalized_svc)
     return ud
 
 

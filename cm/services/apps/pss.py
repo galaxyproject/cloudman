@@ -150,8 +150,8 @@ class PSS(ApplicationService):
             log.debug("A current post start script {0} already exists in bucket {1}; not updating it"
                       .format(self.pss_filename, self.app.ud['bucket_cluster']))
 
-    def remove(self):
-        super(PSS, self).remove()
+    def remove(self, synchronous=False):
+        super(PSS, self).remove(synchronous)
         if self.state == service_states.SHUT_DOWN:
             log.debug(
                 "Removing %s service from master list of services" % self.name)

@@ -53,11 +53,12 @@ class HadoopService(ApplicationService):
             log.error("Error adding service '%s'" % self.svc_type)
             self.state = service_states.ERROR
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Remove Hadoop related files from the system.
         """
         log.info("Removing Hadoop service")
+        super(HadoopService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
         self._clean()
         self.state = service_states.SHUT_DOWN
