@@ -186,10 +186,12 @@ class DirectoryGalaxyOptionManager(object):
     manage Galaxy's options.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, conf_dir=None, conf_file_name=OPTIONS_FILE_NAME):
         self.app = app
-        conf_dir = app.ud["galaxy_conf_dir"]
+        if not conf_dir:
+            conf_dir = app.ud["galaxy_conf_dir"]
         self.conf_dir = conf_dir
+        self.conf_file_name = conf_file_name
 
     def setup(self):
         """ Setup the configuration directory and return conf_dir. """
@@ -200,12 +202,12 @@ class DirectoryGalaxyOptionManager(object):
         conf_dir = self.conf_dir
         if not exists(conf_dir):
             makedirs(conf_dir)
-            defaults_destination = join(conf_dir, "010_%s" % OPTIONS_FILE_NAME)
+            defaults_destination = join(conf_dir, "010_%s" % self.conf_file_name)
             galaxy_home = self.app.path_resolver.galaxy_home
-            universe_wsgi = join(galaxy_home, OPTIONS_FILE_NAME)
+            universe_wsgi = join(galaxy_home, self.conf_file_name)
             if not exists(universe_wsgi):
                 # Fresh install, take the oppertunity to just link in defaults
-                sample_name = "%s.sample" % OPTIONS_FILE_NAME
+                sample_name = "%s.sample" % self.conf_file_name
                 defaults_source = join(galaxy_home, sample_name)
                 symlink(defaults_source, defaults_destination)
             else:
@@ -213,7 +215,7 @@ class DirectoryGalaxyOptionManager(object):
                 # option enabled. Users may have made modifications to
                 # universe_wsgi.ini that I guess we should preserve for
                 # backward compatibility.
-                defaults_source = join(galaxy_home, OPTIONS_FILE_NAME)
+                defaults_source = join(galaxy_home, self.conf_file_name)
                 copyfile(defaults_source, defaults_destination)
 
     def set_properties(self, properties, section="app:main", description=None):
