@@ -310,17 +310,14 @@ class ConsoleManager(BaseConsoleManager):
         Inspect the cluster configuration and persistent data to add any
         previously defined cluster services.
         """
-        log.debug(
-            "Checking for and adding any previously defined cluster services")
-        self.cluster_status = cluster_status.STARTING
+        log.debug("Checking for and adding any previously defined cluster services")
+        return self.add_preconfigured_filesystems() and self.add_preconfigured_applications()
+
+    def add_preconfigured_filesystems(self):
         try:
-            attached_volumes = self.get_attached_volumes()
-            # Test if deprecated cluster config is used and handle it
-            if "static_filesystems" in self.app.ud or "data_filesystems" in self.app.ud:
-                log.debug("Handling deprecated cluster config")
-                return self._handle_old_cluster_conf_format(attached_volumes)
             # Process the current cluster config
-            log.debug("Processing an existing cluster config")
+            log.debug("Processing filesystems in an existing cluster config")
+            attached_volumes = self.get_attached_volumes()
             if 'filesystems' in self.app.ud:
                 for fs in self.app.ud['filesystems']:
                     err = False
@@ -367,6 +364,17 @@ class ConsoleManager(BaseConsoleManager):
                         log.debug("Adding a previously existing filesystem '{0}' of "
                                   "kind '{1}'".format(fs['name'], fs['kind']))
                         self.add_master_service(filesystem)
+            return True
+        except Exception, e:
+            log.error(
+                "Error processing filesystems in existing cluster configuration: %s" % e)
+            self.manager_started = False
+            return False
+
+    def add_preconfigured_applications(self):
+        try:
+            # Process the current cluster config
+            log.debug("Processing application services in an existing cluster config")
             if "services" in self.app.ud:
                 for srvc in self.app.ud['services']:
                     service_roles = ServiceRole.from_string_array(
@@ -385,7 +393,7 @@ class ConsoleManager(BaseConsoleManager):
             return True
         except Exception, e:
             log.error(
-                "Error processing existing cluster configuration: %s" % e)
+                "Error processing applications in existing cluster configuration: %s" % e)
             self.manager_started = False
             return False
 
@@ -408,87 +416,6 @@ class ConsoleManager(BaseConsoleManager):
                     vol.id, filesystem_name))
                 return vol
         return None
-
-    def _handle_old_cluster_conf_format(self, attached_volumes):
-        """
-        For backward compatibility, handle the old/deprecated cluster
-        configuration/persistent data file format, e.g.,::
-            data_filesystems:
-              galaxyData:
-              - size: 20
-                vol_id: vol-edfc9280
-            galaxy_home: /mnt/galaxyTools/galaxy-central
-            services:
-            - service: SGE
-            - service: Postgres
-            - service: Galaxy
-            static_filesystems:
-            - filesystem: galaxyIndices
-              size: 700
-              snap_id: !!python/unicode 'snap-5b030634'
-            - filesystem: galaxyTools
-              size: 2
-              snap_id: !!python/unicode 'snap-1688b978'
-        """
-        try:
-            # First make a backup of the deprecated config file
-            s3_conn = self.app.cloud_interface.get_s3_connection()
-            misc.copy_file_in_bucket(
-                s3_conn, self.app.ud[
-                    'bucket_cluster'], self.app.ud['bucket_cluster'],
-                'persistent_data.yaml', 'persistent_data-deprecated.yaml', validate=False)
-            # Process the deprecated configuration now
-            if "static_filesystems" in self.app.ud:
-                for vol in self.app.ud['static_filesystems']:
-                    fs = Filesystem(self.app, vol['filesystem'],
-                                    svc_roles=ServiceRole.from_string_array(vol['roles']))
-                    # Check if an already attached volume maps to the current
-                    # filesystem
-                    att_vol = self.get_vol_if_fs(
-                        attached_volumes, vol['filesystem'])
-                    if att_vol:
-                        fs.add_volume(vol_id=att_vol.id, size=att_vol.size,
-                                      from_snapshot_id=att_vol.snapshot_id)
-                    else:
-                        fs.add_volume(
-                            size=vol['size'], from_snapshot_id=vol['snap_id'])
-                    log.debug(
-                        "Adding static filesystem: '%s'" % vol['filesystem'])
-                    self.add_master_service(fs)
-                    self.initial_cluster_type = 'Galaxy'
-            if "data_filesystems" in self.app.ud:
-                for fs, vol_array in self.app.ud['data_filesystems'].iteritems():
-                    log.debug("Adding a previously existing data filesystem: '%s'" % fs)
-                    fs = Filesystem(self.app, fs)  # NGTODO: Something needs to be done here to pass correct svc_role
-                    for vol in vol_array:
-                        fs.add_volume(vol_id=vol['vol_id'], size=vol['size'])
-                    self.add_master_service(fs)
-                    self.initial_cluster_type = 'Data'
-            if "services" in self.app.ud:
-                for srvc in self.app.ud['services']:
-                    service_name = srvc['service']  # NGTODO: This is going on old format and using name. Should be fixed after format conversion is done.
-                    log.debug("Adding service: '%s'" % service_name)
-                    # TODO: translation from predefined service names into
-                    # classes is not quite ideal...
-                    processed_service = False
-                    service_class = APP_SERVICES.get(service_name, None)
-                    if service_class:
-                        self.add_master_service(service_class(self.app))
-                        if service_name in ['Postgres', 'Galaxy']:
-                            self.initial_cluster_type = 'Galaxy'
-                        processed_service = True
-                        log.debug(
-                            "Processed adding service '%s'" % service_name)
-                    if service_name == 'SGE':
-                        processed_service = True  # SGE gets added by default
-                    if not processed_service:
-                        log.warning("Could not find service class matching service entry '%s'?" %
-                                    service_name)
-            return True
-        except (BotoClientError, BotoServerError) as e:
-            log.error("Error reading existing cluster configuration file: %s" % e)
-            self.manager_started = False
-            return False
 
     def start_autoscaling(self, as_min, as_max, instance_type):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -2225,6 +2152,7 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
+            cc['cloudman_version'] = self.app.ud.get['cloudman_version', self.app.CLOUDMAN_VERSION]
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
