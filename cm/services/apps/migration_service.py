@@ -95,7 +95,7 @@ class Migrate1to2:
 
     def _update_user_data(self):
         if 'filesystems' in self.app.ud:
-            old_fs_list = self.app.ud['filesystems']
+            old_fs_list = self.app.ud.get('filesystems', [])
             new_fs_list = []
             # clear 'services' and replace with the new format
             for fs in old_fs_list:
