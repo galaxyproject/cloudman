@@ -481,7 +481,7 @@ class Filesystem(DataService):
         For example: ``335G 199M 1%``
         """
         if not cmd:
-            cmd = "df -h | grep %s$  | awk '{print $2, $3, $5}'" % self.name
+            cmd = "df | grep %s$  | awk '{print $2, $3, $5}'" % self.name
         # Get size & usage
         try:
             disk_usage = commands.getoutput(cmd)

@@ -1,4 +1,6 @@
 import os
+import pwd
+import grp
 from cm.services import ServiceRole
 from cm.services import service_states
 from cm.services import ServiceDependency
@@ -35,10 +37,15 @@ class Migrate1to2:
                 backup_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql",
                                           "data-backup-v%s" % version)
                 self._as_postgres("mv %s %s" % (data_dir, backup_dir))
-                self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home, data_dir))
+                misc.run("mkdir -p %s" % self.app.path_resolver.psql_dir)
+                os.chown(self.app.path_resolver.psql_dir, pwd.getpwnam("postgres")[2], grp.getgrnam("postgres")[2])
+                self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home,
+                    self.app.path_resolver.psql_dir))
                 self._as_postgres("pg_createcluster -d %s %s old_galaxy" % (backup_dir, version))
-                self._as_postgres("pg_upgradecluster %s old_galaxy %s" % (version, data_dir))
-                misc.run("apt-get remove postgresql-8.4 postgresql-client-8.4")
+                self._as_postgres("pg_upgradecluster %s old_galaxy %s" % (version,
+                    self.app.path_resolver.psql_dir))
+                misc.run("apt-get -y --force-yes remove postgresql-8.4 postgresql-client-8.4")
+                self._as_postgres("pg_ctl -D %s stop" % self.app.path_resolver.psql_dir)
 
     def _move_postgres_location(self):
         old_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql")
@@ -49,7 +56,7 @@ class Migrate1to2:
 
     def _upgrade_database(self):
         self._upgrade_postgres_8_to_9()
-        self._move_postgres_location()
+        # self._move_postgres_location()
 
     def _as_galaxy(self, cmd):
         return misc.run('%s - galaxy -c "%s"' % (paths.P_SU, cmd))
@@ -81,7 +88,7 @@ class Migrate1to2:
         galaxy_data_loc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0].mount_point
         galaxy_loc = os.path.join(galaxy_data_loc, "galaxy-app")
         if os.path.isdir(galaxy_loc):
-            self._as_galaxy("sed -i 's/central/dist/' %ss/.hg/hgrc" % galaxy_loc)
+            self._as_galaxy("sed -i 's/central/dist/' %s" % os.path.join(galaxy_loc, '.hg', 'hgrc'))
 
     def _update_user_data(self):
         if 'filesystems' in self.app.ud:
@@ -107,26 +114,27 @@ class Migrate1to2:
         self.app.ud['cloudman_version'] = 2
 
     def _migrate1_prereqs_satisfied(self):
-        fs_galaxy_data = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
-        if not fs_galaxy_data:
+        fs_galaxy_data_list = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
+        if not fs_galaxy_data_list:
             log.warn("Required File system GALAXY_DATA missing. Aborting migrate1to2.")
             return False
-        fs_galaxy_tools = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
-        if not fs_galaxy_tools:
+        fs_galaxy_tools_list = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)
+        if not fs_galaxy_tools_list:
             log.warn("Required File system GALAXY_TOOLS missing. Aborting Aborting migrate1to2.")
             return False
-#        space_available = int(fs_galaxy_data.size) - int(fs_galaxy_data.size_used)
-#        if space_available < fs_galaxy_tools.size_used:
-#            log.debug("Cannot migrate from 1 to 2: Insufficient space available on Galaxy data volume."
-#                      " Available: {0}, Required: {1}".format(space_available,
-#                                                              fs_galaxy_tools.size_used))
-#            return False
-
+        # Get a handle to the actual service objects
+        fs_galaxy_data = fs_galaxy_data_list[0]
+        fs_galaxy_tools = fs_galaxy_tools_list[0]
+        space_available = int(fs_galaxy_data.size) - int(fs_galaxy_data.size_used)
+        if space_available < int(fs_galaxy_tools.size_used):
+            log.debug("Cannot migrate from 1 to 2: Insufficient space available on "
+                      "Galaxy data volume. Available: {0}, Required: {1}"
+                      .format(space_available, fs_galaxy_tools.size_used))
+            return False
         for svc in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
             if ServiceRole.GALAXY_TOOLS in svc.svc_roles and ServiceRole.GALAXY_DATA in svc.svc_roles:
                 log.warn("File system appears to have been already migrated! Aborting.")
                 return False
-
         return True
 
     def migrate_1to2(self):

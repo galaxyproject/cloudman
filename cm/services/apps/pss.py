@@ -152,6 +152,8 @@ class PSS(ApplicationService):
 
     def remove(self, synchronous=False):
         super(PSS, self).remove(synchronous)
+        if self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         if self.state == service_states.SHUT_DOWN:
             log.debug(
                 "Removing %s service from master list of services" % self.name)

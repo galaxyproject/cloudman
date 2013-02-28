@@ -646,10 +646,9 @@ class Volume(BlockStorage):
                             return False
                 # Resize the volume if it was created from a snapshot
                 else:
-                    if self.volume.size > self.snapshot.volume_size:
+                    if self.from_snapshot_id and self.volume.size > self.snapshot.volume_size:
                         run('/usr/sbin/xfs_growfs %s' % mount_point)
-                    log.info(
-                        "Successfully mounted file system {0} from {1}".format(mount_point,
+                    log.info("Successfully mounted file system {0} from {1}".format(mount_point,
                         self.device))
                 try:
                     # Default owner of all mounted file systems to `galaxy`
@@ -703,26 +702,29 @@ class Volume(BlockStorage):
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
             log.debug("Unmounting volume-based FS from {0}".format(mount_point))
-            for counter in range(10):
-                if run('/bin/umount %s' % mount_point,
-                        "Error unmounting file system '%s'" % mount_point,
-                        "Successfully unmounted file system '%s'" % mount_point):
-                    # Clean up the system path now that the file system is
-                    # unmounted
-                    try:
-                        os.rmdir(mount_point)
-                    except OSError, e:
-                        log.error("Error removing unmounted path {0}: {1}".format(
-                            mount_point, e))
-                    break
-                if counter == 9:
-                    log.warning(
-                        "Could not unmount file system at '%s'" % mount_point)
-                    return False
-                counter += 1
-                time.sleep(3)
-            return True
-        else:
-            log.debug("Did not unmount file system '%s' because it is not in state "
-                      "'running' or 'shutting-down'" % self.fs.get_full_name())
-            return False
+            if os.path.exists(mount_point):
+                for counter in range(10):
+                    if run('/bin/umount %s' % mount_point,
+                            "Error unmounting file system '%s'" % mount_point,
+                            "Successfully unmounted file system '%s'" % mount_point):
+                        # Clean up the system path now that the file system is
+                        # unmounted
+                        try:
+                            os.rmdir(mount_point)
+                        except OSError, e:
+                            log.error("Error removing unmounted path {0}: {1}".format(
+                                mount_point, e))
+                        break
+                    if counter == 9:
+                        log.warning("Could not unmount file system at '%s'" % mount_point)
+                        return False
+                    counter += 1
+                    time.sleep(3)
+                return True
+            else:
+                log.debug("Did not unmount file system {0} because its mount point "
+                    "{1} does not exist".format(self.fs.get_full_name(), mount_point))
+                return False
+        log.debug("Did not unmount file system '%s' because it is not in state "
+                  "'running' or 'shutting-down'" % self.fs.get_full_name())
+        return False
