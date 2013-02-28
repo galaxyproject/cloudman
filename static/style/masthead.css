@@ -1,0 +1,23 @@
+#masthead
+{
+    background: #2C3143 url(masthead_bg.png) bottom;
+    color: #eeeeee;
+    padding:4px 8px 4px 8px;
+    border: 0;
+}
+
+#masthead div.pageTitle
+{
+    font-size: 175%;
+    font-weight: bold;
+}
+
+#masthead div.pageTitle a:link, div.pageTitle a:visited, div.pageTitle a:active, div.pageTitle a:hover
+{
+    text-decoration: none;
+}
+
+#masthead a:link, #masthead a:visited, #masthead a:active
+{
+    color: #eeeeee;
+}
