@@ -41,9 +41,12 @@ class Migrate1to2:
                 os.chown(self.app.path_resolver.psql_dir, pwd.getpwnam("postgres")[2], grp.getgrnam("postgres")[2])
                 self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home,
                     self.app.path_resolver.psql_dir))
-                self._as_postgres("pg_createcluster -d %s %s old_galaxy" % (backup_dir, version))
-                self._as_postgres("pg_upgradecluster %s old_galaxy %s" % (version,
-                    self.app.path_resolver.psql_dir))
+                self._as_postgres("pg_ctl -D %s stop" % self.app.path_resolver.psql_dir)
+                self._as_postgres("pg_upgrade -c -d {0} -D {1} -v -p 5840 -b /usr/lib/postgresql/8.4/bin"
+                                  " -B /usr/lib/postgresql/9.1/bin", (backup_dir, self.app.path_resolver.psql_dir))
+                # self._as_postgres("pg_createcluster -d %s %s old_galaxy" % (backup_dir, version))
+                # self._as_postgres("pg_upgradecluster %s old_galaxy %s" % (version,
+                #    self.app.path_resolver.psql_dir))
                 misc.run("apt-get -y --force-yes remove postgresql-8.4 postgresql-client-8.4")
                 self._as_postgres("pg_ctl -D %s stop" % self.app.path_resolver.psql_dir)
 
