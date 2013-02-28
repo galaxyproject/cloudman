@@ -151,7 +151,7 @@ class Migrate1to2:
 
         log.debug("Migration: Step 6: Migration: Restarting all file system services...")
         # Restart file system services
-        self.app.manager.add_preconfigured_services()
+        self.app.manager.add_preconfigured_filesystems()
         log.debug("Migration from version 1 to 2 complete!")
 
 
