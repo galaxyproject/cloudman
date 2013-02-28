@@ -164,9 +164,8 @@ class MigrationService(ApplicationService, Migrate1to2):
 
         self.reqs = []
 
-        if 'file_systems' in self.app.ud:
-            log.debug("File Systems in")
-            for fs in self.app.ud['file_systems']:
+        if 'filesystems' in self.app.ud:
+            for fs in self.app.ud['filesystems']:
                 # Wait for galaxy data, indices and tools to come up before attempting migration
                 if  ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
                     self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
