@@ -35,6 +35,8 @@ class PostgresService(ApplicationService):
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.manage_postgres(False)
+        elif self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         else:
             log.debug("{0} service is not running (state: {1}) so not stopping it."
                       .format(self.name, self.state))

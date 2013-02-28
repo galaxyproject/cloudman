@@ -91,20 +91,19 @@ class ConsoleManager(BaseConsoleManager):
         assigned service property is set to null for all services
         which depend on the new service.
         """
-        log.debug(
-            "Updating dependencies for service {0}".format(new_service.name))
+        log.debug("Updating dependencies for service {0}".format(new_service.name))
         for svc in self.services:
             if action == "ADD":
                 for req in new_service.reqs:
                     if req.is_satisfied_by(svc):
-                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                            req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
+                        #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = svc
             elif action == "REMOVE":
                 for req in svc.reqs:
                     if req.is_satisfied_by(new_service):
-                        log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                            req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
+                        #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = None
 
     def _stop_app_level_services(self):
@@ -834,29 +833,10 @@ class ConsoleManager(BaseConsoleManager):
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
-        if sd_galaxy:
-            svcs = self.get_services(svc_role=ServiceRole.GALAXY)
-            for service in svcs:
-                service.remove()
-        if sd_postgres:
-            svcs = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
-            for service in svcs:
-                service.remove()
+        for svc in self.services:
+            svc.remove()
         if sd_instances:
             self.stop_worker_instances()
-        if sd_filesystems:
-            svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
-            to_remove = []
-            for service in svcs:
-                to_remove.append(service)
-            for service in to_remove:
-                log.debug("Requesting removal of '%s' as part of shutdown" %
-                          service.get_full_name())
-                service.remove()
-        if sd_sge:
-            svcs = self.get_services(svc_role=ServiceRole.SGE)
-            for service in svcs:
-                service.remove()
         if sd_spot_requests:
             for wi in self.worker_instances:
                 if wi.is_spot() and not wi.spot_was_filled():
@@ -2152,7 +2132,7 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
-            cc['cloudman_version'] = self.app.ud.get['cloudman_version', self.app.CLOUDMAN_VERSION]
+            cc['cloudman_version'] = self.app.ud.get('cloudman_version', self.app.CLOUDMAN_VERSION)
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
