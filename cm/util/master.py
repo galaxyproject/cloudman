@@ -318,7 +318,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Processing filesystems in an existing cluster config")
             attached_volumes = self.get_attached_volumes()
             if 'filesystems' in self.app.ud:
-                for fs in self.app.ud['filesystems']:
+                for fs in self.app.ud.get('filesystems', []):
                     err = False
                     filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string_array(
                         fs['roles']), mount_point=fs.get('mount_point', None))
