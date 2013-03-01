@@ -13,6 +13,7 @@ service_states = Bunch(
     CONFIGURING="Configuring",
     STARTING="Starting",
     RUNNING="Running",
+    COMPLETED="Completed",
     SHUTTING_DOWN="Shutting down",
     SHUT_DOWN="Shut down",
     ERROR="Error"
@@ -259,7 +260,7 @@ class Service(object):
                     if dependency.is_satisfied_by(svc):
                         # log.debug("Service %s:%s running: %s" % (svc.name,
                         # svc.name, svc.state))
-                        if svc.running():
+                        if svc.running() or svc.completed():
                             if dependency in failed_prereqs:
                                 failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
@@ -294,6 +295,12 @@ class Service(object):
         Return ``True`` is service is in state ``RUNNING``, ``False`` otherwise
         """
         return self.state == service_states.RUNNING
+
+    def completed(self):
+        """
+        Return ``True`` is service is in state ``COMPLETED``, ``False`` otherwise
+        """
+        return self.state == service_states.COMPLETED
 
     def get_full_name(self):
         """

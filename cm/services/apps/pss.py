@@ -56,7 +56,7 @@ class PSS(ApplicationService):
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
             for srvc in self.app.manager.services:
-                if srvc != self and not srvc.running():
+                if srvc != self and not (srvc.running() or srvc.completed()):
                     log.debug("%s not running (%s), %s service prerequisites not met afterall,"
                               "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
                     self.state = service_states.UNSTARTED  # Reset state so it gets picked up by monitor again

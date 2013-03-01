@@ -186,8 +186,8 @@ class Volume(BlockStorage):
         else:
             try:
                 self.volume.update()
-                #Take only the first word of the status as openstack adds some extra info after a space
-                status = volume_status_map.get(self.volume.status.split(' ')[0],None)
+                # Take only the first word of the status as openstack adds some extra info after a space
+                status = volume_status_map.get(self.volume.status.split(' ')[0], None)
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
                 if not status:

@@ -18,13 +18,18 @@ class Migrate1to2:
     def __init__(self, app):
         self.app = app
 
-    def _as_postgres(self, cmd):
-        return misc.run('%s - postgres -c "%s"' % (paths.P_SU, cmd))
+    def _as_postgres(self, cmd, cwd=None):
+        return misc.run('%s - postgres -c "%s"' % (paths.P_SU, cmd), cwd=cwd)
 
     def _upgrade_postgres_8_to_9(self):
-        data_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql", "data")
-        if os.path.exists(data_dir):
-            with open(os.path.join(data_dir, "PG_VERSION")) as in_handle:
+        old_data_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql", "data")
+        new_data_dir = self.app.path_resolver.psql_dir
+        if old_data_dir == new_data_dir:
+            log.debug("Nothing to upgrade in database - paths are the same: %s" % old_data_dir)
+            return
+
+        if os.path.exists(old_data_dir):
+            with open(os.path.join(old_data_dir, "PG_VERSION")) as in_handle:
                 version = in_handle.read().strip()
             if version.startswith("8"):
                 log.info("Upgrading Postgres from version 8 to 9")
@@ -36,30 +41,30 @@ class Migrate1to2:
                     misc.run("rm -f %s" % os.path.basename(deb))
                 backup_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql",
                                           "data-backup-v%s" % version)
-                self._as_postgres("mv %s %s" % (data_dir, backup_dir))
-                misc.run("mkdir -p %s" % self.app.path_resolver.psql_dir)
-                os.chown(self.app.path_resolver.psql_dir, pwd.getpwnam("postgres")[2], grp.getgrnam("postgres")[2])
+                self._as_postgres("mv %s %s" % (old_data_dir, backup_dir))
+                misc.run("mkdir -p %s" % new_data_dir)
+                os.chown(new_data_dir, pwd.getpwnam("postgres")[2], grp.getgrnam("postgres")[2])
                 self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home,
-                    self.app.path_resolver.psql_dir))
-                self._as_postgres("pg_ctl -D %s stop" % self.app.path_resolver.psql_dir)
-                self._as_postgres("pg_upgrade -c -d {0} -D {1} -v -p 5840 -b /usr/lib/postgresql/8.4/bin"
-                                  " -B /usr/lib/postgresql/9.1/bin", (backup_dir, self.app.path_resolver.psql_dir))
-                # self._as_postgres("pg_createcluster -d %s %s old_galaxy" % (backup_dir, version))
-                # self._as_postgres("pg_upgradecluster %s old_galaxy %s" % (version,
-                #    self.app.path_resolver.psql_dir))
+                    new_data_dir))
+                self._as_postgres("sed -i 's|#port = 5432|port = {0}|' {1}"
+                                  .format(paths.C_PSQL_PORT, os.path.join(new_data_dir, 'postgresql.conf')))
+                # Seems to require a start and stop before the upgrade can work!
+                log_loc = os.path.join(new_data_dir, 'cm_postgres_upgrade.log')
+                self._as_postgres("{0}/pg_ctl -w -l {1} -D {2} start".
+                                  format(self.app.path_resolver.pg_home, log_loc, new_data_dir),
+                                  cwd=new_data_dir)
+                self._as_postgres("{0}/pg_ctl -w -l {1} -D {2} stop".
+                                  format(self.app.path_resolver.pg_home, log_loc, new_data_dir),
+                                  cwd=new_data_dir)
+                self._as_postgres("{0}/pg_upgrade -d {1} -D {2} -p 5840 -P {3} -b /usr/lib/postgresql/8.4/bin"
+                                  " -B {0} -l {4}".
+                                  format(self.app.path_resolver.pg_home, backup_dir,
+                                         new_data_dir, paths.C_PSQL_PORT, log_loc),
+                                  cwd=new_data_dir)
                 misc.run("apt-get -y --force-yes remove postgresql-8.4 postgresql-client-8.4")
-                self._as_postgres("pg_ctl -D %s stop" % self.app.path_resolver.psql_dir)
-
-    def _move_postgres_location(self):
-        old_dir = os.path.join(self.app.path_resolver.galaxy_data, "pgsql")
-        if os.path.exists(old_dir) and not os.path.exists(self.app.path_resolver.psql_dir):
-            log.info("Moving Postgres location from %s to %s" %
-                     (old_dir, self.app.path_resolver.psql_dir))
-            misc.run("mv %s %s" % (old_dir, self.app.path_resolver.psql_dir))
 
     def _upgrade_database(self):
         self._upgrade_postgres_8_to_9()
-        # self._move_postgres_location()
 
     def _as_galaxy(self, cmd):
         return misc.run('%s - galaxy -c "%s"' % (paths.P_SU, cmd))
@@ -92,6 +97,13 @@ class Migrate1to2:
         galaxy_loc = os.path.join(galaxy_data_loc, "galaxy-app")
         if os.path.isdir(galaxy_loc):
             self._as_galaxy("sed -i 's/central/dist/' %s" % os.path.join(galaxy_loc, '.hg', 'hgrc'))
+        # Adjust tools location in galaxy
+        galaxy_ini_loc = os.path.join(galaxy_loc, 'universe_wsgi.ini')
+        self._as_galaxy("sed -i 's|tool_dependency_dir = /mnt/galaxyTools/tools|tool_dependency_dir = {0}|' {1}".
+                        format(os.path.join(galaxy_data_loc, 'tools'), galaxy_ini_loc))
+
+        self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
+                        format(paths.C_PSQL_PORT, galaxy_ini_loc))
 
     def _update_user_data(self):
         if 'filesystems' in self.app.ud:
@@ -115,6 +127,7 @@ class Migrate1to2:
                         new_fs_list.append(fs)
             self.app.ud['filesystems'] = new_fs_list
         self.app.ud['cloudman_version'] = 2
+        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
 
     def _migrate1_prereqs_satisfied(self):
         fs_galaxy_data_list = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
@@ -141,6 +154,10 @@ class Migrate1to2:
         return True
 
     def migrate_1to2(self):
+        # First set the current cloudman_version, in case it's empty.
+        # This is to prevent it from being set to the latest version when empty
+        self.app.ud['cloudman_version'] = 1
+
         if not self._migrate1_prereqs_satisfied():
             log.warn("Cannot migrate from version 1 to 2. Pre-requisites not satisfied.")
             return
@@ -192,10 +209,16 @@ class MigrationService(ApplicationService, Migrate1to2):
         log.debug("Starting migration service...")
         self.state = service_states.STARTING
         if self._is_migration_needed():
-            self._start()
+            self.state = service_states.RUNNING
+            try:
+                self._start()
+            except:
+                self.state = service_states.ERROR
+            else:
+                self.state = service_states.COMPLETED
         else:
             log.debug("No migration required. Service ready.")
-        self.state = service_states.RUNNING
+            self.state = service_states.COMPLETED
 
     def _start(self):
         """
