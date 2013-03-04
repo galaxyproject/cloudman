@@ -126,7 +126,7 @@ class Migrate1to2:
                     else:
                         new_fs_list.append(fs)
             self.app.ud['filesystems'] = new_fs_list
-        self.app.ud['cloudman_version'] = 2
+        self.app.ud['deployment_version'] = 2
         self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
 
     def _migrate1_prereqs_satisfied(self):
@@ -154,9 +154,9 @@ class Migrate1to2:
         return True
 
     def migrate_1to2(self):
-        # First set the current cloudman_version, in case it's empty.
+        # First set the current ``deployment_version``, in case it's empty.
         # This is to prevent it from being set to the latest version when empty
-        self.app.ud['cloudman_version'] = 1
+        self.app.ud['deployment_version'] = 1
 
         if not self._migrate1_prereqs_satisfied():
             log.warn("Cannot migrate from version 1 to 2. Pre-requisites not satisfied.")
@@ -190,17 +190,17 @@ class MigrationService(ApplicationService, Migrate1to2):
         self.svc_roles = [ServiceRole.MIGRATION]
         self.name = ServiceRole.to_string(ServiceRole.MIGRATION)
 
-        self.reqs = []
+        self.dependencies = []
 
         if 'filesystems' in self.app.ud:
             for fs in self.app.ud['filesystems']:
                 # Wait for galaxy data, indices and tools to come up before attempting migration
                 if  ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
-                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
+                    self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
                 if  ServiceRole.GALAXY_TOOLS in ServiceRole.from_string_array(fs['roles']):
-                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_TOOLS))
+                    self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_TOOLS))
                 if  ServiceRole.GALAXY_INDICES in ServiceRole.from_string_array(fs['roles']):
-                    self.reqs.append(ServiceDependency(self, ServiceRole.GALAXY_INDICES))
+                    self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_INDICES))
 
     def start(self):
         """
@@ -217,7 +217,7 @@ class MigrationService(ApplicationService, Migrate1to2):
             else:
                 self.state = service_states.COMPLETED
         else:
-            log.debug("No migration required. Service ready.")
+            log.debug("No migration required. Service complete.")
             self.state = service_states.COMPLETED
 
     def _start(self):
@@ -235,15 +235,15 @@ class MigrationService(ApplicationService, Migrate1to2):
             self.migrate_1to2()
 
     def _is_migration_needed(self):
-        return self._get_old_cm_version() < self._get_new_cm_version()
+        return self._get_old_version() < self._get_current_version()
 
-    def _get_new_cm_version(self):
+    def _get_current_version(self):
         return 2  # Whichever version that this upgrade script last understands
 
-    def _get_old_cm_version(self):
+    def _get_old_version(self):
         # TODO: Need old version discovery. Where do we get that from?
-        version = self.app.ud.get('cloudman_version', None)
-        if version is None:
+        version = self.app.ud.get('deployment_version', None)
+        if not version:
             version = 1  # A version prior to version number being introduced
 
     def remove(self, synchronous=False):

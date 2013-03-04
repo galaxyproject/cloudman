@@ -235,12 +235,12 @@ class Service(object):
         self.last_state_change_time = dt.datetime.utcnow()
         self.name = None
         self.svc_roles = []
-        self.reqs = []
+        self.dependencies = []
 
     def add(self):
         """
         Add a given service to the pool of services managed by CloudMan, giving
-        CloudMan the abilty to monitor and control the service. This is a base
+        CloudMan the ability to monitor and control the service. This is a base
         implementation of the service ``add`` method which calls service's internal
         ``start`` method. Before calling the ``start`` method, service prerequisites
         are checked and, if satisfied, the service is started. If the prerequisites
@@ -250,9 +250,9 @@ class Service(object):
             # log.debug("Trying to add service '%s'" % self.name)
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
-            failed_prereqs = self.reqs
+            failed_prereqs = self.dependencies[:]
                 # List of service prerequisites that have not been satisfied
-            for dependency in self.reqs:
+            for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
                 for svc in self.app.manager.services:
@@ -284,10 +284,8 @@ class Service(object):
         """
         log.debug("Removing dependencies of service: {0}".format(self.name))
         for service in self.app.manager.services:
-            for dependency in service.reqs:
+            for dependency in service.dependencies:
                 if (dependency.is_satisfied_by(self)):
-                    log.debug("Dependency {0} found. Removing...".format(
-                        service.name))
                     service.remove()
 
     def running(self):

@@ -35,7 +35,7 @@ class GalaxyService(ApplicationService):
                          "SGE_ROOT": self.app.path_resolver.sge_root,
                          "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
                          }
-        self.reqs = [ServiceDependency(self, ServiceRole.SGE),
+        self.dependencies = [ServiceDependency(self, ServiceRole.SGE),
                      ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
                      ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.GALAXY_INDICES),
@@ -125,26 +125,23 @@ class GalaxyService(ApplicationService):
                                    'shed_tool_conf.xml',
                                    'datatypes_conf.xml']:
                         f_path = os.path.join(self.galaxy_home, f_name)
-                        if (not os.path.exists(f_path) and
-                            not misc.get_file_from_bucket(s3_conn,
-                                                         self.app.ud[
-                                                         'bucket_cluster'],
-                                                         '{0}.cloud'.format(
-                                                         f_name), f_path)):
-                            # We did not get the config file from cluster's bucket;
-                            # get one from the default bucket
-                            log.debug("Did not get Galaxy configuration file " +
-                                      "'{0}' from cluster bucket '{1}'"
-                                      .format(f_name, self.app.ud['bucket_cluster']))
-                            log.debug("Trying to retrieve one ({0}.cloud) "
-                                      "from the default '{1}' bucket."
-                                      .format(f_name, self.app.ud['bucket_default']))
-                            local_file = os.path.join(self.galaxy_home, f_name)
-                            misc.get_file_from_bucket(s3_conn,
-                                                      self.app.ud[
-                                                      'bucket_default'],
-                                                      '{0}.cloud'.format(f_name), local_file)
-                            attempt_chown_galaxy_if_exists(local_file)
+                        if not os.path.exists(f_path):
+                            if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                                '{0}.cloud'.format(f_name), f_path):
+                                # We did not get the config file from cluster's
+                                # bucket so get it from the default bucket
+                                log.debug("Did not get Galaxy configuration file " +
+                                          "'{0}' from cluster bucket '{1}'"
+                                          .format(f_name, self.app.ud['bucket_cluster']))
+                                log.debug("Trying to retrieve one ({0}.cloud) "
+                                          "from the default '{1}' bucket."
+                                          .format(f_name, self.app.ud['bucket_default']))
+                                local_file = os.path.join(self.galaxy_home, f_name)
+                                misc.get_file_from_bucket(s3_conn,
+                                                          self.app.ud[
+                                                          'bucket_default'],
+                                                          '{0}.cloud'.format(f_name), local_file)
+                                attempt_chown_galaxy_if_exists(local_file)
 
                 # Make sure the temporary job_working_directory exists on user
                 # data volume (defined in universe_wsgi.ini.cloud)

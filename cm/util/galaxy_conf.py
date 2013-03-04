@@ -7,6 +7,7 @@ from pwd import getpwnam
 from grp import getgrnam
 
 from .misc import run
+from cm.util import paths
 
 import logging
 log = logging.getLogger('cloudman')
@@ -69,7 +70,7 @@ def populate_dynamic_options(option_manager):
                 option_manager.set_properties({key: value}, section=section)
 
 
-## High-level funcitons that utilize option_manager interface (defined below)
+## High-level functions that utilize option_manager interface (defined below)
 ## to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
@@ -126,15 +127,17 @@ def galaxy_option_manager(app):
 
 def populate_galaxy_paths(option_manager):
     """
-    Turn `path_resolver` paths into Galaxy options using
-    specified `option_manager`.
+    Turn ``path_resolver`` paths and configurations into Galaxy options using
+    specified ``option_manager``.
     """
     properties = {}
     path_resolver = option_manager.app.path_resolver
+    properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
+        .format(paths.C_PSQL_PORT)
     properties["genome_data_path"] = \
         join(path_resolver.galaxy_indices, "genomes")
     properties["len_file_path"] = \
-        join(path_resolver.galaxy_indices, "len")
+        join(path_resolver.galaxy_data, "configuration_data", "len")
     properties["tool_dependency_dir"] = \
         join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")

@@ -31,7 +31,7 @@ from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
+from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -94,13 +94,13 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Updating dependencies for service {0}".format(new_service.name))
         for svc in self.services:
             if action == "ADD":
-                for req in new_service.reqs:
+                for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
                         # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
                         #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = svc
             elif action == "REMOVE":
-                for req in svc.reqs:
+                for req in svc.dependencies:
                     if req.is_satisfied_by(new_service):
                         # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
                         #     req.owning_service.name, new_service.name, action))
@@ -465,7 +465,7 @@ class ConsoleManager(BaseConsoleManager):
             count += 1
             if svc.state == service_states.ERROR:
                 return "red"
-            elif svc.state != service_states.RUNNING:
+            elif not (svc.state == service_states.RUNNING or svc.state == service_states.COMPLETED):
                 return "yellow"
         if count != 0:
             return "green"
@@ -2132,7 +2132,7 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
-            cc['cloudman_version'] = self.app.ud.get('cloudman_version', self.app.CLOUDMAN_VERSION)
+            cc['deployment_version'] = self.app.ud.get('deployment_version', self.app.DEPLOYMENT_VERSION)
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)

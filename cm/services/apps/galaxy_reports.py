@@ -23,7 +23,7 @@ class GalaxyReportsService(ApplicationService):
         self.galaxy_home = self.app.path_resolver.galaxy_home
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
-        self.reqs = [ServiceDependency(
+        self.dependencies = [ServiceDependency(
             self, ServiceRole.GALAXY)]  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
         self.conf_dir = os.path.join(
             self.app.path_resolver.galaxy_home, 'reports.conf.d')
