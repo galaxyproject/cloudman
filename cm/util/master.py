@@ -23,6 +23,7 @@ from cm.services.apps.pss import PSS
 from cm.services.apps.migration_service import MigrationService
 from cm.services.apps.sge import SGEService
 from cm.services.apps.hadoop import HadoopService
+from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
@@ -31,7 +32,7 @@ from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
 
 import cm.util.paths as paths
-from boto.exception import EC2ResponseError, BotoClientError, BotoServerError, S3ResponseError
+from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
@@ -94,13 +95,13 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Updating dependencies for service {0}".format(new_service.name))
         for svc in self.services:
             if action == "ADD":
-                for req in new_service.reqs:
+                for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
                         # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
                         #     req.owning_service.name, new_service.name, action))
                         req.assigned_service = svc
             elif action == "REMOVE":
-                for req in svc.reqs:
+                for req in svc.dependencies:
                     if req.is_satisfied_by(new_service):
                         # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
                         #     req.owning_service.name, new_service.name, action))
@@ -259,6 +260,8 @@ class ConsoleManager(BaseConsoleManager):
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
+
+        self.add_master_service(HTCondorService(self.app, "master"))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.ud.get('hadoop_enabled', True):
             self.add_master_service(HadoopService(self.app))
@@ -465,7 +468,7 @@ class ConsoleManager(BaseConsoleManager):
             count += 1
             if svc.state == service_states.ERROR:
                 return "red"
-            elif svc.state != service_states.RUNNING:
+            elif not (svc.state == service_states.RUNNING or svc.state == service_states.COMPLETED):
                 return "yellow"
         if count != 0:
             return "green"
@@ -1948,11 +1951,22 @@ class ConsoleManager(BaseConsoleManager):
         shutil.copy("%s-tmp" % file_name, file_name)
 
     def update_etc_host(self):
-
-        # misc.add_to_etc_hosts(self.app.cloud_interface.get_local_hostname(),self.app.cloud_interface.get_public_ip().split('.')[0])
+        """
+        This method is for syncing hosts files in all workers with the master.
+        It will copy the master etc hosts into a shared folder and send a message
+        to the workers to inform them of the change.
+        """
         shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
         for wrk in self.worker_instances:
             wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+
+    def update_condor_host(self, new_worker_ip):
+        """
+        Add the new pool to the condor big pool
+        """
+        srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
+        #log.debug("HTCondor service found" + str(len(srvs)))
+        srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
         """
@@ -2132,7 +2146,7 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
-            cc['cloudman_version'] = self.app.ud.get('cloudman_version', self.app.CLOUDMAN_VERSION)
+            cc['deployment_version'] = self.app.ud.get('deployment_version', self.app.DEPLOYMENT_VERSION)
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
@@ -2680,6 +2694,9 @@ class Instance(object):
     def send_alive_request(self):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
 
+    def send_sync_etc_host(self, msg):
+        self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
+
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
         if self.app.TESTFLAG is True:
@@ -2941,6 +2958,12 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
+                ##<KWS>
+
+                log.debug("update condor host through master")
+                self.app.manager.update_condor_host(self.public_ip)
+                log.debug("update etc host through master")
+                self.app.manager.update_etc_host()
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split(' | ')
                 self.nfs_data = msplit[1]

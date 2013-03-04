@@ -529,6 +529,7 @@ class EC2Interface(CloudInterface):
         """
         worker_ud = {}
         worker_ud['role'] = 'worker'
+        worker_ud['master_public_ip'] = self.get_public_ip()
         worker_ud['master_ip'] = self.get_private_ip()
         worker_ud['master_hostname'] = self.get_local_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type

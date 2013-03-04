@@ -28,7 +28,7 @@ class SGEService(ApplicationService):
         super(SGEService, self).__init__(app)
         self.svc_roles = [ServiceRole.SGE]
         self.name = ServiceRole.to_string(ServiceRole.SGE)
-        self.reqs = [ServiceDependency(self, ServiceRole.MIGRATION)]
+        self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.hosts = []
 
     def start(self):
