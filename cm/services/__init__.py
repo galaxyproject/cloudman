@@ -44,6 +44,8 @@ class ServiceRole(object):
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
     MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
 
+    HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
+
     @staticmethod
     def get_type(role):
         return role['type']
@@ -104,6 +106,8 @@ class ServiceRole(object):
             return ServiceRole.HADOOP
         elif val == "Migration":
             return ServiceRole.MIGRATION
+        elif val == "HTCondor":
+            return ServiceRole.HTCONDOR
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -147,6 +151,8 @@ class ServiceRole(object):
             return "GenericFS"
         elif svc_role == ServiceRole.TRANSIENT_NFS:
             return "TransientNFS"
+        elif svc_role == ServiceRole.HTCONDOR:
+            return "HTCondor"
         elif svc_role == ServiceRole.HADOOP:
             return "Hadoop"
         elif svc_role == ServiceRole.MIGRATION:

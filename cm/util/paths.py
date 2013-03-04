@@ -46,6 +46,10 @@ P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
 
 P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
 
+## Condor
+P_HTCONDOR_CONFIG_PATH = "/etc/condor/condor_config"
+P_HTCONDOR_HOME = "/etc/init.d"
+
 try:
     # Get only the first 3 chars of the version since that's all that's used
     # for dir name
