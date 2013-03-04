@@ -21,7 +21,7 @@ class PostgresService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
         self.svc_roles = [ServiceRole.GALAXY_POSTGRES]
         self.psql_port = paths.C_PSQL_PORT
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
+        self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.MIGRATION)]
 
     def start(self):
@@ -151,7 +151,8 @@ class PostgresService(ApplicationService):
             # Stop PostgreSQL database
             log.info("Stopping PostgreSQL...")
             self.state = service_states.SHUTTING_DOWN
-            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
+            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"'
+                % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
                 self.state = service_states.SHUT_DOWN
             else:
                 self.state = service_states.ERROR

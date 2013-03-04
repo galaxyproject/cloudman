@@ -15,7 +15,7 @@ P_MV = "/bin/mv"
 P_LN = "/bin/ln"
 
 # Configs
-C_PSQL_PORT = "5840"
+C_PSQL_PORT = "5910"
 USER_DATA_FILE = "userData.yaml"
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/profile"
@@ -45,6 +45,10 @@ P_HADOOP_INTEGRATION_TAR_URL = "https://s3.amazonaws.com/cloudman/"
 P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
 
 P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
+
+## Condor
+P_HTCONDOR_CONFIG_PATH = "/etc/condor/condor_config"
+P_HTCONDOR_HOME = "/etc/init.d"
 
 try:
     # Get only the first 3 chars of the version since that's all that's used
@@ -105,11 +109,17 @@ class PathResolver(object):
         else:  # For backward compatibility
             return P_GALAXY_TOOLS
 
+    def _get_ud_path(self, name, default_path):
+        if self.manager.app.ud:
+            return self.manager.app.ud.get('galaxy_home', get_path('name', default_path))
+        else:
+            return get_path('name', default_path)
+
     @property
     def galaxy_home(self):
         # First check if galaxy_home is defined in user data to allow any
         # path to be overridden
-        gh = get_path('galaxy_home', None)
+        gh = self._get_ud_path('galaxy_home', None)
         if gh:
             # print "Using galaxy_home from user data: %s" % gh
             return gh

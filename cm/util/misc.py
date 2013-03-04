@@ -696,7 +696,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
-def run(cmd, err=None, ok=None, quiet=False):
+def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     """
     Convenience method for executing a shell command ``cmd``. Returns
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
@@ -711,7 +711,7 @@ def run(cmd, err=None, ok=None, quiet=False):
     if ok is None:
         ok = "'%s' command OK" % cmd
     process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
