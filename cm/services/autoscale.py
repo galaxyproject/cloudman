@@ -19,7 +19,7 @@ class Autoscale(Service):
         self.svc_roles = [ServiceRole.AUTOSCALE]
         self.svc_type = ServiceType.APPLICATION
         self.name = ServiceRole.to_string(ServiceRole.AUTOSCALE)
-        self.reqs = [ServiceDependency(self, ServiceRole.MIGRATION)]
+        self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.as_max = as_max  # Max number of nodes autoscale should maintain
         self.as_min = as_min  # Min number of nodes autoscale should maintain
         self.instance_type = instance_type  # Type of instances to start

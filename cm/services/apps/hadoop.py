@@ -24,7 +24,7 @@ class HadoopService(ApplicationService):
         super(HadoopService, self).__init__(app)
         self.svc_roles = [ServiceRole.HADOOP]
         self.name = ServiceRole.to_string(ServiceRole.HADOOP)
-        self.reqs = [ServiceDependency(self, ServiceRole.SGE)]
+        self.dependencies = [ServiceDependency(self, ServiceRole.SGE)]
         self.id_rsa_path = os.path.join(paths.P_HADOOP_HOME, "id_rsa")
         self.id_rsa_pub_key_path = os.path.join(
             paths.P_HADOOP_HOME, "id_rsa.pub")
