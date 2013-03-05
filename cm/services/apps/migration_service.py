@@ -195,11 +195,11 @@ class MigrationService(ApplicationService, Migrate1to2):
         if 'filesystems' in self.app.ud:
             for fs in self.app.ud.get('filesystems') or []:
                 # Wait for galaxy data, indices and tools to come up before attempting migration
-                if  ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
+                if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
                     self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
-                if  ServiceRole.GALAXY_TOOLS in ServiceRole.from_string_array(fs['roles']):
+                if ServiceRole.GALAXY_TOOLS in ServiceRole.from_string_array(fs['roles']):
                     self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_TOOLS))
-                if  ServiceRole.GALAXY_INDICES in ServiceRole.from_string_array(fs['roles']):
+                if ServiceRole.GALAXY_INDICES in ServiceRole.from_string_array(fs['roles']):
                     self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_INDICES))
 
     def start(self):
@@ -212,7 +212,8 @@ class MigrationService(ApplicationService, Migrate1to2):
             self.state = service_states.RUNNING
             try:
                 self._start()
-            except:
+            except Exception, e:
+                log.error("Error starting migration service: {0}".format(e))
                 self.state = service_states.ERROR
             else:
                 self.state = service_states.COMPLETED
@@ -231,20 +232,24 @@ class MigrationService(ApplicationService, Migrate1to2):
         """
         Based on the version number, carry out appropriate migration actions
         """
-        if self._get_old_cm_version() <= 1:
+        if self._get_old_version() <= 1:
             self.migrate_1to2()
 
     def _is_migration_needed(self):
         return self._get_old_version() < self._get_current_version()
 
     def _get_current_version(self):
-        return 2  # Whichever version that this upgrade script last understands
+        version = 2
+        log.debug("Current deployment version: {0}".format(version))
+        return version  # Whichever version that this upgrade script last understands
 
     def _get_old_version(self):
         # TODO: Need old version discovery. Where do we get that from?
         version = self.app.ud.get('deployment_version', None)
         if not version:
             version = 1  # A version prior to version number being introduced
+        log.debug("Old deployment version: {0}".format(version))
+        return version
 
     def remove(self, synchronous=False):
         """

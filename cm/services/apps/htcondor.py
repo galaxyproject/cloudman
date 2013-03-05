@@ -34,7 +34,7 @@ class HTCondorService(ApplicationService):
         """
         Set the user define configuration values and restart condor.
         """
-        log.debug("Configuring Condor")
+        log.debug("Starting HTCondor service")
         self.state = service_states.STARTING
         self.configure_htcondor()
 
@@ -53,18 +53,17 @@ class HTCondorService(ApplicationService):
         """
         all_done = False
         try:
-            log.debug("configuring condor")
             htcondor_params = {}
             if self.srv_type == "master":
                 condor_template = Template(templates.HTCONDOR_MASTER_CONF_TEMPLATE)
-                log.debug(condor_template)
+                # log.debug("Condor template: {0}".format(condor_template))
                 htcondor_params["flock_host"] = self.flock_to
             else:
                 condor_template = Template(templates.HTCONDOR_WOORKER_CONF_TEMPLATE)
                 htcondor_params = {
                     "host": self.host
                 }
-            log.debug(str(htcondor_params))
+            log.debug("HTCondor params: {0}".format(str(htcondor_params)))
             condor_template = condor_template.substitute(htcondor_params)
             with open(paths.P_HTCONDOR_CONFIG_PATH, 'a') as f:
                 print >> f, condor_template
