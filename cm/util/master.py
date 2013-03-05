@@ -836,7 +836,9 @@ class ConsoleManager(BaseConsoleManager):
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
-        for svc in self.services:
+        full_svc_list = self.services[:]  # A copy to ensure consistency
+        for svc in full_svc_list:
+            log.debug("Initiating removal of service {0}".format(svc.name))
             svc.remove()
         if sd_instances:
             self.stop_worker_instances()
