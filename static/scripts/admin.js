@@ -62,7 +62,7 @@ function update(repeat_update){
                     $('#snapshotoverlay').hide();
                 }
                 if (data.master_is_exec_host === true) {
-                    $('#master_is_exec_host').html("Switch master not to run jobs");
+                    $('#master_is_exec_host').html("Switch master to not run jobs");
                 } else {
                     $('#master_is_exec_host').html("Switch master to run jobs");
                 }
