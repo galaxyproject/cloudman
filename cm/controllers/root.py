@@ -3,7 +3,6 @@ import re
 import logging
 import subprocess
 import json
-# from datetime import datetime
 
 from cm.framework import expose
 from cm.base.controller import BaseController
