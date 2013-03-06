@@ -83,7 +83,7 @@ class Volume(BlockStorage):
         details['DoT'] = "Yes" if self.static else "No"
         details['device'] = self.device
         details['volume_id'] = self.volume_id
-        details['from_snap'] = self.from_snapshot_id
+        details['from_snap'] = "No" if not self.from_snapshot_id else self.from_snapshot_id
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
@@ -550,7 +550,7 @@ class Volume(BlockStorage):
     def get_from_snap_id(self):
         """
         Returns the ID of the snapshot this volume was created from, ``None``
-        of the volume was not created from a snapshot.
+        if the volume was not created from a snapshot.
         """
         return self.from_snapshot_id
 
