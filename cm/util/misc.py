@@ -1,18 +1,22 @@
 #!/usr/bin/python
+
+import contextlib
+import datetime as dt
+import errno
 import logging
-import time
-import yaml
-from boto.s3.key import Key
-from boto.s3.acl import ACL
-from boto.exception import S3ResponseError
+import os
+import re
+import shutil
 import subprocess
 import threading
-import datetime as dt
+import time
+import yaml
+
+from boto.exception import S3ResponseError
+from boto.s3.acl import ACL
+from boto.s3.key import Key
+
 from tempfile import mkstemp, NamedTemporaryFile
-import shutil
-import os
-import contextlib
-import errno
 from cm.services import ServiceRole
 
 
@@ -843,3 +847,58 @@ class Sleeper(object):
         self.condition.acquire()
         self.condition.notify()
         self.condition.release()
+
+
+def nice_size(size):
+    """
+    Returns a readably formatted string with the size
+
+    >>> nice_size(100)
+    '100 bytes'
+    >>> nice_size(10000)
+    '9.8 KB'
+    >>> nice_size(1000000)
+    '976.6 KB'
+    >>> nice_size(100000000)
+    '95.4 MB'
+    """
+    words = [ 'bytes', 'KB', 'MB', 'GB', 'TB' ]
+    try:
+        size = float( size )
+    except:
+        return '??? bytes'
+    for ind, word in enumerate(words):
+        step  = 1024 ** (ind + 1)
+        if step > size:
+            size = size / float(1024 ** ind)
+            if word == 'bytes': # No decimals for bytes
+                return "%d bytes" % size
+            return "%.1f %s" % (size, word)
+    return '??? bytes'
+
+def size_to_bytes( size ):
+    """
+    Returns a number of bytes if given a reasonably formatted string with the size
+    """
+    # Assume input in bytes if we can convert directly to an int
+    try:
+        return int( size )
+    except:
+        pass
+    # Otherwise it must have non-numeric characters
+    size_re = re.compile( '([\d\.]+)\s*([tgmk]b?|b|bytes?)$' )
+    size_match = re.match( size_re, size.lower() )
+    assert size_match is not None
+    size = float( size_match.group(1) )
+    multiple = size_match.group(2)
+    if multiple.startswith( 't' ):
+        return int( size * 1024**4 )
+    elif multiple.startswith( 'g' ):
+        return int( size * 1024**3 )
+    elif multiple.startswith( 'm' ):
+        return int( size * 1024**2 )
+    elif multiple.startswith( 'k' ):
+        return int( size * 1024 )
+    elif multiple.startswith( 'b' ):
+        return int( size )
+
