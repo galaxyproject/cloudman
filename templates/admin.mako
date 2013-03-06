@@ -341,9 +341,6 @@
         <% if (typeof(from_snap) != "undefined") { %>
             <tr><th>From snapshot:</th><td><%= from_snap %></td>
         <% } %>
-        <% if (typeof(nfs_server) != "undefined") { %>
-            <tr><th>NFS server:</th><td><%= nfs_server %></td>
-        <% } %>
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
         <tr><th>Persistent:</th><td><%= persistent %></td>
@@ -356,20 +353,20 @@
         <td class="fs-td-20pct" style="font-size: 9px;">
         <!-- // Only display usage when the file system is 'Available' -->
         <style type="text/css">
-			/* Styling for the space usage meter element */
-			.space_usage {
-		        text-align: center;
-		        padding: 2px 2px 2px 2px;
-		    }
+            /* Styling for the space usage meter element */
+            .space_usage {
+                text-align: center;
+                padding: 2px 2px 2px 2px;
+            }
 
-			/* The percentage */
-			#fs-meter-<%= name %>:after {
-				content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
-			}
-		</style>
+            /* The percentage */
+            #fs-meter-<%= name %>:after {
+                content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+            }
+        </style>
         <% if (status === "Available" || status === "Running") { %>
             <meter id="fs-meter-<%= name %>" class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
-            	<%= size_used %>/<%= size %> (<%= size_pct %>%)
+                <%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
             <% if (snapshot_status != "" && snapshot_status != null) { %>
