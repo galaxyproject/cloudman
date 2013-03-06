@@ -373,25 +373,25 @@ vertical-align: top;
             % endif
                 <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
                     <label for="galaxy-cluster">
-	                <span style="display: block;margin-left: 20px;">
-	                    <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
-			% if 'galaxy' not in image_config_support.apps:
-						<u>NOTE</u>: The current machine image
-	                    does not support this cluster type option; click on 'Show more startup options'
-	                    so see the available cluster configuration options.
+                    <span style="display: block;margin-left: 20px;">
+                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
+            % if 'galaxy' not in image_config_support.apps:
+                        <u>NOTE</u>: The current machine image
+                        does not support this cluster type option; click on 'Show more startup options'
+                        so see the available cluster configuration options.
             % endif
-	                    Specify the initial storage size (in Gigabytes):
-	                </span>
+                        Specify the initial storage size (in Gigabytes):
+                    </span>
                     </label>
-	                <div style="text-align:left;margin-left: 18px">
-	                <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-	                <label for="galaxy-default-size">Default size (${default_data_size} GB)</label>
-	                <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
-	                <label for="galaxy-custom-size">Custom size:</label>
-	                <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
-	                </div>
+                    <div style="text-align:left;margin-left: 18px">
+                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
+                    <label for="galaxy-default-size">Default size (${default_data_size} GB)</label>
+                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
+                    <label for="galaxy-custom-size">Custom size:</label>
+                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
+                    </div>
                     <div style="height: 5px;">
-    	                <span style="margin-left: 247px;" id="g_pss_vtag"></span>
+                        <span style="margin-left: 247px;" id="g_pss_vtag"></span>
                     </div>
                 </p>
         </div>
@@ -399,10 +399,10 @@ vertical-align: top;
             <div class="form-row">
                 <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
                     <label for="share-cluster">
-                	<span style="display: block;margin-left: 20px;">
-	                    <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
-	                    Specify the provided cluster share-string (for example,
-	                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+                    <span style="display: block;margin-left: 20px;">
+                        <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
+                        Specify the provided cluster share-string (for example,
+                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
                     </span>
                     </label>
                 </p>
@@ -413,9 +413,9 @@ vertical-align: top;
             <div class="form-row">
                 <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
                     <label for="data-cluster">
-                	<span style="display: block;margin-left: 20px;">
-	                    <b>Data Cluster</b>: a persistent data volume and SGE.
-	                    Specify the initial storage size (in Gigabytes):
+                    <span style="display: block;margin-left: 20px;">
+                        <b>Data Cluster</b>: a persistent data volume and SGE.
+                        Specify the initial storage size (in Gigabytes):
                     </span>
                     </label>
                 </p>
@@ -426,7 +426,7 @@ vertical-align: top;
                 <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left" id="sge-cluster">
                 <label for="sge-cluster">
                 <span style="display: block;margin-left: 20px;">
-                	<b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
+                    <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
                 </span>
                 </label>
             </div>
