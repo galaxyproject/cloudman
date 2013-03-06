@@ -2456,7 +2456,7 @@ class Instance(object):
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_m_state_change).seconds),
                 dt.timedelta(seconds=(dt.datetime.utcnow() - self.time_rebooted).seconds)))
-            if (dt.datetime.utcnow() - self.last_comm).seconds > 100 and \
+            if (dt.datetime.utcnow() - self.last_comm).seconds > 180 and \
                (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
                (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
                 reboot_terminate_logic()
