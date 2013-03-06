@@ -2,6 +2,7 @@ import time
 import urllib
 import socket
 
+import boto
 from boto.exception import BotoServerError
 from boto.exception import EC2ResponseError
 from boto.s3.connection import S3Connection
@@ -24,6 +25,10 @@ class EC2Interface(CloudInterface):
         self.update_frequency = 60
         self.public_hostname_updated = time.time()
         self.set_configuration()
+        try:
+            log.debug("Using boto version {0}".format(boto.__version__))
+        except:
+            pass
 
     def get_ami(self):
         if self.ami is None:
@@ -304,8 +309,7 @@ class EC2Interface(CloudInterface):
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
                               "Returning default EC2 connection.")
-                    self.ec2_conn = EC2Connection(
-                        self.aws_access_key, self.aws_secret_key)
+                    self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
                     return self.ec2_conn
                 log.debug('Establishing boto EC2 connection')
                 # Make sure we get a connection for the correct region
