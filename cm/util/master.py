@@ -2148,7 +2148,9 @@ class ConsoleMonitor(object):
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
-            cc['deployment_version'] = self.app.ud.get('deployment_version', self.app.DEPLOYMENT_VERSION)
+            # If 'deployment_version' is not in UD, don't store it in the config
+            if 'deployment_version' in self.app.ud:
+                cc['deployment_version'] = self.app.ud['deployment_version']
             misc.dump_yaml_to_file(cc, file_name)
             # Reload the user data object in case anything has changed
             self.app.ud = misc.merge_yaml_objects(cc, self.app.ud)
