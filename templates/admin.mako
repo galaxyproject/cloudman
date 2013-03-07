@@ -13,7 +13,7 @@
 
 	<header>
 		<h2>CloudMan Admin Console</h2>
-		<div id="main_text">
+		<div>
 			<span class="lead">
 				This admin panel is a convenient way to gain insight into the status
 				of individual CloudMan services as well as to control those services.
@@ -32,7 +32,7 @@
 
 	<section id="service_controls" ng-controller="ServiceController">
 		<div>
-			<h3>Services controls</h3>
+			<h3>Service controls</h3>
 		</div>
 		<p>
 			Use these controls to administer individual application services
@@ -52,7 +52,7 @@
 			<tbody ng-repeat="svc in getServices()" ng-switch on="svc.svc_name">
 				<tr id="service_row_{{svc.svc_name}}" style="text-align:left">
 					<td>
-						<a ng-click="expandServiceDetails()" ng-show="svc.requirements"><i class="icon-plus"></i></a>
+						<a ng-click="expandServiceDetails()" ng-show="svc.requirements"><i ng-class="{'icon-caret-right': !is_service_visible(), 'icon-caret-down': is_service_visible()}"></i></a>
 					</td>
 					<td ng-bind="svc.svc_name" />
 					<td ng-bind="svc.status" />
@@ -70,32 +70,58 @@
 				<tr id="service_detail_row_{{svc.svc_name}}" ng-show="is_service_visible()">
 					<td></td>
 					<td colspan="9">
-						<div>
-							<strong>Required Services:</strong>
-							<table width="600px" style="margin:10px 0; text-align:left">
-								<thead>
-									<tr>
-										<th width="30%">Requirement Name</th>
-										<th width="20%">Type</th>
-										<th width="20%">Assigned Service</th>
+						<form name="form_assigned_service" ng-controller="AssignedServiceController" ng-switch on="is_editing">
+							<div ng-switch-when="false">
+								<strong>Required Services:</strong>
+								<table width="600px" style="margin:10px 0; text-align:left">
+									<thead>
+										<tr>
+											<th width="30%">Requirement Name</th>
+											<th width="20%">Type</th>
+											<th width="20%">Assigned Service</th>
+										</tr>
+									</thead>
+									<tr ng-repeat="req in record.requirements">
+										<td>{{req.display_name}}</td>
+										<td>{{req.type}}</td>
+										<td>{{req.assigned_service}}</td>
 									</tr>
-								</thead>
-								<tr ng-repeat="req in svc.requirements">
-									<td>{{req.display_name}}</td>
-									<td>{{req.type}}</td>
-									<td>
-										<div ng-switch on="req.type">
-											<div ng-switch-when="APPLICATION">{{req.assigned_service}}</div>
-											<div ng-switch-when="FILE_SYSTEM">
-												<select id="assigned_fs_{{svc.name}}_{{req.role}"
-													ng-model="req.assigned_service"
-													ng-options="fs.name as fs.name for fs in getAvailableFileSystems()" />
+								</table>
+								<button class="btn btn-small btn-warning" ng-click="beginEdit(record)"><i class="icon-edit"></i>&nbsp;Reassign services</button>
+							</div>
+							<div ng-switch-when="true">
+								<strong>Required Services:</strong>
+								<table width="600px" style="margin:10px 0; text-align:left">
+									<thead>
+										<tr>
+											<th width="30%">Requirement Name</th>
+											<th width="20%">Type</th>
+											<th width="20%">Assigned Service</th>
+											<th width="20%">Copy Data Across</th>
+										</tr>
+									</thead>
+									<tr ng-repeat="req in record.requirements">
+										<td>{{req.display_name}}</td>
+										<td>{{req.type}}</td>
+										<td>
+											<div ng-switch on="req.type">
+												<div ng-switch-when="APPLICATION">{{req.assigned_service}}</div>
+												<div ng-switch-when="FILE_SYSTEM">
+													<select id="assigned_fs_{{svc.name}}_{{req.role}"
+														ng-model="req.assigned_service"
+														ng-options="fs.name as fs.name for fs in getAvailableFileSystems()" />
+												</div>
 											</div>
-										</div>
-									</td>
-								</tr>
-							</table>
-						</div>
+										</td>
+										<td>
+											<input ui-if="req.type=='FILE_SYSTEM'" type="checkbox" ng-model="req.copy_across" value="true" />
+										</td>
+									</tr>
+								</table>
+								<button class="btn btn-small btn-warning" ng-click="save(record, '${h.url_for(controller='root', action='reassign_services')}')" ng-disabled="form_assigned_service.$invalid || isUnchanged(record)"><i class="icon-save"></i>&nbsp;Update</button>
+								<button class="btn btn-small" ng-click="cancelEdit(record)"><i class="icon-undo"></i>&nbsp;Cancel</button>
+							</div>
+						</form>						
 					</td>
 				</tr>
 			</tbody>
@@ -166,7 +192,7 @@
 				<!-- Add new button row -->
 				<div class="row-fluid" ng-show="!is_adding_fs">
 					<div class="span12">
-						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>Add New</button>
+						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
 					</div>
 				</div>
 				
@@ -508,8 +534,8 @@
 	            the created snapshot will not be kept.
 	        </div>
 	        <div class="modal-footer">
-	        	<button ng-click="resize($event)" class="btn btn-primary" >Resize {{ fs.name }} file system</button>
-	      		<button ng-click="cancel($event)" class="btn btn-primary" >Cancel</button>  
+	        	<button ng-click="resize($event)" class="btn btn-warning" >Resize {{ fs.name }} file system</button>
+	      		<button ng-click="cancel($event)" class="btn" >Cancel</button>  
 	        </div>
 	        <input name="fs_name" type="hidden" value="{{fs.name}}" />
         </div>
@@ -527,8 +553,8 @@
 				Then, the file system will be unmounted and the underlying device disconnected from this instance.
 		        </p>    
 	        <div class="modal-footer">
-	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" >Confirm</button>
-	      		<button ng-click="cancel($event, 'cancel')" class="btn btn-primary" >Cancel</button>  
+	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-warning" >Remove</button>
+	      		<button ng-click="cancel($event, 'cancel')" class="btn" >Cancel</button>  
 	        </div>
         </form>
     </script> 

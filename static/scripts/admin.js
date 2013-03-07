@@ -276,16 +276,17 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 				_master_is_exec_host = data.master_is_exec_host;
 				_galaxy_dns = data.galaxy_dns;
 				var messages = data.messages;				
-				processSystemMessages(messages);
+				_processSystemMessages(messages);
     		});
 			resumeDataService();
 	    };
 	    
 	    var resumeDataService = function () {
+	    	$timeout.cancel(_admin_data_timeout_id); // cancel any existing timers
 			_admin_data_timeout_id = $timeout(poll_admin_data, 10000, true);
 		};
 		
-		var processSystemMessages = function(messages) {
+		var _processSystemMessages = function(messages) {
 			for (msg in messages) {
 				var txt = msg + ' (' + msg.added_at.split('.')[0] + ')';
 				// Mark CRITICAL msgs & show additional help text
@@ -640,4 +641,57 @@ function FSResizeDialogController($scope, dialog, fs, cmAlertService) {
 	    });	  	
 	    dialog.close('confirm');
 	  };
+}
+
+
+function AssignedServiceController($scope, $element, $http, cmAlertService, cmAdminDataService) {
+  $scope.is_editing = false;
+  $scope.master = $scope.svc
+  $scope.record = angular.copy($scope.master);
+
+  $scope.save = function(record, url) {
+  
+  	var dto = { svc_name: record.svc_name,
+    			requirements: record.requirements
+	};  
+	$http({
+		method: 'POST',
+        url: url,
+        data: JSON.stringify(dto),
+        headers: {'Content-Type': 'application/json'}
+	}).success(function(data, status) {
+    	cmAlertService.addAlert(data, "info");
+	}).error(function(data, status) {
+    	cmAlertService.addAlert(data, "error");
+	}); 
+	
+    $scope.master = angular.copy(record);
+    $scope.is_editing = false;
+    cmAdminDataService.resumeDataService();
+    return false;
+  };
+ 
+  $scope.isUnchanged = function(record) {
+    return angular.equals(record, $scope.master);
+  };
+  
+  $scope.beginEdit = function(record) {
+    $scope.is_editing = true;
+    $scope.record = angular.copy($scope.master);
+    cmAdminDataService.pauseDataService();
+  };
+  
+  $scope.cancelEdit = function(record) {
+  	$scope.record = angular.copy($scope.master);
+    $scope.is_editing = false;
+    cmAdminDataService.resumeDataService();
+  };
+  
+  $scope.isReassignable = function(record) {
+  	for (req in record.requirements) {
+  		if (req.type == 'FILE_SYSTEM')
+  			return true;
+    }
+  	return false;
+  };
 }
