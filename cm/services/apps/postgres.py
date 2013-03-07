@@ -21,19 +21,22 @@ class PostgresService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
         self.svc_roles = [ServiceRole.GALAXY_POSTGRES]
         self.psql_port = paths.C_PSQL_PORT
-        self.reqs = [ServiceDependency(self, ServiceRole.GALAXY_DATA)]
+        self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
+                     ServiceDependency(self, ServiceRole.MIGRATION)]
 
     def start(self):
         self.state = service_states.STARTING
         self.manage_postgres(True)
 
-    def remove(self):
+    def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
-        super(PostgresService, self).remove()
+        super(PostgresService, self).remove(synchronous)
         # Stop only if currently running
         if self.state == service_states.RUNNING:
             self.state = service_states.SHUTTING_DOWN
             self.manage_postgres(False)
+        elif self.state == service_states.UNSTARTED:
+            self.state = service_states.SHUT_DOWN
         else:
             log.debug("{0} service is not running (state: {1}) so not stopping it."
                       .format(self.name, self.state))
@@ -148,7 +151,8 @@ class PostgresService(ApplicationService):
             # Stop PostgreSQL database
             log.info("Stopping PostgreSQL...")
             self.state = service_states.SHUTTING_DOWN
-            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"' % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port), "Encountered problem while stopping PostgreSQL", "Successfully stopped PostgreSQL"):
+            if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"'
+                % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
                 self.state = service_states.SHUT_DOWN
             else:
                 self.state = service_states.ERROR

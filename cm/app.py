@@ -30,6 +30,7 @@ class UniverseApplication(object):
     def __init__(self, **kwargs):
         print "Python version: ", sys.version_info[:2]
         self.PERSISTENT_DATA_VERSION = 3  # Current expected and generated PD version
+        self.DEPLOYMENT_VERSION = 2
         cc = CloudConfig(app=self)
         # Get the type of cloud currently running on
         self.cloud_type = cc.get_cloud_type()
@@ -85,10 +86,15 @@ class UniverseApplication(object):
         self.manager = None
         if self.use_object_store and 'bucket_cluster' in self.ud:
             log.debug("Getting pd.yaml")
-            if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(), self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
+            if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(),
+                self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
                 self.ud = misc.normalize_user_data(self, self.ud)
+            else:
+                log.debug("Setting deployment_version to {0}".format(self.DEPLOYMENT_VERSION))
+                # This is a new cluster so default to the current version
+                self.ud['deployment_version'] = self.DEPLOYMENT_VERSION
 
     def startup(self):
         if 'role' in self.ud:
@@ -103,7 +109,7 @@ class UniverseApplication(object):
             self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
         else:
-            log.error("************ No ROLE in %s - this is a fatal error. ************" %
+            log.critical("************ No ROLE in %s - this is a fatal error. ************" %
                       paths.USER_DATA_FILE)
 
     def shutdown(self, delete_cluster=False):

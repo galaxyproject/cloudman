@@ -3,7 +3,6 @@ import re
 import logging
 import subprocess
 import json
-# from datetime import datetime
 
 from cm.framework import expose
 from cm.base.controller import BaseController
@@ -123,7 +122,7 @@ class CM(BaseController):
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances' : [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -131,11 +130,12 @@ class CM(BaseController):
         return trans.fill_template('mini_control.mako')
 
     @expose
-    def get_cluster_type(self, trans):
+    def cluster_type(self, trans):
         """
-        Get the type of the cluster that's been configured
+        Get the type of the cluster that's been configured as a JSON dict
         """
-        return self.app.manager.initial_cluster_type
+        cluster_type = {'cluster_type': self.app.manager.initial_cluster_type}
+        return json.dumps(cluster_type)
 
     @expose
     def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
@@ -545,6 +545,29 @@ class CM(BaseController):
                 return comment
         else:
             comment = "No admin users provided: '%s'" % admin_users
+            log.warning(comment)
+            return comment
+
+    @expose
+    def add_flocking_ip(self, trans, fDNS):
+        """
+        adding remote resource IP as a flocking IP into condor,
+        allowing a local condor job to be run over a remote condor
+        machine.
+
+        The remote resource should have provided us with enough
+        privilege such as allow_write and flock_from variables
+        in their condor config file.
+        """
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.HTCONDOR)
+        if len(svcs) > 0:
+            svcs[0].modify_htcondor("FLOCK_TO", "{0}".format(fDNS))
+            svcs[0].modify_htcondor("ALLOW_WRITE", "{0}".format(fDNS))
+            msg = "HTCondor flock IP {0} added".format(fDNS)
+            log.info(msg)
+            return msg
+        else:
+            comment = "HTCondor service not found."
             log.warning(comment)
             return comment
 

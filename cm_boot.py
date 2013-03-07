@@ -134,7 +134,7 @@ def _start_nginx(ud):
     _configure_nginx(ud)
     _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
-    upload_store_dir = ''
+    upload_store_dir = '/mnt/galaxyData/upload_store'
     nginx_dir = _get_nginx_dir()
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
@@ -241,6 +241,11 @@ def _fix_nginx_upload(ud):
         nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
     elif os.path.exists("/usr/nginx/conf/nginx.conf"):
         nginx_conf_path = "/usr/nginx/conf/nginx.conf"
+    elif os.path.exists("/opt/cloudman/pkg/nginx/conf/nginx.conf"):
+        nginx_conf_path = "/opt/cloudman/pkg/nginx/conf/nginx.conf"
+    else:
+        # TODO: Search for nginx.conf?
+        nginx_conf_path = ''
     nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
     log.info("Attempting to configure max_client_body_size in {0}".format(
         nginx_conf_path))
@@ -561,7 +566,7 @@ def main():
         # ``run.sh``?
         _run('easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
         _run('easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run('easy_install boto==2.6.0')  # required for older AMIs
+        _run('easy_install boto==2.3.0')  # required for older AMIs
         _run('easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)

@@ -16,6 +16,7 @@ from cm.services.apps import ApplicationService
 from cm.util import paths, templates
 from cm.services import service_states
 from cm.services import ServiceRole
+from cm.services import ServiceDependency
 from cm.util import misc
 
 import logging
@@ -27,6 +28,7 @@ class SGEService(ApplicationService):
         super(SGEService, self).__init__(app)
         self.svc_roles = [ServiceRole.SGE]
         self.name = ServiceRole.to_string(ServiceRole.SGE)
+        self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.hosts = []
 
     def start(self):
@@ -38,10 +40,10 @@ class SGEService(ApplicationService):
             log.error("Error adding service '%s'" % self.name)
             self.state = service_states.ERROR
 
-    def remove(self):
+    def remove(self, synchronous=False):
         # TODO write something to clean up SGE in the case of restarts?
         log.info("Removing SGE service")
-        super(SGEService, self).remove()
+        super(SGEService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
         for inst in self.app.manager.worker_instances:
             if not inst.is_spot() or inst.spot_was_filled():
@@ -179,7 +181,7 @@ class SGEService(ApplicationService):
 
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
             all_q_template = Template(templates.ALL_Q_TEMPLATE)
-            if self.app.ud.get('hadoop_enabled', True):    
+            if self.app.ud.get('hadoop_enabled', True):
                 all_q_params = {
                     "prolog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstart.sh"),
                     "epilog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstop.sh")

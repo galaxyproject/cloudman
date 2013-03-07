@@ -24,7 +24,7 @@ class ApplicationService(Service):
         """Check if 'service' daemon process is running.
 
         :rtype: bool
-        :return: True if a process assocaited with the 'service' exists on the system,
+        :return: True if a process associated with the 'service' exists on the system,
                  False otherwise.
         """
         daemon_pid = self._get_daemon_pid(service)

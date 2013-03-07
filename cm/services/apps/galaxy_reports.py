@@ -10,7 +10,7 @@ from cm.util import misc
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
-from cm.services.apps.galaxy import GalaxyService
+from cm.util.galaxy_conf import DirectoryGalaxyOptionManager
 
 import logging
 log = logging.getLogger('cloudman')
@@ -23,7 +23,7 @@ class GalaxyReportsService(ApplicationService):
         self.galaxy_home = self.app.path_resolver.galaxy_home
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
-        self.reqs = [ServiceDependency(
+        self.dependencies = [ServiceDependency(
             self, ServiceRole.GALAXY)]  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
         self.conf_dir = os.path.join(
             self.app.path_resolver.galaxy_home, 'reports.conf.d')
@@ -48,27 +48,24 @@ class GalaxyReportsService(ApplicationService):
                 self.start = service_states.ERROR
 
     def _setup(self):
-        # setup config dir
-        conf_dir = self.conf_dir
-        GalaxyService.initialize_galaxy_config_dir(
-            conf_dir, 'reports_wsgi.ini')
-        # This will ensure galaxy's run.sh file picks up the config dir.
-        cloudman_specific_config = os.path.join(conf_dir, "020_cloudman.ini")
-        if not os.path.exists(cloudman_specific_config):
-            open(cloudman_specific_config, 'w').write("""
-[filter:proxy-prefix]
-use = egg:PasteDeploy#prefix
-prefix = /reports
+        reports_option_manager = \
+            DirectoryGalaxyOptionManager(self.app, conf_dir=self.conf_dir, conf_file_name='reports_wsgi.ini')
+        reports_option_manager.setup()
+        main_props = {
+            # Place dummy database_connection for run_reports.sh's --sync-config option to replace
+            'database_connection': 'dummy',
+            'filter-with': 'proxy-prefix',
+        }
+        proxy_props = {
+            'use': 'egg:PasteDeploy#prefix',
+            'prefix': '/reports',
+        }
+        reports_option_manager.set_properties(main_props, section='app:main', description='app_main_props')
+        reports_option_manager.set_properties(proxy_props, section='filter:proxy-prefix', description='proxy_prefix_props')
 
-[app:main]
-# Place dummy database_connection for run_reports.sh's --sync-config option to replace
-database_connection = dummy
-filter-with = proxy-prefix
-""")
-
-    def remove(self):
+    def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
-        super(GalaxyReportsService, self).remove()
+        super(GalaxyReportsService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
         log.info("Shutting down Galaxy Reports...")
         if self._run("stop"):

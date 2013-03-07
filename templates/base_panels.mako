@@ -12,7 +12,6 @@ from routes import url_for
 <%def name="stylesheets()">
 <!--  <link href="${h.url_for('/static/style/masthead.css')}" rel="stylesheet" type="text/css" /> -->
   <link href="${h.url_for('/static/bootstrap/css/bootstrap.min.css')}" rel="stylesheet" type="text/css" />
-  <link href="${h.url_for('/static/font-awesome/css/font-awesome.min.css')}" rel="stylesheet" type="text/css" />
   <link href="${h.url_for('/static/style/base.css')}" rel="stylesheet" type="text/css" />
 </%def>
 
@@ -28,7 +27,6 @@ from routes import url_for
   <script type='text/javascript' src="${h.url_for('/static/scripts/livevalidation_standalone.compressed.js')}"></script>
   <script type='text/javascript' src="${h.url_for('/static/bootstrap/js/bootstrap.min.js')}"></script>
   <script type='text/javascript' src="http://code.angularjs.org/1.1.2/angular.min.js"></script>
-  <script type='text/javascript' src="https://raw.github.com/angular-ui/angular-ui/master/build/angular-ui.min.js"></script>
   <script type='text/javascript' src="${h.url_for('/static/scripts/ui-bootstrap-tpls-0.1.0.js')}"></script>
 </%def>
 
@@ -41,9 +39,9 @@ from routes import url_for
 <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
-          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan <small>from Galaxy</small></a>
+          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan for Galaxy</a>
           <div class="nav-collapse collapse">
-            <ul class="nav pull-right">
+            <ul class="nav pull-right" >
 		      %if CM_url:
 			  <li>
 		        <span id='cm_update_message'>
@@ -55,9 +53,9 @@ from routes import url_for
 		         <span style='display:none' id="update_reboot_now"><a href="#">Restart cluster now?</a></span>&nbsp;&nbsp;&nbsp;
               </li>
 		      %endif
-              <li class=""><a href="${h.url_for(controller='root', action='admin')}"><i class="icon-cog"></i>Admin</a></li>
+              <li class="active"><a href="${h.url_for(controller='root', action='admin')}">Admin</a></li>
               <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="icon-info-sign"></i>Help <b class="caret"></b></a>
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Help <b class="caret"></b></a>
                 <ul class="dropdown-menu">
                   <li><a target="_blank" href="http://usegalaxy.org/cloud">Wiki</a></li>
               	  <li><a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">Screencast</a></li>
@@ -72,7 +70,7 @@ from routes import url_for
 </%def>
 
 ## Document
-<html lang="en">
+<html lang="en" ng-app="cloudman">
   <head>
     <title>${self.title()}</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -96,8 +94,12 @@ from routes import url_for
     ${next.body()}
 
 
+	<hr />
+
     <footer>
+      <p>&copy; CloudMan</p>
 	</footer>
+
 
   </body>
   ## Scripts can be loaded later since they progressively add features to
