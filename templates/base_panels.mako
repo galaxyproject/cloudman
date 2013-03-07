@@ -12,6 +12,7 @@ from routes import url_for
 <%def name="stylesheets()">
 <!--  <link href="${h.url_for('/static/style/masthead.css')}" rel="stylesheet" type="text/css" /> -->
   <link href="${h.url_for('/static/bootstrap/css/bootstrap.min.css')}" rel="stylesheet" type="text/css" />
+  <link href="${h.url_for('/static/font-awesome/css/font-awesome.min.css')}" rel="stylesheet" type="text/css" />
   <link href="${h.url_for('/static/style/base.css')}" rel="stylesheet" type="text/css" />
 </%def>
 
@@ -40,7 +41,7 @@ from routes import url_for
 <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
-          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan for Galaxy</a>
+          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan <small>from Galaxy</small></a>
           <div class="nav-collapse collapse">
             <ul class="nav pull-right">
 		      %if CM_url:
@@ -54,9 +55,9 @@ from routes import url_for
 		         <span style='display:none' id="update_reboot_now"><a href="#">Restart cluster now?</a></span>&nbsp;&nbsp;&nbsp;
               </li>
 		      %endif
-              <li class="active"><a href="${h.url_for(controller='root', action='admin')}">Admin</a></li>
+              <li class=""><a href="${h.url_for(controller='root', action='admin')}"><i class="icon-cog"></i>Admin</a></li>
               <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Help <b class="caret"></b></a>
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="icon-info-sign"></i>Help <b class="caret"></b></a>
                 <ul class="dropdown-menu">
                   <li><a target="_blank" href="http://usegalaxy.org/cloud">Wiki</a></li>
               	  <li><a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">Screencast</a></li>

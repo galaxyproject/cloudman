@@ -245,6 +245,23 @@ class CM(BaseController):
         return "Initiated file system addition"
 
     @expose
+    def reassign_services(self, trans, **kwargs):
+        """
+        Reassign the service fullfilling a particular dependency. Currently only
+        works with filesystems. For example, a filesystem fulfilling the role GALAXY_DATA
+        could be reassigned to a new file system.  If the copy_across parameter is set, the
+        old filesystem will be rsynced with the new one. This is mainly so that users using one type
+        of filesystem (say volumes) can easily migate 
+        """
+        service_to_process = json.loads(trans.request.body)
+        svc_name = service_to_process.get('svc_name', None)
+        svc = self.app.manager.get_services(svc_name=svc_name)
+        if svc:
+            return "Initiating file system reassignment"
+        else:
+            return "Service not found!"
+
+    @expose
     def power(self, trans, number_nodes=0, pss=None):
         if self.app.manager.get_cluster_status() == 'OFF':  # Cluster is OFF, initiate start procedure
             try:
