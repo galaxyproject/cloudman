@@ -1,18 +1,22 @@
 #!/usr/bin/python
+
+import contextlib
+import datetime as dt
+import errno
 import logging
-import time
-import yaml
-from boto.s3.key import Key
-from boto.s3.acl import ACL
-from boto.exception import S3ResponseError
+import os
+import re
+import shutil
 import subprocess
 import threading
-import datetime as dt
+import time
+import yaml
+
+from boto.exception import S3ResponseError
+from boto.s3.acl import ACL
+from boto.s3.key import Key
+
 from tempfile import mkstemp, NamedTemporaryFile
-import shutil
-import os
-import contextlib
-import errno
 from cm.services import ServiceRole
 
 
@@ -109,17 +113,18 @@ def normalize_user_data(app, ud):
                 ud.pop('data_filesystems')
                 if 'cluster_type' not in ud:
                     ud['cluster_type'] = 'Data'
-            if 'services' in ud:
-                old_svc_list = ud['services']
-                ud['services'] = []
-                    # clear 'services' and replace with the new format
-                for svc in old_svc_list:
-                    if 'roles' not in svc:
-                        normalized_svc = {'name': svc['service'], 'roles':
-                                          ServiceRole.legacy_convert(svc['service'])}
-                        ud['services'].append(normalized_svc)
             if 'galaxy_home' in ud:
                 ud.pop('galaxy_home')
+        if 'services' in ud and 'service' in ud['services'][0]:
+            log.debug("Normalizing v1 service user data")
+            old_svc_list = ud['services']
+            ud['services'] = []
+                # clear 'services' and replace with the new format
+            for svc in old_svc_list:
+                if 'roles' not in svc:
+                    normalized_svc = {'name': svc['service'], 'roles':
+                                      ServiceRole.legacy_convert(svc['service'])}
+                    ud['services'].append(normalized_svc)
     return ud
 
 
@@ -695,7 +700,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
-def run(cmd, err=None, ok=None, quiet=False):
+def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     """
     Convenience method for executing a shell command ``cmd``. Returns
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
@@ -710,7 +715,7 @@ def run(cmd, err=None, ok=None, quiet=False):
     if ok is None:
         ok = "'%s' command OK" % cmd
     process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
@@ -842,3 +847,58 @@ class Sleeper(object):
         self.condition.acquire()
         self.condition.notify()
         self.condition.release()
+
+
+def nice_size(size):
+    """
+    Returns a readably formatted string with the size
+
+    >>> nice_size(100)
+    '100 bytes'
+    >>> nice_size(10000)
+    '9.8 KB'
+    >>> nice_size(1000000)
+    '976.6 KB'
+    >>> nice_size(100000000)
+    '95.4 MB'
+    """
+    words = [ 'bytes', 'KB', 'MB', 'GB', 'TB' ]
+    try:
+        size = float( size )
+    except:
+        return '??? bytes'
+    for ind, word in enumerate(words):
+        step  = 1024 ** (ind + 1)
+        if step > size:
+            size = size / float(1024 ** ind)
+            if word == 'bytes': # No decimals for bytes
+                return "%d bytes" % size
+            return "%.1f %s" % (size, word)
+    return '??? bytes'
+
+def size_to_bytes( size ):
+    """
+    Returns a number of bytes if given a reasonably formatted string with the size
+    """
+    # Assume input in bytes if we can convert directly to an int
+    try:
+        return int( size )
+    except:
+        pass
+    # Otherwise it must have non-numeric characters
+    size_re = re.compile( '([\d\.]+)\s*([tgmk]b?|b|bytes?)$' )
+    size_match = re.match( size_re, size.lower() )
+    assert size_match is not None
+    size = float( size_match.group(1) )
+    multiple = size_match.group(2)
+    if multiple.startswith( 't' ):
+        return int( size * 1024**4 )
+    elif multiple.startswith( 'g' ):
+        return int( size * 1024**3 )
+    elif multiple.startswith( 'm' ):
+        return int( size * 1024**2 )
+    elif multiple.startswith( 'k' ):
+        return int( size * 1024 )
+    elif multiple.startswith( 'b' ):
+        return int( size )
+

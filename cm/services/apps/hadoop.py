@@ -24,7 +24,7 @@ class HadoopService(ApplicationService):
         super(HadoopService, self).__init__(app)
         self.svc_roles = [ServiceRole.HADOOP]
         self.name = ServiceRole.to_string(ServiceRole.HADOOP)
-        self.reqs = [ServiceDependency(self, ServiceRole.SGE)]
+        self.dependencies = [ServiceDependency(self, ServiceRole.SGE)]
         self.id_rsa_path = os.path.join(paths.P_HADOOP_HOME, "id_rsa")
         self.id_rsa_pub_key_path = os.path.join(
             paths.P_HADOOP_HOME, "id_rsa.pub")
@@ -53,11 +53,12 @@ class HadoopService(ApplicationService):
             log.error("Error adding service '%s'" % self.svc_type)
             self.state = service_states.ERROR
 
-    def remove(self):
+    def remove(self, synchronous=False):
         """
         Remove Hadoop related files from the system.
         """
         log.info("Removing Hadoop service")
+        super(HadoopService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
         self._clean()
         self.state = service_states.SHUT_DOWN
@@ -217,7 +218,7 @@ class HadoopService(ApplicationService):
         ``check_sge``) by setting ``self.state``, whose value is always the method's
         return value.
         """
-        ## TODO: Add actual logic to make sure  Hadoop jobs run
+        # # TODO: Add actual logic to make sure  Hadoop jobs run
         if self.state == service_states.RUNNING:
             return service_states.RUNNING
         else:

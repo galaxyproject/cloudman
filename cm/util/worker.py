@@ -19,6 +19,7 @@ from cm.services import ServiceRole
 from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.hadoop import HadoopService
+from cm.services.apps.htcondor import HTCondorService
 
 log = logging.getLogger('cloudman')
 
@@ -337,6 +338,13 @@ class ConsoleManager(BaseConsoleManager):
         self.hadoop = HadoopService(self.app)
         self.hadoop.configure_hadoop()
 
+    def start_condor(self, host_ip):
+        """
+        Configure and start condor worker node to join the master pool.
+        """
+        self.condor = HTCondorService(self.app, "worker", host_ip)
+        self.condor.start()
+
     # #<KWS>
     # Updating etc host by fetching the master's etc/hosts file
     # # this is necessary for hadoop ssh component
@@ -462,6 +470,7 @@ class ConsoleMonitor(object):
             self.app.manager.unmount_nfs()
             self.app.manager.mount_nfs(self.app.ud['master_ip'])
             self.send_alive_message()
+
         elif message.startswith("MASTER_PUBKEY"):
             m_key = message.split(' | ')[1]
             log.info(
@@ -487,6 +496,7 @@ class ConsoleMonitor(object):
                     "Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
+            self.app.manager.start_condor(self.app.ud['master_public_ip'])
             self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
@@ -500,14 +510,11 @@ class ConsoleMonitor(object):
         elif message.startswith("ADDS3FS"):
             bucket_name = message.split(' | ')[1]
             svc_roles = message.split(' | ')[2]
-            log.info(
-                "Adding s3fs file system from bucket {0}".format(bucket_name))
-            fs = Filesystem(
-                self.app, bucket_name, ServiceRole.from_string(svc_roles))
+            log.info("Adding s3fs file system from bucket {0}".format(bucket_name))
+            fs = Filesystem(self.app, bucket_name, ServiceRole.from_string_array(svc_roles))
             fs.add_bucket(bucket_name)
             fs.add()
-            log.debug(
-                "Worker done adding FS from bucket {0}".format(bucket_name))
+            log.debug("Worker done adding FS from bucket {0}".format(bucket_name))
         # elif message.startswith("ADD_NFS_FS"):
         #     nfs_server_info = message.split(' | ')[1]
         #     # Try to load NFS server info from JSON message body
