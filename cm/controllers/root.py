@@ -100,6 +100,11 @@ class CM(BaseController):
         log.warning(msg)
         return msg
 
+    @expose
+    def cloudman_version(self, trans):
+        dict_version = {'version': self.app.DEPLOYMENT_VERSION}
+        return json.dumps(dict_version)
+
     def get_CM_url(self, trans):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
