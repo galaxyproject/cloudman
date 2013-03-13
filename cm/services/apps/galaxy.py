@@ -22,6 +22,8 @@ from cm.util.galaxy_conf import populate_admin_users
 import logging
 log = logging.getLogger('cloudman')
 
+NUM_START_ATTEMPTS = 2  # Number of times we attempt to start Galaxy
+
 
 class GalaxyService(ApplicationService):
 
@@ -29,18 +31,20 @@ class GalaxyService(ApplicationService):
         super(GalaxyService, self).__init__(app)
         self.name = ServiceRole.to_string(ServiceRole.GALAXY)
         self.svc_roles = [ServiceRole.GALAXY]
+        self.remaining_start_attempts = NUM_START_ATTEMPTS
         self.configured = False  # Indicates if the environment for running Galaxy has been configured
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {
-                         "SGE_ROOT": self.app.path_resolver.sge_root,
-                         "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
-                         }
-        self.dependencies = [ServiceDependency(self, ServiceRole.SGE),
-                     ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
-                     ServiceDependency(self, ServiceRole.GALAXY_DATA),
-                     ServiceDependency(self, ServiceRole.GALAXY_INDICES),
-                     ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
-                     ]
+            "SGE_ROOT": self.app.path_resolver.sge_root,
+            "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
+        }
+        self.dependencies = [
+            ServiceDependency(self, ServiceRole.SGE),
+            ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
+            ServiceDependency(self, ServiceRole.GALAXY_DATA),
+            ServiceDependency(self, ServiceRole.GALAXY_INDICES),
+            ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
+        ]
         self.option_manager = galaxy_option_manager(app)
 
     @property
@@ -100,7 +104,7 @@ class GalaxyService(ApplicationService):
             # process case inline with defaults for for multiple process case (i.e.
             # when GALAXY_RUN_ALL is set and multiple servers are defined).
             self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
-        if to_be_started:
+        if to_be_started and self.remaining_start_attempts > 0:
             self.status()
             # If not provided as part of user data, update nginx conf with
             # current paths
@@ -127,7 +131,7 @@ class GalaxyService(ApplicationService):
                         f_path = os.path.join(self.galaxy_home, f_name)
                         if not os.path.exists(f_path):
                             if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
-                                '{0}.cloud'.format(f_name), f_path):
+                                    '{0}.cloud'.format(f_name), f_path):
                                 # We did not get the config file from cluster's
                                 # bucket so get it from the default bucket
                                 log.debug("Did not get Galaxy configuration file " +
@@ -185,6 +189,7 @@ class GalaxyService(ApplicationService):
                 #     f.write('export PATH=/mnt/galaxyTools/tools/bin:/mnt/galaxyTools/tools/pkg/fastx_toolkit_0.0.13:/mnt/galaxyTools/tools/pkg/bowtie-0.12.5:/mnt/galaxyTools/tools/pkg/samtools-0.1.7_x86_64-linux:/mnt/galaxyTools/tools/pkg/gnuplot-4.4.0/bin:/opt/PostgreSQL/8.4/bin:$PATH\n')
                 # os.chown(self.galaxy_home + '/universe_wsgi.ini',
                 # pwd.getpwnam("galaxy")[2], grp.getgrnam("galaxy")[2])
+                self.remaining_start_attempts -= 1
                 self.configured = True
             if self.state != service_states.RUNNING:
                 log.debug("Starting Galaxy...")
@@ -194,9 +199,13 @@ class GalaxyService(ApplicationService):
                     "%s --daemon" % self.extra_daemon_args)
                 log.debug(start_command)
                 if not misc.run(start_command, "Error invoking Galaxy",
-                    "Successfully initiated Galaxy start from {0}.".format(self.galaxy_home)):
-                    self.state = service_states.ERROR
-                    self.last_state_change_time = datetime.utcnow()
+                        "Successfully initiated Galaxy start from {0}.".format(self.galaxy_home)):
+                    if self.remaining_start_attempts > 0:
+                        self.state = service_states.UNSTARTED
+                        self.last_state_change_time = datetime.utcnow()
+                    else:
+                        self.state = service_states.ERROR
+                        self.last_state_change_time = datetime.utcnow()
             else:
                 log.debug("Galaxy already running.")
         else:
@@ -243,18 +252,27 @@ class GalaxyService(ApplicationService):
                 # the monitor is running as a separate thread, it often happens
                 # that the .pid file is not yet created after the Galaxy process
                 # has been started so the monitor thread erroneously reports
-                # as if starting the Galaxy proces has failed.
+                # as if starting the Galaxy process has failed.
                 pass
             else:
                 log.error("Galaxy daemon not running.")
-                self.state = service_states.ERROR
+                if self.remaining_start_attempts > 0:
+                    log.debug("Remaining Galaxy start attempts: {0}; setting svc state to UNSTARTED"
+                        .format(self.remaining_start_attempts))
+                    self.state = service_states.UNSTARTED
+                    self.last_state_change_time = datetime.utcnow()
+                else:
+                    log.debug("No remaining Galaxy start attempts; setting svc state to ERROR")
+                    self.state = service_states.ERROR
+                    self.last_state_change_time = datetime.utcnow()
         if old_state != self.state:
             log.info("Galaxy service state changed from '%s' to '%s'" % (
                 old_state, self.state))
             self.last_state_change_time = datetime.utcnow()
             if self.state == service_states.RUNNING:
-                log.debug(
-                    "Granting SELECT permission to galaxyftp user on 'galaxy' database")
+                # Once the service gets running, reset the number of start attempts
+                self.remaining_start_attempts = NUM_START_ATTEMPTS
+                log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
                 misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "'
                          % (paths.P_SU, self.app.path_resolver.pg_home, paths.C_PSQL_PORT),
                          "Error granting SELECT grant to 'galaxyftp' user",
