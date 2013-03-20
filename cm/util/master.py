@@ -2303,7 +2303,7 @@ class ConsoleMonitor(object):
                 return match
 
             if not do_match():
-                log.debug("No instance (%s) match found for message %s; will add instance now!" \
+                log.debug("No instance (%s) match found for message %s; will add instance now!"
                     % (m.properties['reply_to'], m.body))
                 if self.app.manager.add_live_instance(m.properties['reply_to']):
                     do_match()
@@ -2314,7 +2314,7 @@ class ConsoleMonitor(object):
             m = self.conn.recv()
 
     def __monitor(self):
-        if self.app.manager.manager_started == False:
+        if not self.app.manager.manager_started:
             if not self.app.manager.start():
                 log.critical("\n\n***** Manager failed to start *****\n")
                 return False
@@ -2338,10 +2338,21 @@ class ConsoleMonitor(object):
                 self.app.manager.check_disk()
                 for service in self.app.manager.services:
                     service.status()
+                # Indicate migration is in progress
+                migration_service = self.app.manager.get_services(svc_role=ServiceRole.MIGRATION)
+                if migration_service:
+                    migration_service = migration_service[0]
+                    msg = "Migration service in progress; please wait."
+                    if migration_service.state == service_states.RUNNING:
+                        if not self.app.msgs.message_exists(msg):
+                            self.app.msgs.critical(msg)
+                    elif migration_service.state == service_states.COMPLETED:
+                        self.app.msgs.remove_message(msg)
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
                 for s in self.app.manager.services:
-                    svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
+                    svcs_state += "%s..%s; " % (s.get_full_name(),
+                        'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances
                 for w_instance in self.app.manager.worker_instances:
@@ -2357,7 +2368,8 @@ class ConsoleMonitor(object):
                     # As long we we're hearing from an instance, assume all OK.
                     if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
-                            w_instance.get_desc(), (dt.datetime.utcnow() - w_instance.last_comm).seconds))
+                            w_instance.get_desc(),
+                            (dt.datetime.utcnow() - w_instance.last_comm).seconds))
                         continue
                     # Explicitly check the state of a quiet instance (but only
                     # periodically)

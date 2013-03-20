@@ -1,5 +1,3 @@
-import datetime as dt
-
 from cm.framework.messages.storage.base import BaseStorage
 from cm.framework.messages import constants
 
@@ -37,3 +35,12 @@ class LocalStorage(BaseStorage):
         for msg in list(self.messages):
             if msg.level != constants.CRITICAL:
                 self.messages.remove(msg)
+
+    def remove(self, message):
+        """
+        Remove message with content of ``message``.
+        """
+        for msg in list(self.messages):
+            if msg.message == message:
+                self.messages.remove(msg)
+                break

@@ -37,11 +37,28 @@ class Messages(object):
         messages, retrieved = self.storage._get()
         return messages
 
+    def remove_message(self, message):
+        """
+        Remove message with content of ``message``.
+        """
+        self.storage.remove(message)
+
     def dismiss(self):
         """
         Irreversably dismiss all the currently stored messages.
         """
         self.storage.dismiss()
+
+    def message_exists(self, message):
+        """
+        Iterate through stored messages and check if one with content
+        ``message`` already exists. If so, return ``True``; ``False``
+        otherwise.
+        """
+        for m in self.get_messages():
+            if m.message == message:
+                return True
+        return False
 
     def get_level(self):
         """
