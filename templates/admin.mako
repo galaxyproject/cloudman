@@ -1,445 +1,590 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-    <div class="body" style="max-width: 720px; margin: 0 auto;">
-        <div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
-            <span id="msg" class="info_msg_box_content" style="display: none"></span>
-        </div>
-        <%include file="bits/messages.html" />
-        <h2>CloudMan Admin Console</h2>
-        <div id="main_text">
-            This admin panel is a convenient way to gain insight into the status
-            of individual CloudMan services as well as to control those services.<br/>
-            <b>Services should not be manipulated unless absolutely necessary.
-            Please keep in mind that the actions performed by these service-control
-            'buttons' are basic in that they assume things will operate as expected.
-            In other words, minimal special case handling for recovering services
-            exists. Also note that clicking on a service action button will
-            initiate the action; there is no additional confirmation required.</b>
-        </div>
-        <h3>Galaxy controls</h3>
-        <div class="help_text">
-            Use these controls to administer functionality of Galaxy.
-        </div>
-        <ul class='services_list'>
-            <li><span id='galaxy_dns'>Galaxy is currently inaccessible</span></li>
-            <li>Current Galaxy admins: <span id="galaxy_admins">N/A</span></li>
-            <li>Add Galaxy admin users
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Add Galaxy admin users to Galaxy. This action simply
-                        adds users' emails to Galaxy's universe_wsgi.ini file
-                        and does not check of the users exist or register new
-                        users. Note that this action implies restarting Galaxy.
-                    </div>
-                </span>
-                <form class="generic_form" action="${h.url_for(controller='root', action='add_galaxy_admin_users')}" method="post">
-                    <input type="text" value="CSV list of emails to be added as admins" class="form_el" name="admin_users" size="45">
-                    <input type="submit" value="Add admin users">
-                </form>
-            </li>
-            <li>Running Galaxy at revision: <span id="galaxy_rev">N/A</span></li>
-            <li>Update Galaxy from a provided repository
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Update Galaxy source code from the repository provided
-                        in the form field. The repository can be the default
-                        <i>galaxy-central</i> or any other compatible branch.<br />
-                        Note that the update will be applied to the current
-                        instance only and upon termination of the cluster, the
-                        update will be reverted; the analysis results
-                        will be preserved. As a result, any analyses that depend
-                        on the updated functionality may not be preroducible
-                        on the new instance wihtout performing the update again.
-                        See <a href="https://bitbucket.org/galaxy/galaxy-central/wiki/Cloud/CustomizeGalaxyCloud" target="_blank">
-                        this page</a> about instructions on how to preserve the
-                        changes.<br />This action will:
-                        <ol>
-                            <li>Stop Galaxy service</li>
-                            <li>Pull and apply any changes from the provided repository.
-                            If there are conflicts during the merge, local changes
-                            will be preserved.</li>
-                            <li>Call Galaxy database migration script</li>
-                            <li>Start Galaxy service</li>
-                        </ol>
-                    </div>
-                </span>
-                <form class="generic_form" action="${h.url_for(controller='root', action='update_galaxy')}" method="post">
-                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" class="form_el" name="repository" size="45">
-                    <input type="submit" value="Update Galaxy">
-                </form>
-            </li>
-        </ul>
-        <h3>Services controls</h3>
-        <div class="help_text">
-            Use these controls to administer individual application services managed by CloudMan.
-            Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
-            target='_blank'>${initial_cluster_type}</a>' type of cluster.
-        </div>
-        <table width="700px" style="margin:10px 0;">
-            <tr style="text-align:left">
-                <th width="20%">Service name</th>
-                <th width="15%">Status</th>
-                <th width="65%" colspan="6"></th>
-            </tr>
-            <tr>
-                <td>Galaxy</td>
-                <td><span id="galaxy_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Galaxy">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy&to_be_started=False" target='_blank'>Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Galaxy" target="_blank">Restart</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='update_galaxy')}?db_only=True" target='_blank'>Update DB</a></td>
-            </tr>
-            <tr>
-                <td>PostgreSQL</td>
-                <td><span id="postgres_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Postgres">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
-            </tr>
-            <tr>
-                <td>SGE</td>
-                <td><span id="sge_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=SGE" target="_blank">Restart</a></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
-            </tr>
-            <tr>
-                <td>Galaxy Reports</td>
-                <td><span id="galaxy_reports_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=GalaxyReports">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=GalaxyReports" target="_blank">Restart</a></td>
-            </tr>
+<div ng-app="cloudman">
+	<div ng-controller="cmAlertController">
+		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
+	</div>
+	<!-- 
+	<div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
+		<span id="msg" class="info_msg_box_content" style="display: none"></span>
+	</div>
+	 -->
+	<%include file="bits/messages.htm" />
 
-            ##<tr>
-            ##    <td>Dummy</td>
-            ##    <td><span id="dummy"></span></td>
-            ##</tr>
+	<header>
+		<h2>CloudMan Admin Console</h2>
+		<div>
+			<span class="lead">
+				This admin panel is a convenient way to gain insight into the status
+				of individual CloudMan services as well as to control those services.
+			</span>
+			<p class="text-warning">Services should not be manipulated unless absolutely
+				necessary.
+				Please keep in mind that the actions performed by these service-control
+				'buttons' are basic in that they assume things will operate as
+				expected.
+				In other words, minimal special case handling for recovering services
+				exists. Also note that clicking on a service action button will
+				initiate the action; there is no additional confirmation required.
+			</p>
+		</div>
+	</header>
+
+	<section id="service_controls" ng-controller="ServiceController">
+		<div>
+			<h3>Service controls</h3>
+		</div>
+		<p>
+			Use these controls to administer individual application services
+			managed by CloudMan.
+			Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud" target='_blank'>${initial_cluster_type}</a>' type of cluster.
+		</p>
+
+		<table class="table">
+			<thead>
+				<tr>
+					<th></th>
+					<th>Service name</th>
+					<th>Status</th>
+					<th colspan="6"></th>
+				</tr>
+			</thead>
+			<tbody ng-repeat="svc in getServices()" ng-switch on="svc.svc_name">
+				<tr id="service_row_{{svc.svc_name}}" style="text-align:left">
+					<td>
+						<a ng-click="expandServiceDetails()" ng-show="svc.requirements"><i ng-class="{'icon-caret-right': !is_service_visible(), 'icon-caret-down': is_service_visible()}"></i></a>
+					</td>
+					<td ng-bind="svc.svc_name" />
+					<td ng-switch on="svc.status">
+			        	<p ng-switch-when="Running" class="text-success">{{svc.status}}</p>
+			        	<p ng-switch-when="Completed" class="text-success">{{svc.status}}</p>
+			        	<p ng-switch-when="Error" class="text-error">{{svc.status}}</p>
+			        	<p ng-switch-default class="text-warning">{{svc.status}}</p>
+			        </td>
+					<td ng-repeat="action in svc.actions">
+						<a ng-href="{{action.action_url}}" ng-bind="action.name" ng-click="performServiceAction($event, action)"></a>
+					</td>
+					<td colspan=4 />
+				</tr>
+				<tr ng-switch-when="Galaxy" ng-show="is_service_visible()">
+					<td></td>
+					<td colspan="9" ng-controller="GalaxyController">
+						<%include file="bits/galaxy_controls.htm" />
+					</td>
+				</tr>
+				<tr id="service_detail_row_{{svc.svc_name}}" ng-show="is_service_visible()">
+					<td></td>
+					<td colspan="9">
+						<form name="form_assigned_service" ng-controller="AssignedServiceController" ng-switch on="is_editing">
+							<div ng-switch-when="false">
+								<strong>Required Services:</strong>
+								<table width="600px" style="margin:10px 0; text-align:left">
+									<thead>
+										<tr>
+											<th width="30%">Requirement Name</th>
+											<th width="20%">Type</th>
+											<th width="20%">Assigned Service</th>
+										</tr>
+									</thead>
+									<tr ng-repeat="req in record.requirements">
+										<td>{{req.name}}</td>
+										<td>{{req.type}}</td>
+										<td>{{req.assigned_service}}</td>
+									</tr>
+								</table>
+								<button ui-if="isReassignable(record)" class="btn btn-small btn-warning" ng-click="beginEdit(record)"><i class="icon-edit"></i>&nbsp;Reassign services</button>
+							</div>
+							<div ng-switch-when="true">
+								<strong>Required Services:</strong>
+								<table width="600px" style="margin:10px 0; text-align:left">
+									<thead>
+										<tr>
+											<th width="30%">Requirement Name</th>
+											<th width="20%">Type</th>
+											<th width="20%">Assigned Service</th>
+											<th width="20%">Copy Data Across</th>
+										</tr>
+									</thead>
+									<tr ng-repeat="req in record.requirements">
+										<td>{{req.name}}</td>
+										<td>{{req.type}}</td>
+										<td>
+											<div ng-switch on="req.type">
+												<div ng-switch-when="APPLICATION">{{req.assigned_service}}</div>
+												<div ng-switch-when="FILE_SYSTEM">
+													<select id="assigned_fs_{{svc.name}}_{{req.role}"
+														ng-model="req.assigned_service"
+														ng-options="fs.name as fs.name for fs in getAvailableFileSystems()" />
+												</div>
+											</div>
+										</td>
+										<td>
+											<input ui-if="req.type=='FILE_SYSTEM'" type="checkbox" ng-model="req.copy_across" value="true" />
+										</td>
+									</tr>
+								</table>
+								<button class="btn btn-small btn-warning" ng-click="save(record, '${h.url_for(controller='root', action='reassign_services')}')" ng-disabled="form_assigned_service.$invalid || isUnchanged(record)"><i class="icon-save"></i>&nbsp;Update</button>
+								<button class="btn btn-small" ng-click="cancelEdit(record)"><i class="icon-undo"></i>&nbsp;Cancel</button>
+							</div>
+						</form>						
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</section>		
+		
+	<section id="file_systems_redone" ng-controller="FileSystemController">
+		<div>
+			<h3>File systems</h3>
+		</div>
+		<p>
+			Use these controls to administer individual file systems
+			managed by CloudMan.
+		</p>
+		<table class="table">
+	        <thead>
+	            <tr class="filesystem-tr">
+	                <th class="fs-td-20pct">Name</th>
+	                <th class="fs-td-15pct">Status</th>
+	                <th class="fs-td-20pct">Usage</th>
+	                <th class="fs-td-15pct">Controls</td>
+	                <th colspan="2"></th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	        	<tr ng-repeat="fs in getFileSystems()">
+			        <td>{{fs.name}}</td>
+			        <td ng-switch on="fs.status">
+			        	<p ng-switch-when="Running" class="text-success">{{fs.status}}</p>
+			        	<p ng-switch-when="Error" class="text-error">{{fs.status}}</p>
+			        	<p ng-switch-default class="text-warning">{{fs.status}}</p>
+			        </td>
+			        <td>
+				        <!-- // Only display usage when the file system is 'Available' -->
+			            <meter id="fs-meter-{{fs.name}}" class="meter_file_system_space_usage" min="0" max="100" value="{{fs.size_pct}}" high="85" ng-show="is_ready_fs(fs)" display-value="{{fs.size_used}}/{{fs.size}} ({{fs.size_pct}}%)" />
+			            <span ng-show="is_snapshot_in_progress(fs)">
+			                Snapshot status: {{fs.snapshot_status}}; progress: {{fs.snapshot_progress}}
+			            </span>
+					</td>
+			        <td>
+			            <!-- // Enable removal while a file system is 'Available' or 'Error' -->
+			            <a ng-show="!is_snapshot_in_progress(fs)" class="fs-remove icon-button" id="fs-{{fs.name}}-remove"
+			               title="Remove this file system" ng-click="remove_fs($event, fs)"></i></a>
+			            <!--// Only display additional controls when the file system is 'Available'-->
+			            <!-- It only makes sense to persist DoT, snapshot-based file systems -->
+						<a ng-show="is_persistable_fs(fs)" class="fs-persist icon-button" id="fs-{{fs.name}}-persist"
+			                        title="Persist file system changes" ng-click="persist_fs($event, fs)"></a>
+			            <!-- It only makes sense to resize volume-based file systems -->
+						<a ng-show="is_resizable_fs(fs)" class="fs-resize icon-button" id="fs-{{fs.name}}-resize" href="#" ng-click="resize_fs($event, fs)" title="Increase file system size"></a>
+			        </td>
+			        <td>
+			        	<!-- <a class="fs-details" details-box="fs-{{fs.name}}-details" data-toggle="popover" data-placement="right" ng-mouseover="prepareToolTip(fs)" title="Filesystem details">Details</a>
+			        	-->
+			        	
+			        	<a class="fs-details" details-box="fs-{{fs.name}}-details" title="Filesystem details" ng-click="toggleDetailView($event, fs)">Detail</a>
+			        	<span id="fs-details-popover-{{fs.name}}" popover-placement="right" cm-popover popover-animation="true" style="visibility:hidden"></span>
+			        </td>
+			        <td></td>
+				</tr>
+	        </tbody>
+		</table>
+	</section>	
+
+	<section id="add_filesystem" ng-controller="AddFSController">
+		<div class="row-fluid" id="fs_add_section">
+			<div class="span12" id="app_service_header_row">
+			
+				<!-- Add new button row -->
+				<div class="row-fluid" ng-show="!is_adding_fs">
+					<div class="span12">
+						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
+					</div>
+				</div>
+				
+				<!-- Add File System Form -->
+				<div class="row-fluid" ng-show="is_adding_fs">
+					<div class="span12">
+						<form id="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device" action="${h.url_for(controller='root',action='add_file_system')}">
+						
+							<!-- Intro and close button -->				
+							<span class="help-block">
+									<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;</button>
+							    	Through this form you may add a new file system and make it available
+					            	to the rest of this CloudMan platform.
+					         </span>
+							 
+							<!-- Device selection -->
+							<fieldset>
+								<strong>File system source or device:</strong>
+								<label class="radio">
+							      <input type="radio" name="fs_kind" value="bucket" ng-model="selected_device" /> Bucket
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="volume" ng-model="selected_device" /> Volume
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="snapshot" ng-model="selected_device" /> Snapshot
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="new_volume" ng-model="selected_device" /> New volume
+							    </label>
+							    
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="nfs" ng-model="selected_device" /> NFS
+							    </label>
+						    </fieldset>
+						    
+						    <br />						        
+
+							<!-- Bucket FS -->
+							<fieldset ng-switch-when="bucket" class="form-horizontal">
+								<div class="control-group">
+									<label class="control-label" for="bucket_name">Bucket name:</label>
+								    <div class="controls">
+								      <input type="text" id="bucket_name" name="bucket_name" placeholder="e.g., 1000genomes"/>
+								      <span class="help-inline">(AWS S3 buckets only)</span>
+								    </div>					    
+								</div>
+								<div class="control-group">
+									<label class="control-label" for="bucket_fs_name">File system name:</label>
+								    <div class="controls">
+								      <input type="text" id="bucket_fs_name" name="bucket_fs_name">
+								      <span class="help-inline">(no spaces, alphanumeric characters only)</span>
+								    </div>
+								 </div>
+								 
+								 <p> It appears you are not running on the AWS cloud. CloudMan supports
+						                    using only buckets from AWS S3. So, if the bucket you are trying to
+						                    use is NOT PUBLIC, you must provide the AWS credentials that can be
+						                    used to access this bucket. If the bucket you are trying to use
+						                    IS PUBLIC, leave below fields empty.</p>
+						                    <table><tr>
+						                        <td><label for"bucket_a_key">AWS access key: </label></td>
+						                        <td><input type="text" id="bucket_a_key" name="bucket_a_key" size="50" /></td>
+						                    </tr><tr>
+						                        <td><label for"bucket_s_key">AWS secret key: </label></td>
+						                        <td><input type="text" id="bucket_s_key" name="bucket_s_key" size="50" /></td>
+						                    </tr></table>
+						    </fieldset>		
+						    
+							<!-- Volume form details -->
+							<div class="row-fluid" ng-switch-when="volume">
+								<div class="span12">
+									<table><tr>
+					                    <td><label for="vol_id">Volume ID: </label></td>
+					                    <td><input type="text" size="20" name="vol_id" id="vol_id"
+					                        placeholder="e.g., vol-456e6973"/></td>
+					                    </tr><tr>
+					                    <td><label for="vol_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="vol_fs_name" id="vol_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>
+					                </tr></table>
+								</div>
+							</div>
+
+							<!-- Snapshot form details -->
+							<div class="row-fluid" ng-switch-when="snapshot">
+								<div class="span12">
+									<table><tr>
+					                    <td><label for="snap_id">Snapshot ID: </label></td>
+					                    <td><input type="text" size="20" name="snap_id" id="snap_id"
+					                        placeholder="e.g., snap-c21cdsi6"/></td>
+					                    </tr><tr>
+					                    <td><label for="snap_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="snap_fs_name" id="snap_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>
+					                </tr></table>
+								</div>
+							</div>
+
+							<!-- New volume form details -->
+							<div class="row-fluid" ng-switch-when="new_volume">
+								<div class="span12">
+									<table><tr>
+					                    <td><label for="new_disk_size">New file system size: </label></td>
+					                    <td><input type="text" size="20" name="new_disk_size" id="new_disk_size"
+					                        placeholder="e.g., 100"> (minimum 1GB, maximum 1000GB)</td>
+					                    </tr><tr>
+					                    <td><label for="new_vol_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="new_vol_fs_name" id="new_vol_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>
+					                </tr></table>
+								</div>
+							</div>
+
+							<!--   NFS form details -->
+							<div class="row-fluid" ng-switch-when="nfs">
+								<div class="span12">
+									<table><tr>
+					                    <td><label for="nfs-server">NFS server address: </label></td>
+					                    <td><input type="text" size="20" name="nfs_server" id="nfs_server"
+					                        placeholder="e.g., 172.22.169.17:/nfs_dir"></td>
+					                    </tr><tr>
+					                    <td><label for="nfs_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="nfs_fs_name" id="nfs_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>
+					                </tr></table>
+								</div>
+							</div>
+
+							<!--   Delete FS option -->
+							<div class="row-fluid">
+								<div class="span12">								
+									<label class="checkbox">
+								      <input type="checkbox" name="dot" id="add-fs-delete-box" />
+								      If checked, the created disk <strong>will be deleted</strong> upon cluster termination
+								    </label>
+								</div>
+							</div>
+							
+							<!--  Persist option -->
+							<div class="row-fluid">
+								<div class="span12">
+									<label class="checkbox">
+								      <input type="checkbox" name="persist" id="add-fs-persist-box" />
+								      If checked, the created disk <strong>will be persisted</strong> as part of the cluster configuration
+				                	  and thus automatically added the next time this cluster is started
+								    </label>
+								</div>
+							</div>
+							
+							<!--  Save or cancel option -->
+							<div  class="row-fluid">
+								<div class="span12">
+									<input type="submit" class="btn btn-primary" value="Add new file system" ng-click="addNewFileSystem()" />
+	                				&nbsp;&nbsp;or<a class="btn btn-link" ng-click="hideAddNewFSForm()">cancel</a>
+								</div>
+							</div>
+									
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>		
+
+	<section id="system_controls" ng-controller="SystemController">
+		<h3>System controls</h3>
+		<p>
+			Use these controls to administer CloudMan itself as well as the
+			underlying system.
+		</p>
+		<ul>
+			<li>
+				Command used to connect to the instance:
+				<code>
+					ssh -i
+					<em>[path to ${key_pair_name} file]</em>
+					ubuntu@${ip}
+				</code>
+			</li>
+			<li>
+				Name of this cluster's bucket: ${bucket_cluster}
+				%if cloud_type == 'ec2':
+				(
+				<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#"
+					target="_blank">access via AWS console</a>
+				)
+				%endif
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its configuration saved in a persistent
+						data repository. This repository is read at cluster start and it
+						holds all the data required to restart this same cluster. The
+						repository is stored under your cloud account and is accessible
+						only with your credentials.
+						In the context of AWS, S3 acts as a persistent data repository
+						where
+						all the data is stored in an S3 bucket. The name of the bucket
+						provided here corresponds to the current cluster and is provided
+						simply as a reference.">Bucket info</span>
+				<li>
+					<a id='show_user_data' ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
+				</li>
+				<li>
+					<a id='cloudman_log'
+						href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a>
+				</li>
+			</li>
+			<li>
+				<a class="action" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}"
+				ng-click="toggleMasterAsExecHost($event, '${h.url_for(controller='root', action='toggle_master_as_exec_host')}')">
+					<span ui-if="getMasterIsExecHost()">Switch master not to run jobs</span>
+					<span ui-if="!getMasterIsExecHost()">Switch master to run jobs</span>
+				</a>
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="By default, the master instance running all the services is also
+						configured to
+						execute jobs. You may toggle this functionality here. Note that if job
+						execution
+						on the master is disabled, at least one worker instance will be
+						required to
+						run any jobs.">What will this do?</span>
+			</li>
+			<li>
+				<a class='action'
+					href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its own configuration. The state of
+						this cofiguration is saved as 'persistent_data.yaml'
+						file in the cluster's bucket. Saving of this file
+						happens automatically on cluster configuration change.
+						This link allows you to force the update of the cluster
+						configuration and capture its current state.">What will this do?</span>
+			</li>
+			<li>
+				<a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Reboot the entire system. This will shut down all of the
+						services and reboot the machine. If there are any worker
+						nodes associated with the cluster they will be reconnected
+						to after the system comes back up.">What will this do?</span>
+			</li>
+			<li>
+				<a class='action'
+					href="${h.url_for(controller='root', action='recover_monitor')}">Recover monitor</a>
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Try to (re)start CloudMan service monitor thread, which is
+						responsible for monitoring the status of all of the other
+						services. This should only be used if the CloudMan user
+						interface becomes unresponsive or during debugging.">What will this do?</span>
+			</li>
+			<li>
+				<a class='action'
+					href="${h.url_for(controller='root', action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
+				<span class="help_info">
+					<span class="help_link" data-toggle="tooltip" data-placement="right" title="Start a new CloudMan service monitor thread regardless
+						of whether one already exists.">What will this do?</span>
+					<div class="help_content" style="display: none">
+						Start a new CloudMan service monitor thread regardless
+						of whether one already exists.
+					</div>
+				</span>
+			</li>
+		</ul>
+	</section>
+
+    ## ****************************************************************************
+    ## **************************** Script Templates ******************************
+    ## ****************************************************************************
+
+    <script type="text/template" id="fs-details-popover-template">
+        <table>
+        <tr><th>Name:</th><td>{{ fs.name }}</td></tr>
+        <tr><th>Bucket name:</th><td>{{ fs.bucket_name }}</td></tr>
+        <tr><th>Status:</th><td>{{ fs.status }}</td></tr>
+        <tr><th>Mount point:</th><td>{{ fs.mount_point }}</td></tr>
+        <tr><th>Kind:</th><td>{{ fs.kind }}</td></tr>
+		<tr><th>Volume:</th><td>{{ fs.volume_id }}</td></tr>
+		<tr><th>Device:</th><td>{{ fs.device }}</td></tr>
+		<tr><th>From snapshot:</th><td>{{ fs.from_snap }}</td></tr>
+		<tr><th>NFS server:</th><td>{{ fs.nfs_server }}</td></tr>
+        <tr><th>Size (used/total):</th><td>{{ fs.size_used }}/{{ fs.size }} ({{ fs.size_pct }}%)</td></tr>
+        <tr><th>Delete on termination:</th><td>{{ fs.DoT }}</td></tr>
+        <tr><th>Persistent:</th><td>{{ fs.persistent }}</td></tr>
         </table>
-        <strong>File systems</strong>
-        ## backbone-managed
-        <div id='fs-details-container'></div>
-        <div id="filesystems-container"></div>
-        <div id='fs-resize-form-container'></div>
-        <div id='fs-add-container'>
-            <div id='fs-add-form'></div>
-            <div id='fs-add-btn'><span class="plus-sign">+</span> Add new</div>
-        </div>
+    </script>
 
-        <h3>System controls</h3>
-        <div class="help_text">
-            Use these controls to administer CloudMan itself as well as the underlying system.
+    <script type="text/template" id="fs-resize-dialog-template">
+    	<form id="fs_resize_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="POST">
+    	<div class="modal-header" style="padding: 12px 12px 12px 12px">
+    		<div class="modal-header">
+		    	<h3>Resize File System</h3>
+	    	</div>
+	        <div class="modal-body" >
+		        <p>
+		            Through this form you may increase the disk space available to this file system.
+		            Any services using this file system <strong>WILL BE STOPPED</strong>
+		            until the new disk is ready, at which point they will all be restarted. Note
+		            that This may result in failure of any jobs currently running. Note that the new
+		            disk size <strong>must be larger</strong> than the current disk size.
+		            <p>During this process, a snapshot of your data volume will be created,
+		            which can optionally be left in your account. If you decide to leave the
+		            snapshot for reference, you may also provide a brief note that will later
+		            be visible in the snapshot's description.</p>
+		        </p>    
+	            <label>New disk size (minimum {{ fs.size }}B,
+	            maximum 1000GB)</label>
+	            <div id="permanent_storage_size">
+	                <input type="text" name="new_vol_size" id="new_vol_size"
+	                placeholder="Greater than {{ fs.size }}B" size="25" ng-model="resize_details.new_vol_size" />
+	                {{ resize_details.new_vol_size}}
+	            </div>
+	            <label>Note</label>
+	            <div id="permanent_storage_size">
+	                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value=""
+	                placeholder="Optional snapshot description" size="50" ng-model="resize_details.vol_expand_desc" /><br/>
+	            </div>
+	            <label>or delete the created snapshot after filesystem resizing?</label>
+	            <input type="checkbox" name="delete_snap" id="delete_snap" ng-model="resize_details.delete_snap" /> If checked,
+	            the created snapshot will not be kept.
+	        </div>
+	        <div class="modal-footer">
+	        	<button ng-click="resize($event)" class="btn btn-warning" >Resize {{ fs.name }} file system</button>
+	      		<button ng-click="cancel($event)" class="btn" >Cancel</button>  
+	        </div>
+	        <input name="fs_name" type="hidden" value="{{fs.name}}" />
         </div>
-        <ul class='services_list'>
-            <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
-            <li>Name of this cluster's bucket: ${bucket_cluster}
-                %if cloud_type == 'ec2':
-                    (<a id='cloudman_bucket' href="https://console.aws.amazon.com/s3/home?#"
-                      target="_blank">access via AWS console</a>)
-                %endif
-                <span class="help_info">
-                    <span class="help_link">Bucket info</span>
-                    <div class="help_content" style="display: none">
-                        Each CloudMan cluster has its configuration saved in a persistent
-                        data repository. This repository is read at cluster start and it
-                        holds all the data required to restart this same cluster. The
-                        repository is stored under your cloud account and is accessible
-                        only with your credentials. <br/>
-                        In the context of AWS, S3 acts as a persistent data repository where
-                        all the data is stored in an S3 bucket. The name of the bucket
-                        provided here corresponds to the current cluster and is provided
-                        simply as a reference.
-                    </div>
-                </span>
-            <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
-            <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
-            </li>
-            <li>
-                <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a>
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        By default, the master instance running all the services is also configured to
-                        execute jobs. You may toggle this functionality here. Note that if job execution
-                        on the master is disabled, at least one worker instance will be required to
-                        run any jobs.
-                    </div>
-                </span>
-            </li>
-            <li>
-                <a class='action' href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Each CloudMan cluster has its own configuration. The state of
-                        this cofiguration is saved as 'persistent_data.yaml'
-                        file in the cluster's bucket. Saving of this file
-                        happens automatically on cluster configuration change.
-                        This link allows you to force the update of the cluster
-                        configuration and capture its current state.
-                    </div>
-                </span>
-            </li>
-            <li>
-                <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Reboot the entire system. This will shut down all of the
-                        services and reboot the machine. If there are any worker
-                        nodes assciated with the cluster they will be reconnected
-                        to after the system comes back up.
-                    </div>
-                </span>
-            </li>
-            <li>
-                <a class='action' href="${h.url_for(controller='root', action='recover_monitor')}">Recover monitor</a>
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Try to (re)start CloudMan service monitor thread, which is
-                        responsible for monitoring the status of all of the other
-                        services. This should only be used if the CloudMan user
-                        interface becomes unresponsive or during debugging.
-                    </div>
-                </span>
-            </li>
-            <li>
-                <a class='action' href="${h.url_for(controller='root', action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
-                <span class="help_info">
-                    <span class="help_link">What will this do?</span>
-                    <div class="help_content" style="display: none">
-                        Start a new CloudMan service monitor thread regardless
-                        of if one already exists.
-                    </div>
-                </span>
-            </li>
-        </ul>
-
-        ## ****************************************************************************
-        ## ********************************* Overlays *********************************
-        ## ****************************************************************************
-        ## Overlay that prevents any future clicking, see CSS
-        <div id="snapshotoverlay" style="display:none"></div>
-        <div class="overlay" id="overlay" style="display:none"></div>
-        ## Indicate an action has been recorded
-        <div class="box" id="action_initiated" style="height: 90px; text-align: center;">
-            <h2>Action initiated.</h2>
-        </div>
-        <div class="box" id="user_data">
-            <a class="boxclose"></a>
-            <h2>User data</h2>
-            <pre>
-                <div style="font-size: 10px" id="user_data_content"></div>
-            </pre>
-        </div>
-        ## Overlay for managing filesystems
-        <div class="box" id="add_fs_overlay">
-            <a class="boxclose"></a>
-            <div id="fs_accordion">
-                <h3><a href="#">Available file systems</a></h3>
-                <div id='available_fs_list'>
-                    ##<p>Retrieving the list of available file systems...</p>
-                    ##<div class="spinner">&nbsp;</div>
-                    <div class="warningmessage">Sorry but this functionality is not yet available.<br/>
-                        Adding file systems is though.
-                    </div>
-                </div>
-                <h3><a href="#">Add a new file system</a></h3>
-                <div><form id="add_fs_form" name="add_fs_form" action="${h.url_for(controller='root', action='add_fs')}" method="post">
-                    <div class="form-row">
-                        <p>This form allows you to add an additional data source
-                        and make it available as a local file system. Currently,
-                        adding S3 buckets as a data source is the only supported
-                        functionality. These buckets may be public or private (and
-                        owned by the user running this cluster).
-                        Once added, the file system will be available
-                        on the underlying system under <span class="code">
-                        /mnt/[bucket_name]</span> path.</p>
-                    </div>
-                    <div id="fs_bucket">
-                        <div class="form-row">
-                            Bucket name:
-                            <input type="text" id="fs_bucket_name" name="bucket_name" value='1000genomes' size="50"/>
-                        </div>
-                        %if cloud_type != 'ec2':
-                            <div class="form-row">
-                                <p>
-                                It appears you are not running on the AWS cloud. CloudMan supports
-                                using only buckets from AWS S3. So, if the bucket you are trying to
-                                use is NOT PUBLIC, you must provide the AWS credentials that can be
-                                used to access this bucket. If the bucket you are trying to use
-                                IS PUBLIC, leave below fields empty.
-                                </p>
-                            </div> <div class="form-row">
-                                AWS access key:
-                                <input type="text" id="bucket_a_key" name="bucket_a_key" size="50"/>
-                            </div> <div class="form-row">
-                                AWS secret key:
-                                <input type="text" id="bucket_s_key" name="bucket_s_key" size="50"/>
-                            </div>
-                        %endif
-                    </div>
-                    <input type="submit" value="Add a file system"/>
-                </form></div>
-            </div>
-        </div>
-
+        </form>
+    </script>
+    
+    <script type="text/template" id="fs-delete-dialog-template">
+    	<form id="fs_remove_form" action="${h.url_for(controller='root',action='manage_service')}?service_name={{fs.name}}&to_be_started=False&is_filesystem=True" method="GET">
+    		<div class="modal-header">
+		    	<h3>Remove file system: {{ fs.name }}?</h3>
+	    	</div>
+	        <div class="modal-body" >
+		        <p>
+				Removing this file system will first stop any services that require this file system.
+				Then, the file system will be unmounted and the underlying device disconnected from this instance.
+		        </p>    
+	        <div class="modal-footer">
+	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-warning" >Remove</button>
+	      		<button ng-click="cancel($event, 'cancel')" class="btn" >Cancel</button>  
+	        </div>
+        </form>
+    </script> 
+    
+    <script type="text/template" id="fs-persist-dialog-template">
+    	<form id="fs_persist_form" action="${h.url_for(controller='root', action='update_file_system')}?fs_name={{fs.name}}" method="GET">
+    		<div class="modal-header">
+		    	<h3>Persist file system: {{ fs.name }}?</h3>
+	    	</div>
+	        <div class="modal-body" >
+		        <p>
+				If you have made changes to the <em>{{ fs.name }}</em> file system and would like to persist the changes
+                across cluster invocations, it is required to persist those
+                changes.
+                </p>
+                <p>
+                <em>What will happen next?</em>
+                </p>
+                <p>
+                Persisting file system changes requires that any services running on the
+                file system be stopped and the file system unmounted. Then, a
+                snapshot of the underlying volume will be created and any services
+                running on the file system started back up. Note that depending
+                on the amount of changes you have made to the file system, this
+                process may take a while.
+		        </p>    
+	        <div class="modal-footer">
+	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" >Confirm</button>
+	      		<button ng-click="cancel($event, 'cancel')" class="btn btn-primary" >Cancel</button>  
+	        </div>
+        </form>
+    </script>
+    
     ## ****************************************************************************
     ## ******************************** Javascript ********************************
     ## ****************************************************************************
     <script type='text/javascript'>
         // Place URLs here so that url_for can be used to generate them
-        var get_all_services_status_url = "${h.url_for(controller='root',action='get_all_services_status')}";
-        var get_all_filesystems_url = "${h.url_for(controller='root',action='get_all_filesystems')}";
-        var manage_service_url = "${h.url_for(controller='root',action='manage_service')}";
-        var update_fs_url = "${h.url_for(controller='root', action='update_file_system')}";
-        var resize_fs_url = "${h.url_for(controller='root',action='expand_user_data_volume')}";
-        var add_fs_url = "${h.url_for(controller='root',action='add_file_system')}";
+        var get_cloudman_system_status_url = "${h.url_for(controller='root',action='get_cloudman_system_status')}";
         var cloud_type = "${cloud_type}";
-    </script>
-    <script type="text/template" id="fileSystems-template">
-        <thead>
-            <tr class="filesystem-tr">
-                <th class="fs-td-20pct">Name</th>
-                <th class="fs-td-15pct">Status</th>
-                <th class="fs-td-20pct">Usage</th>
-                <th class="fs-td-15pct">Controls</td>
-                <th colspan="2"></th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </script>
-    <script type="text/template" id="fs-details-template">
-    <%text filter='trim'>
-        <a class="close"></a>
-        <div class="fs-details-box-header">File system information</div>
-        <table>
-        <tr><th>Name:</th><td><%= name %></td>
-        <% if (typeof(bucket_name) != "undefined" && typeof(bucket_name) != 'object') {
-            // There's a bucket_name input field defined on the page so must guard from it above
-        %>
-            <tr><th>Bucket name:</th><td><%= bucket_name %></td>
-        <% } %>
-        <tr><th>Status:</th><td><%= status %></td>
-        <tr><th>Mount point:</th><td><%= mount_point %></td>
-        <tr><th>Kind:</th><td><%= kind %></td>
-        <% if (typeof(volume_id) != "undefined") { %>
-            <tr><th>Volume:</th><td><%= volume_id %></td>
-        <% } %>
-        <% if (typeof(device) != "undefined") { %>
-            <tr><th>Device:</th><td><%= device %></td>
-        <% } %>
-        <% if (typeof(from_snap) != "undefined") { %>
-            <tr><th>From snapshot:</th><td><%= from_snap %></td>
-        <% } %>
-        <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
-        <tr><th>Delete on termination:</th><td><%= DoT %></td>
-        <tr><th>Persistent:</th><td><%= persistent %></td>
-    </%text>
-    </script>
-    <script type="text/template" id="fileSystem-template">
-    <%text filter='trim'>
-        <td class="fs-td-20pct"><%= name %></td>
-        <td class="fs-status fs-td-15pct"><%= status %></td>
-        <td class="fs-td-20pct" style="font-size: 9px;">
-        <!-- // Only display usage when the file system is 'Available' -->
-        <style type="text/css">
-            /* Styling for the space usage meter element */
-            .space_usage {
-                text-align: center;
-                padding: 2px 2px 2px 2px;
-            }
 
-            /* The percentage */
-            #fs-meter-<%= name %>:after {
-                content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
-            }
-        </style>
-        <% if (status === "Available" || status === "Running") { %>
-            <meter id="fs-meter-<%= name %>" class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
-                <%= size_used %>/<%= size %> (<%= size_pct %>%)
-            </meter>
-        <% } else if (kind == "Volume" && status === "Configuring") { %>
-            <% if (snapshot_status != "" && snapshot_status != null) { %>
-                Snapshot status: <%= snapshot_status %>; progress: <%= snapshot_progress %>
-            <% } %></td>
-        <% } %></td>
-        <td class="fs-td-15pct">
-            <!-- // Enable removal while a file system is 'Available' or 'Error' -->
-            <% if (status === "Available" || status === "Running" || status === 'Error') { %>
-            <a class="fs-remove icon-button" id="fs-<%= name %>-remove"
-                href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
-                title="Remove this file system"></a>
-            <% } %>
-            <!--// Only display additional controls when the file system is 'Available'-->
-            <% if (status === "Available" || status === "Running") { %>
-                <!-- // It only makes sense to persist DoT, snapshot-based file systems -->
-                <% if (typeof(from_snap) !== "undefined" && typeof(DoT) !== "undefined" && DoT === "Yes") { %>
-                    <a class="fs-persist icon-button" id="fs-<%= name %>-persist"
-                        href="</%text>${h.url_for(controller='root', action='update_file_system')}<%text filter='trim'>?fs_name=<%= name %>" title="Persist file system changes"></a>
-                <% } %>
-                <!-- // It only makes sense to resize volume-based file systems -->
-                <% if (typeof(kind) != "undefined" && kind === "Volume" ) { %>
-                    <a class="fs-resize icon-button" id="fs-<%= name %>-resize" href="#" title="Increase file system size"></a>
-                <% } %>
-        <% } %></td>
-        <td class="fs-td-15pct">
-            <a href="#" class="fs-details" details-box="fs-<%= name %>-details">Details</a>
-        </td>
-        <td class="fs-td-spacer"></td>
-    </%text>
+		$(document).ready(function () {
+		    $("[data-toggle='tooltip']").tooltip();
+		});
     </script>
-    <script type="text/template" id="fs-resize-template">
-    <%text filter='trim'>
-        <div class="form-row">
-            Through this form you may increase the disk space available to this file system.
-            Any services using this file system <b>WILL BE STOPPED</b>
-            until the new disk is ready, at which point they will all be restarted. Note
-            that This may result in failure of any jobs currently running. Note that the new
-            disk size <b>must be larger</b> than the current disk size.
-            <p>During this process, a snapshot of your data volume will be created,
-            which can optionally be left in your account. If you decide to leave the
-            snapshot for reference, you may also provide a brief note that will later
-            be visible in the snapshot's description.</p>
-        </div>
-        <div class="form-row">
-            <label>New disk size (minimum <span id="du-inc"><%= size %></span>B,
-            maximum 1000GB)</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="new_vol_size" id="new_vol_size"
-                placeholder="Greater than <%= size %>B" size="25">
-            </div>
-            <label>Note</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value=""
-                placeholder="Optional snapshot description" size="50"><br/>
-            </div>
-            <label>or delete the created snapshot after filesystem resizing?</label>
-            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked,
-            the created snapshot will not be kept
-            <div class="form-row">
-                <input type="submit" class="fs-form-submit-button" value="Resize <%= name %> file system"/>
-                or <a class="fs-resize-form-close" href="#">cancel</a>
-            </div>
-            <input name="fs_name" type="text" hidden="Yes" value="<%= name %>" />
-        </div>
-    </%text>
-    </script>
+    
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/underscore-min.js')}"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/backbone-min.js')}"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/backbone.marionette.js')}"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/Backbone.ModalDialog.js')}"></script>
     <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
+</div>
 </%def>

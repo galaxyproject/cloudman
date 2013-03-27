@@ -1,29 +1,114 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-<style type="text/css">
-td, th {
-vertical-align: top;
-}
-</style>
-<div class="body" style="max-width: 720px; margin: 0 auto;">
+<div>
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
-    <%include file="bits/messages.html" />
-    <div id="main_text">
-        %if initial_cluster_type is None:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this cloud cluster and the services provided within.
-            If this is your first time running this cluster, you will need to select an initial data volume
-            size. Once the data store is configured, default services will start and you will be able to add
-            and remove additional services as well as 'worker' nodes on which jobs are run.
-        %else:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this instance cloud cluster and the services
-            provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
-            use the controls below to manage services provided by the application.
-        %endif
+    <%include file="bits/messages.htm" />
+    <div>
+	    <span class="lead">
+	    		Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+			%if initial_cluster_type is None:
+	            This application allows you to manage this cloud cluster and the services provided within.
+			%else:
+	            This application allows you to manage this instance cloud cluster and the services
+	            provided within.
+			%endif
+	    </span>
+	    <p>
+	        %if initial_cluster_type is None:	            
+	            If this is your first time running this cluster, you will need to select an initial data volume
+	            size. Once the data store is configured, default services will start and you will be able to add
+	            and remove additional services as well as 'worker' nodes on which jobs are run.
+	        %else:
+	            Your previous data store has been reconnected.  Once the cluster has initialized,
+	            use the controls below to manage services provided by the application.
+	        %endif
+	     </p>
     </div>
     <div style="clear: both;"></div><br/>
+
+    <div class="row-fluid">
+    	<div class="span12">
+    	<div class="row-fluid">
+    	<div class="span11 offset1">
+    
+    
+    	<div class="span2">
+	  		<a class="btn dropdown-toggle btn-success btn-block btn-small" data-toggle="dropdown" href="#">
+	  		<i class="icon-road"></i>
+	    	Access Galaxy
+	  		</a>
+		</div>
+		
+		<div class="span2 offset1">
+		
+			<div class="btn-group btn-block">
+		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#">
+		  		<i class="icon-plus"></i>
+		    	Add Nodes <span class="caret"></span>
+		  		</a>
+		  		<ul class="dropdown-menu">
+		  			<li><div style='position:relative;text-align:center;'>
+				        <h4>Add nodes</h4>
+				        <form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
+				        <div class="form-row">
+				            <label>Number of nodes to start:</label>
+				            <div id="num_nodes" class="form-row-input">
+				                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="1" size="10" />
+				                <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
+				            </div>
+				            <br/>
+				            <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
+				            <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
+				            <div id="instance_type" class="form-row-input">
+				                ## Select available instance types based on cloud name
+				                <%include file="clouds/${cloud_name}/instance_types.mako" />
+				            </div>
+				            ## Spot instances work only for the AWS cloud
+				            %if cloud_type == 'ec2':
+				                <div class="form-row">
+				                    <input type="checkbox" id="use_spot" />
+				                    Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
+				                        Spot instances
+				                    </a><br/>
+				                    Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
+				                        spot price</a>:
+				                    <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
+				                    <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
+				                </div>
+				            %endif
+				            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
+				        </div>
+				        </form>
+					</div></li>
+		  		</ul>
+			</div>
+		</div>
+		
+		<div class="span2 offset1">
+			<div class="btn-group btn-block">
+		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#">
+		  		<i class="icon-minus"></i>
+		    	Remove Nodes <span class="caret"></span>
+		  		</a>
+		  		<ul class="dropdown-menu">
+		    	<!-- dropdown menu links -->
+		  		</ul>
+			</div>
+		</div>
+		
+		<div class="span2 offset1">
+		
+	  		<a class="btn dropdown-toggle btn-danger btn-block btn-small"  data-toggle="dropdown" href="#">
+	  		<i class="icon-off icon-white"></i>
+	    	Terminate
+	  		</a>
+		</div>
+		
+		</div>
+		</div>
+		</div>
+	</div>
     <div style='position:relative;text-align:center;'>
         <ul style='display:inline;padding:0;'>
             <li style='display:inline;width:150px;'>
@@ -96,7 +181,7 @@ vertical-align: top;
         </form>
     </div>
 </div>
-<h2>Status</h2>
+<h3>Status</h3>
 <div id="status_container">
     <div id="cluster_view">
         <div id="cluster_view_tooltip" style="text-align: center;"></div>
