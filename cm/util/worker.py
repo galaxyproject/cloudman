@@ -485,9 +485,10 @@ class ConsoleMonitor(object):
             ret_code = self.app.manager.start_sge()
             if ret_code == 0:
                 log.info("SGE daemon started successfully.")
-                # Now that the instance is ready, run the PSS service directly
+                # Now that the instance is ready, run the PSS service in a
+                # separate thread
                 pss = PSS(self.app, instance_role='worker')
-                pss.start()
+                threading.Thread(target=pss.start).start()
                 self.send_node_ready()
                 self.app.manager.worker_status = worker_states.READY
                 self.last_state_change_time = dt.datetime.utcnow()

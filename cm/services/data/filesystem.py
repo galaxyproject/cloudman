@@ -12,6 +12,7 @@ from boto.exception import EC2ResponseError
 
 from cm.util.misc import run
 from cm.util.misc import flock
+from cm.util.misc import nice_size
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import DataService
@@ -86,27 +87,14 @@ class Filesystem(DataService):
         """
         details['name'] = self.name
         details['kind'] = str(self.kind).title()
-        details['size'] = self.size
-        details['size_used'] = self.size_used
+        details['size'] = nice_size(self.size)
+        details['size_used'] = nice_size(self.size_used)
         details['size_pct'] = self.size_pct
         details['status'] = self.state
         details['err_msg'] = ""
         details['mount_point'] = self.mount_point
         details['persistent'] = "Yes" if self.persistent else "No"
         return details
-
-    # TODO: This method appears to be unused. self.size is also calculated
-    # elsewhere differently. Needs review
-    def get_size(self):
-        """
-        Get the total size of this file system across all of its devices
-        """
-        new_size = 0
-        for volume in self.volumes:
-            new_size += volume.size
-        # TODO: get FS size used by bucket(s)
-        self.size = new_size
-        return self.size
 
     def add(self):
         """
