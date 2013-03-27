@@ -70,8 +70,8 @@ def populate_dynamic_options(option_manager):
                 option_manager.set_properties({key: value}, section=section)
 
 
-## High-level functions that utilize option_manager interface (defined below)
-## to configure Galaxy's options.
+# # High-level functions that utilize option_manager interface (defined below)
+# # to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
     Use `option_manager` to populate process (handler, manager, web) sections
@@ -113,7 +113,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
     return server_name
 
 
-## Abstraction for interacting with Galaxy's options
+# # Abstraction for interacting with Galaxy's options
 def galaxy_option_manager(app):
     """ Returns a high-level class for managing Galaxy options.
     """

@@ -262,10 +262,10 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 		var _galaxy_admins;
 		var _master_is_exec_host;
 		var _galaxy_dns;
-		
+
 		// Local vars
 		var _admin_data_timeout_id;
-		
+
 		var poll_admin_data = function() {
 	        // Poll cloudman status
 	        $http.get(get_cloudman_system_status_url).success(function (data) {
@@ -280,12 +280,12 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
     		});
 			resumeDataService();
 	    };
-	    
+
 	    var resumeDataService = function () {
 	    	$timeout.cancel(_admin_data_timeout_id); // cancel any existing timers
-			_admin_data_timeout_id = $timeout(poll_admin_data, 10000, true);
+			_admin_data_timeout_id = $timeout(poll_admin_data, 5000, true);
 		};
-		
+
 		var _processSystemMessages = function(messages) {
 			for (msg in messages) {
 				var txt = msg + ' (' + msg.added_at.split('.')[0] + ')';
@@ -298,10 +298,10 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
                 	cmAlertService.add(msg, "info");
              }
 		};
-		
+
 		// Execute first time fetch
 		poll_admin_data();
-	    
+
 	    // Public interface
 		return {
             getAllFilesystems: function () {
@@ -334,27 +334,27 @@ cloudmanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdmin
 		$scope.getServices = function () {
             return cmAdminDataService.getAllServices();
         };
-        
+
         $scope.getAvailableFileSystems = function () {
             return cmAdminDataService.getAllFilesystems();
         };
-		
+
 		$scope._visibility_flags = {};		
-		
+
 		$scope.expandServiceDetails = function() {			
 			var service = this.svc.svc_name;
-			
+
 			// TODO: This DOM manipulation code should not be in controller.
 			// Unselect all previous rows
 			for (val in $scope.services) {
 				service_row = $scope.services[val].svc_name;
 				if (service_row != service)
 					$scope._visibility_flags[service_row] = false;
-					
+
 				$('#service_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
 				$('#service_detail_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
 			}
-			
+
 			// Show newly selected row
 			if ($scope._visibility_flags[service]) {
 				$('#service_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
@@ -364,23 +364,23 @@ cloudmanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdmin
 				$('#service_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
 				$('#service_detail_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
 			}
-		
+
 			$scope._visibility_flags[service] = !$scope._visibility_flags[service];
 		};
-		
+
 		$scope.is_service_visible = function() {
 			return $scope._visibility_flags[this.svc.svc_name];
 		}
-		
+
 		$scope.is_fs_selected = function() {
 			return this.req.assigned_service == this.fs.name;		
 		}
-		
+
 		$scope.performServiceAction = function($event, action) {
 			// TODO: Ugly hack to let some stuff passthrough. Fix.
 			if (action.action_url.indexOf("log") > 0)
 				return;
-				
+
 			$event.preventDefault();
 			var alert = cmAlertService.addAlert("Action Initiated", "info", 3000);
 			$http.get(action.action_url).success(function (response) {
@@ -397,11 +397,11 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 			    backdropClick: true,
 			    modalFade: true,
 			  };
-			  
+
 		$scope.getFileSystems = function () {
             return cmAdminDataService.getAllFilesystems();
         };
-		
+
 		// TODO: Dom manipulation in controller. Fix.
 		$scope.toggleDetailView = function($event, fs) {
 			if (fs._showing_detail_popup) {				
@@ -414,29 +414,29 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 			}
 			fs._showing_detail_popup = !fs._showing_detail_popup;
 		}		
-		
+
 		$scope.is_ready_fs = function(fs) {
 			return (fs.status == "Available" || fs.status == "Running");
 		}
-		
+
 		$scope.is_snapshot_in_progress = function(fs) {
 			return (fs.kind == "Volume" && fs.status == "Configuring") && (fs.snapshot_status != "" && fs.snapshot_status != null);
 		}
-		
+
 		$scope.is_persistable_fs = function(fs) {
 			return ((fs.status === "Available" || fs.status === "Running") && (typeof(fs.from_snap) !== "undefined" && typeof(fs.DoT) !== "undefined" && fs.DoT === "Yes"));
 		}
-		
+
 		$scope.is_resizable_fs = function(fs) {
 			return (fs.status === "Available" || fs.status === "Running") && (typeof(fs.kind) != "undefined" && fs.kind === "Volume" );
 		}
-		
+
 		$scope.remove_fs = function($event, fs) {
 			// TODO: DOM access in controller. Should be changed
 			_opts.template = $("#fs-delete-dialog-template").html();
 			_opts.controller = 'FSRemoveDialogController';
 			_opts.resolve = {fs: fs};			
-		
+
 			var d = $dialog.dialog(_opts);
 	    	d.open().then(function(result) {
 		    });
@@ -451,7 +451,7 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 	    	d.open().then(function(result) {
 		    });
 		}		
-		
+
 		$scope.resize_fs = function($event, fs) {
 			_opts.template = $("#fs-resize-dialog-template").html(),
 			_opts.controller = 'FSResizeDialogController';
@@ -464,36 +464,51 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 	}]);
 
 
-cloudmanAdminModule.controller('AddFSController', ['$scope', '$http', 'cmAdminDataService', function ($scope, $http, cmAdminDataService) {
-		
+cloudmanAdminModule.controller('AddFSController', ['$scope', '$http', 'cmAdminDataService', 'cmAlertService', function ($scope, $http, cmAdminDataService, cmAlertService) {
+
 		$scope.is_adding_fs = false;
 		$scope.selected_device = "";
-		
+
 		$scope.showAddNewFSForm = function () {
             $scope.is_adding_fs = true;
-        };
-        
+        }
+
         $scope.hideAddNewFSForm = function () {
             $scope.is_adding_fs = false;
             $scope.selected_device = "";
-        };        
+        }
+
+        $scope.addNewFileSystem = function () {
+            // TODO: DOM access in controller. Should be redone
+			$('#form_add_filesystem').ajaxForm({
+		        type: 'POST',
+		        dataType: 'html',
+		        error: function(response) {
+		        	cmAlertService.addAlert(response.responseText, "error");
+		        },
+		        success: function(response) {
+		        	cmAlertService.addAlert(response, "info");
+		        }
+	    	});
+	    	$scope.hideAddNewFSForm();
+        }
 	}]);
 
 
 cloudmanAdminModule.controller('GalaxyController', ['$scope', '$http', 'cmAdminDataService', 'cmAlertService', function ($scope, $http, cmAdminDataService, cmAlertService) {
-		
+
 		$scope.getGalaxyAdmins = function() {
 			return cmAdminDataService.getGalaxyAdmins();
 		}
-		
+
 		$scope.getGalaxyRev = function() {
 			return cmAdminDataService.getGalaxyRev();
 		}
-		
+
 		$scope.getGalaxyDns = function() {
 			return cmAdminDataService.getGalaxyDns();
 		}
-		
+
 		$scope.addAdminUsers = function($event) {
 			var alert = cmAlertService.addAlert("Action Initiated", "info", 3000);
 			$('#galaxy_admin_users_form').ajaxForm({
@@ -509,7 +524,7 @@ cloudmanAdminModule.controller('GalaxyController', ['$scope', '$http', 'cmAdminD
 		        }
 		    });
 		}
-		
+
 		$scope.updateRespositoryUrl = function($event) {
 			var alert = cmAlertService.addAlert("Action Initiated", "info", 3000);
 			$('#galaxy_repository_form').ajaxForm({
@@ -526,14 +541,14 @@ cloudmanAdminModule.controller('GalaxyController', ['$scope', '$http', 'cmAdminD
 		    });
 		}
 	}]);
-	
+
 
 cloudmanAdminModule.controller('SystemController', ['$scope', '$http', '$dialog', 'cmAdminDataService', 'cmAlertService', function ($scope, $http, $dialog, cmAdminDataService, cmAlertService) {
-		
+
 		$scope.getMasterIsExecHost = function() {
 			cmAdminDataService.getMasterIsExecHost();
 		}
-		
+
 		$scope.showUserData = function() {
 			_opts.template = $("#fs-resize-dialog-template").html(),
 			_opts.controller = 'FSResizeDialogController';
@@ -543,7 +558,7 @@ cloudmanAdminModule.controller('SystemController', ['$scope', '$http', '$dialog'
 	    	d.open().then(function(result) {
 		    });
 		}
-		
+
 		$scope.toggleMasterAsExecHost = function($event, url) {
 			$event.preventDefault();
 			var alert = cmAlertService.addAlert("Action Initiated", "info", 3000);
@@ -552,16 +567,16 @@ cloudmanAdminModule.controller('SystemController', ['$scope', '$http', '$dialog'
 	        	cmAlertService.addAlert(response, "info");
 	        });			
 		}
-		
+
 		$scope.showUserData = function($event, url) {
 			$event.preventDefault();
-			
+
 			var alert = cmAlertService.addAlert("Fetching user data...", "info", 3000);
 			$http.get(url).success(function (response) {
 				cmAlertService.closeAlert(alert);
 	        	var title = 'User Data';
 	        	var btns = [{result:'ok', label: 'OK', cssClass: 'btn-primary'}];
-	        	
+
 	            var ud_html = "<pre>" + JSON.stringify(response, null, 2) + "</pre>";
 
     			$dialog.messageBox(title, ud_html, btns)
@@ -591,7 +606,7 @@ function FSRemoveDialogController($scope, dialog, fs, cmAlertService) {
 	        	cmAlertService.addAlert(response, "info");
 	        }
 	    });
-	  	
+
 	    dialog.close(result);
 	  };
 }
@@ -614,7 +629,7 @@ function FSPersistDialogController($scope, dialog, fs, cmAlertService) {
 	        success: function(response) {
 	        	cmAlertService.addAlert(response, "info");
 	        }
-	    });	  	
+	    });
 	    dialog.close(result);
 	  };
 }
@@ -650,7 +665,7 @@ function AssignedServiceController($scope, $element, $http, cmAlertService, cmAd
   $scope.record = angular.copy($scope.master);
 
   $scope.save = function(record, url) {
-  
+
   	var dto = { svc_name: record.svc_name,
     			requirements: record.requirements
 	};  
@@ -664,32 +679,34 @@ function AssignedServiceController($scope, $element, $http, cmAlertService, cmAd
 	}).error(function(data, status) {
     	cmAlertService.addAlert(data, "error");
 	}); 
-	
+
     $scope.master = angular.copy(record);
     $scope.is_editing = false;
     cmAdminDataService.resumeDataService();
     return false;
   };
- 
+
   $scope.isUnchanged = function(record) {
     return angular.equals(record, $scope.master);
   };
-  
+
   $scope.beginEdit = function(record) {
     $scope.is_editing = true;
     $scope.record = angular.copy($scope.master);
     cmAdminDataService.pauseDataService();
   };
-  
+
   $scope.cancelEdit = function(record) {
   	$scope.record = angular.copy($scope.master);
     $scope.is_editing = false;
     cmAdminDataService.resumeDataService();
   };
-  
+
   $scope.isReassignable = function(record) {
+  	if (record.status == 'Completed' || record.status == 'Starting')
+  		return false;
   	for (req in record.requirements) {
-  		if (req.type == 'FILE_SYSTEM')
+  		if (record.requirements[req].type == 'FILE_SYSTEM')
   			return true;
     }
   	return false;

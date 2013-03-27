@@ -75,13 +75,13 @@ class ConsoleManager(BaseConsoleManager):
 
     def add_master_service(self, new_service):
         self.services.append(new_service)
-        self._update_dependencies(new_service, "ADD")
+        self.update_dependencies(new_service, "ADD")
 
     def remove_master_service(self, service_to_remove):
         self.services.remove(service_to_remove)
-        self._update_dependencies(service_to_remove, "REMOVE")
+        self.update_dependencies(service_to_remove, "REMOVE")
 
-    def _update_dependencies(self, new_service, action):
+    def update_dependencies(self, new_service, action):
         """
         Updates service dependencies when a new service is added.
         Iterates through all services and if action is "ADD",
@@ -598,17 +598,17 @@ class ConsoleManager(BaseConsoleManager):
                             {'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'},
                             {'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'},
                             {'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'}],
-                'requirements': [{'display_name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
-                                 {'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
-                                 {'display_name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
-                                 {'display_name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
+                'requirements': [{'name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
+                                 {'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
+                                 {'name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
+                                 {'name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
                 'status': 'Running'},
                {'svc_name': 'PostgreSQL',
                 'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Postgres'},
                             {'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'},
                             {'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'},
                             {'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'}],
-                'requirements': [{'display_name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
+                'requirements': [{'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
                 'status': 'Running'},
                {'svc_name': 'SGE',
                 'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=SGE'},
@@ -624,7 +624,7 @@ class ConsoleManager(BaseConsoleManager):
                             {'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'},
                             {'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'},
                             {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
-                'requirements': [{'display_name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
+                'requirements': [{'name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
                 'status': 'Running'}], quiet=True)
     def get_all_application_status(self):
         service_list = []
@@ -717,6 +717,84 @@ class ConsoleManager(BaseConsoleManager):
         status_dict['galaxy_admins'] = self.get_galaxy_admins()
         status_dict['master_is_exec_host'] = self.master_exec_host
         return status_dict
+
+    def reassign_dependencies_async(self, remap_list):
+        t_thread = threading.Thread(target=self.reassign_dependencies, args=[remap_list])
+        t_thread.start()
+
+    def reassign_dependencies(self, remap_list):
+        """
+        Reassigns a list of dependent services to another
+        Accepts a list of values with each element being a dictionary containing
+        the values:
+        'role' - the role to reassign
+        'service_to_assign' - the new service to assign
+        'copy_across' - whether to copy across file system contents
+        """
+        for item in remap_list:
+            self.reassign_dependency(item['role'], item['service_to_assign'], item['copy_across'])
+
+    def reassign_dependency(self, role, service_to_assign, copy_across=True):
+        """
+        Reassigns a single dependent service to another.
+        Accepts the following arguments:
+        'role' - the role to reassign
+        'service_to_assign' - the new service to assign
+        'copy_across' - whether to copy across file system contents
+        """
+        current_list = self.get_services(svc_role=role)
+
+        # 1. If file system, sync old with new before service shutdown (to minimize downtime)
+        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
+            if (current_list and copy_across):
+                self.__sync_data(current_list[0], service_to_assign)
+        # 2. Remove all running services dependent on role
+        dependent_svc_list = self.recurse_services_dependent_on_role(role, state=service_states.RUNNING)
+        for svc in dependent_svc_list:
+            svc.remove(synchronous=True)
+        # 3. Sync again after service shutdown (to pick up changes)
+        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
+            # 3.1 sync data
+            if (current_list and copy_across):
+                self.__sync_data(current_list[0], service_to_assign)
+        # 4. Find and remove role from currently assigned service
+        log.debug("Removing role from old service...")
+        for svc in current_list:
+            if role in svc.svc_roles:
+                svc.svc_roles.remove(role)
+                self.app.manager.update_dependencies(svc, "REMOVE")
+        # 5. Assign role to new service
+        log.debug("Assigning role to new service...")
+        if role not in service_to_assign.svc_roles:
+            service_to_assign.svc_roles.append(role)
+            self.app.manager.update_dependencies(service_to_assign, "ADD")
+        # 6. Restart with newly assigned service
+        log.debug("Restarting services...")
+        for svc in dependent_svc_list:
+            svc.add()
+
+    def __sync_data(self, old_fs, new_fs):
+        # make sure trailing slash is added to source or rsync will create subdir
+        source_path = os.path.normpath(old_fs.mount_point) + os.sep
+        cmd = "sudo rsync -az {0} {1}".format(source_path, new_fs.mount_point)
+        log.debug('Rsync data: ' + cmd)
+        misc.run(cmd)
+
+    def recurse_services_dependent_on_role(self, role, state=None):
+        """
+        Recursively finds all services dependent on a particular
+        role. An optional state argument allows for a service state
+        to be matched as well.
+        """
+        dep_list = []
+        for svc in self.app.manager.services:
+            for dependency in svc.dependencies:
+                if dependency.service_role == role:
+                    if state is None or svc.state == state:
+                        dep_list.append(svc)
+                        dep_list.extend(svc.recurse_dependent_services())
+        log.debug("recurse_services_dependent_on_role: Role is: {0} and those that depend on this role are {1}".format(ServiceRole.to_string(role), dep_list))
+        return dep_list
 
     def get_galaxy_rev(self):
         """
@@ -2012,7 +2090,7 @@ class ConsoleManager(BaseConsoleManager):
         Add the new pool to the condor big pool
         """
         srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        #log.debug("HTCondor service found" + str(len(srvs)))
+        # log.debug("HTCondor service found" + str(len(srvs)))
         srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
@@ -3007,7 +3085,7 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                ##<KWS>
+                # #<KWS>
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
