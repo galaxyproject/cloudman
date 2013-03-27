@@ -36,10 +36,11 @@ from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
-APP_SERVICES = {ServiceRole.to_string(
-    ServiceRole.GALAXY): GalaxyService, ServiceRole.to_string(
-        ServiceRole.GALAXY_POSTGRES): PostgresService,
-    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService}
+APP_SERVICES = {
+    ServiceRole.to_string(ServiceRole.GALAXY): GalaxyService,
+    ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES): PostgresService,
+    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService
+}
 
 
 class ConsoleManager(BaseConsoleManager):
@@ -389,9 +390,16 @@ class ConsoleManager(BaseConsoleManager):
                     if service_class:
                         self.add_master_service(service_class(self.app))
                         processed_service = True
-                    if (not processed_service) and (ServiceRole.SGE not in service_roles):  # SGE is added by default
-                        log.warning("Could not find service class matching userData service entry: %s"\
-                                % srvc['name'])
+                    # List of services that get added by default
+                    default_services = [ServiceRole.SGE, ServiceRole.MIGRATION,
+                        ServiceRole.HTCONDOR, ServiceRole.HADOOP]
+                    # if (not processed_service) and (ServiceRole.SGE not in service_roles):  # SGE is added by default:
+                    if not processed_service:
+                        for role in service_roles:
+                            if role not in default_services:
+                            # (ServiceRole.SGE not in service_roles):  # SGE is added by default
+                                log.warning("Could not find service class matching "
+                                    "userData service entry: %s" % srvc['name'])
             return True
         except Exception, e:
             log.error(
@@ -412,8 +420,8 @@ class ConsoleManager(BaseConsoleManager):
         for vol in attached_volumes:
             log.debug("Checking if vol '{0}' is file system '{1}'".format(
                 vol.id, filesystem_name))
-            if self.app.cloud_interface.get_tag(vol, 'clusterName') == self.app.ud['cluster_name'] and \
-                    self.app.cloud_interface.get_tag(vol, 'filesystem') == filesystem_name:
+            if self.app.cloud_interface.get_tag(vol, 'clusterName') == self.app.ud['cluster_name'] \
+                    and self.app.cloud_interface.get_tag(vol, 'filesystem') == filesystem_name:
                 log.debug("Identified attached volume '%s' as filesystem '%s'" % (
                     vol.id, filesystem_name))
                 return vol
