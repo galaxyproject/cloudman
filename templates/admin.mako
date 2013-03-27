@@ -55,7 +55,12 @@
 						<a ng-click="expandServiceDetails()" ng-show="svc.requirements"><i ng-class="{'icon-caret-right': !is_service_visible(), 'icon-caret-down': is_service_visible()}"></i></a>
 					</td>
 					<td ng-bind="svc.svc_name" />
-					<td ng-bind="svc.status" />
+					<td ng-switch on="svc.status">
+			        	<p ng-switch-when="Running" class="text-success">{{svc.status}}</p>
+			        	<p ng-switch-when="Completed" class="text-success">{{svc.status}}</p>
+			        	<p ng-switch-when="Error" class="text-error">{{svc.status}}</p>
+			        	<p ng-switch-default class="text-warning">{{svc.status}}</p>
+			        </td>
 					<td ng-repeat="action in svc.actions">
 						<a ng-href="{{action.action_url}}" ng-bind="action.name" ng-click="performServiceAction($event, action)"></a>
 					</td>
@@ -82,12 +87,12 @@
 										</tr>
 									</thead>
 									<tr ng-repeat="req in record.requirements">
-										<td>{{req.display_name}}</td>
+										<td>{{req.name}}</td>
 										<td>{{req.type}}</td>
 										<td>{{req.assigned_service}}</td>
 									</tr>
 								</table>
-								<button class="btn btn-small btn-warning" ng-click="beginEdit(record)"><i class="icon-edit"></i>&nbsp;Reassign services</button>
+								<button ui-if="isReassignable(record)" class="btn btn-small btn-warning" ng-click="beginEdit(record)"><i class="icon-edit"></i>&nbsp;Reassign services</button>
 							</div>
 							<div ng-switch-when="true">
 								<strong>Required Services:</strong>
@@ -101,7 +106,7 @@
 										</tr>
 									</thead>
 									<tr ng-repeat="req in record.requirements">
-										<td>{{req.display_name}}</td>
+										<td>{{req.name}}</td>
 										<td>{{req.type}}</td>
 										<td>
 											<div ng-switch on="req.type">
@@ -199,7 +204,7 @@
 				<!-- Add File System Form -->
 				<div class="row-fluid" ng-show="is_adding_fs">
 					<div class="span12">
-						<form class="fs-add-form form-inline" ng-switch on="selected_device">
+						<form id="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device" action="${h.url_for(controller='root',action='add_file_system')}">
 						
 							<!-- Intro and close button -->				
 							<span class="help-block">
@@ -230,9 +235,11 @@
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="nfs" ng-model="selected_device" /> NFS
 							    </label>
-						    </fieldset>						        
+						    </fieldset>
+						    
+						    <br />						        
 
-							<!-- Device selection -->
+							<!-- Bucket FS -->
 							<fieldset ng-switch-when="bucket" class="form-horizontal">
 								<div class="control-group">
 									<label class="control-label" for="bucket_name">Bucket name:</label>
@@ -314,7 +321,7 @@
 									<table><tr>
 					                    <td><label for="nfs-server">NFS server address: </label></td>
 					                    <td><input type="text" size="20" name="nfs_server" id="nfs_server"
-					                        'placeholder="e.g., 172.22.169.17:/nfs_dir"></td>
+					                        placeholder="e.g., 172.22.169.17:/nfs_dir"></td>
 					                    </tr><tr>
 					                    <td><label for="nfs_fs_name">File system name: </label></td>
 					                    <td><input type="text" size="20" name="nfs_fs_name" id="nfs_fs_name">
@@ -325,29 +332,30 @@
 
 							<!--   Delete FS option -->
 							<div class="row-fluid">
-								<div class="span12">
-									<span class="inline">
-									<input type="checkbox" name="dot" id="add-fs-dot-box"><label for="add-fs-dot-box">
-	                				If checked, the created disk <strong>will be deleted</strong> upon cluster termination</label>
-	                				</span>
+								<div class="span12">								
+									<label class="checkbox">
+								      <input type="checkbox" name="dot" id="add-fs-delete-box" />
+								      If checked, the created disk <strong>will be deleted</strong> upon cluster termination
+								    </label>
 								</div>
 							</div>
 							
 							<!--  Persist option -->
 							<div class="row-fluid">
 								<div class="span12">
-									<input type="checkbox" name="persist" id="add-fs-persist-box">
-					                <label for="add-fs-persist-box">If checked,
-					                the created disk <strong>will be persisted</strong> as part of the cluster configuration
-					                and thus automatically added the next time this cluster is started</label>
+									<label class="checkbox">
+								      <input type="checkbox" name="persist" id="add-fs-persist-box" />
+								      If checked, the created disk <strong>will be persisted</strong> as part of the cluster configuration
+				                	  and thus automatically added the next time this cluster is started
+								    </label>
 								</div>
 							</div>
 							
 							<!--  Save or cancel option -->
 							<div  class="row-fluid">
 								<div class="span12">
-									<input type="submit" class="btn btn-primary" value="Add new file system"/>
-	                				or <a ng-click="hideAddNewFSForm()">cancel</a>
+									<input type="submit" class="btn btn-primary" value="Add new file system" ng-click="addNewFileSystem()" />
+	                				&nbsp;&nbsp;or<a class="btn btn-link" ng-click="hideAddNewFSForm()">cancel</a>
 								</div>
 							</div>
 									
@@ -381,22 +389,16 @@
 					target="_blank">access via AWS console</a>
 				)
 				%endif
-				<span class="help_info">
-					<span class="help_link">Bucket info</span>
-					<div class="help_content" style="display: none">
-						Each CloudMan cluster has its configuration saved in a persistent
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its configuration saved in a persistent
 						data repository. This repository is read at cluster start and it
 						holds all the data required to restart this same cluster. The
 						repository is stored under your cloud account and is accessible
 						only with your credentials.
-						<br />
 						In the context of AWS, S3 acts as a persistent data repository
 						where
 						all the data is stored in an S3 bucket. The name of the bucket
 						provided here corresponds to the current cluster and is provided
-						simply as a reference.
-					</div>
-				</span>
+						simply as a reference.">Bucket info</span>
 				<li>
 					<a id='show_user_data' ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
 				</li>
@@ -411,64 +413,45 @@
 					<span ui-if="getMasterIsExecHost()">Switch master not to run jobs</span>
 					<span ui-if="!getMasterIsExecHost()">Switch master to run jobs</span>
 				</a>
-				<span class="help_info">
-					<span class="help_link">What will this do?</span>
-					<div class="help_content" style="display: none">
-						By default, the master instance running all the services is also
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="By default, the master instance running all the services is also
 						configured to
 						execute jobs. You may toggle this functionality here. Note that if job
 						execution
 						on the master is disabled, at least one worker instance will be
 						required to
-						run any jobs.
-					</div>
-				</span>
+						run any jobs.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action'
 					href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
-				<span class="help_info">
-					<span class="help_link">What will this do?</span>
-					<div class="help_content" style="display: none">
-						Each CloudMan cluster has its own configuration. The state of
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its own configuration. The state of
 						this cofiguration is saved as 'persistent_data.yaml'
 						file in the cluster's bucket. Saving of this file
 						happens automatically on cluster configuration change.
 						This link allows you to force the update of the cluster
-						configuration and capture its current state.
-					</div>
-				</span>
+						configuration and capture its current state.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
-				<span class="help_info">
-					<span class="help_link">What will this do?</span>
-					<div class="help_content" style="display: none">
-						Reboot the entire system. This will shut down all of the
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Reboot the entire system. This will shut down all of the
 						services and reboot the machine. If there are any worker
-						nodes assciated with the cluster they will be reconnected
-						to after the system comes back up.
-					</div>
-				</span>
+						nodes associated with the cluster they will be reconnected
+						to after the system comes back up.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action'
 					href="${h.url_for(controller='root', action='recover_monitor')}">Recover monitor</a>
-				<span class="help_info">
-					<span class="help_link">What will this do?</span>
-					<div class="help_content" style="display: none">
-						Try to (re)start CloudMan service monitor thread, which is
+				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Try to (re)start CloudMan service monitor thread, which is
 						responsible for monitoring the status of all of the other
 						services. This should only be used if the CloudMan user
-						interface becomes unresponsive or during debugging.
-					</div>
-				</span>
+						interface becomes unresponsive or during debugging.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action'
 					href="${h.url_for(controller='root', action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
 				<span class="help_info">
-					<span class="help_link">What will this do?</span>
+					<span class="help_link" data-toggle="tooltip" data-placement="right" title="Start a new CloudMan service monitor thread regardless
+						of whether one already exists.">What will this do?</span>
 					<div class="help_content" style="display: none">
 						Start a new CloudMan service monitor thread regardless
 						of whether one already exists.
@@ -595,6 +578,10 @@
         // Place URLs here so that url_for can be used to generate them
         var get_cloudman_system_status_url = "${h.url_for(controller='root',action='get_cloudman_system_status')}";
         var cloud_type = "${cloud_type}";
+
+		$(document).ready(function () {
+		    $("[data-toggle='tooltip']").tooltip();
+		});
     </script>
     
     <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
