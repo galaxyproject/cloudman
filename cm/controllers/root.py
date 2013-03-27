@@ -250,6 +250,51 @@ class CM(BaseController):
         return "Initiated file system addition"
 
     @expose
+    def reassign_services(self, trans, **kwargs):
+        """
+        Reassign the service fullfilling a particular dependency. Currently only
+        works with filesystems. For example, a filesystem fulfilling the role GALAXY_DATA
+        could be reassigned to a new file system.  If the copy_across parameter is set, the
+        old filesystem will be rsynced with the new one. This is mainly so that users using one type
+        of filesystem (say volumes) can easily migrate to another.
+        """
+        service_to_process = json.loads(trans.request.body)
+        remap_list = self._get_validated_remap_list(service_to_process)
+        if remap_list:
+            log.debug("Reassigning services {0}".format(remap_list))
+            self.app.manager.reassign_dependencies_async(remap_list)
+            return "Service dependency reassignment initiated."
+        else:
+            return "Nothing to remap"
+
+    def _get_validated_remap_list(self, service_to_process):
+        """
+        Validates client provided values against actual server values
+        and find the list of services that really need to be remapped.
+        This is to ensure that the services which are requested for a remap
+        are actually available to be remapped.
+        """
+        if not service_to_process:
+            return None
+        svc_name = service_to_process.get('svc_name', None)
+        svcs = self.app.manager.get_services(svc_name=svc_name)
+        if not svcs:
+            return None
+
+        remap_list = []
+        svc_to_remap = svcs[0]
+        for dep in svc_to_remap.dependencies:
+            for req in service_to_process['requirements']:
+                new_service = self.app.manager.get_services(svc_name=req['assigned_service'])
+                if new_service:
+                    # roles must match but assigned service must be different to launch a remapping
+                    if dep.service_role in ServiceRole.from_string(req['role']) and dep.assigned_service != new_service[0]:
+                        remap_list.append({'role': dep.service_role,
+                                           'service_to_assign': new_service[0],
+                                           'copy_across': bool(req.get('copy_across', False)) })
+        return remap_list
+
+    @expose
     def power(self, trans, number_nodes=0, pss=None):
         if self.app.manager.get_cluster_status() == 'OFF':  # Cluster is OFF, initiate start procedure
             try:
@@ -424,23 +469,12 @@ class CM(BaseController):
                            'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
-    def get_all_services_status(self, trans):
+    def get_cloudman_system_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
-        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
-        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
-        snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status' : str(snap_status[0]),
-                                   'progress' : str(snap_status[1])}
-        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
-
-    @expose
-    def get_all_filesystems(self, trans):
-        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):

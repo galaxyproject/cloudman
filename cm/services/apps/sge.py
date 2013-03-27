@@ -567,3 +567,16 @@ class SGEService(ApplicationService):
             log.error("SGE error; SGE not runnnig")
             self.state = service_states.ERROR
         return self.state
+
+    def get_service_actions(self):
+        """
+        Returns a list of actions that this service supports
+        """
+        svc_list = []
+        svc_list.append({'name': 'Log', 'action_url': 'service_log?service_name=SGE'})
+        svc_list.append({'name': 'Stop', 'action_url': 'manage_service?service_name=SGE&to_be_started=False'})
+        svc_list.append({'name': 'Start', 'action_url': 'manage_service?service_name=SGE'})
+        svc_list.append({'name': 'Restart', 'action_url': 'restart_service?service_name=SGE'})
+        svc_list.append({'name': 'Q conf', 'action_url': 'service_log?service_name=SGE&q=conf'})
+        svc_list.append({'name': 'qstat', 'action_url': 'service_log?service_name=SGE&q=qstat'})
+        return svc_list

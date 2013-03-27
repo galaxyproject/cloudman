@@ -477,7 +477,7 @@ class Filesystem(DataService):
             if len(disk_usage) == 3:
                 self.size = disk_usage[0]  # or should this the device size?
                 self.size_used = disk_usage[1]
-                self.size_pct = disk_usage[2]
+                self.size_pct = disk_usage[2].replace("%", "")
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
