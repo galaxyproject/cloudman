@@ -11,25 +11,23 @@ from routes import url_for
 ## Default stylesheets
 <%def name="stylesheets()">
 <!--  <link href="${h.url_for('/static/style/masthead.css')}" rel="stylesheet" type="text/css" /> -->
-  <link href="${h.url_for('/static/bootstrap/css/bootstrap.min.css')}" rel="stylesheet" type="text/css" />
-  <link href="${h.url_for('/static/font-awesome/css/font-awesome.min.css')}" rel="stylesheet" type="text/css" />
+  <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.0.2/css/font-awesome.css" rel="stylesheet">
   <link href="${h.url_for('/static/style/base.css')}" rel="stylesheet" type="text/css" />
 </%def>
 
 ## Default javascripts
 <%def name="javascripts()">
-  <!--[if lt IE 7]>
-  <script type='text/javascript' src="/static/scripts/IE7.js"></script>
-  <script type='text/javascript' src="/static/scripts/IE8.js"></script>
-  <script type='text/javascript' src="/static/scripts/ie7-recalc.js"></script>
-  <![endif]-->
-  <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-1.7.1.min.js')}"></script>
-  <script type='text/javascript' src="${h.url_for('/static/scripts/jquery-ui-1.8.10.custom.min.js')}"></script>
-  <script type='text/javascript' src="${h.url_for('/static/scripts/livevalidation_standalone.compressed.js')}"></script>
-  <script type='text/javascript' src="${h.url_for('/static/bootstrap/js/bootstrap.min.js')}"></script>
-  <script type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/angularjs/1.1.3/angular.min.js"></script>  
-  <script type='text/javascript' src="https://raw.github.com/angular-ui/angular-ui/master/build/angular-ui.min.js"></script>
+  <script type='text/javascript' src="//code.jquery.com/jquery-1.9.1.min.js"></script>
+  <!--  TODO: Remove!!! jquery ui -->
+  <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>
+  <script type='text/javascript' src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
+  <script type='text/javascript' src="//ajax.googleapis.com/ajax/libs/angularjs/1.1.3/angular.min.js"></script>  
+  <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/angular-ui/0.4.0/angular-ui.min.js"></script>
+  <!--  TODO: Use angular-straps to replace angular-ui-bootstrap -->
   <script type='text/javascript' src="${h.url_for('/static/scripts/ui-bootstrap-tpls-0.1.0.js')}"></script>
+  <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/0.7.1/angular-strap.min.js"></script>
+  <script type='text/javascript' src="${h.url_for('/static/scripts/base.js')}"></script>
 </%def>
 
 ## Default late-load javascripts
