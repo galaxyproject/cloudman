@@ -1,6 +1,11 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-<div>
+
+<script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/flot/0.7/jquery.flot.min.js"></script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/index.js')}"></script>
+<div ng-app="cloudman.index">
+    <%include file="bits/alerts.htm" />
     <h2>CloudMan Console</h2>
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
     <%include file="bits/messages.htm" />
@@ -27,78 +32,103 @@
     </div>
     <div style="clear: both;"></div><br/>
 
-    <div class="row-fluid">
+    <div class="row-fluid" ng-controller="cmIndexMainActionsController">
     	<div class="span12">
     	<div class="row-fluid">
     	<div class="span11 offset1">
     
     
     	<div class="span2">
-	  		<a class="btn dropdown-toggle btn-success btn-block btn-small" data-toggle="dropdown" href="#">
+	  		<a class="btn dropdown-toggle btn-block btn-small" ng-class="{'btn-success': isGalaxyAccessible(), '': !isGalaxyAccessible()}" data-toggle="dropdown" href="#" ng-disabled="!isGalaxyAccessible()">
 	  		<i class="icon-road"></i>
 	    	Access Galaxy
 	  		</a>
 		</div>
 		
-		<div class="span2 offset1">
-		
+		<div class="span2">
 			<div class="btn-group btn-block">
-		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#">
+		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isAddNodeEnabled()">
 		  		<i class="icon-plus"></i>
 		    	Add Nodes <span class="caret"></span>
 		  		</a>
 		  		<ul class="dropdown-menu">
-		  			<li><div style='position:relative;text-align:center;'>
-				        <h4>Add nodes</h4>
-				        <form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
-				        <div class="form-row">
-				            <label>Number of nodes to start:</label>
-				            <div id="num_nodes" class="form-row-input">
-				                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="1" size="10" />
-				                <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
-				            </div>
-				            <br/>
-				            <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
-				            <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
-				            <div id="instance_type" class="form-row-input">
-				                ## Select available instance types based on cloud name
-				                <%include file="clouds/${cloud_name}/instance_types.mako" />
-				            </div>
-				            ## Spot instances work only for the AWS cloud
-				            %if cloud_type == 'ec2':
-				                <div class="form-row">
-				                    <input type="checkbox" id="use_spot" />
-				                    Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
-				                        Spot instances
-				                    </a><br/>
-				                    Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
-				                        spot price</a>:
-				                    <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
-				                    <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
-				                </div>
-				            %endif
-				            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
-				        </div>
-				        </form>
-					</div></li>
+		  			<!-- dropdown menu links -->
+		  			<li>
+		  				<div class="text-center" style='margin:20px;'>
+					        <form id="add_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="POST" ng-click="handleFormClick($event)">
+					        	<fieldset>
+						        	<legend>Add Nodes</legend>
+						            <label>Number of nodes to start:</label>
+						            <input type="number" name="number_nodes" value="1" min="1" step="1" required="true"/>
+						            <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
+						            <select name="instance_type" id="instance_type">
+	        							<option value='${master_instance_type}'>Same as Master (${master_instance_type})</option>
+						            	<%include file="clouds/${cloud_name}/instance_types.mako" />
+						            </select>
+						            ## Spot instances work only for the AWS cloud
+						            <br /><br />
+						            %if cloud_type == 'ec2':
+										<label>
+											<input type="checkbox" id="use_spot" ng-model="add_nodes.use_spot"/>
+											Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
+						                    Spot instances</a>
+										</label>
+						                <br/>
+						                <label>
+						                	Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
+						                    spot price</a>:
+						                    <br />
+						                    <input type="number" name="spot_price" min="0" required="{{add_nodes.use_spot}}" ng-disabled="!add_nodes.use_spot" />
+										</label>
+						            %endif
+						            <br />
+						            <input type="submit" class="btn btn-small btn-primary" value="Start Additional Nodes" ng-click="addNodes($event)" />
+					            </fieldset>
+					        </form>
+						</div>
+					</li>
 		  		</ul>
 			</div>
 		</div>
 		
-		<div class="span2 offset1">
+		<div class="span2">
 			<div class="btn-group btn-block">
-		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#">
+		  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isRemoveNodeEnabled()">
 		  		<i class="icon-minus"></i>
 		    	Remove Nodes <span class="caret"></span>
 		  		</a>
 		  		<ul class="dropdown-menu">
 		    	<!-- dropdown menu links -->
+		    		<li>
+		    			<div class="text-center" style='margin:20px'>
+					        <form id="remove_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="POST" ng-click="handleFormClick($event)">
+					        	<fieldset>
+						        	<legend>Remove Nodes</legend>
+						            <label>Number of nodes to remove:</label>
+						            <input type="text" name="number_nodes" value="0" min="1" step="1" required="true"/>
+						            <label>Force Termination of non-idle nodes?</label>
+						            <div class="form-inline">
+									      <label class="checkbox"><input id="test" type="radio" name="force_termination" value="True" />Yes</label>
+						            	  <label class="checkbox"><input type="radio" name="force_termination" value="False" checked="True"/>No</label>
+									</div>
+									<br /><br />
+									<input type="submit" class="btn btn-small btn-primary" value="Remove Existing Nodes" ng-click="removeNodes($event)" />
+						        </fieldset>
+					        </form>
+					    </div>		    		
+		    		</li>
 		  		</ul>
 			</div>
 		</div>
 		
-		<div class="span2 offset1">
+		<div class="span2">
+	  		<a class="btn dropdown-toggle btn-block btn-small"  data-toggle="dropdown" href="#">
+	  		<i class="icon-share icon-white"></i>
+	    	Share Cluster
+	  		</a>
+		</div>
 		
+		<div class="span2">
 	  		<a class="btn dropdown-toggle btn-danger btn-block btn-small"  data-toggle="dropdown" href="#">
 	  		<i class="icon-off icon-white"></i>
 	    	Terminate
@@ -109,78 +139,44 @@
 		</div>
 		</div>
 	</div>
-    <div style='position:relative;text-align:center;'>
-        <ul style='display:inline;padding:0;'>
-            <li style='display:inline;width:150px;'>
-                <a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
-            </li>
-            <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Add Nodes..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
-            </li>
-            <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Remove Nodes..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
-            </li>
-            <li style='display:inline;width:150px;'>
-                <a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
-            </li>
-        </ul>
 
-    <div id='cluster_scale_up_popup' class='cluster_scale_popup'>
-        <h4>Add nodes</h4>
-        <form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
-        <div class="form-row">
-            <label>Number of nodes to start:</label>
-            <div id="num_nodes" class="form-row-input">
-                <input type="text" name="number_nodes" class="LV_field" id="number_nodes" value="1" size="10">
-                <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
-            </div>
-            <br/>
-            <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
-            <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
-            <div id="instance_type" class="form-row-input">
-                ## Select available instance types based on cloud name
-                <%include file="clouds/${cloud_name}/instance_types.mako" />
-            </div>
-            ## Spot instances work only for the AWS cloud
-            %if cloud_type == 'ec2':
-                <div class="form-row">
-                    <input type="checkbox" id="use_spot" />
-                    Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
-                        Spot instances
-                    </a><br/>
-                    Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
-                        spot price</a>:
-                    <input type="text" name="spot_price" id="spot_price" size="5" disabled="disabled" />
-                    <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
-                </div>
-            %endif
-            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
-        </div>
-        </form>
-    </div>
-    <div id='cluster_scale_down_popup' class='cluster_scale_popup'>
-        <h4>Remove nodes</h4>
-        <form id="remove_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
-            <div class="form-row">
-                <div id="num_nodes" class="form-row-input">
-                    <label>Number of nodes to remove:</label><input type="text" name="number_nodes" id="number_nodes" value="0" size="10">
-                </div>
-                <div id="num_nodes" class="form-row-input">
-                    &nbsp;
-                </div>
-                <div id="force_termination" class="form-row-input">
-                    <div>Force Termination of non-idle nodes?</div>
-                    <label for="force_termination_yes">Yes</label><input type="radio" name="force_termination" id="force_termination_yes" value="True">
-                    <label for="force_termination_no">No</label><input type="radio" name="force_termination" id="force_termination_no" value="False"  checked="True">
-                </div>
-                <div id="num_nodes" class="form-row-input">
-                    &nbsp;
-                </div>
-                <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
-            </div>
-        </form>
-    </div>
-</div>
+	<!--  Status section -->
+	<div>
+		<br />
+	    <div class="row-fluid" ng-controller="cmIndexStatusController">
+	    	<div class="span12">
+				<fieldset>
+					<legend><h3>Status</h3></legend>
+				</fieldset>
+			</div>
+		</div>
+	    <div class="row-fluid" ng-controller="cmIndexMainActionsController">
+	    	<div class="span2"><strong>Cluster name:</strong></div>
+	    	<div class="span1">${cluster_name}</div>
+		</div>
+		<div class="row-fluid" ng-controller="cmIndexMainActionsController">
+	    	<div class="span2"><strong>Disk status:</strong></div>
+	    	<div class="span1">${cluster_name}</div>
+		</div>
+		<div class="row-fluid" ng-controller="cmIndexMainActionsController">
+	    	<div class="span2"><strong>Worker status:</strong></div>
+	    	<div class="span1">${cluster_name}</div>
+		</div>
+		<div class="row-fluid" ng-controller="cmIndexMainActionsController">
+	    	<div class="span2"><strong>Service status:</strong></div>
+	    	<div class="span1">${cluster_name}</div>
+		</div>
+		
+		<div class="row-fluid" ng-controller="cmIndexStatusController">
+			<span class="form-inline" ng-repeat="node in nodes">
+	  			<chart ng-model='node.system_load' />
+			</span>
+		</div>
+		
+	</div>
+
+
+
 <h3>Status</h3>
 <div id="status_container">
     <div id="cluster_view">
@@ -613,23 +609,23 @@ function update_ui(data){
             $('#dns').attr("target", '_blank');
             $('#galaxy_log').show()
         };
-        $('#status-idle').text( data.instance_status.idle );
-        $('#status-available').text( data.instance_status.available );
-        $('#status-total').text( data.instance_status.requested );
-        $('#du-total').text(data.disk_usage.total);
-        $('#du-inc').text(data.disk_usage.total.slice(0,-1));
-        $('#du-used').text(data.disk_usage.used);
-        $('#du-pct').text(data.disk_usage.pct);
+        //$('#status-idle').text( data.instance_status.idle );
+        //$('#status-available').text( data.instance_status.available );
+        //$('#status-total').text( data.instance_status.requested );
+        //$('#du-total').text(data.disk_usage.total);
+        //$('#du-inc').text(data.disk_usage.total.slice(0,-1));
+        //$('#du-used').text(data.disk_usage.used);
+        //$('#du-pct').text(data.disk_usage.pct);
         if($('#new_vol_size').val() == '0'){
             $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
         }
-        if (parseInt(data.disk_usage.pct) > 80){
-            $('#storage_warning').show();
-        }else{
-            $('#storage_warning').hide();
-        }
-        $('#snap-progress').text(data.snapshot.progress);
-        $('#snap-status').text(data.snapshot.status);
+        //if (parseInt(data.disk_usage.pct) > 80){
+        //    $('#storage_warning').show();
+        //}else{
+        //    $('#storage_warning').hide();
+        //}
+        //$('#snap-progress').text(data.snapshot.progress);
+        //$('#snap-status').text(data.snapshot.status);
         // DBTODO write generic services display
         $('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
         // Show volume manipulating options only after data volumes are ready
@@ -648,9 +644,9 @@ function update_ui(data){
         //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
         //     );
         fsdet = "<ul>";
-        for (i = 0; i < data.all_fs.length; i++){
-            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
-        }
+        //for (i = 0; i < data.all_fs.length; i++){
+        //    fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
+        //}
         fsdet += "</ul>";
         $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
@@ -667,43 +663,43 @@ function update_ui(data){
             $('#snapshotoverlay_msg_box').show();
             return true; // Must return here because the remaining code clears the UI
         }
-        if (data.autoscaling.use_autoscaling === true) {
-            use_autoscaling = true;
-            as_min = data.autoscaling.as_min;
-            as_max = data.autoscaling.as_max;
-            $('#scale_up_button').addClass('ab_disabled');
-            $('#scale_up_button > img').hide();
-            $('#scale_down_button').addClass('ab_disabled');
-            $('#scale_down_button > img').hide();
-        } else if (data.autoscaling.use_autoscaling === false) {
-            use_autoscaling = false;
-            as_min = 0;
-            as_max = 0;
-            $('#scale_up_button').removeClass('ab_disabled');
-            $('#scale_up_button > img').show();
-            if (data.instance_status.requested == '0'){
-                $('#scale_down_button').addClass('ab_disabled');
-                $('#scale_down_button > img').hide();
-            }else{
-                $('#scale_down_button').removeClass('ab_disabled');
-                $('#scale_down_button > img').show();
-            }
-        }
-        if (data.snapshot.status !== "None"){
-            if(!$('#snapshotoverlay').is(':visible')) {
-                $('#snapshotoverlay').show();
-            }
-            $('#snapshot_status_box').show();
-            $('#snapshot_status').text(data.snapshot.status);
-            if (data.snapshot.progress !== "None"){
-                $('#snapshot_progress').html("; progress: <i>"+data.snapshot.progress+"</i>");
-            } else {
-                $('#snapshot_progress').html("");
-            }
-        }else{
-            $('#snapshot_status_box').hide();
-            $('#snapshotoverlay').hide();
-        }
+        //if (data.autoscaling.use_autoscaling === true) {
+        //    use_autoscaling = true;
+        //    as_min = data.autoscaling.as_min;
+        //    as_max = data.autoscaling.as_max;
+        //    $('#scale_up_button').addClass('ab_disabled');
+        //    $('#scale_up_button > img').hide();
+        //    $('#scale_down_button').addClass('ab_disabled');
+        //    $('#scale_down_button > img').hide();
+        //} else if (data.autoscaling.use_autoscaling === false) {
+        //    use_autoscaling = false;
+        //    as_min = 0;
+        //    as_max = 0;
+        //    $('#scale_up_button').removeClass('ab_disabled');
+        //    $('#scale_up_button > img').show();
+        //    if (data.instance_status.requested == '0'){
+        //        $('#scale_down_button').addClass('ab_disabled');
+        //        $('#scale_down_button > img').hide();
+        //    }else{
+        //        $('#scale_down_button').removeClass('ab_disabled');
+        //        $('#scale_down_button > img').show();
+        //    }
+        //}
+        //if (data.snapshot.status !== "None"){
+        //    if(!$('#snapshotoverlay').is(':visible')) {
+        //        $('#snapshotoverlay').show();
+        //    }
+        //    $('#snapshot_status_box').show();
+        //    $('#snapshot_status').text(data.snapshot.status);
+        //    if (data.snapshot.progress !== "None"){
+        //        $('#snapshot_progress').html("; progress: <i>"+data.snapshot.progress+"</i>");
+        //    } else {
+        //        $('#snapshot_progress').html("");
+        //    }
+        //}else{
+        //    $('#snapshot_status_box').hide();
+        //    $('#snapshotoverlay').hide();
+       // }
     }
 }
 function update_log(data){
@@ -828,7 +824,7 @@ function add_pending_node() {
     inst_kind = 'on-demand';
     if ($('#use_spot').length != 0 && $('#use_spot').attr("checked") == 'checked') {
         inst_kind = 'spot';
-    } increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value), inst_kind);
+    }// increment_pending_instance_count(parseInt(document.getElementById("add_instances_form").elements["number_nodes"].value), inst_kind);
         return true;
 }
 
@@ -1045,26 +1041,13 @@ $(document).ready(function() {
         }
     });
     // Form validation
-    var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
-    number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
-    if (permanent_storage_size === 0) {
-        var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
-        var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
-    }
-    if ($('#spot_price').length != 0) {
-        // Add LiveValidation only if the field is actually present on the page
-        var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
-        spot_price.add( Validate.Numericality, { minimum: 0 } );
-    }
-    var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
-    expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+    //var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
+    //expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
 
-    var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
+    //var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
+    //autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
+    //var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
+    //autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
 
     $('#as_min').change(function(){
         autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
@@ -1074,10 +1057,10 @@ $(document).ready(function() {
     });
 
     // FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
-    var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    var autoscaling_max_bound_adj = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
+    //var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
+    //autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
+    //var autoscaling_max_bound_adj = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
+    //autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
     $('#as_min_adj').change(function(){
         autoscaling_max_bound_adj.validations[0].params.minimum = $('#as_min_adj').val();
     });
@@ -1121,6 +1104,10 @@ $(document).ready(function() {
     update(true);
 });
 
+		// Place URLs here so that url_for can be used to generate them
+        var get_cloudman_index_update_url = "${h.url_for(controller='root',action='full_update')}";
+        var get_cloudma_status_update_url = "${h.url_for(controller='root',action='instance_feed_json')}";
+        
 </script>
     </div>
 </%def>

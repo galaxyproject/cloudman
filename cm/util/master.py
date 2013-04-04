@@ -10,7 +10,7 @@ import time
 import datetime as dt
 import json
 import shutil
-
+import random
 
 from cm.util import misc, comm
 from cm.util import (
@@ -2115,7 +2115,7 @@ class ConsoleManager(BaseConsoleManager):
         public_ip = self.app.cloud_interface.get_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
-            load = "0.00 0.02 0.39"
+            load = "{0} {1} {2}".format(random.random(), random.random(), random.random())
             return {'id': 'localtest', 'ld': load,
                     'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
                     'instance_type': 'tester', 'public_ip': public_ip}

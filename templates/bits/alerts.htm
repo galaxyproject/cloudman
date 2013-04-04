@@ -1,0 +1,3 @@
+	<div ng-controller="cmAlertController">
+		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
+	</div>

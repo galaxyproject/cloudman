@@ -1,3 +1,10 @@
+chart{
+    display: inline;
+    float: left;
+    width:20%;
+    height:100px;
+}
+
 /* Styling for the space usage meter element */
 .meter_file_system_space_usage {
 	text-align: center;

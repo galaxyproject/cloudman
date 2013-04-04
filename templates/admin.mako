@@ -1,9 +1,9 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-<div ng-app="cloudman">
-	<div ng-controller="cmAlertController">
-		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
-	</div>
+<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
+<script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
+<div ng-app="cloudman.admin">
+	<%include file="bits/alerts.htm" />
 	<!-- 
 	<div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
 		<span id="msg" class="info_msg_box_content" style="display: none"></span>
@@ -583,8 +583,5 @@
 		    $("[data-toggle='tooltip']").tooltip();
 		});
     </script>
-    
-    <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
-    <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 </div>
 </%def>
