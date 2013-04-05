@@ -113,30 +113,13 @@ cloudmanIndexModule.directive('chart', function(){
     };
 });
 
-cloudmanIndexModule.controller('cmIndexStatusController', ['$scope', '$http', '$timeout', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $timeout, cmIndexDataService, cmAlertService) {
+cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$timeout', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $timeout, cmIndexDataService, cmAlertService) {
 
-		var series1 = []
-        var graphData = [ { data: series1,
-        					lines: {
-								fill: true
-							}
-        				   } ];
-    
-    	$scope.data = graphData;
     	$scope.nodes = [];
     	
     	var _data_timeout_id;
     	var counter = 0;
     	
-    	function addNewLoadValue(node, instance) {
-    		var load = instance.ld;
-			var vals = load.split(' ');
-			var point = [counter++, vals.pop()*100];
-			var frame_rate = 15;
-    		var max_series_length = 15;
-	        interpolatedAdd(node['system_load'][0].data, point, frame_rate, max_series_length)
-    	}
-    
     	var poll_performance_data = function() {
 	        // Poll cloudman status
 	        $http.get(get_cloudma_status_update_url).success(function (data) {
@@ -144,36 +127,95 @@ cloudmanIndexModule.controller('cmIndexStatusController', ['$scope', '$http', '$
 	        	for (node_index in $scope.nodes) {
 	        		var node = $scope.nodes[node_index];
 	        		var node_found = false;
+	        		// check whether currently known nodes are in the list of newly returned server nodes
 	        		for (instance_index in data.instances) {
 	        			var instance = data.instances[instance_index];
-	        			if (node.public_ip == instance.public_ip) {
+	        			if (node.id == instance.id) {
+	        				// Yes, it's a known node, so just plot the new load value 
 	        				addNewLoadValue(node, instance);
 	        				node_found = true;
+	        				// mark the server returned node as a known node
 	        				instance.already_added = true;
 	        			}
 	        		}
+	        		// Node no longer exists on server, Therefore, mark for removal
 	        		if (!node_found)
 	        			node.should_remove = true;
 	        	}
 	        	
+	        	// Filter all nodes marked for removal
 	        	$scope.nodes = $scope.nodes.filter(function(item) { return !item.should_remove });
+	        	// Filter all newly added nodes on server
 	        	var list_to_add = data.instances.filter(function(item) { return !item.already_added });
 	        	
+	        	// Add any newly added nodes to our currently known node list
 	        	for (instance_index in list_to_add) {
 	        		var instance = list_to_add[instance_index];
-	        		var node = { public_ip : instance.public_ip,
-	        					 system_load : [ { data: [],
+	        		var node = { id : instance.id,
+	        					 system_load : [ { data: [], // 1 minute average series
 		        									lines: {
 													fill: true
 													}
-        				   						 }]
+        				   						 },
+        				   						 { data: [], // 5 minute average series
+ 		        									lines: {
+ 													fill: false
+ 													}
+         				   						 }
+        				   						 ]
 	        				   }
 	        		$scope.nodes.push(node);
+	        		// Also plot the load values
 	        		addNewLoadValue(node, instance);
 	        	}
     		});
 			resumeDataService();
 	    };
+	    
+	    var resumeDataService = function () {
+	    	$timeout.cancel(_data_timeout_id); // cancel any existing timers
+			_data_timeout_id = $timeout(poll_performance_data, 5000, true);
+		};
+
+		// Execute first time fetch
+		poll_performance_data();
+		
+		//----------------------------------------------------------------------------------
+	    // Support functions follow
+		//----------------------------------------------------------------------------------
+    	function addNewLoadValue(node, instance) {
+    		var load = instance.ld;
+			var vals = load.split(' ');
+			var point_1_min_avg = [counter, vals.pop()*100];
+			var point_5_min_avg = [counter, vals.pop()*100];
+			counter++;
+			var points = [point_1_min_avg, point_5_min_avg]
+			var frame_rate = 15;
+    		var max_series_length = 15;
+	        interpolatedAddPointList(node['system_load'], points, frame_rate, max_series_length)
+    	}
+	    
+	    function interpolatedAddPointList(series_list, points_list, frame_rate, max_series_length) {
+	    	var closureList = []
+		    for (var index in series_list) {
+		    	closure = interpolatedAddPoint(series_list[index].data, points_list[index], frame_rate, max_series_length)
+		    	if (closure)
+		    		closureList.push(closure)
+		    }			
+		    function animateSeries() {
+		    	var newList = [];
+		    	for (var closure_index in closureList) {
+		    		var result = closureList[closure_index]();
+		    		if (result)
+		    			newList.push(result)
+		    	}
+		    	
+		    	closureList = newList;
+		    	if (closureList)
+		    		$timeout(animateSeries, 1000.00 / frame_rate, true);
+	    	}
+		    animateSeries();
+	    }
 	    
 	    //----------------------------------------------------------------------------------
 	    // This function adds a new point to a series, but does so incrementally, at the
@@ -185,10 +227,11 @@ cloudmanIndexModule.controller('cmIndexStatusController', ['$scope', '$http', '$
 	    // limits the series length to this value, and also does an interpolated remove
 	    // of the first point, creating a continuous, sliding animation effect.
 	    //
-	    // This function is self-contained, except for a dependency on $timeout. The $timeout
-	    // can be replaced with window.timeout if not angular js.
+	    // This function is self-contained, and works incrementally on each call. Returns
+	    // void when the starting point has been interpolated till the end point. Returns
+	    // a closure otherwise, which can be invoked via a timer to create the animation effect.
 	    //----------------------------------------------------------------------------------
-	    function interpolatedAdd(series, point, frame_rate, max_series_length) {
+	    function interpolatedAddPoint(series, point, frame_rate, max_series_length) {
 	    	var animate_remove = typeof max_series_length !== 'undefined'
 	    	frame_rate = typeof frame_rate !== 'undefined' ? frame_rate : 10.0;
 	    
@@ -197,8 +240,8 @@ cloudmanIndexModule.controller('cmIndexStatusController', ['$scope', '$http', '$
 	    		return;
 	    	}
 	    	
-	    	from_point = series[series.length-1];
-	    	to_point = point;	    
+	    	var from_point = series[series.length-1];
+	    	var to_point = point;	    
 	    
 	    	var from_y = from_point[0]
 	    	var to_y = to_point[0]
@@ -259,20 +302,12 @@ cloudmanIndexModule.controller('cmIndexStatusController', ['$scope', '$http', '$
 		    	if (!animAdd()) {
 		    		return;
 		    	}
-	    		
-	    		$timeout(interpolateValues, 1000.00 / frame_rate, true);
+		    	else
+		    		return interpolateValues;
 	    	}
 	    	
-	    	$timeout(interpolateValues, 0, true);
+	    	return interpolateValues;
 	    }
-
-	    var resumeDataService = function () {
-	    	$timeout.cancel(_data_timeout_id); // cancel any existing timers
-			_data_timeout_id = $timeout(poll_performance_data, 3000, true);
-		};
-
-		// Execute first time fetch
-		poll_performance_data();
 	}]);
 
 cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, cmIndexDataService, cmAlertService) {

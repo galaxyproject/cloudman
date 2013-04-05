@@ -143,7 +143,7 @@
 	<!--  Status section -->
 	<div>
 		<br />
-	    <div class="row-fluid" ng-controller="cmIndexStatusController">
+	    <div class="row-fluid">
 	    	<div class="span12">
 				<fieldset>
 					<legend><h3>Status</h3></legend>
@@ -167,7 +167,7 @@
 	    	<div class="span1">${cluster_name}</div>
 		</div>
 		
-		<div class="row-fluid" ng-controller="cmIndexStatusController">
+		<div class="row-fluid" ng-controller="cmLoadGraphController">
 			<span class="form-inline" ng-repeat="node in nodes">
 	  			<chart ng-model='node.system_load' />
 			</span>
