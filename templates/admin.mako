@@ -389,18 +389,18 @@
 					target="_blank">access via AWS console</a>
 				)
 				%endif
-				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its configuration saved in a persistent
+				<span class="help_link" tooltip-placement="right" tooltip="Each CloudMan cluster has its configuration saved in a persistent
 						data repository. This repository is read at cluster start and it
 						holds all the data required to restart this same cluster. The
 						repository is stored under your cloud account and is accessible
-						only with your credentials.
+						only with your credentials.<br />
 						In the context of AWS, S3 acts as a persistent data repository
 						where
 						all the data is stored in an S3 bucket. The name of the bucket
 						provided here corresponds to the current cluster and is provided
 						simply as a reference.">Bucket info</span>
 				<li>
-					<a id='show_user_data' ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
+					<a ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
 				</li>
 				<li>
 					<a id='cloudman_log'
@@ -409,11 +409,11 @@
 			</li>
 			<li>
 				<a class="action" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}"
-				ng-click="toggleMasterAsExecHost($event, '${h.url_for(controller='root', action='toggle_master_as_exec_host')}')">
+				ng-click="executeAction($event, '${h.url_for(controller='root', action='toggle_master_as_exec_host')}')">
 					<span ui-if="getMasterIsExecHost()">Switch master not to run jobs</span>
 					<span ui-if="!getMasterIsExecHost()">Switch master to run jobs</span>
 				</a>
-				<span class="help_link" data-toggle="tooltip" data-placement="right" title="By default, the master instance running all the services is also
+				<span class="help_link" tooltip-placement="right" tooltip="By default, the master instance running all the services is also
 						configured to
 						execute jobs. You may toggle this functionality here. Note that if job
 						execution
@@ -422,9 +422,9 @@
 						run any jobs.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action'
-					href="${h.url_for(controller='root', action='store_cluster_config')}">Store current cluster configuration</a>
-				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Each CloudMan cluster has its own configuration. The state of
+				<a class='action' ng-click="executeAction($event, '${h.url_for(controller='root', action='store_cluster_config')}')">
+				Store current cluster configuration</a>
+				<span class="help_link" tooltip-placement="right" tooltip="Each CloudMan cluster has its own configuration. The state of
 						this cofiguration is saved as 'persistent_data.yaml'
 						file in the cluster's bucket. Saving of this file
 						happens automatically on cluster configuration change.
@@ -432,25 +432,25 @@
 						configuration and capture its current state.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
-				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Reboot the entire system. This will shut down all of the
+				<a class='action' ng-click="executeAction($event, '${h.url_for(controller='root', action='reboot')}')">Reboot master instance</a>
+				<span class="help_link" tooltip-placement="right" tooltip="Reboot the entire system. This will shut down all of the
 						services and reboot the machine. If there are any worker
 						nodes associated with the cluster they will be reconnected
 						to after the system comes back up.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action'
-					href="${h.url_for(controller='root', action='recover_monitor')}">Recover monitor</a>
-				<span class="help_link" data-toggle="tooltip" data-placement="right" title="Try to (re)start CloudMan service monitor thread, which is
+					ng-click="executeAction($event, '${h.url_for(controller='root', action='recover_monitor')}')">Recover monitor</a>
+				<span class="help_link" tooltip-placement="right" tooltip="Try to (re)start CloudMan service monitor thread, which is
 						responsible for monitoring the status of all of the other
 						services. This should only be used if the CloudMan user
 						interface becomes unresponsive or during debugging.">What will this do?</span>
 			</li>
 			<li>
 				<a class='action'
-					href="${h.url_for(controller='root', action='recover_monitor')}?force=True">Recover monitor *with Force*</a>
+					ng-click="executeAction($event, '${h.url_for(controller='root', action='recover_monitor')}?force=True')">Recover monitor *with Force*</a>
 				<span class="help_info">
-					<span class="help_link" data-toggle="tooltip" data-placement="right" title="Start a new CloudMan service monitor thread regardless
+					<span class="help_link" tooltip-placement="right" tooltip="Start a new CloudMan service monitor thread regardless
 						of whether one already exists.">What will this do?</span>
 					<div class="help_content" style="display: none">
 						Start a new CloudMan service monitor thread regardless
@@ -482,7 +482,7 @@
         </table>
     </script>
 
-    <script type="text/template" id="fs-resize-dialog-template">
+    <script type="text/ng-template" id="partials/fs-resize-dialog-template.html">
     	<form id="fs_resize_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="POST">
     	<div class="modal-header" style="padding: 12px 12px 12px 12px">
     		<div class="modal-header">
@@ -525,7 +525,7 @@
         </form>
     </script>
     
-    <script type="text/template" id="fs-delete-dialog-template">
+    <script type="text/ng-template" id="partials/fs-delete-dialog-template.html">
     	<form id="fs_remove_form" action="${h.url_for(controller='root',action='manage_service')}?service_name={{fs.name}}&to_be_started=False&is_filesystem=True" method="GET">
     		<div class="modal-header">
 		    	<h3>Remove file system: {{ fs.name }}?</h3>
@@ -542,7 +542,7 @@
         </form>
     </script> 
     
-    <script type="text/template" id="fs-persist-dialog-template">
+    <script type="text/ng-template" id="partials/fs-persist-dialog-template.html">
     	<form id="fs_persist_form" action="${h.url_for(controller='root', action='update_file_system')}?fs_name={{fs.name}}" method="GET">
     		<div class="modal-header">
 		    	<h3>Persist file system: {{ fs.name }}?</h3>

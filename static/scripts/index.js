@@ -3,7 +3,8 @@ var cloudmanIndexModule = angular.module('cloudman.index', ['cloudman.base', 'ui
 cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmAlertService) {
 		// Server Status Cache
 		var _cloudman_status;
-		var _log_update_data;
+		var _log_data = [];
+		var _log_cursor = 0;
 		var _messages;
 
 		// Local vars
@@ -11,9 +12,16 @@ cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmA
 
 		var poll_data = function() {
 	        // Poll cloudman status
-	        $http.get(get_cloudman_index_update_url).success(function (data) {
+	        $http.get(get_cloudman_index_update_url, {
+	            params: {l_log: _log_cursor}
+	         }).success(function (data) {
 				_cloudman_status = data.ui_update_data;
-				_log_update_data = data.log_update_data;
+				_log_data = _log_data.concat(data.log_update_data.log_messages);
+				if (_log_data.length > 200) {
+					_log_data.splice(0, _log_data.length-200, "The log has been truncated to keep up performance.  The <a href='/cloud/log/'>full log is available here</a>.");
+				}
+				
+				_log_cursor = data.log_update_data.log_cursor;
 				var messages = data.messages;				
 				_processSystemMessages(messages);
     		});
@@ -52,6 +60,9 @@ cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmA
             },
             getCloudmanStatus: function () {
                 return _cloudman_status;
+            },
+            getLogData: function () {
+                return _log_data;
             }
         };
 	});
@@ -61,44 +72,39 @@ cloudmanIndexModule.directive('chart', function(){
     return{
         restrict: 'E',
         link: function(scope, elem, attrs) {
-            
             var chart = null;
             var opts = {
 				grid: {
 					borderWidth: 1,
-					minBorderMargin: 20,
-					labelMargin: 10,
+					minBorderMargin: 10,
+					labelMargin: 5,
+					hoverable: true,
+					clickable: true,
 					backgroundColor: {
 						colors: ["#fff", "#e4f4f4"]
 					},
 					margin: {
 						top: 8,
-						bottom: 20,
-						left: 20
+						bottom: 8,
+						left: 8
 					},
-					markings: function(axes) {
-						var markings = [];
-						var xaxis = axes.xaxis;
-						for (var x = Math.floor(xaxis.min); x < xaxis.max; x += xaxis.tickSize * 2) {
-							markings.push({ xaxis: { from: x, to: x + xaxis.tickSize }, color: "rgba(232, 232, 255, 0.2)" });
-						}
-						return markings;
-					}
 				},
 				xaxis: {
-					tickFormatter: function() {
-						return "";
-					}
+					mode: "time",
+					minTickSize: [30, "second"],
+					timeformat: "%H:%M:%S",
 				},
 				yaxis: {
 					min: 0,
-					max: 110
+					max: 100
 				},
 				legend: {
-					show: true
+					show: true,
+					container: $(attrs.legendLocation),
+					noColumns: 2
 				}
 			};
-                   
+            
             scope.$watch(attrs.ngModel, function(data) {
                 if (!chart){
                     chart = $.plot(elem, data , opts);
@@ -116,9 +122,40 @@ cloudmanIndexModule.directive('chart', function(){
 cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$timeout', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $timeout, cmIndexDataService, cmAlertService) {
 
     	$scope.nodes = [];
-    	
+
     	var _data_timeout_id;
     	var counter = 0;
+    	
+    	function getAliveTime(node) {
+            var time_string = "";
+            var time = Math.floor(node.time_in_state);
+            var hours = Math.floor(time / 3600);
+
+            if (hours >= 24) {
+                    // More than a day
+                    var days = Math.floor(hours / 24);
+                    time_string = days + " day";
+                    if (days > 1) {
+                            time_string += "s";
+                    }
+            } else if (hours >= 168) {
+                    // More than a week
+                    var weeks = Math.floor(hours / 168);
+                    time_string = weeks + " week";
+                    if (weeks > 1) {
+                            time_string += "s";
+                    }
+            } else {
+                    // Less than a day
+                    time -= (hours * 60 * 60);
+                    var minutes = Math.floor(time/60);
+                    time -= (minutes * 60);
+                    var seconds = Math.floor(time);
+                    time_string =  ("0" + hours).slice(-2) + ":" + ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2);
+            }
+            return time_string;
+    	}
+
     	
     	var poll_performance_data = function() {
 	        // Poll cloudman status
@@ -132,6 +169,7 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
 	        			var instance = data.instances[instance_index];
 	        			if (node.id == instance.id) {
 	        				// Yes, it's a known node, so just plot the new load value 
+	        				node.instance = instance;
 	        				addNewLoadValue(node, instance);
 	        				node_found = true;
 	        				// mark the server returned node as a known node
@@ -152,14 +190,23 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
 	        	for (instance_index in list_to_add) {
 	        		var instance = list_to_add[instance_index];
 	        		var node = { id : instance.id,
-	        					 system_load : [ { data: [], // 1 minute average series
+	        					 instance: instance,
+	        					 system_load : [ {  label: "1 min average&nbsp;&nbsp;",
+	        						 				data: [], // 1 minute average series
 		        									lines: {
-													fill: true
+		        										fill: true,
+		        										show: true
+													},
+													color: 'lightblue',
+													points: {
+														show: true
 													}
         				   						 },
-        				   						 { data: [], // 5 minute average series
+        				   						 {  label: "5 min average",
+        				   							data: [], // 5 minute average series
+        				   							color: 'DeepSkyBlue',
  		        									lines: {
- 													fill: false
+ 		        										fill: false
  													}
          				   						 }
         				   						 ]
@@ -186,9 +233,9 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
     	function addNewLoadValue(node, instance) {
     		var load = instance.ld;
 			var vals = load.split(' ');
-			var point_1_min_avg = [counter, vals.pop()*100];
-			var point_5_min_avg = [counter, vals.pop()*100];
-			counter++;
+			var time = new Date().getTime();
+			var point_1_min_avg = [time, vals.pop()*100];
+			var point_5_min_avg = [time, vals.pop()*100];
 			var points = [point_1_min_avg, point_5_min_avg]
 			var frame_rate = 15;
     		var max_series_length = 15;
@@ -310,8 +357,29 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
 	    }
 	}]);
 
-cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, cmIndexDataService, cmAlertService) {
+cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http', '$dialog', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $dialog, cmIndexDataService, cmAlertService) {
 		
+		 
+		$scope.showInitialConfig = function() {
+			if (initial_cluster_type === 'None') {
+				var _opts = {
+					backdropClick: false,
+					templateUrl: 'partials/initial-config.html',
+					controller: 'initialConfigController'
+				};
+				
+				var d = $dialog.dialog(_opts);
+					d.open().then(function(result) {
+				});
+			}
+		}
+		
+		$scope.getCloudmanStatus = function() {
+			return cmIndexDataService.getCloudmanStatus();
+		}
+		
+		$scope.closePopup = false;
+	
         $scope.isGalaxyAccessible = function () {
         	var cmstatus = cmIndexDataService.getCloudmanStatus();
         	return cmstatus && cmstatus.dns != '#';
@@ -330,12 +398,14 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
         $scope.handleFormClick = function($event) {
         	// Prevent the bootstrap popup from closing on clicks: 
         	// http://stackoverflow.com/questions/8110356/dropdown-with-a-form-inside-with-twitter-bootstrap
-        	$event.stopPropagation();
+        	if (!$scope.closePopup) {
+        		$scope.closePopup = false;
+        		$event.stopPropagation();
+        	}
         }
         
         $scope.addNodes = function($event) {
-        	$event.preventDefault();
-        	cmIndexDataService.pauseDataService();
+        	cmAlertService.addAlert("Adding new nodes", "info");
         	$('#add_instances_form').ajaxForm({
 		        type: 'POST',
 		        dataType: 'html',
@@ -345,14 +415,13 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 		        },
 		        success: function(response) {
 		        	cmIndexDataService.resumeDataService();
-		        	cmAlertService.addAlert(response, "info");
 		        }
 	    	});
+        	$scope.closePopup = true;
         }
         
         $scope.removeNodes = function($event) {
-        	$event.preventDefault();
-        	cmIndexDataService.pauseDataService();
+        	cmAlertService.addAlert("Removing nodes", "info");
         	$('#remove_instances_form').ajaxForm({
 		        type: 'POST',
 		        dataType: 'html',
@@ -362,9 +431,132 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 		        },
 		        success: function(response) {
 		        	cmIndexDataService.resumeDataService();
-		        	cmAlertService.addAlert(response, "info");
 		        }
 	    	});
+        	$scope.closePopup = true;
         }
+        
+		$scope.confirm_terminate = function($event) {
+			var _opts = {
+				templateUrl: 'partials/terminate-confirm.html',
+				controller: 'terminateConfirmController'
+			};
+
+			var d = $dialog.dialog(_opts);
+	    	d.open().then(function(result) {
+		    });
+		}
+		
+		$scope.configureAutoScaling = function($event) {
+			var _opts = {
+					templateUrl: 'partials/autoscaling-config.html',
+					controller: 'autoscalingController'
+			};
+
+			var d = $dialog.dialog(_opts);
+	    	d.open().then(function(result) {
+		    });
+		}
 
 	}]);
+
+
+function terminateConfirmController($scope, dialog, cmAlertService) {
+	  
+	  $scope.cancel = function($event, result) {
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	  };
+	  
+	  $scope.confirm = function(result) {
+		// TODO: DOM access in controller. Should be redone
+		$('#form_terminate_confirm').ajaxForm({
+	        type: 'POST',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert(response.responseText, "error");
+	        },
+	        success: function(response) {
+	        	cmAlertService.addAlert("Cluster termination initiated", "info");
+	        }
+	    });	  	
+	    dialog.close('confirm');
+	  };
+}
+
+function initialConfigController($scope, dialog, cmAlertService) {
+	  
+	$scope.isCollapsed = true;
+	
+	$scope.toggleOptions = function($event) {
+	  	$event.preventDefault();
+	  	$scope.isCollapsed = !$scope.isCollapsed;
+	};
+  
+    $scope.cancel = function($event, result) {
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	  };
+	  
+	  $scope.confirm = function(result) {
+		// TODO: DOM access in controller. Should be redone
+		$('#form_terminate_confirm').ajaxForm({
+	        type: 'POST',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert(response.responseText, "error");
+	        },
+	        success: function(response) {
+	        	cmAlertService.addAlert("Cluster termination initiated", "info");
+	        }
+	    });	  	
+	    dialog.close('confirm');
+	  };
+}
+
+function autoscalingController($scope, dialog, cmAlertService, cmIndexDataService) {
+
+	$scope.isCollapsed = true;
+	
+	$scope.isAutoScalingEnabled = function() {
+		return cmIndexDataService.getCloudmanStatus().autoscaling.use_autoscaling;
+	}
+	
+	$scope.getAutoscalingSettings = function() {
+		return cmIndexDataService.getCloudmanStatus().autoscaling;
+	}
+	
+	$scope.toggleOptions = function($event) {
+	  	$event.preventDefault();
+	  	$scope.isCollapsed = !$scope.isCollapsed;
+	};
+	
+    $scope.cancel = function($event, result) {
+	  	$event.preventDefault();
+	    dialog.close('cancel');
+	};
+	  
+	$scope.toggleAutoscaling = function($event, result) {
+		cmAlertService.addAlert("Configuring autoscaling...", "info");
+		// TODO: DOM access in controller. Should be redone
+		$('#form_autoscaling_config').ajaxForm({
+	        type: 'POST',
+	        dataType: 'html',
+	        error: function(response) {
+	        	cmAlertService.addAlert("An error occured while configuring autoscaling.", "error");
+	        },
+	        success: function(response) {
+	        }
+	    });	  	
+	    dialog.close('confirm');
+	};
+}
+
+
+cloudmanIndexModule.controller('cmClusterLogController', ['$scope', '$http', '$dialog', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $dialog, cmIndexDataService, cmAlertService) {
+
+	$scope.getLogData = function() {
+		return cmIndexDataService.getLogData();
+	}
+}]);
+

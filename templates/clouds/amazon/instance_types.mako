@@ -1,4 +1,5 @@
 <%block name="instance_types">
+	 <option value='${master_instance_type}'>Same as Master (${master_instance_type})</option>
      <optgroup label="Micro Instances">
      	<option value='t1.micro' title="Cores: Up to 2 EC2 Compute Units, Memory: 613MB, IO-Perf: Low, EBS-Optimized: No">Micro (t1.micro)</option>
      </optgroup>

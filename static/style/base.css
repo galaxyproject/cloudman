@@ -1,9 +1,10 @@
-chart{
+chart {
     display: inline;
     float: left;
-    width:100%;
-    height:100px;
+    width:270px;
+    height:140px;
 }
+
 
 /* Styling for the space usage meter element */
 .meter_file_system_space_usage {
@@ -18,50 +19,20 @@ chart{
 	content: attr(display-value);
 }
 
-
-div.form-row{padding:5px 10px;}
-/*div.form-row label{font-weight:bold;display:block;margin-bottom:.2em;}*/
-div.form-row-input{width:300px;}
-div.form-row-input > input{max-width:300px;}
-
-.right{
-    float: right;
+.cluster_node {
+	float: left;
+	margin: 5px;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 5px;
+    -khtml-border-radius: 4px;
 }
 
-#center_container {
-	width: 400px;
-	margin: 20px auto;
-	padding: 0;
-/*  background-color:orange;*/
-}
 
-#power_button_container {
-    margin-left:100px;
-    margin-right:100px;
-    width:200px;
-}
 
-#node_management_container {
-    float:right;
-	width: 100px;
-}
-#power_button_container a {
-	background: url(/cloud/static/images/GC2_power_button.png) no-repeat right top;
-	display: block;
-	height: 200px;
-}
 
-#power_button_container a:hover {
-	background-position: right bottom;
-}
 
-#power_button_container a.on {
-	background-position: left top;
-}
-
-#power_button_container a.on:hover{
-	background-position: left bottom;
-}
 
 #extra_startup_options{
     display:none;
@@ -120,16 +91,6 @@ div.form-row-input > input{max-width:300px;}
     background-position: left center;
 }
 
-
-.overlay{
-    background:transparent url(/cloud/static/images/overlay.png) repeat top left;
-    position:fixed;
-    top:0px;
-    bottom:0px;
-    left:0px;
-    right:0px;
-    z-index:100;
-}
 
 .box{
     position:fixed;
@@ -560,7 +521,7 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 }
 
 #log_container_header {
-	background-color: #D0D2D3;
+	border:1px solid #ccc;
     margin: 0;
 	padding: 5px;
 	-moz-border-radius:10px;
@@ -583,8 +544,6 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 }
 
 #log_container_header h3 {
-    padding: 0 5px;
-	color: #565656;
 	display: inline;
 }
 
@@ -1473,120 +1432,4 @@ fieldset {
 }
 .add-fs-details-form-row{
     padding: 5px 10px;
-}
-#fs-add-form-close-btn {
-    float:right;
-    width:15px;
-    height:15px;
-    background:transparent url(/cloud/static/images/delete_icon.png) no-repeat top left;
-    /*cursor: pointer;*/
-    margin: -5px 5px 0px 0;
-}
-#fs-add-form-close-btn:hover {
-    background-image : url(/cloud/static/images/delete_icon_dark.png);
-}
-
-.fs-confirmRemove-box{
-    position: absolute;
-    margin-top: -190px;
-    border: 1px solid #ACACAC;
-    background-color: #fff;
-    -webkit-box-shadow: 0 0 15px 4px rgba(0, 0, 0, 0.2);
-    -moz-box-shadow: 0 0 15px 4px rgba(0, 0, 0, 0.2);
-    box-shadow: 0 0 15px 4px rgba(0, 0, 0, 0.2);
-    padding: 30px;
-    width: 550px;
-    z-index: 99999;
-}
-.modal-dialog-header{
-    color: black;
-    cursor: default;
-    font-size: 16px;
-    font-weight: normal;
-    line-height: 24px;
-}
-.modal-dialog-text{
-    font-size: 13px;
-    margin: 1em 0;
-}
-.modal-dialog-buttons{
-    margin-top: 1em;
-}
-.modal-dialog-buttons button{
-    cursor: default;
-    font-size: 11px;
-    font-weight: bold;
-    height: 29px;
-    line-height: 27px;
-    margin: 0 16px 0 0;
-    min-width: 72px;
-    outline: 0;
-    padding: 0 8px;
-    -webkit-border-radius: 2px;
-    -moz-border-radius: 2px;
-    border-radius: 2px;
-}
-.modal-dialog-ok-button{
-    background-image: linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
-    background-image: -o-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
-    background-image: -moz-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
-    background-image: -webkit-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
-    background-image: -ms-linear-gradient(bottom, rgb(70,70,70) 75%, rgb(51,51,51) 33%);
-
-    background-image: -webkit-gradient(
-        linear,
-        left bottom,
-        left top,
-        color-stop(0.75, rgb(70,70,70)),
-        color-stop(0.33, rgb(51,51,51))
-    );
-    border: 1px solid #A8A8A8;
-    color: white;
-    font-weight: normal;
-}
-.modal-dialog-ok-button:hover{
-    background-image: linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
-    background-image: -o-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
-    background-image: -moz-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
-    background-image: -webkit-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
-    background-image: -ms-linear-gradient(bottom, rgb(79,79,79) 75%, rgb(59,59,59) 33%);
-
-    background-image: -webkit-gradient(
-        linear,
-        left bottom,
-        left top,
-        color-stop(0.75, rgb(79,79,79)),
-        color-stop(0.33, rgb(59,59,59))
-    );
-    border: 1px solid #7E7E7E;
-}
-.modal-dialog-cancel-button{
-    -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-    -moz-box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-    background-color: #F8F8F8;
-    background-image: -webkit-linear-gradient(top,#F8F8F8,#F1F1F1);
-    background-image: -moz-linear-gradient(top,#F8F8F8,#F1F1F1);
-    background-image: -ms-linear-gradient(top,#F8F8F8,#F1F1F1);
-    background-image: -o-linear-gradient(top,#F8F8F8,#F1F1F1);
-    background-image: linear-gradient(top,#F8F8F8,#F1F1F1);
-    border: 1px solid #C6C6C6;
-    color: #333;
-}
-.modal-dialog-cancel-button:hover{
-    color: #5B5B5B;
-    background-image: linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
-    background-image: -o-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
-    background-image: -moz-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
-    background-image: -webkit-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
-    background-image: -ms-linear-gradient(top, rgb(255,255,255) 2%, rgb(245,245,245) 85%);
-
-    background-image: -webkit-gradient(
-        linear,
-        left top,
-        left bottom,
-        color-stop(0.02, rgb(255,255,255)),
-        color-stop(0.85, rgb(245,245,245))
-    );
-    border: 1px solid rgba(0, 0, 0, 0.3);
 }
