@@ -1,5 +1,6 @@
 <%inherit file="../amazon/instance_types.mako"/>
 <%block name="instance_types">
+	 <option value='${master_instance_type}'>Same as Master (${master_instance_type})</option>
      <option value='standard.xsmall'>Extra Small</option>
      <option value='standard.small'>Small</option>
      <option value='standard.medium'>Medium</option>

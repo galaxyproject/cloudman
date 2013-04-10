@@ -137,12 +137,6 @@ cloudmanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdmin
 	}]);
 
 cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dialog', 'cmAdminDataService', function ($scope, $http, $dialog, cmAdminDataService) {
-		var _opts =  {
-			    backdrop: true,
-			    keyboard: true,
-			    backdropClick: true,
-			    modalFade: true,
-			  };
 
 		$scope.getFileSystems = function () {
             return cmAdminDataService.getAllFilesystems();
@@ -178,10 +172,11 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 		}
 
 		$scope.remove_fs = function($event, fs) {
-			// TODO: DOM access in controller. Should be changed
-			_opts.template = $("#fs-delete-dialog-template").html();
-			_opts.controller = 'FSRemoveDialogController';
-			_opts.resolve = {fs: fs};			
+			var _opts =  { 
+				templateUrl: 'partials/fs-delete-dialog-template.html',
+				controller: 'FSRemoveDialogController',
+				resolve: {fs: function() { return fs } }			
+			};
 
 			var d = $dialog.dialog(_opts);
 	    	d.open().then(function(result) {
@@ -189,9 +184,11 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 		}		
 
 		$scope.persist_fs = function($event, fs) {
-			_opts.template = $("#fs-persist-dialog-template").html(),
-			_opts.controller = 'FSPersistDialogController';
-			_opts.resolve = {fs: fs};
+			var _opts =  { 
+				templateUrl: 'partials/fs-persist-dialog-template.html',
+				controller: 'FSPersistDialogController',
+				resolve: {fs: function() { return fs } }			
+			};
 
 			var d = $dialog.dialog(_opts);
 	    	d.open().then(function(result) {
@@ -199,9 +196,11 @@ cloudmanAdminModule.controller('FileSystemController', ['$scope', '$http', '$dia
 		}		
 
 		$scope.resize_fs = function($event, fs) {
-			_opts.template = $("#fs-resize-dialog-template").html(),
-			_opts.controller = 'FSResizeDialogController';
-			_opts.resolve = {fs: fs};
+			var _opts =  { 
+				templateUrl: 'partials/fs-resize-dialog-template.html',
+				controller: 'FSResizeDialogController',
+				resolve: {fs: function() { return fs } }			
+			};
 
 			var d = $dialog.dialog(_opts);
 	    	d.open().then(function(result) {
@@ -295,17 +294,7 @@ cloudmanAdminModule.controller('SystemController', ['$scope', '$http', '$dialog'
 			cmAdminDataService.getMasterIsExecHost();
 		}
 
-		$scope.showUserData = function() {
-			_opts.template = $("#fs-resize-dialog-template").html(),
-			_opts.controller = 'FSResizeDialogController';
-			_opts.resolve = {fs: fs};
-
-			var d = $dialog.dialog(_opts);
-	    	d.open().then(function(result) {
-		    });
-		}
-
-		$scope.toggleMasterAsExecHost = function($event, url) {
+		$scope.executeAction = function($event, url) {
 			$event.preventDefault();
 			var alert = cmAlertService.addAlert("Action Initiated", "info", 3000);
 			$http.get(url).success(function (response) {
@@ -330,7 +319,8 @@ cloudmanAdminModule.controller('SystemController', ['$scope', '$http', '$dialog'
 			      .then(function(result){
 			    });
 	        });	        
-		}		
+		}
+		
 	}]);
 
 

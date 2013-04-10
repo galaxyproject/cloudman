@@ -1,4 +1,12 @@
-var cloudmanBaseModule = angular.module('cloudman.base', []);
+var cloudmanBaseModule = angular.module('cloudman.base',  ['ui.bootstrap.dialog'] , function($dialogProvider){
+    $dialogProvider.options({
+    	backdrop: true,
+		keyboard: true,
+		backdropClick: true,
+		backdropFade: true,
+		dialogFade: true,
+	});
+});
 
 cloudmanBaseModule.service('cmAlertService', function ($timeout) {
 		var alert_counter = 0; 
