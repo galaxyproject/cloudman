@@ -1169,9 +1169,6 @@ div.volume_expand_popup{
     border: solid #aaaaaa 1px;
     clear:both;
 }
-p.disabled {
-    color: #CDCDCD;
-}
 .fs-td-10pct {
     width: 10%;
 }

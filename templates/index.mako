@@ -10,7 +10,6 @@
 <div ng-app="cloudman.index">
     <%include file="bits/alerts.htm" />
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
-    <%include file="bits/messages.htm" />
     
     <header>
     	<h2>CloudMan Console</h2>
@@ -46,7 +45,7 @@
 	    
 	    
 	    	<div class="span2">
-		  		<a class="btn btn-block btn-small" ng-class="{'btn-success': isGalaxyAccessible(), '': !isGalaxyAccessible()}" href="#" ng-disabled="!isGalaxyAccessible()">
+		  		<a class="btn btn-block btn-small" href="{{ getGalaxyPath() }}" ng-class="{'btn-success': isGalaxyAccessible(), '': !isGalaxyAccessible()}" href="#" ng-disabled="!isGalaxyAccessible()">
 		  		<i class="icon-road"></i>
 		    	Access Galaxy
 		  		</a>
@@ -54,10 +53,10 @@
 			
 			<div class="span2 offset1">
 				<div class="btn-group btn-block">
-			  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isAddNodeEnabled()">
+			  		<button class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isAddNodeEnabled()">
 			  		<i class="icon-plus"></i>
 			    	Add Nodes <span class="caret"></span>
-			  		</a>
+			  		</button>
 			  		<ul class="dropdown-menu">
 			  			<!-- dropdown menu links -->
 			  			<li>
@@ -74,11 +73,13 @@
 							            ## Spot instances work only for the AWS cloud
 							            <br /><br />
 							            %if cloud_type == 'ec2':
-											<label>
-												<input type="checkbox" id="use_spot" ng-model="add_nodes.use_spot"/>
-												Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
-							                    Spot instances</a>
-											</label>
+							            	<fieldset class="form-inline">
+												<label class="checkbox">
+													<input type="checkbox" id="use_spot" ng-model="add_nodes.use_spot"/>
+													Use <a href="http://aws.amazon.com/ec2/spot-instances/" target="_blank">
+								                    Spot instances</a>
+												</label>
+											</fieldset>
 							                <br/>
 							                <label>
 							                	Your max <a href="http://aws.amazon.com/ec2/spot-instances/#6" targte="_blank">
@@ -88,7 +89,7 @@
 											</label>
 							            %endif
 							            <br />
-							            <input type="submit" class="btn btn-small btn-primary" value="Start Additional Nodes" ng-click="addNodes($event)" />
+							            <input type="submit" class="btn btn-small btn-primary" value="Start Additional Nodes" ng-click="addNodes($event)" ng-disabled="add_instances_form.$invalid" />
 						            </fieldset>
 						        </form>
 							</div>
@@ -98,10 +99,10 @@
 			</div>
 			<div class="span2 offset1">
 				<div class="btn-group btn-block">
-			  		<a class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isRemoveNodeEnabled()">
+			  		<button class="btn dropdown-toggle btn-block btn-small" data-toggle="dropdown" href="#" ng-disabled="!isRemoveNodeEnabled()">
 			  		<i class="icon-minus"></i>
 			    	Remove Nodes <span class="caret"></span>
-			  		</a>
+			  		</button>
 			  		<ul class="dropdown-menu">
 			    	<!-- dropdown menu links -->
 			    		<li>
@@ -113,11 +114,12 @@
 							            <input type="number" name="number_nodes" value="0" min="1" step="1" required="true"/>
 							            <label>Force Termination of non-idle nodes?</label>
 							            <div class="form-inline">
-										      <label class="checkbox"><input id="test" type="radio" name="force_termination" value="True" />Yes</label>
-							            	  <label class="checkbox"><input type="radio" name="force_termination" value="False" checked="True"/>No</label>
+										      <label class="radio"><input type="radio" name="force_termination" value="True" />Yes</label>
+										      &nbsp;&nbsp;
+							            	  <label class="radio"><input type="radio" name="force_termination" value="False" checked="True"/>No</label>
 										</div>
 										<br /><br />
-										<input type="submit" class="btn btn-small btn-primary" value="Remove Existing Nodes" ng-click="removeNodes($event)" />
+										<input type="submit" class="btn btn-small btn-primary" value="Remove Existing Nodes" ng-click="removeNodes($event)" ng-disabled="remove_instances_form.$invalid" />
 							        </fieldset>
 						        </form>
 						    </div>		    		
@@ -146,7 +148,7 @@
 		    <div class="row-fluid">
 		    	<div class="span12">
 					<fieldset>
-						<h3>Cluster Status</h3>
+						<h3>Cluster Status <span ng-show="isRefreshInProgress()"><i class="icon-spinner icon-spin"></i></span></h3>
 					</fieldset>
 				</div>
 			</div>
@@ -181,8 +183,8 @@
 	            				<td colspan="2">Requested: {{ getCloudmanStatus().instance_status.requested }}</td>
 	            				
 			    				<td><strong>Service status:</strong></td>
-			    				<td>Applications <span ng-class="{'text-error': getCloudmanStatus().app_status == 'green', 'text-warning': getCloudmanStatus().app_status == 'yellow', 'text-error': getCloudmanStatus().app_status == 'red', 'text-muted' : getCloudmanStatus().app_status == 'nodata'}"><i class="icon-circle"></i></span></td>
-	            				<td>Data <span <span ng-class="{'text-error': getCloudmanStatus().data_status == 'green', 'text-warning': getCloudmanStatus().data_status == 'yellow', 'text-error': getCloudmanStatus().data_status == 'red', 'text-muted' : getCloudmanStatus().data_status == 'nodata'}"><i class="icon-circle"></i></span></td>
+			    				<td>Applications <span ng-class="{'text-success': getCloudmanStatus().app_status == 'green', 'text-warning': getCloudmanStatus().app_status == 'yellow', 'text-error': getCloudmanStatus().app_status == 'red', 'muted' : getCloudmanStatus().app_status == 'nodata' }"><i class="icon-circle"></i></span></td>
+	            				<td>Data <span ng-class="{'text-success': getCloudmanStatus().data_status == 'green', 'text-warning': getCloudmanStatus().data_status == 'yellow', 'text-error': getCloudmanStatus().data_status == 'red', 'muted' : getCloudmanStatus().data_status == 'nodata'}"><i class="icon-circle"></i></span></td>
 			    			</tr>
 			    			<!--  Autoscaling -->
 			    			<tr>
@@ -214,45 +216,46 @@
 		    	<div class="row-fluid">
 			    	<div class="span12">
 						 <div class="row-fluid" ng-controller="cmLoadGraphController">
-						 	<div data-ng-repeat="i in [1, 2, 3, 4, 5]">
 							<div ng-repeat="node in nodes">
 								<div class="cluster_node"">
-								<table>
-									<tr>
-										<td>
-					  						<chart ng-model='node.system_load' legend-location="#chart_legend" ng-click="test" />
-					  					</td>
-					  				</tr>
-					  				<tr>
-					  					<td align="center">
-					  						<a class="btn btn-link" ng-click="node.isVisible=!node.isVisible">
-					  							<i ng-class="{'icon-caret-right': !node.isVisible, 'icon-caret-down': node.isVisible}"></i>
-					  							{{ node.id }} ({{ node.instance.public_ip }})
-					  						</a>
-					  						
-					  						<span ng-class="{'text-error': getCloudmanStatus().app_status == 'green', 'text-warning': getCloudmanStatus().app_status == 'yellow', 'text-error': getCloudmanStatus().app_status == 'red', 'text-muted' : getCloudmanStatus().app_status == 'nodata'}">
-					  							<i class="icon-circle" title="Filesystems"></i>
-					  						</span>
-					  						
-					  						<span ng-class="{'text-error': getCloudmanStatus().app_status == 'green', 'text-warning': getCloudmanStatus().app_status == 'yellow', 'text-error': getCloudmanStatus().app_status == 'red', 'text-muted' : getCloudmanStatus().app_status == 'nodata'}">
-					  							<i class="icon-circle" title="Permissions"></i>
-					  						</span>
-					  						
-					  						<span ng-class="{'text-error': getCloudmanStatus().app_status == 'green', 'text-warning': getCloudmanStatus().app_status == 'yellow', 'text-error': getCloudmanStatus().app_status == 'red', 'text-muted' : getCloudmanStatus().app_status == 'nodata'}">
-					  							<i class="icon-circle" title="Scheduler"></i>
-					  						</span>
-					  						
-					  						<i class="icon-repeat text-warning" title="Reboot instance" alt="Reboot instance" ng-click="rebootInstance(node)"></i>
-					  						<i class="icon-off text-error" title="Terminate instance" alt="Terminate instance" ng-click="terminateInstance(node)"></i>
-					  						
-					  						<div collapse="!node.isVisible">
-					  							Hello world
-					  						</div>
-					  					</td>
-					  				</tr>
-					  			</table>
+									<table>
+										<tr>
+											<td>
+						  						<chart ng-model='node.system_load' legend-location="#chart_legend" ng-click="test" />
+						  					</td>
+						  				</tr>
+						  				<tr>
+						  					<td align="center">
+						  						<a class="btn btn-link" ng-click="node.isVisible=!node.isVisible">
+						  							<i ng-class="{'icon-caret-right': !node.isVisible, 'icon-caret-down': node.isVisible}"></i>
+						  							<span ng-show="$index == 0">Master:</span>
+						  							<span ng-show="$index != 0">Worker:</span>
+						  							{{ node.instance.public_ip }}
+						  						</a>
+						  						
+						  						<span ng-show="$index != 0">
+							  						<span ng-class="{'text-success': get_node_fs_status(node) == 'allgood', 'text-warning': get_node_fs_status(node) == 'warning', 'text-error': get_node_fs_status(node) == 'error', 'muted' : get_node_fs_status(node) == 'unknown'}">
+							  							<i class="icon-circle" title="Filesystems"></i>
+							  						</span>
+							  						
+							  						<span ng-class="{'text-success': get_permission_status(node) == 'allgood', 'text-warning': get_permission_status(node) == 'warning', 'text-error': get_permission_status(node) == 'error', 'muted' : get_permission_status(node) == 'unknown'}">
+							  							<i class="icon-circle" title="Permissions"></i>
+							  						</span>
+							  						
+							  						<span ng-class="{'text-success': get_scheduler_status(node) == 'allgood', 'text-warning': get_scheduler_status(node) == 'warning', 'text-error': get_scheduler_status(node) == 'error', 'muted' : get_scheduler_status(node) == 'unknown'}">
+							  							<i class="icon-circle" title="Scheduler"></i>
+							  						</span>
+							  					</span>
+						  						
+						  						<div collapse="!node.isVisible">
+						  							
+						  							<i class="icon-repeat text-warning" title="Reboot instance" alt="Reboot instance" ng-click="rebootInstance(node, '/cloud/root/reboot_instance')"></i>
+						  							<i class="icon-off text-error" title="Terminate instance" alt="Terminate instance" ng-click="terminateInstance(node, '/cloud/root/remove_instance')"></i>
+						  						</div>
+						  					</td>
+						  				</tr>
+						  			</table>
 					  			</div>
-							</div>
 							</div>
 						</div>
 					</div>
@@ -276,10 +279,9 @@
 <script type="text/ng-template" id="partials/terminate-confirm.html">
 	<form id="form_terminate_confirm" action="${h.url_for(controller='root',action='kill_all')}" method="POST">
     	<div class="modal-header">
-			<h3>Cluster power off?</h3>
+			<h3>Power Off Cluster?</h3>
 		</div>
 	    <div class="modal-body" >
-			<label>Are you sure you want to power the cluster off?</label>
 	        <p>This action will shut down all services on the cluster and terminate
 	            any worker nodes (instances) associated with this cluster. Unless you
 	            choose to have the cluster deleted, all of your data will be preserved
@@ -287,13 +289,18 @@
 	            cluster, simply use the same user data (i.e., cluster name and credentials)
 	            and CloudMan will reactivate your cluster with your data.
 	        </p>
-	        <label for="terminate_master_instance"><b>Automatically terminate the master instance?</b></label>
-	        <div><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
-	        <label for="terminate_master_instance">If checked, this master instance will automatically terminate after all services have been shut down.
-	        If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
-	        <p></p><b>Also delete this cluster?</b>
-	        <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
-	        If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.</div>
+	        <fieldset>
+	        	<label class="checkbox"><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
+	        		<strong>Automatically terminate the master instance?</strong>
+	        		<br />
+					If checked, this master instance will automatically terminate after all services have been shut down.
+	        		If not checked, you should maually terminate this instance after all services have been shut down.
+	        	</label>
+	        	<label class="checkbox"><input type="checkbox" name="delete_cluster" id="delete_cluster"><strong>Also delete this cluster?</strong>
+	        		<br />
+	        		If checked, this cluster will be deleted. <span class="text-warning">This action is irreversible!</span> All your data will be deleted.
+	        	</label>
+	        </fieldset>
 		</div>    
 	    <div class="modal-footer">
 	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-danger">Confirm</button>
@@ -303,8 +310,7 @@
 </script>
 
 <script type="text/ng-template" id="partials/initial-config.html">
-	<!--  <form name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="POST">  -->
-	 <form> 
+	 <form id="init_cluster_form" name="init_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="POST">
 		<div class="modal-header">
 			<h3>Initial CloudMan Platform Configuration</h3>
 		</div>
@@ -312,77 +318,101 @@
 	        <p>Welcome to CloudMan. This application will allow you to manage this cluster platform and
 	        the services provided within. To get started, choose the type of platform you'd like to work
 	        with and provide the associated value, if any.</p>
-	        <div>
-	            ## Allow Galaxy-cluster only if the underlying image/system supports it
-	            % if 'galaxy' in image_config_support.apps:
-	                <p>
-	            % else:
-	                <p class='disabled'>
-	            % endif
-	                <input type="radio" name="startup_opt" value="Galaxy" checked='true'>
-	                    <label for="galaxy-cluster">
-	                    <span style="display: block;margin-left: 20px;">
-	                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
-	            % if 'galaxy' not in image_config_support.apps:
-	                        <u>NOTE</u>: The current machine image
-	                        does not support this cluster type option; click on 'Show more startup options'
-	                        so see the available cluster configuration options.
-	            % endif
-	                        Specify the initial storage size (in Gigabytes):
-	                    </span>
-	                    </label>
-	                    <div style="text-align:left;margin-left: 18px">
-	                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-	                    <label for="galaxy-default-size">Default size (${default_data_size} GB)</label>
-	                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
-	                    <label for="galaxy-custom-size">Custom size:</label>
-	                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
+	        <div class="row-fluid">
+	        	<div class="span1">
+					<label class="radio"><input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked="true" /></label>
+				</div>
+				<div class="span11">
+					<div class="row-fluid">
+						<div class="span12">
+							<strong>Galaxy Cluster</strong>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
+							% if 'galaxy' not in image_config_support.apps:
+		                        <u>NOTE</u>: The current machine image
+		                        does not support this cluster type option; click on 'Show more startup options'
+		                        so see the available cluster configuration options.
+		                    % endif
+		                        Specify the initial storage size (in Gigabytes):
 	                    </div>
-	                    <div style="height: 5px;">
-	                        <span style="margin-left: 247px;" id="g_pss_vtag"></span>
-	                    </div>
-	                </p>
+	                </div>
+	                <div class="row-fluid">
+						<div class="span12">
+							<fieldset class="form-inline">
+								<label class="radio"><input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true' />&nbsp;Default size (${default_data_size} GB)</label>
+								&nbsp;&nbsp;&nbsp;
+								<label class="radio"><input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" />&nbsp;Custom size:</label>
+		                		<label><input type="number" class="input-mini" type="text" name="pss" id="g_pss" value="" min="1" />&nbsp;GB</label>
+		            		</fieldset>
+						</div>
+					</div>
+	            </div>
 	        </div>
-	        <div><button class="btn btn-link" ng-show="isCollapsed" ng-click="toggleOptions($event)">Show more startup options</button></div>
+	        <div class="row-fluid" ng-show="isCollapsed">
+	        	<div class="span11 offset1">
+					<a ng-click="toggleOptions($event)" href="#">Show more startup options</a>
+				</div>
+			</div>
 	        <div collapse="isCollapsed">
-	            <div>
-	                <p><input type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
-	                    <label for="share-cluster">
-	                    <span>
-	                        <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
-	                        Specify the provided cluster share-string (for example,
-	                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
-	                    </span>
-	                    </label>
-	                </p>
-	                <input type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
-	                    <label for="shared_bucket">Cluster share-string</label>
+	        	<br />
+	        	<div class="row-fluid">
+		            <div class="span1">
+		            	<label class="radio"><input type="radio" name="startup_opt" value="Shared_cluster" /></label>
+		            </div> 
+		            <div class="span11">
+						<div class="row-fluid">
+							<div class="span12">
+								<strong>Share-an-Instance Cluster</strong>:
+			            			derive your cluster form someone else's cluster. Specify the provided cluster share-string (for example,
+			                    <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+							</div>
+						</div>
+						<div class="row-fluid">
+							<div class="span12">
+								<fieldset class="form-inline">
+		            				<label>Cluster share-string <input type="text" name="shared_bucket" id="shared_bucket" value="" class="input-xlarge" /></label>
+		            			</fieldset>
+		                	</div>	
+		                </div>
+		            </div>
+				</div>
+				<br />
+	            <div class="row-fluid">
+		            <div class="span1">
+		            	<label class="radio"><input id="data-cluster" type="radio" name="startup_opt" value="Data" /></label>
+		            </div>
+		            <div class="span11">
+						<div class="row-fluid">
+							<div class="span12">
+								<strong>Data Cluster</strong>: a persistent data volume and SGE.
+								<br />
+	                        	Specify the initial storage size (in Gigabytes):
+	                    	</div>
+	                    </div>
+	                    <div class="row-fluid">
+							<div class="span12">
+								<fieldset class="form-inline">
+									<label class="text"><input type="number" name="pss" id="d_pss" class="input-mini" min="1" />&nbsp;GB</label>
+								</fieldset>
+							</div>
+						</div>
+					</div>
 	            </div>
-	
-	            <div>
-	                <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
-	                    <label for="data-cluster">
-	                    <span style="display: block;margin-left: 20px;">
-	                        <b>Data Cluster</b>: a persistent data volume and SGE.
-	                        Specify the initial storage size (in Gigabytes):
-	                    </span>
-	                    </label>
-	                </p>
-	                <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
-	            </div>
-	
-	            <div>
-	                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left" id="sge-cluster">
-	                <label for="sge-cluster">
-	                <span style="display: block;margin-left: 20px;">
-	                    <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
-	                </span>
-	                </label>
+	            <br />
+	            <div class="row-fluid">
+		            <div class="span1">
+		            	<label class="radio"><input type="radio" name="startup_opt" value="SGE"></label>
+		            </div>
+		            <div class="span11">
+						<div class="row-fluid">
+							<div class="span12">
+								<strong>Test Cluster</strong>: SGE only. No persistent storage is created.</p>
+	                    	</div>
+	                    </div>
+					</div>
 	            </div>
 	        </div>
 		</div>
 		<div class="modal-footer">
-	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary">Confirm</button>
+	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" ng-disabled="init_cluster_form.$invalid">Confirm</button>
 	      	<button ng-click="cancel($event, 'cancel')" class="btn">Cancel</button>  
 		</div>
 	</form>
@@ -1270,7 +1300,7 @@ $(document).ready(function() {
 
 		// Place URLs here so that url_for can be used to generate them
         var get_cloudman_index_update_url = "${h.url_for(controller='root',action='full_update')}";
-        var get_cloudma_status_update_url = "${h.url_for(controller='root',action='instance_feed_json')}";
+        var get_cloudman_status_update_url = "${h.url_for(controller='root',action='instance_feed_json')}";
         var initial_cluster_type = '${initial_cluster_type}';
 </script>
     </div>

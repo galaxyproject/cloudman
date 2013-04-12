@@ -9,7 +9,6 @@
 		<span id="msg" class="info_msg_box_content" style="display: none"></span>
 	</div>
 	 -->
-	<%include file="bits/messages.htm" />
 
 	<header>
 		<h2>CloudMan Admin Console</h2>
@@ -32,7 +31,7 @@
 
 	<section id="service_controls" ng-controller="ServiceController">
 		<div>
-			<h3>Service controls</h3>
+			<h3>Service controls <span ng-show="isRefreshInProgress()"><i class="icon-spinner icon-spin"></i></span></h3>
 		</div>
 		<p>
 			Use these controls to administer individual application services
@@ -75,7 +74,7 @@
 				<tr id="service_detail_row_{{svc.svc_name}}" ng-show="is_service_visible()">
 					<td></td>
 					<td colspan="9">
-						<form name="form_assigned_service" ng-controller="AssignedServiceController" ng-switch on="is_editing">
+						<form id="form_assigned_service" name="form_assigned_service" ng-controller="AssignedServiceController" ng-switch on="is_editing">
 							<div ng-switch-when="false">
 								<strong>Required Services:</strong>
 								<table width="600px" style="margin:10px 0; text-align:left">
@@ -399,16 +398,16 @@
 						all the data is stored in an S3 bucket. The name of the bucket
 						provided here corresponds to the current cluster and is provided
 						simply as a reference.">Bucket info</span>
-				<li>
-					<a ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
-				</li>
-				<li>
-					<a id='cloudman_log'
-						href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a>
-				</li>
 			</li>
 			<li>
-				<a class="action" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}"
+				<a href="#" ng-click="showUserData($event, '${h.url_for(controller='root', action='get_user_data')}')">Show current user data</a>
+			</li>
+			<li>
+				<a id='cloudman_log'
+				href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a>
+			</li>
+			<li>
+				<a href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}"
 				ng-click="executeAction($event, '${h.url_for(controller='root', action='toggle_master_as_exec_host')}')">
 					<span ui-if="getMasterIsExecHost()">Switch master not to run jobs</span>
 					<span ui-if="!getMasterIsExecHost()">Switch master to run jobs</span>
@@ -422,7 +421,7 @@
 						run any jobs.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action' ng-click="executeAction($event, '${h.url_for(controller='root', action='store_cluster_config')}')">
+				<a href="#" ng-click="executeAction($event, '${h.url_for(controller='root', action='store_cluster_config')}')">
 				Store current cluster configuration</a>
 				<span class="help_link" tooltip-placement="right" tooltip="Each CloudMan cluster has its own configuration. The state of
 						this cofiguration is saved as 'persistent_data.yaml'
@@ -432,14 +431,14 @@
 						configuration and capture its current state.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action' ng-click="executeAction($event, '${h.url_for(controller='root', action='reboot')}')">Reboot master instance</a>
+				<a href="#" ng-click="executeAction($event, '${h.url_for(controller='root', action='reboot')}')">Reboot master instance</a>
 				<span class="help_link" tooltip-placement="right" tooltip="Reboot the entire system. This will shut down all of the
 						services and reboot the machine. If there are any worker
 						nodes associated with the cluster they will be reconnected
 						to after the system comes back up.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action'
+				<a href="#"
 					ng-click="executeAction($event, '${h.url_for(controller='root', action='recover_monitor')}')">Recover monitor</a>
 				<span class="help_link" tooltip-placement="right" tooltip="Try to (re)start CloudMan service monitor thread, which is
 						responsible for monitoring the status of all of the other
@@ -447,7 +446,7 @@
 						interface becomes unresponsive or during debugging.">What will this do?</span>
 			</li>
 			<li>
-				<a class='action'
+				<a href="#"
 					ng-click="executeAction($event, '${h.url_for(controller='root', action='recover_monitor')}?force=True')">Recover monitor *with Force*</a>
 				<span class="help_info">
 					<span class="help_link" tooltip-placement="right" tooltip="Start a new CloudMan service monitor thread regardless

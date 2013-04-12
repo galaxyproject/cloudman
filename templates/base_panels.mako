@@ -34,10 +34,10 @@ from routes import url_for
     
 ## Masthead
 <%def name="masthead()">
-<div class="navbar navbar-inverse navbar-fixed-top">
+	<div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
-          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan <small>from Galaxy</small></a>
+          <a class="brand" href="${h.url_for(controller='root', action='index')}"><img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}">CloudMan <small>from Galaxy v2-alpha</small></a>
           <div class="nav-collapse collapse">
             <ul class="nav pull-right">
                       %if CM_url:

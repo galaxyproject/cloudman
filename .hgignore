@@ -4,6 +4,9 @@ syntax: regexp
 lib/*
 bin/*
 build/*
+pysrc/*
+cloudman.egg-info/*
+org\.python\.pydev*
 
 syntax: glob
 
