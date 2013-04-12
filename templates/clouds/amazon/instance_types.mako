@@ -8,7 +8,7 @@
       <option value='m1.medium' title="Cores: 1 virtual core with 2 EC2 Compute Units, Memory: 3.75GB, IO-Perf: Moderate, EBS-Optimized: No">Medium (m1.medium)</option>
       <option value='m1.large' title="Cores: 2 virtual cores with 2 EC2 Compute Units each, Memory: 7.5GB, IO-Perf: Moderate, EBS-Optimized: 500 Mbps">Large (m1.large)</option>
       <option value='m1.xlarge' title="Cores: 4 virtual cores with 2 EC2 Compute Units each, Memory: 15GB, IO-Perf: High, EBS-Optimized: 1000 Mbps">Extra Large (m1.xlarge)</option>
-     	<option value='m3.xlarge' title="Cores: 4 virtual cores with 3.25 EC2 Compute Units each, Memory: 15GB, IO-Perf: Moderate, EBS-Optimized: 500 Mbps">Extra Large (m3.xlarge)</option>
+     	<option value='m3.xlarge' title="Cores: 4 virtual cores with 3.25 EC2 Compute Units each, Memory: 15GB, IO-Perf: Moderate, EBS-Optimized: 500 Mbps">M3 Extra Large (m3.xlarge)</option>
      	<option value='m3.2xlarge' title="Cores: 8 virtual cores with 3.25 EC2 Compute Units each, Memory: 30GB, IO-Perf: High, EBS-Optimized: 1000 Mbps">Double Extra Large (m3.2xlarge)</option>
      </optgroup>
      <optgroup label="High-Memory Instances">
@@ -18,7 +18,7 @@
      </optgroup>
      <optgroup label="High-CPU Instances">
      	<option value='c1.medium' title="Cores: 2 virtual cores with 2.5 EC2 Compute Units each, Memory: 1.7GB, IO-Perf: Moderate, EBS-Optimized: No">High-CPU Medium Instance (c1.medium)</option>
-     	<option value='c1.xlarge' title="Cores: 8 virtual cores with 2.5 EC2 Compute Units each, Memory: 34.2GB, IO-Perf: High, EBS-Optimized: 1000 Mbps">High-CPU Extra Large Instance (c1.xlargee)</option>
+     	<option value='c1.xlarge' title="Cores: 8 virtual cores with 2.5 EC2 Compute Units each, Memory: 34.2GB, IO-Perf: High, EBS-Optimized: 1000 Mbps">High-CPU Extra Large Instance (c1.xlarge)</option>
      </optgroup>
      <optgroup label="Cluster Compute Instances">
      	<option value='cc2.8xlarge' title="Cores: 2 x Intel Xeon E5-2670, eight-core, Memory: 60.5GB, IO-Perf: V. High (10 Gigabit Ethernet), EBS-Optimized: No">Cluster Compute Eight Extra Large Instance (cc2.8xlarge)</option>

@@ -11,9 +11,16 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 
 		// Local vars
 		var _admin_data_timeout_id;
+		var _refresh_in_progress = false;
+		
+		var hide_refresh_progress = function() {
+			_refresh_in_progress = false;
+		}
 
 		var poll_admin_data = function() {
 	        // Poll cloudman status
+	        _refresh_in_progress = true;
+			$timeout(hide_refresh_progress, 500, true);
 	        $http.get(get_cloudman_system_status_url).success(function (data) {
 				_services = data.applications;
 				_file_systems = data.file_systems;				
@@ -71,6 +78,9 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
             },
             getMasterIsExecHost: function () {
                 return _master_is_exec_host;
+            },
+            isRefreshInProgress: function () {
+                return _refresh_in_progress;
             }
         };
 	});
@@ -83,6 +93,10 @@ cloudmanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdmin
 
         $scope.getAvailableFileSystems = function () {
             return cmAdminDataService.getAllFilesystems();
+        };
+        
+        $scope.isRefreshInProgress = function () {
+            return cmAdminDataService.isRefreshInProgress();
         };
 
 		$scope._visibility_flags = {};		
@@ -97,18 +111,18 @@ cloudmanAdminModule.controller('ServiceController', ['$scope', '$http', 'cmAdmin
 				if (service_row != service)
 					$scope._visibility_flags[service_row] = false;
 
-				$('#service_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
-				$('#service_detail_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+				//$('#service_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
+				//$('#service_detail_row_' + service_row).animate({backgroundColor: 'transparent'}, "fast");
 			}
 
 			// Show newly selected row
 			if ($scope._visibility_flags[service]) {
-				$('#service_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
-				$('#service_detail_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+				//$('#service_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
+				//$('#service_detail_row_' + service).animate({backgroundColor: 'transparent'}, "slow");
 			}
 			else {
-				$('#service_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
-				$('#service_detail_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+				//$('#service_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
+				//$('#service_detail_row_' + service).animate({backgroundColor: '#FEF1B5'}, "fast");
 			}
 
 			$scope._visibility_flags[service] = !$scope._visibility_flags[service];
