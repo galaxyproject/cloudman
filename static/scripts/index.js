@@ -600,6 +600,7 @@ function terminateConfirmController($scope, dialog, cmAlertService) {
 	  
 	  $scope.confirm = function($event, result) {
 		// TODO: DOM access in controller. Should be redone
+	    cmAlertService.addAlert("Initiating cluster termination...", "info");
 		$('#form_terminate_confirm').ajaxForm({
 	        type: 'POST',
 	        dataType: 'html',
@@ -607,7 +608,6 @@ function terminateConfirmController($scope, dialog, cmAlertService) {
 	        	cmAlertService.addAlert("An error occured while attempting to terminate the cluster.", "error");
 	        },
 	        success: function(response) {
-	        	cmAlertService.addAlert("Cluster termination initiated...", "info");
 	        }
 	    });	  	
 	    dialog.close('confirm');

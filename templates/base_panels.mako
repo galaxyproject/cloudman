@@ -19,8 +19,6 @@ from routes import url_for
 ## Default javascripts
 <%def name="javascripts()">
   <script type='text/javascript' src="//code.jquery.com/jquery-1.9.1.min.js"></script>
-  <!--  TODO: Remove!!! jquery ui -->
-  <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>
   <script type='text/javascript' src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
   <script type='text/javascript' src="//ajax.googleapis.com/ajax/libs/angularjs/1.0.6/angular.min.js"></script>  
   <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/angular-ui/0.4.0/angular-ui.min.js"></script>
