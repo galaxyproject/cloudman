@@ -11,17 +11,13 @@ cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmA
 		var _data_timeout_id;
 		var _refresh_in_progress = false;
 		
-		var hide_refresh_progress = function() {
-			_refresh_in_progress = false;
-		}
-
 		var poll_data = function() {
 	        // Poll cloudman status
 			_refresh_in_progress = true;
-			$timeout(hide_refresh_progress, 500, true);
 	        $http.get(get_cloudman_index_update_url, {
 	            params: {l_log: _log_cursor}
 	         }).success(function (data) {
+	            _refresh_in_progress = false;
 				_cloudman_status = data.ui_update_data;
 				_log_data = _log_data.concat(data.log_update_data.log_messages);
 				if (_log_data.length > 200) {
@@ -31,6 +27,9 @@ cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmA
 				_log_cursor = data.log_update_data.log_cursor;
 				var messages = data.messages;				
 				_processSystemMessages(messages);
+				cmAlertService.setClusterStatus(_cloudman_status.cluster_status);
+    		}).error(function (data) {
+    		    _refresh_in_progress = false;
     		});
 			resumeDataService();
 	    };
@@ -46,10 +45,10 @@ cloudmanIndexModule.service('cmIndexDataService', function ($http, $timeout, cmA
 				// Mark CRITICAL msgs & show additional help text
             	if (msg.level == '50') {
                 	txt = '[CRITICAL] ' + txt;
-                	cmAlertService.add(msg, "error");
+                	cmAlertService.addAlert(msg, "error");
                 }
                 else
-                	cmAlertService.add(msg, "info");
+                	cmAlertService.addAlert(msg, "info");
              }
 		};
 
@@ -186,7 +185,7 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
 		    		 $http.get(reboot_url, {
 		  	            params: { instanceid: node.instance.id }
 		  	         }).success(function (data) {
-		  	        	 cmAlertService.add("Node reboot initiated...", "info");
+		  	        	 cmAlertService.addAlert("Node reboot initiated...", "info");
 		      		 });
 		      		 return true;
 		    	  }
@@ -207,7 +206,7 @@ cloudmanIndexModule.controller('cmLoadGraphController', ['$scope', '$http', '$ti
 		    		 $http.get(terminate_url, {
 		  	            params: { instanceid: node.instance.id }
 		  	         }).success(function (data) {
-		  	        	 cmAlertService.add("Node terminate initiated...", "info");
+		  	        	 cmAlertService.addAlert("Node terminate initiated...", "info");
 		      		 });
 		      		 return true;
 		    	  }
@@ -518,11 +517,9 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 		        type: 'POST',
 		        dataType: 'html',
 		        error: function(response) {
-		        	cmIndexDataService.resumeDataService();
 		        	cmAlertService.addAlert(response.responseText, "error");
 		        },
 		        success: function(response) {
-		        	cmIndexDataService.resumeDataService();
 		        }
 	    	});
         	$scope.closePopup = true;
@@ -534,11 +531,9 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 		        type: 'POST',
 		        dataType: 'html',
 		        error: function(response) {
-		        	cmIndexDataService.resumeDataService();
 		        	cmAlertService.addAlert(response.responseText, "error");
 		        },
 		        success: function(response) {
-		        	cmIndexDataService.resumeDataService();
 		        }
 	    	});
         	$scope.closePopup = true;
@@ -556,6 +551,7 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 		}
 		
 		$scope.configureAutoScaling = function($event) {
+            cmIndexDataService.pauseDataService();
 			var _opts = {
 					templateUrl: 'partials/autoscaling-config.html',
 					controller: 'autoscalingController'
@@ -563,8 +559,34 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 
 			var d = $dialog.dialog(_opts);
 	    	d.open().then(function(result) {
+	    	    cmIndexDataService.resumeDataService();
 		    });
 		}
+		
+        $scope.resize_fs = function($event) {
+            var _opts =  { 
+                templateUrl: 'partials/fs-resize-dialog-template.html',
+                controller: 'FSResizeDialogController',
+                resolve: {fs: function() { return null; } }            
+            };
+
+            var d = $dialog.dialog(_opts);
+            d.open().then(function(result) {
+            });
+        }
+        
+        $scope.share_cluster = function($event) {
+            var _opts =  { 
+                templateUrl: 'partials/share_cluster_template.html',
+                controller: 'shareClusterController',
+                resolve: {fs: function() { return null; } }            
+            };
+
+            var d = $dialog.dialog(_opts);
+            d.open().then(function(result) {
+            });
+        }
+		
 
 	}]);
 
@@ -576,7 +598,7 @@ function terminateConfirmController($scope, dialog, cmAlertService) {
 	    dialog.close('cancel');
 	  };
 	  
-	  $scope.confirm = function(result) {
+	  $scope.confirm = function($event, result) {
 		// TODO: DOM access in controller. Should be redone
 		$('#form_terminate_confirm').ajaxForm({
 	        type: 'POST',
@@ -606,16 +628,16 @@ function initialConfigController($scope, dialog, cmAlertService) {
 		    dialog.close('cancel');
 		  };
 	  
-		$scope.confirm = function(result) {
+		$scope.confirm = function($event, result) {
 			// TODO: DOM access in controller. Should be redone
 			$('#init_cluster_form').ajaxForm({
 		        type: 'POST',
 		        dataType: 'html',
 		        error: function(response) {
-		        	cmAlertService.addAlert("An error occured while trying to initialize cluster", "error");
+		        	cmAlertService.addAlert("An error occured while trying to initialise cluster", "error");
 		        },
 		        success: function(response) {
-		        	cmAlertService.addAlert("Cluster initialization started...", "info");
+		        	cmAlertService.addAlert("Cluster initialisation started...", "info");
 		        	dialog.close('confirm');
 		        }
 		    });
@@ -660,6 +682,73 @@ function autoscalingController($scope, dialog, cmAlertService, cmIndexDataServic
 	};
 }
 
+
+function shareClusterController($scope, $http, $dialog, dialog, cmAlertService, cmIndexDataService) {
+
+    $scope.isCollapsed = true;
+    $scope.isRetrieving = true;
+    $scope.shared_instances = [];
+    
+    $scope.refreshSharedInstances = function() {
+        $http.get(get_shared_instances_url).success(function (data) {
+            $scope.shared_instances = data.shared_instances;
+            $scope.isRetrieving = false;
+        });
+    }
+    
+    $scope.refreshSharedInstances();
+    
+    $scope.toggleCollapsed = function($event) {
+        $event.preventDefault();
+        $scope.isCollapsed = !$scope.isCollapsed;
+    };
+    
+    $scope.cancel = function($event, result) {
+        $event.preventDefault();
+        dialog.close('cancel');
+    };
+    
+    $scope.confirm = function($event, result) {
+        $event.preventDefault();
+        // TODO: DOM access in controller. Should be redone
+        $('#share_a_cluster_form').ajaxForm({
+            type: 'POST',
+            dataType: 'json',
+            error: function(response) {
+                $scope.refreshSharedInstances();
+            },
+            success: function(response) {
+                $scope.refreshSharedInstances();
+            }
+        });
+        dialog.close('confirm');
+    };
+    
+    
+    $scope.deleteShare = function($event, instance) {
+        $event.preventDefault();
+        var title = 'Delete shared cluster instance?';
+        var btns = [{result:'confirm', label: 'Confirm', cssClass: 'btn btn-danger'},
+                    {result:'cancel', label: 'Cancel', cssClass: 'btn'}];
+
+        var ud_html = "<div>Are you sure you want to delete shared cluster instance under <i>" + instance.bucket +
+                      "</i> and the corresponding snapshot with ID <i>" + instance.snap + "</i>?<br/>" +
+                      "<p>This action cannot be undone.</p></div>";
+
+        $dialog.messageBox(title, ud_html, btns)
+          .open()
+          .then(function(result) {
+              if (result == 'confirm') {
+                 $http.get(delete_shared_instances_url, {
+                    params: { shared_instance_folder: instance.bucket, snap_id: instance.snap }
+                 }).success(function (data) {
+                     $scope.refreshSharedInstances();
+                 });
+                 return true;
+              }
+        });
+    };
+}
 
 cloudmanIndexModule.controller('cmClusterLogController', ['$scope', '$http', '$dialog', 'cmIndexDataService', 'cmAlertService', function ($scope, $http, $dialog, cmIndexDataService, cmAlertService) {
 

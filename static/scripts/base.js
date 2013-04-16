@@ -8,10 +8,12 @@ var cloudmanBaseModule = angular.module('cloudman.base',  ['ui.bootstrap.dialog'
 	});
 });
 
-cloudmanBaseModule.service('cmAlertService', function ($timeout) {
+cloudmanBaseModule.service('cmAlertService', function ($timeout, $dialog) {
 		var alert_counter = 0; 
 		var alerts = [];
-		
+		var cluster_status_dialog = null;
+		var cluster_status = null;
+			
 		var getAlerts = function() {
 	    	return alerts;
 		};
@@ -33,15 +35,51 @@ cloudmanBaseModule.service('cmAlertService', function ($timeout) {
 			}
 		}
 		
+		var getClusterStatus = function() {
+			return cluster_status;
+		}
+		
+		var setClusterStatus = function(status) {
+			cluster_status = status;
+		} 
+		
 		// Public interface
 		return {
 			getAlerts: getAlerts,
             addAlert: addAlert,
-            closeAlert: closeAlert
+            closeAlert: closeAlert,
+            setClusterStatus: setClusterStatus,
+            getClusterStatus: getClusterStatus
         };
 	});
 	
-cloudmanBaseModule.controller('cmAlertController', ['$scope', 'cmAlertService', function ($scope, cmAlertService) {
+cloudmanBaseModule.controller('cmAlertController', ['$scope', '$dialog', 'cmAlertService', function ($scope, $dialog, cmAlertService) {
+		
+		$scope.initAlerts = function() {
+			$scope.$watch(cmAlertService.getClusterStatus, function(newValue, oldValue, scope) {
+        		if (newValue && newValue !== oldValue) {
+        			if (newValue == "SHUTTING_DOWN" || newValue == "TERMINATED") {
+        				if ($scope.cluster_status_dialog)
+        					cluster_status_dialog.close();
+            			$scope.cluster_status_dialog = showClusterStatusDialogue();
+            		}
+        		}
+    		});
+		}
+		
+		var showClusterStatusDialogue = function() {
+			var _opts = {
+				backdropClick: false,
+				keyboard: false,
+				templateUrl: 'partials/reboot-dialogue.html',
+				controller: 'clusterStatusController'
+			};			
+			
+			var cluster_status_dialog = $dialog.dialog(_opts);
+			cluster_status_dialog.open().then(function(result) {
+			});
+			return cluster_status_dialog;
+		}
 		
 		$scope.getAlerts = function () {
             return cmAlertService.getAlerts();
@@ -52,7 +90,13 @@ cloudmanBaseModule.controller('cmAlertController', ['$scope', 'cmAlertService', 
         };
 	}]);
 	
-	
+function clusterStatusController($scope, $http, dialog, cmAlertService) {
+	$scope.getClusterStatus = function() {
+		return cmAlertService.getClusterStatus();
+	}
+}
+ 
+
 String.prototype.toProperCase = function () {
     // Convert a string to Title Case capitalization
     return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});

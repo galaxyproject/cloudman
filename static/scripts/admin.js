@@ -13,15 +13,11 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 		var _admin_data_timeout_id;
 		var _refresh_in_progress = false;
 		
-		var hide_refresh_progress = function() {
-			_refresh_in_progress = false;
-		}
-
 		var poll_admin_data = function() {
 	        // Poll cloudman status
 	        _refresh_in_progress = true;
-			$timeout(hide_refresh_progress, 500, true);
 	        $http.get(get_cloudman_system_status_url).success(function (data) {
+	        	_refresh_in_progress = false;
 				_services = data.applications;
 				_file_systems = data.file_systems;				
 				_galaxy_rev = data.galaxy_rev;
@@ -30,6 +26,9 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 				_galaxy_dns = data.galaxy_dns;
 				var messages = data.messages;				
 				_processSystemMessages(messages);
+				cmAlertService.setClusterStatus(data.cluster_status);
+    		}).error(function (data) {
+    		    _refresh_in_progress = false;
     		});
 			resumeDataService();
 	    };
@@ -45,10 +44,10 @@ cloudmanAdminModule.service('cmAdminDataService', function ($http, $timeout, cmA
 				// Mark CRITICAL msgs & show additional help text
             	if (msg.level == '50') {
                 	txt = '[CRITICAL] ' + txt;
-                	cmAlertService.add(msg, "error");
+                	cmAlertService.addAlert(msg, "error");
                 }
                 else
-                	cmAlertService.add(msg, "info");
+                	cmAlertService.addAlert(msg, "info");
              }
 		};
 
@@ -381,30 +380,6 @@ function FSPersistDialogController($scope, dialog, fs, cmAlertService) {
 	        }
 	    });
 	    dialog.close(result);
-	  };
-}
-
-
-function FSResizeDialogController($scope, dialog, fs, cmAlertService) {
-	  $scope.fs = fs;
-	  $scope.resize_details = {};  
-	  $scope.cancel = function($event, result){
-	  	$event.preventDefault();
-	    dialog.close('cancel');
-	  };
-	  $scope.resize = function(result){
-		// TODO: DOM access in controller. Should be redone
-		$('#fs_resize_form').ajaxForm({
-	        type: 'POST',
-	        dataType: 'html',
-	        error: function(response) {
-	        	cmAlertService.addAlert(response.responseText, "error");
-	        },
-	        success: function(response) {
-	        	cmAlertService.addAlert(response, "info");
-	        }
-	    });	  	
-	    dialog.close('confirm');
 	  };
 }
 
