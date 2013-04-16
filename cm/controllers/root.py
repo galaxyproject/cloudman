@@ -473,6 +473,7 @@ class CM(BaseController):
         status_dict = self.app.manager.get_all_services_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
+        status_dict['cluster_status'] = self.app.manager.get_cluster_status()
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
 

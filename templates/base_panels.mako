@@ -81,7 +81,8 @@ from routes import url_for
       ${self.masthead()}
       <!-- TODO: Kludge to leave space after header. Redo properly -->
       <br /><br /><br />      
-    </div>
+    </div>    
+    
     ## Display main CM body
     
     <div id="main_body" class="container">

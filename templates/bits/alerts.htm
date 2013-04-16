@@ -1,3 +1,25 @@
-	<div ng-controller="cmAlertController">
+	<div ng-controller="cmAlertController" ng-init="initAlerts()">
 		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
 	</div>
+
+    <script type="text/ng-template" id="partials/reboot-dialogue.html">
+   		<div class="modal-header">
+   			<div ui-if="getClusterStatus()=='SHUTTING_DOWN'">
+	    		<h3 class="text-warning">Cluster Terminating...</h3>
+	    	</div>
+	    	<div ui-if="getClusterStatus()=='TERMINATED'">
+	    		<h3 class="text-error">Cluster Terminated.</h3>
+	    	</div>
+    	</div>
+        <div class="modal-body" >
+	        <p ui-if="getClusterStatus()=='SHUTTING_DOWN'" class="text-warning">
+				This cluster is terminating. Please wait for all the services 
+        		to stop and for all the nodes to be removed. Then, if not done automatically,
+        		terminate the master instance from the cloud console. All of the buttons on the 
+        		console have been disabled at this point.
+	        </p>
+	        <p ui-if="getClusterStatus()=='TERMINATED'" class="text-error">
+	        	This cluster has terminated. If not done automatically, 
+                please terminate the master instance from the cloud console.
+            </p>    
+    </script>	
