@@ -599,8 +599,8 @@ function terminateConfirmController($scope, dialog, cmAlertService) {
 	  };
 	  
 	  $scope.confirm = function($event, result) {
-		// TODO: DOM access in controller. Should be redone
 	    cmAlertService.addAlert("Initiating cluster termination...", "info");
+	    // TODO: DOM access in controller. Should be redone
 		$('#form_terminate_confirm').ajaxForm({
 	        type: 'POST',
 	        dataType: 'html',

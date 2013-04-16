@@ -28,6 +28,10 @@ from routes import url_for
 
 ## Default late-load javascripts
 <%def name="late_javascripts()">
+<script type='text/javascript'>
+	var cloudman_update_description_url = "${CM_url or ''}";
+	var cloudman_update_perform_url = "${h.url_for(controller='root',action='update_users_CM')}"
+</script>
 </%def>
     
 ## Masthead
