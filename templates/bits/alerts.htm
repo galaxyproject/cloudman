@@ -1,5 +1,7 @@
 	<div ng-controller="cmAlertController" ng-init="initAlerts()">
-		<alert ng-repeat="alert in getAlerts()" type="alert.type" close="closeAlert(alert)">{{alert.msg}}</alert>
+		<alert ng-repeat="alert_msg in getAlerts()" type="alert_msg.type" close="closeAlert(alert_msg)">
+			<div compile-html="alert_msg.msg"></div>
+		</alert>
 	</div>
 
     <script type="text/ng-template" id="partials/reboot-dialogue.html">

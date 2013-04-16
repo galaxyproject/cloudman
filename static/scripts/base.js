@@ -1,4 +1,4 @@
-var cloudmanBaseModule = angular.module('cloudman.base',  ['ui.bootstrap.dialog'] , function($dialogProvider){
+var cloudmanBaseModule = angular.module('cloudman.base',  ['ui.bootstrap.dialog'] , function($dialogProvider) {
     $dialogProvider.options({
     	backdrop: true,
 		keyboard: true,
@@ -13,17 +13,21 @@ cloudmanBaseModule.service('cmAlertService', function ($timeout, $dialog) {
 		var alerts = [];
 		var cluster_status_dialog = null;
 		var cluster_status = null;
-			
+
 		var getAlerts = function() {
 	    	return alerts;
 		};
 		
 		var addAlert = function(message, type, timeout) {
+		    message = "<span>" + message + "</span>";
 			var alert = {id: alert_counter++, msg: message, type: type};			
 			alerts.push(alert);
-			if (!timeout)
-				timeout = 60000;
-			$timeout(function() { closeAlert(alert); }, timeout, true);
+			// A timeout of -1 indicates an infinite wait
+			if (timeout != -1) {
+    			if (!timeout)
+    				timeout = 60000;
+    			$timeout(function() { closeAlert(alert); }, timeout, true);
+			}
 			return alert;
 		};
 		
@@ -41,7 +45,13 @@ cloudmanBaseModule.service('cmAlertService', function ($timeout, $dialog) {
 		
 		var setClusterStatus = function(status) {
 			cluster_status = status;
-		} 
+		}
+		
+		if (cloudman_update_description_url) {
+		    addAlert("There is a new version of CloudMan available: " +
+	              "<a target='_blank' href='" + cloudman_update_description_url + "'>What's New?</a> | " + 
+	              "<a ng-click='updateCloudman(alert_msg)' href='#'>Update CloudMan</a>", "success", -1);
+		}
 		
 		// Public interface
 		return {
@@ -53,7 +63,7 @@ cloudmanBaseModule.service('cmAlertService', function ($timeout, $dialog) {
         };
 	});
 	
-cloudmanBaseModule.controller('cmAlertController', ['$scope', '$dialog', 'cmAlertService', function ($scope, $dialog, cmAlertService) {
+cloudmanBaseModule.controller('cmAlertController', ['$scope', '$dialog', '$http', 'cmAlertService', function ($scope, $dialog, $http, cmAlertService) {
 		
 		$scope.initAlerts = function() {
 			$scope.$watch(cmAlertService.getClusterStatus, function(newValue, oldValue, scope) {
@@ -88,8 +98,30 @@ cloudmanBaseModule.controller('cmAlertController', ['$scope', '$dialog', 'cmAler
         $scope.closeAlert = function (alert) {
             cmAlertService.closeAlert(alert);
         };
+        
+        $scope.updateCloudman = function(alert) {
+            cmAlertService.closeAlert(alert);
+            $http.get(cloudman_update_perform_url).success(function (data) {
+                cmAlertService.addAlert("Update Successful, CloudMan update will be applied on cluster restart.", "success");
+            }).error(function (data) {
+                cmAlertService.addAlert("There was an error updating CloudMan.", "error");
+            });
+        }
+            
 	}]);
-	
+
+cloudmanBaseModule.directive ('compileHtml', function($compile) { 
+    return  {
+        restrict: 'A',
+        scope: { compileHtml : '=' },
+        replace: true,
+        link: function (scope, element, attrs) {
+            scope.$watch('compileHtml', function(value)  {
+              element.html ($compile(value)(scope.$parent));
+            });
+        }
+}});
+
 function clusterStatusController($scope, $http, dialog, cmAlertService) {
 	$scope.getClusterStatus = function() {
 		return cmAlertService.getClusterStatus();
