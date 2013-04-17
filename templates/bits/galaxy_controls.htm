@@ -23,13 +23,11 @@
 						users. Note that this action implies restarting Galaxy.
 					</div>
 				</span>
-				<form id="galaxy_admin_users_form"
-					action="${h.url_for(controller='root', action='add_galaxy_admin_users')}"
-					method="post">
+				<form id="galaxy_admin_users_form">
 					<div class="input-append">
   						<input class="span2" type="text" value="CSV list of emails to be added as admins"
 						style="width:288px" name="admin_users" size="45">
-  						<button class="btn" type="submit" ng-click="addAdminUsers($event)">Add admin users</button>
+  						<button class="btn" type="submit" ng-click="addAdminUsers($event, '${h.url_for(controller='root', action='add_galaxy_admin_users')}')">Add admin users</button>
 					</div>
 				</form>
 				</span>
@@ -77,13 +75,11 @@
 						</ol>
 					</div>
 				</span>
-				<form id="galaxy_repository_form"
-					action="${h.url_for(controller='root', action='update_galaxy')}"
-					method="post">
+				<form id="galaxy_repository_form">
 					<div class="input-append">
   						<input class="span2" type="text" value="http://bitbucket.org/galaxy/galaxy-central"
 						style="width:300px" name="repository" size="45">
-  						<button class="btn" type="submit" ng-click="updateRespositoryUrl($event)">Update Galaxy</button>
+  						<button class="btn" type="submit" ng-click="updateRespositoryUrl($event, '${h.url_for(controller='root', action='update_galaxy')}')">Update Galaxy</button>
 					</div>
 				</form>
 			</li>

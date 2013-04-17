@@ -479,7 +479,7 @@
 	<%include file="bits/fs_resize_dialogue.htm" />
     
     <script type="text/ng-template" id="partials/fs-delete-dialog-template.html">
-    	<form id="fs_remove_form" action="${h.url_for(controller='root',action='manage_service')}?service_name={{fs.name}}&to_be_started=False&is_filesystem=True" method="GET">
+    	<form id="fs_remove_form">
     		<div class="modal-header">
 		    	<h3>Remove file system: {{ fs.name }}?</h3>
 	    	</div>
@@ -489,14 +489,14 @@
 				Then, the file system will be unmounted and the underlying device disconnected from this instance.
 		        </p>    
 	        <div class="modal-footer">
-	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-warning" >Remove</button>
+	        	<button ng-click="confirm($event, '${h.url_for(controller='root',action='manage_service')}?service_name={{fs.name}}&to_be_started=False&is_filesystem=True', 'confirm')" class="btn btn-warning" >Remove</button>
 	      		<button ng-click="cancel($event, 'cancel')" class="btn" >Cancel</button>  
 	        </div>
         </form>
     </script> 
     
     <script type="text/ng-template" id="partials/fs-persist-dialog-template.html">
-    	<form id="fs_persist_form" action="${h.url_for(controller='root', action='update_file_system')}?fs_name={{fs.name}}" method="GET">
+    	<form id="fs_persist_form">
     		<div class="modal-header">
 		    	<h3>Persist file system: {{ fs.name }}?</h3>
 	    	</div>
@@ -518,7 +518,7 @@
                 process may take a while.
 		        </p>    
 	        <div class="modal-footer">
-	        	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" >Confirm</button>
+	        	<button ng-click="confirm($event, '${h.url_for(controller='root', action='update_file_system')}?fs_name={{fs.name}}', 'confirm')" class="btn btn-primary" >Confirm</button>
 	      		<button ng-click="cancel($event, 'cancel')" class="btn btn-primary" >Cancel</button>  
 	        </div>
         </form>

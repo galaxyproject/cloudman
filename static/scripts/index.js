@@ -511,31 +511,39 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
         	}
         }
         
-        $scope.addNodes = function($event) {
+        $scope.addNodes = function($event, url) {
         	cmAlertService.addAlert("Adding new nodes", "info");
-        	$('#add_instances_form').ajaxForm({
-		        type: 'POST',
-		        dataType: 'html',
-		        error: function(response) {
-		        	cmAlertService.addAlert(response.responseText, "error");
-		        },
-		        success: function(response) {
-		        }
-	    	});
+        	$http({
+                method : 'POST',
+                url : url,
+                // TODO: DOM access in controller. Should be redone
+                data : $('#add_instances_form').serialize(),
+                headers : {
+                    'Content-Type' : 'application/x-www-form-urlencoded'
+                }
+            }).success(function(data, status) {
+            }).error(function(data, status) {
+                cmAlertService.addAlert(data, "error");
+            });
+        	
         	$scope.closePopup = true;
         }
         
-        $scope.removeNodes = function($event) {
+        $scope.removeNodes = function($event, url) {
         	cmAlertService.addAlert("Removing nodes", "info");
-        	$('#remove_instances_form').ajaxForm({
-		        type: 'POST',
-		        dataType: 'html',
-		        error: function(response) {
-		        	cmAlertService.addAlert(response.responseText, "error");
-		        },
-		        success: function(response) {
-		        }
-	    	});
+        	$http({
+                method : 'POST',
+                url : url,
+                // TODO: DOM access in controller. Should be redone
+                data : $('#remove_instances_form').serialize(),
+                headers : {
+                    'Content-Type' : 'application/x-www-form-urlencoded'
+                }
+            }).success(function(data, status) {
+            }).error(function(data, status) {
+                cmAlertService.addAlert(data, "error");
+            });
+        	
         	$scope.closePopup = true;
         }
         
@@ -591,30 +599,33 @@ cloudmanIndexModule.controller('cmIndexMainActionsController', ['$scope', '$http
 	}]);
 
 
-function terminateConfirmController($scope, dialog, cmAlertService) {
+function terminateConfirmController($scope, $http, dialog, cmAlertService) {
 	  
 	  $scope.cancel = function($event, result) {
 	  	$event.preventDefault();
 	    dialog.close('cancel');
 	  };
 	  
-	  $scope.confirm = function($event, result) {
+	  $scope.confirm = function($event, url, result) {
 	    cmAlertService.addAlert("Initiating cluster termination...", "info");
-	    // TODO: DOM access in controller. Should be redone
-		$('#form_terminate_confirm').ajaxForm({
-	        type: 'POST',
-	        dataType: 'html',
-	        error: function(response) {
-	        	cmAlertService.addAlert("An error occured while attempting to terminate the cluster.", "error");
-	        },
-	        success: function(response) {
-	        }
-	    });	  	
+	    $http({
+            method : 'POST',
+            url : url,
+            // TODO: DOM access in controller. Should be redone
+            data : $('#form_terminate_confirm').serialize(),
+            headers : {
+                'Content-Type' : 'application/x-www-form-urlencoded'
+            }
+        }).success(function(data, status) {
+        }).error(function(data, status) {
+            cmAlertService.addAlert("An error occured while attempting to terminate the cluster.", "error");
+        });
+	    
 	    dialog.close('confirm');
 	  };
 }
 
-function initialConfigController($scope, dialog, cmAlertService) {
+function initialConfigController($scope, $http, dialog, cmAlertService) {
 	  
 		$scope.isCollapsed = true;
 	
@@ -628,23 +639,25 @@ function initialConfigController($scope, dialog, cmAlertService) {
 		    dialog.close('cancel');
 		  };
 	  
-		$scope.confirm = function($event, result) {
-			// TODO: DOM access in controller. Should be redone
-			$('#init_cluster_form').ajaxForm({
-		        type: 'POST',
-		        dataType: 'html',
-		        error: function(response) {
-		        	cmAlertService.addAlert("An error occured while trying to initialise cluster", "error");
-		        },
-		        success: function(response) {
-		        	cmAlertService.addAlert("Cluster initialisation started...", "info");
-		        	dialog.close('confirm');
-		        }
-		    });
+		$scope.confirm = function($event, url, result) {
+		    $http({
+	            method : 'POST',
+	            url : url,
+	            // TODO: DOM access in controller. Should be redone
+	            data : $('#init_cluster_form').serialize(),
+	            headers : {
+	                'Content-Type' : 'application/x-www-form-urlencoded'
+	            }
+	        }).success(function(data, status) {
+	            cmAlertService.addAlert("Cluster initialisation started...", "info");
+                dialog.close('confirm');
+	        }).error(function(data, status) {
+	            cmAlertService.addAlert("An error occured while trying to initialise cluster", "error");
+	        });
 	    };
 }
 
-function autoscalingController($scope, dialog, cmAlertService, cmIndexDataService) {
+function autoscalingController($scope, $http, dialog, cmAlertService, cmIndexDataService) {
 
 	$scope.isCollapsed = true;
 	
@@ -666,18 +679,21 @@ function autoscalingController($scope, dialog, cmAlertService, cmIndexDataServic
 	    dialog.close('cancel');
 	};
 	  
-	$scope.toggleAutoscaling = function($event, result) {
+	$scope.toggleAutoscaling = function($event, url, result) {
 		cmAlertService.addAlert("Configuring autoscaling...", "info");
-		// TODO: DOM access in controller. Should be redone
-		$('#form_autoscaling_config').ajaxForm({
-	        type: 'POST',
-	        dataType: 'html',
-	        error: function(response) {
-	        	cmAlertService.addAlert("An error occured while configuring autoscaling.", "error");
-	        },
-	        success: function(response) {
-	        }
-	    });	  	
+		$http({
+            method : 'POST',
+            url : url,
+            // TODO: DOM access in controller. Should be redone
+            data : $('#form_autoscaling_config').serialize(),
+            headers : {
+                'Content-Type' : 'application/x-www-form-urlencoded'
+            }
+        }).success(function(data, status) {
+        }).error(function(data, status) {
+            cmAlertService.addAlert("An error occured while configuring autoscaling.", "error");
+        });
+		
 	    dialog.close('confirm');
 	};
 }
@@ -708,19 +724,22 @@ function shareClusterController($scope, $http, $dialog, dialog, cmAlertService, 
         dialog.close('cancel');
     };
     
-    $scope.confirm = function($event, result) {
+    $scope.confirm = function($event, url, result) {
         $event.preventDefault();
-        // TODO: DOM access in controller. Should be redone
-        $('#share_a_cluster_form').ajaxForm({
-            type: 'POST',
-            dataType: 'json',
-            error: function(response) {
-                $scope.refreshSharedInstances();
-            },
-            success: function(response) {
-                $scope.refreshSharedInstances();
+        $http({
+            method : 'POST',
+            url : url,
+            // TODO: DOM access in controller. Should be redone
+            data : $('#share_a_cluster_form').serialize(),
+            headers : {
+                'Content-Type' : 'application/x-www-form-urlencoded'
             }
+        }).success(function(data, status) {
+            $scope.refreshSharedInstances();
+        }).error(function(data, status) {
+            $scope.refreshSharedInstances();
         });
+        
         dialog.close('confirm');
     };
     
