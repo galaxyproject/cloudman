@@ -263,7 +263,9 @@ class CM(BaseController):
         if remap_list:
             log.debug("Reassigning services {0}".format(remap_list))
             self.app.manager.reassign_dependencies_async(remap_list)
-            return "Service dependency reassignment initiated."
+            return """Service dependency reassignment initiated. This is a time consuming operation, especially if the 'copy over'
+                   option has been selected. The progress of the copy can be monitored by observing the remaining disk space
+                   on the target file system(s) below. At the end of the copy, all dependent service will be shut down and restarted."""
         else:
             return "Nothing to remap"
 
