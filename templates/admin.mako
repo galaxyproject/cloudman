@@ -132,7 +132,7 @@
 		</table>
 	</section>		
 		
-	<section id="file_systems_redone" ng-controller="FileSystemController">
+	<section id="file_systems_section" ng-controller="FileSystemController">
 		<div>
 			<h3>File systems</h3>
 		</div>
@@ -140,7 +140,7 @@
 			Use these controls to administer individual file systems
 			managed by CloudMan.
 		</p>
-		<table class="table">
+		<table class="table" style="margin: 0px;">
 	        <thead>
 	            <tr class="filesystem-tr">
 	                <th class="fs-td-20pct">Name</th>
@@ -192,45 +192,39 @@
 	<section id="add_filesystem" ng-controller="AddFSController">
 		<div class="row-fluid" id="fs_add_section">
 			<div class="span12" id="app_service_header_row">
-			
-				<!-- Add new button row -->
-				<div class="row-fluid" ng-show="!is_adding_fs">
-					<div class="span12">
-						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
-					</div>
-				</div>
 				
 				<!-- Add File System Form -->
-				<div class="row-fluid" ng-show="is_adding_fs">
-					<div class="span12">
-						<form id="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device" action="${h.url_for(controller='root',action='add_file_system')}">
-						
-							<!-- Intro and close button -->				
+				<div class="row-fluid" collapse="!is_adding_fs">
+					<div class="span12 accordion-group">
+						<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;&nbsp;</button>
+						<form style="margin: 10px" id="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device" action="${h.url_for(controller='root',action='add_file_system')}">
+							
+							<!-- Intro and close button -->
 							<span class="help-block">
-									<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;</button>
 							    	Through this form you may add a new file system and make it available
 					            	to the rest of this CloudMan platform.
 					         </span>
 							 
 							<!-- Device selection -->
-							<fieldset>
+							<fieldset class="form-inline">
 								<strong>File system source or device:</strong>
+								&nbsp;&nbsp;
 								<label class="radio">
 							      <input type="radio" name="fs_kind" value="bucket" ng-model="selected_device" /> Bucket
 							    </label>
-							    
+							    &nbsp;&nbsp;
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="volume" ng-model="selected_device" /> Volume
 							    </label>
-							    
+							    &nbsp;&nbsp;
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="snapshot" ng-model="selected_device" /> Snapshot
 							    </label>
-							    
+							    &nbsp;&nbsp;
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="new_volume" ng-model="selected_device" /> New volume
 							    </label>
-							    
+							    &nbsp;&nbsp;
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="nfs" ng-model="selected_device" /> NFS
 							    </label>
@@ -239,21 +233,19 @@
 						    <br />						        
 
 							<!-- Bucket FS -->
-							<fieldset ng-switch-when="bucket" class="form-horizontal">
-								<div class="control-group">
-									<label class="control-label" for="bucket_name">Bucket name:</label>
-								    <div class="controls">
-								      <input type="text" id="bucket_name" name="bucket_name" placeholder="e.g., 1000genomes"/>
-								      <span class="help-inline">(AWS S3 buckets only)</span>
-								    </div>					    
-								</div>
-								<div class="control-group">
-									<label class="control-label" for="bucket_fs_name">File system name:</label>
-								    <div class="controls">
-								      <input type="text" id="bucket_fs_name" name="bucket_fs_name">
+							<fieldset ng-switch-when="bucket" class="form">
+								<table><tr>
+					            <td><label class="control-label" for="bucket_name">Bucket name:</label></td>
+								<td><input type="text" id="bucket_name" name="bucket_name" placeholder="e.g., 1000genomes" />
+								     <span class="help-inline">(AWS S3 buckets only)</span>
+								</td>					    
+								</tr><tr>
+								<td><label class="control-label" for="bucket_fs_name">File system name:</label></td>
+								<td><input type="text" id="bucket_fs_name" name="bucket_fs_name" />
 								      <span class="help-inline">(no spaces, alphanumeric characters only)</span>
-								    </div>
-								 </div>
+								</td>
+								</tr></table>
+								<br />
 								 
 								 <p> It appears you are not running on the AWS cloud. CloudMan supports
 						                    using only buckets from AWS S3. So, if the bucket you are trying to
@@ -361,6 +353,16 @@
 						</form>
 					</div>
 				</div>
+				
+				<!-- Add new button row -->
+				<div class="row-fluid" ng-show="!is_adding_fs">
+					<div class="span12">
+						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
+					</div>
+				</div>
+				
+				<br />
+				
 			</div>
 		</div>
 	</section>		
