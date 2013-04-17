@@ -1,5 +1,5 @@
     <script type="text/ng-template" id="partials/fs-resize-dialog-template.html">
-        <form id="fs_resize_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="POST">
+        <form id="fs_resize_form">
         <div class="modal-header" style="padding: 12px 12px 12px 12px">
             <div class="modal-header">
                 <h3>Resize File System</h3>
@@ -36,7 +36,7 @@
                 the created snapshot will not be kept.
             </div>
             <div class="modal-footer">
-                <button ng-click="resize($event)" class="btn btn-warning" >Resize {{ fs.name }} file system</button>
+                <button ng-click="resize($event, '${h.url_for(controller='root',action='expand_user_data_volume')}')" class="btn btn-warning" >Resize {{ fs.name }} file system</button>
                 <button ng-click="cancel($event)" class="btn" >Cancel</button>  
             </div>
             <input name="fs_name" type="hidden" value="{{fs.name}}" />
@@ -45,25 +45,28 @@
     </script>
     
     <script type='text/javascript'>
-    function FSResizeDialogController($scope, dialog, fs, cmAlertService) {
+    function FSResizeDialogController($scope, $http, dialog, fs, cmAlertService) {
   	  $scope.fs = fs;
   	  $scope.resize_details = {};  
-  	  $scope.cancel = function($event, result){
+  	  $scope.cancel = function($event, result) {
   	  	$event.preventDefault();
   	    dialog.close('cancel');
   	  };
-  	  $scope.resize = function(result){
-  		// TODO: DOM access in controller. Should be redone
-  		$('#fs_resize_form').ajaxForm({
-  	        type: 'POST',
-  	        dataType: 'html',
-  	        error: function(response) {
-  	        	cmAlertService.addAlert(response.responseText, "error");
-  	        },
-  	        success: function(response) {
-  	        	cmAlertService.addAlert(response, "info");
-  	        }
-  	    });	  	
+  	  $scope.resize = function($event, url) {
+  	    $http({
+            method : 'POST',
+            url : url,
+            // TODO: DOM access in controller. Should be redone
+            data : $('#fs_resize_form').serialize(),
+            headers : {
+                'Content-Type' : 'application/x-www-form-urlencoded'
+            }
+        }).success(function(data, status) {
+            cmAlertService.addAlert(data, "info");
+        }).error(function(data, status) {
+            cmAlertService.addAlert(data, "error");
+        });
+  	    
   	    dialog.close('confirm');
   	  };
   	} 
