@@ -13,7 +13,7 @@
 	    		<h3 class="text-error">Cluster Terminated.</h3>
 	    	</div>
     	</div>
-        <div class="modal-body" >
+        <div class="modal-body">
 	        <p ui-if="getClusterStatus()=='SHUTTING_DOWN'" class="text-warning">
 				This cluster is terminating. Please wait for all the services 
         		to stop and for all the nodes to be removed. Then, if not done automatically,
@@ -23,5 +23,6 @@
 	        <p ui-if="getClusterStatus()=='TERMINATED'" class="text-error">
 	        	This cluster has terminated. If not done automatically, 
                 please terminate the master instance from the cloud console.
-            </p>    
+            </p>
+        </div>
     </script>	
