@@ -236,18 +236,18 @@ cloudmanAdminModule.controller('AddFSController', ['$scope', '$http', 'cmAdminDa
             $scope.selected_device = "";
         }
 
-        $scope.addNewFileSystem = function () {
-            // TODO: DOM access in controller. Should be redone
-			$('#form_add_filesystem').ajaxForm({
-		        type: 'POST',
-		        dataType: 'html',
-		        error: function(response) {
-		        	cmAlertService.addAlert(response.responseText, "error");
-		        },
-		        success: function(response) {
-		        	cmAlertService.addAlert(response, "info");
-		        }
-	    	});
+        $scope.addNewFileSystem = function ($event, url) {
+            $http({
+                method: 'POST',
+                url: url,
+                // TODO: DOM access in controller. Should be redone
+                data: $('#form_add_filesystem').serialize(),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+            }).success(function(data, status) {
+                cmAlertService.addAlert(data, "info");
+            }).error(function(data, status) {
+                cmAlertService.addAlert(data, "error");
+            }); 
 	    	$scope.hideAddNewFSForm();
         }
 	}]);

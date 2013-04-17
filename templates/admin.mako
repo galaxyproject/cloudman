@@ -1,15 +1,8 @@
 <%inherit file="/base_panels.mako"/>
 <%def name="main_body()">
-<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/admin.js')}"></script>
 <div ng-app="cloudman.admin">
 	<%include file="bits/alerts.htm" />
-	<!-- 
-	<div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
-		<span id="msg" class="info_msg_box_content" style="display: none"></span>
-	</div>
-	 -->
-
 	<header>
 		<h2>CloudMan Admin Console</h2>
 		<div>
@@ -147,7 +140,7 @@
 	                <th class="fs-td-15pct">Status</th>
 	                <th class="fs-td-20pct">Usage</th>
 	                <th class="fs-td-15pct">Controls</td>
-	                <th colspan="2"></th>
+	                <th></th>
 	            </tr>
 	        </thead>
 	        <tbody>
@@ -168,7 +161,7 @@
 			        <td>
 			            <!-- // Enable removal while a file system is 'Available' or 'Error' -->
 			            <a ng-show="!is_snapshot_in_progress(fs)" class="fs-remove icon-button" id="fs-{{fs.name}}-remove"
-			               title="Remove this file system" ng-click="remove_fs($event, fs)"></i></a>
+			               title="Remove this file system" ng-click="remove_fs($event, fs)"></a>
 			            <!--// Only display additional controls when the file system is 'Available'-->
 			            <!-- It only makes sense to persist DoT, snapshot-based file systems -->
 						<a ng-show="is_persistable_fs(fs)" class="fs-persist icon-button" id="fs-{{fs.name}}-persist"
@@ -183,7 +176,6 @@
 			        	<a class="fs-details" details-box="fs-{{fs.name}}-details" title="Filesystem details" ng-click="toggleDetailView($event, fs)">Detail</a>
 			        	<span id="fs-details-popover-{{fs.name}}" popover-placement="right" cm-popover popover-animation="true" style="visibility:hidden"></span>
 			        </td>
-			        <td></td>
 				</tr>
 	        </tbody>
 		</table>
@@ -197,7 +189,7 @@
 				<div class="row-fluid" collapse="!is_adding_fs">
 					<div class="span12 accordion-group">
 						<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;&nbsp;</button>
-						<form style="margin: 10px" id="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device" action="${h.url_for(controller='root',action='add_file_system')}">
+						<form style="margin: 10px" id="form_add_filesystem" name="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device">
 							
 							<!-- Intro and close button -->
 							<span class="help-block">
@@ -253,12 +245,13 @@
 						                    used to access this bucket. If the bucket you are trying to use
 						                    IS PUBLIC, leave below fields empty.</p>
 						                    <table><tr>
-						                        <td><label for"bucket_a_key">AWS access key: </label></td>
+						                        <td><label for="bucket_a_key">AWS access key: </label></td>
 						                        <td><input type="text" id="bucket_a_key" name="bucket_a_key" size="50" /></td>
 						                    </tr><tr>
-						                        <td><label for"bucket_s_key">AWS secret key: </label></td>
+						                        <td><label for="bucket_s_key">AWS secret key: </label></td>
 						                        <td><input type="text" id="bucket_s_key" name="bucket_s_key" size="50" /></td>
 						                    </tr></table>
+						           </p>
 						    </fieldset>		
 						    
 							<!-- Volume form details -->
@@ -345,7 +338,7 @@
 							<!--  Save or cancel option -->
 							<div  class="row-fluid">
 								<div class="span12">
-									<input type="submit" class="btn btn-primary" value="Add new file system" ng-click="addNewFileSystem()" />
+									<input type="submit" class="btn btn-primary" value="Add new file system" ng-click="addNewFileSystem($event, '${h.url_for(controller='root',action='add_file_system')}')" />
 	                				&nbsp;&nbsp;or<a class="btn btn-link" ng-click="hideAddNewFSForm()">cancel</a>
 								</div>
 							</div>

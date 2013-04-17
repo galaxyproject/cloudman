@@ -3,7 +3,6 @@
 
 <script type='text/javascript' src="//cdnjs.cloudflare.com/ajax/libs/flot/0.7/jquery.flot.min.js"></script>
 <script type='text/javascript' src="//raw.github.com/flot/flot/master/jquery.flot.time.js"></script>
-<script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/index.js')}"></script>
 
 
