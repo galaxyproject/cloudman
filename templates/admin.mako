@@ -227,14 +227,13 @@
 							<!-- Bucket FS -->
 							<fieldset ng-switch-when="bucket" class="form">
 								<table><tr>
-					            <td><label class="control-label" for="bucket_name">Bucket name:</label></td>
+					            <td><label for="snap_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="snap_fs_name" id="snap_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>			    
+								</tr><tr>
+								<td><label class="control-label" for="bucket_name">Bucket name:</label></td>
 								<td><input type="text" id="bucket_name" name="bucket_name" placeholder="e.g., 1000genomes" />
 								     <span class="help-inline">(AWS S3 buckets only)</span>
-								</td>					    
-								</tr><tr>
-								<td><label class="control-label" for="bucket_fs_name">File system name:</label></td>
-								<td><input type="text" id="bucket_fs_name" name="bucket_fs_name" />
-								      <span class="help-inline">(no spaces, alphanumeric characters only)</span>
 								</td>
 								</tr></table>
 								<br />
@@ -258,13 +257,13 @@
 							<div class="row-fluid" ng-switch-when="volume">
 								<div class="span12">
 									<table><tr>
-					                    <td><label for="vol_id">Volume ID: </label></td>
-					                    <td><input type="text" size="20" name="vol_id" id="vol_id"
-					                        placeholder="e.g., vol-456e6973"/></td>
-					                    </tr><tr>
 					                    <td><label for="vol_fs_name">File system name: </label></td>
 					                    <td><input type="text" size="20" name="vol_fs_name" id="vol_fs_name">
 					                    (no spaces, alphanumeric characters only)</td>
+					                    </tr><tr>
+					                    <td><label for="vol_id">Volume ID: </label></td>
+					                    <td><input type="text" size="20" name="vol_id" id="vol_id"
+					                        placeholder="e.g., vol-456e6973"/></td>
 					                </tr></table>
 								</div>
 							</div>
@@ -273,13 +272,13 @@
 							<div class="row-fluid" ng-switch-when="snapshot">
 								<div class="span12">
 									<table><tr>
-					                    <td><label for="snap_id">Snapshot ID: </label></td>
-					                    <td><input type="text" size="20" name="snap_id" id="snap_id"
-					                        placeholder="e.g., snap-c21cdsi6"/></td>
-					                    </tr><tr>
 					                    <td><label for="snap_fs_name">File system name: </label></td>
 					                    <td><input type="text" size="20" name="snap_fs_name" id="snap_fs_name">
 					                    (no spaces, alphanumeric characters only)</td>
+					                    </tr><tr>
+					                    <td><label for="snap_id">Snapshot ID: </label></td>
+					                    <td><input type="text" size="20" name="snap_id" id="snap_id"
+					                        placeholder="e.g., snap-c21cdsi6"/></td>
 					                </tr></table>
 								</div>
 							</div>
@@ -288,13 +287,13 @@
 							<div class="row-fluid" ng-switch-when="new_volume">
 								<div class="span12">
 									<table><tr>
-					                    <td><label for="new_disk_size">New file system size: </label></td>
-					                    <td><input type="text" size="20" name="new_disk_size" id="new_disk_size"
-					                        placeholder="e.g., 100"> (minimum 1GB, maximum 1000GB)</td>
-					                    </tr><tr>
 					                    <td><label for="new_vol_fs_name">File system name: </label></td>
 					                    <td><input type="text" size="20" name="new_vol_fs_name" id="new_vol_fs_name">
 					                    (no spaces, alphanumeric characters only)</td>
+					                    </tr><tr>
+					                    <td><label for="new_disk_size">New file system size: </label></td>
+					                    <td><input type="number" size="20" name="new_disk_size" id="new_disk_size" min="1" max="1000" step="1"
+					                        placeholder="e.g., 100"> (minimum 1GB, maximum 1000GB)</td>
 					                </tr></table>
 								</div>
 							</div>
@@ -303,13 +302,13 @@
 							<div class="row-fluid" ng-switch-when="nfs">
 								<div class="span12">
 									<table><tr>
-					                    <td><label for="nfs-server">NFS server address: </label></td>
-					                    <td><input type="text" size="20" name="nfs_server" id="nfs_server"
-					                        placeholder="e.g., 172.22.169.17:/nfs_dir"></td>
-					                    </tr><tr>
 					                    <td><label for="nfs_fs_name">File system name: </label></td>
 					                    <td><input type="text" size="20" name="nfs_fs_name" id="nfs_fs_name">
 					                    (no spaces, alphanumeric characters only)</td>
+					                    </tr><tr>
+					                    <td><label for="nfs-server">NFS server address: </label></td>
+					                    <td><input type="text" size="20" name="nfs_server" id="nfs_server"
+					                        placeholder="e.g., 172.22.169.17:/nfs_dir"></td>
 					                </tr></table>
 								</div>
 							</div>
