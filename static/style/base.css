@@ -28,3 +28,34 @@ chart {
 	-moz-border-radius: 5px;
     -khtml-border-radius: 4px;
 }
+
+.fs-remove {
+    background: transparent url(/cloud/static/images/delete_icon.png) no-repeat;
+}
+.fs-remove:hover {
+    background-image : url(/cloud/static/images/delete_icon_red.png);
+}
+.fs-persist{
+    background: transparent url(/cloud/static/images/persist_bw.png) no-repeat;
+}
+.fs-persist:hover {
+    background-image : url(/cloud/static/images/persist.png);
+}
+.fs-resize {
+    background: transparent url(/cloud/static/images/disc_plus_bw.png) no-repeat;
+}
+.fs-resize:hover {
+    background-image : url(/cloud/static/images/disc_plus.png);
+}
+
+.icon-button {
+    width: 16px;
+    height: 16px;
+    display: block;
+    float: left;
+    margin-left: 5px;
+    text-indent: 20px;
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    padding: 0;
+}

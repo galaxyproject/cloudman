@@ -60,7 +60,7 @@
 			  			<!-- dropdown menu links -->
 			  			<li>
 			  				<div class="text-center" style='margin:20px;'>
-						        <form id="add_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="POST" ng-click="handleFormClick($event)">
+						        <form id="add_instances_form" name="node_management_form" ng-click="handleFormClick($event)">
 						        	<fieldset>
 							        	<legend>Add Nodes</legend>
 							            <label>Number of nodes to start:</label>
@@ -88,7 +88,7 @@
 											</label>
 							            %endif
 							            <br />
-							            <input type="submit" class="btn btn-small btn-primary" value="Start Additional Nodes" ng-click="addNodes($event)" ng-disabled="add_instances_form.$invalid" />
+							            <input type="submit" class="btn btn-small btn-primary" value="Start Additional Nodes" ng-click="addNodes($event, '${h.url_for(controller='root',action='add_instances')}')" ng-disabled="add_instances_form.$invalid" />
 						            </fieldset>
 						        </form>
 							</div>
@@ -106,7 +106,7 @@
 			    	<!-- dropdown menu links -->
 			    		<li>
 			    			<div class="text-center" style='margin:20px'>
-						        <form id="remove_instances_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="POST" ng-click="handleFormClick($event)">
+						        <form id="remove_instances_form" name="node_management_form" ng-click="handleFormClick($event)">
 						        	<fieldset>
 							        	<legend>Remove Nodes</legend>
 							            <label>Number of nodes to remove:</label>
@@ -118,7 +118,7 @@
 							            	  <label class="radio"><input type="radio" name="force_termination" value="False" checked="True"/>No</label>
 										</div>
 										<br /><br />
-										<input type="submit" class="btn btn-small btn-primary" value="Remove Existing Nodes" ng-click="removeNodes($event)" ng-disabled="remove_instances_form.$invalid" />
+										<input type="submit" class="btn btn-small btn-primary" value="Remove Existing Nodes" ng-click="removeNodes($event, '${h.url_for(controller='root',action='remove_instances')}')" ng-disabled="remove_instances_form.$invalid" />
 							        </fieldset>
 						        </form>
 						    </div>		    		
@@ -276,7 +276,7 @@
 ## ****************************************************************************
 
 <script type="text/ng-template" id="partials/terminate-confirm.html">
-	<form id="form_terminate_confirm" action="${h.url_for(controller='root',action='kill_all')}" method="POST">
+	<form id="form_terminate_confirm">
     	<div class="modal-header">
 			<h3>Power Off Cluster?</h3>
 		</div>
@@ -302,14 +302,14 @@
 	        </fieldset>
 		</div>    
 	    <div class="modal-footer">
-	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-danger">Confirm</button>
+	    	<button ng-click="confirm($event, '${h.url_for(controller='root',action='kill_all')}', 'confirm')" class="btn btn-danger">Confirm</button>
 	      	<button ng-click="cancel($event, 'cancel')" class="btn btn-primary">Cancel</button>  
 		</div>
 	</form>
 </script>
 
 <script type="text/ng-template" id="partials/initial-config.html">
-	 <form id="init_cluster_form" name="init_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="POST">
+	 <form id="init_cluster_form" name="init_cluster_form">
 		<div class="modal-header">
 			<h3>Initial CloudMan Platform Configuration</h3>
 		</div>
@@ -411,14 +411,14 @@
 	        </div>
 		</div>
 		<div class="modal-footer">
-	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" ng-disabled="init_cluster_form.$invalid">Confirm</button>
+	    	<button ng-click="confirm($event, '${h.url_for(controller='root',action='initialize_cluster')}', 'confirm')" class="btn btn-primary" ng-disabled="init_cluster_form.$invalid">Confirm</button>
 	      	<button ng-click="cancel($event, 'cancel')" class="btn">Cancel</button>  
 		</div>
 	</form>
 </script>
 
 <script type="text/ng-template" id="partials/autoscaling-config.html">
-	<form id="form_autoscaling_config" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="POST">
+	<form id="form_autoscaling_config" name="turn_autoscaling_on_form">
     	<div class="modal-header">
 			<h3>Autoscaling Configuration</h3>
 		</div>
@@ -467,7 +467,7 @@
             </div>
         </div>
 		<div class="modal-footer">
-	    	<button ng-click="toggleAutoscaling($event, 'activate')" class="btn btn-primary" ng-show="!isAutoScalingEnabled()">Turn autoscaling on</button>
+	    	<button ng-click="toggleAutoscaling($event, '${h.url_for(controller='root', action='toggle_autoscaling')}', 'activate')" class="btn btn-primary" ng-show="!isAutoScalingEnabled()">Turn autoscaling on</button>
 	    	<button ng-click="confirm($event, 'reconfigure')" class="btn btn-primary" ng-show="isAutoScalingEnabled()">Adjust autoscaling</button>
 	    	<button ng-click="toggleAutoscaling($event, 'deactivate')" class="btn btn-warning" ng-show="isAutoScalingEnabled()">Turn autoscaling off</button>
 	      	<button ng-click="cancel($event, 'cancel')" class="btn">Cancel</button>  
@@ -480,7 +480,7 @@
 
 
 <script type="text/ng-template" id="partials/share_cluster_template.html">
-    <form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
+    <form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form">
     	<div class="modal-header">
     		<h3>Cluster Sharing Configuration</h3>
     	</div>
@@ -585,7 +585,7 @@
 		    </accordion>
 		</div>
 		<div class="modal-footer">
-	    	<button ng-click="confirm($event, 'confirm')" class="btn btn-primary" ng-disabled="share_a_cluster_form.$invalid">Confirm</button>
+	    	<button ng-click="confirm($event, '${h.url_for(controller='root', action='share_a_cluster')}', 'confirm')" class="btn btn-primary" ng-disabled="share_a_cluster_form.$invalid">Confirm</button>
 	      	<button ng-click="cancel($event, 'cancel')" class="btn">Cancel</button>  
 		</div>
     </form>
