@@ -460,9 +460,9 @@ function AssignedServiceController($scope, $element, $http, cmAlertService, cmAd
                 'Content-Type' : 'application/json'
             }
         }).success(function(data, status) {
-            cmAlertService.addAlert(data, "info");
+            cmAlertService.addAlert(data, "info", -1);
         }).error(function(data, status) {
-            cmAlertService.addAlert(data, "error");
+            cmAlertService.addAlert(data, "error", -1);
         });
 
         $scope.master = angular.copy(record);
