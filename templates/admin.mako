@@ -337,7 +337,7 @@
 							<!--  Save or cancel option -->
 							<div  class="row-fluid">
 								<div class="span12">
-									<input type="submit" class="btn btn-primary" value="Add new file system" ng-click="addNewFileSystem($event, '${h.url_for(controller='root',action='add_file_system')}')" />
+									<input type="submit" class="btn btn-primary btn-small" value="Add new file system" ng-click="addNewFileSystem($event, '${h.url_for(controller='root',action='add_file_system')}')" />
 	                				&nbsp;&nbsp;or<a class="btn btn-link" ng-click="hideAddNewFSForm()">cancel</a>
 								</div>
 							</div>
@@ -349,7 +349,7 @@
 				<!-- Add new button row -->
 				<div class="row-fluid" ng-show="!is_adding_fs">
 					<div class="span12">
-						<button class="btn" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
+						<button class="btn btn-mini" ng-click="showAddNewFSForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
 					</div>
 				</div>
 				
