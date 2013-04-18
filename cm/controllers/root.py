@@ -174,6 +174,23 @@ class CM(BaseController):
         return "Initiated persisting of '{0}' file system".format(fs_name)
 
     @expose
+    def add_application(self, trans, **kwargs):
+        """
+        Add a new app recognized by cloudman
+        """
+        app_to_process = json.loads(trans.request.body)
+        app_name = app_to_process.get('svc_name', None)
+
+        if (app_name == "Galaxy" or app_name == "Postgres"):
+            if self.app.manager.get_services(svc_name=app_name):
+                return "This service has already been added previously. Remove the existing service first."
+            else:
+                self.app.manager.add_service_by_name(app_name)
+                return "Added new service."
+        else:
+            return "Attempt to add unsupported service: %s" % app_name
+
+    @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
             new_disk_size='', new_vol_fs_name='',
             vol_id=None, vol_fs_name='',
@@ -265,7 +282,7 @@ class CM(BaseController):
             self.app.manager.reassign_dependencies_async(remap_list)
             return """Service dependency reassignment initiated. This is a time consuming operation, especially if the 'copy over'
                    option has been selected. The progress of the copy can be monitored by observing the remaining disk space
-                   on the target file system(s) below. At the end of the copy, all dependent service will be shut down and restarted."""
+                   on the target file system(s) below. At the end of the copy, all dependent services will be shut down and restarted."""
         else:
             return "Nothing to remap"
 

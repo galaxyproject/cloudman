@@ -74,6 +74,15 @@ class ConsoleManager(BaseConsoleManager):
         self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 10
 
+    def add_service_by_name(self, svc_name):
+        if self.get_services(svc_name=svc_name):
+            raise Exception("A service with this name already exists.")
+        else:
+            if svc_name == "Galaxy":
+                self.add_master_service(GalaxyService(self.app))
+            elif svc_name == "Postgres":
+                self.add_master_service(PostgresService(self.app))
+
     def add_master_service(self, new_service):
         self.services.append(new_service)
         self.update_dependencies(new_service, "ADD")
