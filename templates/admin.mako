@@ -32,7 +32,7 @@
 			Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud" target='_blank'>${initial_cluster_type}</a>' type of cluster.
 		</p>
 
-		<table class="table">
+		<table class="table" style="margin: 0px;">
 			<thead>
 				<tr>
 					<th></th>
@@ -124,6 +124,67 @@
 			</tbody>
 		</table>
 	</section>		
+
+	<section id="add_application" ng-controller="AddApplicationController">
+		<div class="row-fluid" id="app_add_section">
+			<div class="span12" id="app_service_header_row">
+				
+				<!-- Add Application Form -->
+				<div class="row-fluid" collapse="!is_adding_app">
+					<div class="span12">
+						<button type="button" class="close" ng-click="hideAddNewAppForm()">&times;&nbsp;</button>
+						<form id="form_add_application" name="form_add_application" class="form-inline well" ng-switch on="selected_app">
+							
+							<!-- Intro and close button -->
+							<span class="help-block">
+							    	Through this form you may add a new application to this CloudMan platform. Most services do not support more than one
+							    	instance running at a time.
+					         </span>
+							 
+							<!-- Device selection -->
+							<fieldset class="form-inline">
+								<label>Application:&nbsp;&nbsp;
+									<select id="AppList" ng-model="selected_app" required="true">
+						               <option value="Galaxy">Galaxy</option>
+						               <option value="Postgres">PostgreSQL</option>
+						             </select>
+								</label>
+						    </fieldset>
+						    
+						    <br />						        
+							
+							<!-- Galaxy App Options -->
+							<div class="row-fluid" ng-switch-when="Galaxy">
+							</div>
+							
+							<!-- Postgres App Options -->
+							<div class="row-fluid" ng-switch-when="Postgres">
+							</div>
+							
+							<!--  Save or cancel option -->
+							<div  class="row-fluid">
+								<div class="span12">
+									<input type="submit" class="btn btn-primary btn-small" value="Add new application" ng-disabled="form_add_application.$invalid" ng-click="addNewApplication($event, '${h.url_for(controller='root',action='add_application')}')" />
+	                				&nbsp;&nbsp;or&nbsp;&nbsp;<a href="#" ng-click="hideAddNewAppForm()">cancel</a>
+								</div>
+							</div>
+									
+						</form>
+					</div>
+				</div>
+				
+				<!-- Add new button row -->
+				<div class="row-fluid" ng-show="!is_adding_app">
+					<div class="span12">
+						<button class="btn btn-mini" ng-click="showAddNewAppForm()"><i class="icon-plus"></i>&nbsp;Add New</button>
+					</div>
+				</div>
+				
+				<br />
+				
+			</div>
+		</div>
+	</section>
 		
 	<section id="file_systems_section" ng-controller="FileSystemController">
 		<div>
@@ -183,13 +244,13 @@
 
 	<section id="add_filesystem" ng-controller="AddFSController">
 		<div class="row-fluid" id="fs_add_section">
-			<div class="span12" id="app_service_header_row">
+			<div class="span12" id="fs_service_header_row">
 				
 				<!-- Add File System Form -->
 				<div class="row-fluid" collapse="!is_adding_fs">
 					<div class="span12">
 						<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;&nbsp;</button>
-						<form id="form_add_filesystem" name="form_add_filesystem" class="fs-add-form form-inline well" ng-switch on="selected_device">
+						<form id="form_add_filesystem" name="form_add_filesystem" class="form-inline well" ng-switch on="selected_device">
 							
 							<!-- Intro and close button -->
 							<span class="help-block">
@@ -202,7 +263,7 @@
 								<strong>File system source or device:</strong>
 								&nbsp;&nbsp;
 								<label class="radio">
-							      <input type="radio" name="fs_kind" value="bucket" ng-model="selected_device" /> Bucket
+							      <input type="radio" required="true" name="fs_kind" value="bucket" ng-model="selected_device" /> Bucket
 							    </label>
 							    &nbsp;&nbsp;
 							    <label class="radio">
@@ -337,8 +398,8 @@
 							<!--  Save or cancel option -->
 							<div  class="row-fluid">
 								<div class="span12">
-									<input type="submit" class="btn btn-primary btn-small" value="Add new file system" ng-click="addNewFileSystem($event, '${h.url_for(controller='root',action='add_file_system')}')" />
-	                				&nbsp;&nbsp;or<a class="btn btn-link" ng-click="hideAddNewFSForm()">cancel</a>
+									<input type="submit" class="btn btn-primary btn-small" value="Add new file system" ng-disabled="form_add_filesystem.$invalid" ng-click="addNewFileSystem($event, '${h.url_for(controller='root',action='add_file_system')}')" />
+	                				&nbsp;&nbsp;or&nbsp;&nbsp;<a href="#" ng-click="hideAddNewFSForm()">cancel</a>
 								</div>
 							</div>
 									

@@ -263,6 +263,44 @@ cloudmanAdminModule
                             }
                         } ]);
 
+
+cloudmanAdminModule.controller('AddApplicationController', [ '$scope', '$http', 'cmAdminDataService', 'cmAlertService',
+        function($scope, $http, cmAdminDataService, cmAlertService) {
+
+            $scope.is_adding_app = false;
+            $scope.selected_app = "";
+
+            $scope.showAddNewAppForm = function() {
+                $scope.is_adding_app = true;
+            }
+
+            $scope.hideAddNewAppForm = function() {
+                $scope.is_adding_app = false;
+                $scope.selected_app = "";
+            }
+
+            $scope.addNewApplication = function($event, url) {
+                var dto = {
+                        svc_name : $scope.selected_app
+                };
+                
+                $http({
+                    method : 'POST',
+                    url : url,
+                    data : JSON.stringify(dto),
+                    headers : {
+                        'Content-Type' : 'application/json'
+                    }
+                }).success(function(data, status) {
+                    cmAlertService.addAlert(data, "info");
+                }).error(function(data, status) {
+                    cmAlertService.addAlert(data, "error");
+                });
+                $scope.hideAddNewAppForm();
+            }
+        } ]);
+
+
 cloudmanAdminModule.controller('AddFSController', [ '$scope', '$http', 'cmAdminDataService', 'cmAlertService',
         function($scope, $http, cmAdminDataService, cmAlertService) {
 
