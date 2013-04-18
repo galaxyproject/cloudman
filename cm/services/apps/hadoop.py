@@ -14,6 +14,7 @@ from cm.services import ServiceRole
 from cm.services import service_states
 from cm.services import ServiceDependency
 from cm.services.apps import ApplicationService
+from cm.util.nfs_export import NFSExport
 
 import logging
 log = logging.getLogger('cloudman')
@@ -204,6 +205,9 @@ class HadoopService(ApplicationService):
             authFile.close()
             pubKeyFile.close()
             misc.run("chown -c ubuntu /home/ubuntu/.ssh/authorized_keys")
+            log.debug("Adding hadoop nfs export as /opt/hadoop")
+            self.app.manager.get_services(svc_role=ServiceRole.TRANSIENT_NFS)
+            NFSExport.add_nfs_share("/opt/hadoop")
             all_done = True
         except Exception, e:
             log.debug("Error while configuring HADOOP: {0}".format(e))

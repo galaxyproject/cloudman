@@ -15,11 +15,11 @@ from boto.exception import EC2ResponseError
 
 from cm.util import paths
 from cm.util.misc import run
-from cm.util.misc import flock
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
+from cm.util.nfs_export import NFSExport
 
 import logging
 log = logging.getLogger('cloudman')
@@ -676,7 +676,7 @@ class Volume(BlockStorage):
                     log.debug(
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
                 # Lastly, share the newly mounted file system over NFS
-                if self.fs.add_nfs_share(mount_point):
+                if NFSExport.add_nfs_share(mount_point):
                     return True
             log.warning(
                 "Cannot mount volume '%s' in state '%s'. Waiting (%s/30)." % (self.volume_id,
@@ -689,13 +689,7 @@ class Volume(BlockStorage):
         NFS in the process.
         """
         try:
-            mp = mount_point.replace('/', '\/')  # Escape slashes for sed
-            # Because we're unmounting the file systems in separate threads, use a lock file
-            with flock(self.fs.nfs_lock_file):
-                if run("/bin/sed -i 's/^%s/#%s/' /etc/exports" % (mp, mp),
-                        "Error removing '%s' from '/etc/exports'" % mount_point,
-                        "Successfully removed '%s' from '/etc/exports'" % mount_point):
-                    self.fs.dirty = True
+            NFSExport.remove_nfs_share(mount_point)
         except Exception, e:
             log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
             return False
