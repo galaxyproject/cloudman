@@ -187,9 +187,9 @@
 				
 				<!-- Add File System Form -->
 				<div class="row-fluid" collapse="!is_adding_fs">
-					<div class="span12 accordion-group">
+					<div class="span12">
 						<button type="button" class="close" ng-click="hideAddNewFSForm()">&times;&nbsp;</button>
-						<form style="margin: 10px" id="form_add_filesystem" name="form_add_filesystem" class="fs-add-form form-inline" ng-switch on="selected_device">
+						<form id="form_add_filesystem" name="form_add_filesystem" class="fs-add-form form-inline well" ng-switch on="selected_device">
 							
 							<!-- Intro and close button -->
 							<span class="help-block">
@@ -407,21 +407,15 @@
 					<span ui-if="!getMasterIsExecHost()">Switch master to run jobs</span>
 				</a>
 				<span class="help_link" tooltip-placement="right" tooltip="By default, the master instance running all the services is also
-						configured to
-						execute jobs. You may toggle this functionality here. Note that if job
-						execution
-						on the master is disabled, at least one worker instance will be
-						required to
-						run any jobs.">What will this do?</span>
+						configured to execute jobs. You may toggle this functionality here. Note that if job execution
+						on the master is disabled, at least one worker instance will be run any jobs.">What will this do?</span>
 			</li>
 			<li>
 				<a href="#" ng-click="executeAction($event, '${h.url_for(controller='root', action='store_cluster_config')}')">
 				Store current cluster configuration</a>
 				<span class="help_link" tooltip-placement="right" tooltip="Each CloudMan cluster has its own configuration. The state of
-						this cofiguration is saved as 'persistent_data.yaml'
-						file in the cluster's bucket. Saving of this file
-						happens automatically on cluster configuration change.
-						This link allows you to force the update of the cluster
+						this cofiguration is saved as 'persistent_data.yaml' file in the cluster's bucket. Saving of this file
+						happens automatically on cluster configuration change. This link allows you to force the update of the cluster
 						configuration and capture its current state.">What will this do?</span>
 			</li>
 			<li>
@@ -435,8 +429,7 @@
 				<a href="#"
 					ng-click="executeAction($event, '${h.url_for(controller='root', action='recover_monitor')}')">Recover monitor</a>
 				<span class="help_link" tooltip-placement="right" tooltip="Try to (re)start CloudMan service monitor thread, which is
-						responsible for monitoring the status of all of the other
-						services. This should only be used if the CloudMan user
+						responsible for monitoring the status of all of the other services. This should only be used if the CloudMan user
 						interface becomes unresponsive or during debugging.">What will this do?</span>
 			</li>
 			<li>
