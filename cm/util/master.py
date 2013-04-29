@@ -12,7 +12,7 @@ import json
 import shutil
 
 
-from cm.util import misc, comm
+from cm.util import misc, comm, Time
 from cm.util import (
     cluster_status, instance_states, instance_lifecycle, spot_states)
 from cm.util.manager import BaseConsoleManager
@@ -50,7 +50,7 @@ class ConsoleManager(BaseConsoleManager):
     node_type = "master"
 
     def __init__(self, app):
-        self.startup_time = dt.datetime.utcnow()
+        self.startup_time = Time.now()
         log.debug("Initializing console manager - cluster start time: %s" %
                   self.startup_time)
         self.app = app
@@ -888,7 +888,7 @@ class ConsoleManager(BaseConsoleManager):
         log.info("Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
             "associated with this cluster) from the %s cloud console." \
-            % (dt.datetime.utcnow(), (dt.datetime.utcnow() - self.startup_time), self.app.ud.get('cloud_name', '')))
+            % (Time.now(), (Time.now() - self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
@@ -1379,7 +1379,7 @@ class ConsoleManager(BaseConsoleManager):
         s3_conn = self.app.cloud_interface.get_s3_connection()
         # All of the shared cluster's config files will be stored with the
         # specified prefix
-        shared_names_root = "shared/%s" % dt.datetime.utcnow(
+        shared_names_root = "shared/%s" % now(
         ).strftime("%Y-%m-%d--%H-%M")
         # Create current cluster config and save it to cluster's shared location,
         # including the freshly generated snap IDs
@@ -1998,7 +1998,7 @@ class ConsoleManager(BaseConsoleManager):
             num_cpus = 1
             load = "0.00 0.02 0.39"
             return {'id': 'localtest', 'ld': load,
-                    'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
+                    'time_in_state': misc.formatSeconds(Time.now() - self.startup_time),
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
@@ -2012,7 +2012,7 @@ class ConsoleManager(BaseConsoleManager):
                 # Debug only, this should never happen.  If the interface is
                 # able to display this, there is load.
                 load = "0 0 0"
-        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
+        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.formatSeconds(Time.now() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
 
 
 class ConsoleMonitor(object):
@@ -2027,8 +2027,8 @@ class ConsoleMonitor(object):
         self.sleeper = misc.Sleeper()
         self.running = True
         # Keep some local stats to be able to adjust system updates
-        self.last_update_time = dt.datetime.utcnow()
-        self.last_system_change_time = dt.datetime.utcnow()
+        self.last_update_time = Time.now()
+        self.last_system_change_time = Time.now()
         self.update_frequency = 10  # Frequency (in seconds) between system updates
         self.num_workers = -1
         # Start the monitor thread
@@ -2039,7 +2039,7 @@ class ConsoleMonitor(object):
         Start the monitor thread, which monitors and manages all the services
         visible to CloudMan.
         """
-        self.last_state_change_time = dt.datetime.utcnow()
+        self.last_state_change_time = Time.now()
         if not self.app.TESTFLAG:
             # Set 'role' and 'clusterName' tags for the master instance
             try:
@@ -2076,13 +2076,13 @@ class ConsoleMonitor(object):
         """
         # Check if a worker was added/removed since the last update
         if self.num_workers != len(self.app.manager.worker_instances):
-            self.last_system_change_time = dt.datetime.utcnow()
+            self.last_system_change_time = Time.now()
             self.num_workers = len(self.app.manager.worker_instances)
         # Update frequency: as more time passes since a change in the system,
         # progressivley back off on frequency of system updates
-        if (dt.datetime.utcnow() - self.last_system_change_time).seconds > 600:
+        if (Time.now() - self.last_system_change_time).seconds > 600:
             self.update_frequency = 60  # If no system changes for 10 mins, run update every minute
-        elif (dt.datetime.utcnow() - self.last_system_change_time).seconds > 300:
+        elif (Time.now() - self.last_system_change_time).seconds > 300:
             self.update_frequency = 30  # If no system changes for 5 mins, run update every 30 secs
         else:
             self.update_frequency = 10  # If last system change within past 5 mins, run update every 10 secs
@@ -2269,7 +2269,7 @@ class ConsoleMonitor(object):
         added_srvcs = False  # Flag to indicate if cluster conf was changed
         for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
             log.debug("Monitor adding service '%s'" % service.get_full_name())
-            self.last_system_change_time = dt.datetime.utcnow()
+            self.last_system_change_time = Time.now()
             if service.add():
                 added_srvcs = True  # else:
 
@@ -2288,7 +2288,7 @@ class ConsoleMonitor(object):
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
-                self.last_system_change_time = dt.datetime.utcnow()
+                self.last_system_change_time = Time.now()
                 self.expand_user_data_volume()
             # Opennebula has no storage like S3, so this is not working (yet)
                 if self.app.cloud_type != 'opennebula':
@@ -2337,8 +2337,8 @@ class ConsoleMonitor(object):
                 continue
             # Do a periodic system state update (eg, services, workers)
             self._update_frequency()
-            if (dt.datetime.utcnow() - self.last_update_time).seconds > self.update_frequency:
-                self.last_update_time = dt.datetime.utcnow()
+            if (Time.now() - self.last_update_time).seconds > self.update_frequency:
+                self.last_update_time = Time.now()
                 self.app.manager.check_disk()
                 for service in self.app.manager.services:
                     service.status()
@@ -2370,21 +2370,21 @@ class ConsoleMonitor(object):
                     if w_instance.node_ready:
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
-                    if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
+                    if (Time.now() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
                             w_instance.get_desc(),
-                            (dt.datetime.utcnow() - w_instance.last_comm).seconds))
+                            (Time.now() - w_instance.last_comm).seconds))
                         continue
                     # Explicitly check the state of a quiet instance (but only
                     # periodically)
-                    elif (dt.datetime.utcnow() - w_instance.last_state_update).seconds > 30:
+                    elif (Time.now() - w_instance.last_state_update).seconds > 30:
                         log.debug("Have not checked on quiet instance {0} for a while; checking now"
                                   .format(w_instance.get_desc()))
                         w_instance.maintain()
                     else:
                         log.debug("Not checking quiet instance {0} (last check {1} secs ago)"
                             .format(w_instance.get_desc(),
-                            (dt.datetime.utcnow() - w_instance.last_state_update).seconds))
+                            (Time.now() - w_instance.last_state_update).seconds))
             self.__add_services()
             self.__check_amqp_messages()
 
@@ -2410,10 +2410,10 @@ class Instance(object):
         # Machine state as obtained from the cloud middleware (see
         # instance_states Bunch)
         self.m_state = m_state
-        self.last_m_state_change = dt.datetime.utcnow()
+        self.last_m_state_change = Time.now()
         # A time stamp when the most recent update of the instance state
         # (m_state) took place
-        self.last_state_update = dt.datetime.utcnow()
+        self.last_state_update = Time.now()
         self.sw_state = sw_state  # Software state
         self.is_alive = False
         self.node_ready = False
@@ -2460,8 +2460,8 @@ class Instance(object):
         # Update state then do resolution
         state = self.get_m_state()
         if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
-            if (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
-               (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
+            if (Time.now() - self.last_m_state_change).seconds > 400 and \
+               (Time.now() - self.time_rebooted).seconds > 300:
                 log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
                     self.get_desc(), state))
                 reboot_terminate_logic()
@@ -2479,12 +2479,12 @@ class Instance(object):
             log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
                 "last m_state change before {3} | time_rebooted before {4}".format(
                 self.get_desc(), instance_states.RUNNING,
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_m_state_change).seconds),
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.time_rebooted).seconds)))
-            if (dt.datetime.utcnow() - self.last_comm).seconds > 180 and \
-               (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
-               (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
+                dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
+                dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
+                dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
+            if (Time.now() - self.last_comm).seconds > 180 and \
+               (Time.now() - self.last_m_state_change).seconds > 400 and \
+               (Time.now() - self.time_rebooted).seconds > 300:
                 reboot_terminate_logic()
 
     def get_cloud_instance_object(self, deep=False):
@@ -2552,7 +2552,7 @@ class Instance(object):
     def get_status_dict(self):
         toret = {'id': self.id,
                  'ld': self.load,
-                 'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change),
+                 'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
                  'nfs_data': self.nfs_data,
                  'nfs_tools': self.nfs_tools,
                  'nfs_indices': self.nfs_indices,
@@ -2592,11 +2592,11 @@ class Instance(object):
             elif self.node_ready:
                 ld = "Running"
             return [self.id, ld, misc.formatSeconds(
-                dt.datetime.utcnow() - self.last_m_state_change),
+                Time.now() - self.last_m_state_change),
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
                     self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), \
+            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change), \
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
                     self.sge_started, self.worker_status]
 
@@ -2629,7 +2629,7 @@ class Instance(object):
             log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
             try:
                 self.inst.reboot()
-                self.time_rebooted = dt.datetime.utcnow()
+                self.time_rebooted = Time.now()
             except EC2ResponseError, e:
                 log.error(
                     "Trouble rebooting instance {0}: {1}".format(self.id, e))
@@ -2698,7 +2698,7 @@ class Instance(object):
             log.debug("Getting m_state for instance {0} but TESTFLAG is set; returning 'running'"
                 .format(self.get_id()))
             return "running"
-        self.last_state_update = dt.datetime.utcnow()
+        self.last_state_update = Time.now()
         self.get_cloud_instance_object(deep=True)
         if self.inst:
             try:
@@ -2707,7 +2707,7 @@ class Instance(object):
                     .format(self.get_desc(), self.m_state, state))
                 if state != self.m_state:
                     self.m_state = state
-                    self.last_m_state_change = dt.datetime.utcnow()
+                    self.last_m_state_change = Time.now()
             except EC2ResponseError, e:
                 log.debug("Error updating instance {0} state: {1}".format(
                     self.get_id(), e))
@@ -2895,7 +2895,7 @@ class Instance(object):
     def handle_message(self, msg):
         # log.debug( "Handling message: %s from %s" % ( msg, self.id ) )
         self.is_alive = True
-        self.last_comm = dt.datetime.utcnow()
+        self.last_comm = Time.now()
         # Transition from states to a particular response.
         if self.app.manager.console_monitor.conn:
             msg_type = msg.split(' | ')[0]
