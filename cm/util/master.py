@@ -2421,7 +2421,6 @@ class Instance(object):
         self.num_cpus = 1
         self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
-        self.REBOOT_COUNT_THRESHOLD = self.TERMINATE_COUNT_THRESHOLD = 4
         self.terminate_attempt_count = 0
         self.last_comm = TIME_IN_PAST  # Initialize to a date in the past
         self.nfs_data = 0
@@ -2449,9 +2448,9 @@ class Instance(object):
             """
             if self.reboot_count < self.config.instance_reboot_attempts:
                 self.reboot()
-            elif self.terminate_attempt_count >= self.TERMINATE_COUNT_THRESHOLD:
+            elif self.terminate_attempt_count >= self.config.instance_terminate_attempts:
                 log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."
-                    .format(self.inst.id, self.TERMINATE_COUNT_THRESHOLD))
+                    .format(self.inst.id, self.config.instance_terminate_attempts))
                 self._remove_instance()
             else:
                 log.info("Instance {0} not responding after {1} reboots. Terminating instance."

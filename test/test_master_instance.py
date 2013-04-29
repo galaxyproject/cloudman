@@ -239,7 +239,24 @@ class MasterInstanceTestCase(TestCase):
             inst = self.__maintain_with_instance(state=instance_states.ERROR)
             assert inst.was_rebooted
 
-        for _ in range(5):
+        for _ in range(4):
+            self.app.cloud_interface.expect_terminatation( \
+                DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=False)
+
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert self.instance in self.app.manager.worker_instances
+
+        # Ultimately gives on terminates and just reboots.
+        inst = self.__maintain_with_instance(state=instance_states.ERROR)
+        assert self.instance not in self.app.manager.worker_instances
+
+    def test_modify_terminate_attempts(self):
+        self.__setup_app(ud={"instance_terminate_attempts": 2})
+        for _ in range(4):
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert inst.was_rebooted
+
+        for _ in range(2):
             self.app.cloud_interface.expect_terminatation( \
                 DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=False)
 
