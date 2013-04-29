@@ -2462,7 +2462,7 @@ class Instance(object):
         state = self.get_m_state()
         if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
             if (Time.now() - self.last_m_state_change).seconds > 400 and \
-               (Time.now() - self.time_rebooted).seconds > 300:
+               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
                     self.get_desc(), state))
                 reboot_terminate_logic()
@@ -2485,7 +2485,7 @@ class Instance(object):
                 dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
             if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
                (Time.now() - self.last_m_state_change).seconds > 400 and \
-               (Time.now() - self.time_rebooted).seconds > 300:
+               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 reboot_terminate_logic()
 
     def get_cloud_instance_object(self, deep=False):
