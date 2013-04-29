@@ -2461,8 +2461,8 @@ class Instance(object):
         if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
             if (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
                (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
-                log.debug("'Maintaining' instance {0} stuck in '{1}' or '{2}' states.".format(
-                    self.get_desc(), instance_states.PENDING, instance_states.SHUTTING_DOWN))
+                log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
+                    self.get_desc(), state))
                 reboot_terminate_logic()
         elif state == instance_states.ERROR:
             log.debug(
