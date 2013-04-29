@@ -122,17 +122,9 @@ class CM(BaseController):
         return trans.fill_template('cm_combined.mako')
 
     @expose
-    def instance_feed(self, trans):
-        return trans.fill_template('instance_feed.mako', instances=self.app.manager.worker_instances)
-
-    @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
-
-    @expose
-    def minibar(self, trans):
-        return trans.fill_template('mini_control.mako')
 
     @expose
     def cluster_type(self, trans):
@@ -777,10 +769,6 @@ class CM(BaseController):
                                    initial_cluster_type=self.app.manager.initial_cluster_type)
 
     @expose
-    def cluster_status(self, trans):
-        return trans.fill_template("cluster_status.mako", instances=self.app.manager.worker_instances)
-
-    @expose
     def get_user_data(self, trans):
         return json.dumps(self.app.ud)
 
@@ -858,16 +846,3 @@ class CM(BaseController):
     @expose
     def update_users_CM(self, trans):
         return json.dumps({'updated': self.app.manager.update_users_CM()})
-
-    @expose
-    def masthead(self, trans):
-        brand = trans.app.config.get("brand", "")
-        if brand:
-            brand = "<span class='brand'>/%s</span>" % brand
-        CM_url = self.get_CM_url(trans)
-        wiki_url = trans.app.config.get("wiki_url", "http://g2.trac.bx.psu.edu/")
-        bugs_email = trans.app.config.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
-        blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
-        screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
-        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
-
