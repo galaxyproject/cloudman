@@ -93,6 +93,53 @@ class MasterInstanceTestCase(TestCase):
             inst = self.__maintain_with_instance(state=instance_states.PENDING)
             assert inst.was_rebooted
 
+    def test_maintain_retry_reboot(self):
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Maintain at 500 seconds determines it is stuck, attempts reboot
+            time.set_offset(seconds=500)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
+            # Maintain at 600 is still stuck, but waiting for reboot.
+            time.set_offset(seconds=700)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Maintain at 900 seconds, still stuck retries reboot
+            time.set_offset(seconds=900)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
+    def test_maintain_extend_reboot_timeout(self):
+        self.__setup_app(ud={"instance_reboot_timeout": 500})
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Maintain at 500 seconds determines it is stuck, attempts reboot
+            time.set_offset(seconds=500)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
+            # Maintain at 600 is still stuck, but waiting for reboot.
+            time.set_offset(seconds=700)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Maintain at 900 seconds, would normally reboot but timeout is
+            # extended so it won't.
+            time.set_offset(seconds=900)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Will eventually reboot again though...
+            time.set_offset(seconds=1200)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
     def test_maintain_reboots_on_error(self):
         inst = self.__maintain_with_instance(state=instance_states.ERROR)
         assert inst.was_rebooted
