@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 from cm.util.bunch import Bunch
+from cm.config import Configuration
 
 from mock import patch
 
@@ -28,6 +29,8 @@ class TestApp(object):
             setattr(self, key, value)
         self.manager = TestManager()
         self.cloud_interface = TestCloudInterface()
+        self.config = Configuration(**kwargs)
+        self.config.init_with_user_data(ud)
 
 
 class TestCloudInterface(object):

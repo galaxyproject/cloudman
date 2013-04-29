@@ -46,6 +46,7 @@ class UniverseApplication(object):
             "use_volumes", self.cloud_type not in ['opennebula', 'dummy'])
         # Read config file and check for errors
         self.config = config.Configuration(**kwargs)
+        self.config.init_with_user_data(self.ud)
         self.config.check()
         # Setup logging
         self.logger = CMLogHandler(self)

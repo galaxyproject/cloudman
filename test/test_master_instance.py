@@ -13,7 +13,10 @@ from test_utils import instrument_time
 class MasterInstanceTestCase(TestCase):
 
     def setUp(self):
-        self.app = TestApp()
+        self.__setup_app()
+
+    def __setup_app(self, ud={}):
+        self.app = TestApp(ud=ud)
         self.inst = MockBotoInstance()
         self.instance = Instance(self.app, inst=self.inst)
 
@@ -96,6 +99,7 @@ class MasterInstanceTestCase(TestCase):
 
     def test_maintain_reboots_after_comm_loss(self):
         with instrument_time() as time:
+            self.instance.handle_message("TEST")
             inst = self.__maintain_with_instance(state=instance_states.RUNNING)
             assert not inst.was_rebooted
 
@@ -103,8 +107,22 @@ class MasterInstanceTestCase(TestCase):
             inst = self.__maintain_with_instance(state=instance_states.RUNNING)
             assert inst.was_rebooted
 
+    def test_extend_comm_timeout(self):
+        # Same test as above, but extend the comm timeout to verify it prevents
+        # instance from being rebooted.
+        self.__setup_app(ud={"instance_comm_timeout": 700})
+        with instrument_time() as time:
+            self.instance.handle_message("TEST")
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert not inst.was_rebooted
+
+            time.set_offset(seconds=500)
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert not inst.was_rebooted
+
     def test_maintain_no_reboot_if_comm_active(self):
         with instrument_time() as time:
+            self.instance.handle_message("TEST")
             inst = self.__maintain_with_instance(state=instance_states.RUNNING)
             assert not inst.was_rebooted
 
