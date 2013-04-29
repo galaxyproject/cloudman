@@ -188,11 +188,12 @@ class CM(BaseController):
             vol_id=None, vol_fs_name='',
             snap_id=None, snap_fs_name='',
             bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='', **kwargs):
+            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='',
+            static_path_fs_name='', static_path_fs_path='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
-        There are four options from which a new file system can be added (the
+        There are six options from which a new file system can be added (the
         value in parentheses is the expected value of ``fs_kind`` argument for
         the corresponding option)::
             * (AWS S3) bucket (bucket)
@@ -200,6 +201,7 @@ class CM(BaseController):
             * Existing snapshot (snapshot)
             * New volume (new_volume)
             * External NFS server (nfs)
+            * A static path to be mounted (static_path)
 
         The ``dot`` parameter, if set to ``True``, will mark
         the new file system to be **deleted on termination**. The ``persist``
@@ -250,10 +252,15 @@ class CM(BaseController):
             self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
                 vol_size=new_disk_size, persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
-            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
+            log.debug("Adding a new '{0}' file system: nfs-based, {1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
             self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name, username=nfs_username,
                 pwd=nfs_pwd, persistent=persist)
+        elif fs_kind == 'static_path':
+            log.debug("Adding a new '{0}' file system: static-path-based, {1} persistent."
+                .format(static_path_fs_name, ('' if persist else ' not')))
+            self.app.manager.add_fs_static_path(static_path_fs_name, static_path_fs_path,
+                persistent=persist)
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
