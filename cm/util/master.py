@@ -265,10 +265,10 @@ class ConsoleManager(BaseConsoleManager):
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
 
-        if self.app.ud.get('condor_enabled', True):
+        if self.app.config.condor_enabled:
             self.add_master_service(HTCondorService(self.app, "master"))
         # KWS: Optionally add Hadoop service based on config setting
-        if self.app.ud.get('hadoop_enabled', True):
+        if self.app.config.hadoop_enabled:
             self.add_master_service(HadoopService(self.app))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
@@ -1979,8 +1979,8 @@ class ConsoleManager(BaseConsoleManager):
         Add the new pool to the condor big pool
         """
         srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        #log.debug("HTCondor service found" + str(len(srvs)))
-        srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
+        if srvs:
+            srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
         """

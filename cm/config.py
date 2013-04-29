@@ -91,6 +91,8 @@ class Configuration(object):
 
     def init_with_user_data(self, user_data):
         self.__configure_instance_management(user_data)
+        self.condor_enabled = user_data.get("condor_enabled", True)
+        self.hadoop_enabled = user_data.get("hadoop_enabled", True)
 
     def __configure_instance_management(self, user_data):
         """Configure attributes used control reboot/terminate behavior
