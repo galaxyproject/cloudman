@@ -1,8 +1,8 @@
-
 from tempfile import mkdtemp
 from os.path import join, dirname
 from os import pardir
 from shutil import copyfile
+from logging import getLogger
 
 
 TEST_INDICES_DIR = "/mnt/indicesTest"
@@ -41,3 +41,7 @@ class TestPathResolver(object):
             copyfile(src, dest)
             copyfile(src, '%s.sample' % dest)
         return self._galaxy_home
+
+
+def test_logger():
+    return getLogger(__name__)
