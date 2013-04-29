@@ -1379,8 +1379,7 @@ class ConsoleManager(BaseConsoleManager):
         s3_conn = self.app.cloud_interface.get_s3_connection()
         # All of the shared cluster's config files will be stored with the
         # specified prefix
-        shared_names_root = "shared/%s" % now(
-        ).strftime("%Y-%m-%d--%H-%M")
+        shared_names_root = "shared/%s" % Time.now().strftime("%Y-%m-%d--%H-%M")
         # Create current cluster config and save it to cluster's shared location,
         # including the freshly generated snap IDs
         conf_file_name = 'cm_shared_cluster_conf.yaml'
