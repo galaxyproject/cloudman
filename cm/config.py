@@ -93,7 +93,7 @@ class Configuration(object):
         self.instance_comm_timeout = user_data.get("instance_comm_timeout", 180)
         self.instance_state_change_wait = user_data.get("instance_state_change_wait", 400)
         self.instance_reboot_attempts = user_data.get("instance_reboot_attempts", 4)
-        #self.instance_terminate_attempts = user_data.get("instance_terminate_attempts", 4)
+        self.instance_terminate_attempts = user_data.get("instance_terminate_attempts", 4)
 
 
 def get_database_engine_options(kwargs):
