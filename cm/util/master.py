@@ -2449,7 +2449,7 @@ class Instance(object):
             """
             if self.reboot_count < self.config.instance_reboot_attempts:
                 self.reboot()
-            elif self.terminate_attempt_count > self.TERMINATE_COUNT_THRESHOLD:
+            elif self.terminate_attempt_count >= self.TERMINATE_COUNT_THRESHOLD:
                 log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."
                     .format(self.inst.id, self.TERMINATE_COUNT_THRESHOLD))
                 self._remove_instance()

@@ -19,6 +19,7 @@ class MasterInstanceTestCase(TestCase):
         self.app = TestApp(ud=ud)
         self.inst = MockBotoInstance()
         self.instance = Instance(self.app, inst=self.inst)
+        self.app.manager.worker_instances = [self.instance]
 
     def test_id(self):
         assert self.instance.id == DEFAULT_MOCK_BOTO_INSTANCE_ID
@@ -60,10 +61,12 @@ class MasterInstanceTestCase(TestCase):
             DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=True)
         assert self.instance.terminate_attempt_count == 0
         assert self.instance.inst is not None
+        assert self.instance in self.app.manager.worker_instances
         thread = self.instance.terminate()
         thread.join()
         assert self.instance.inst is None
         assert self.instance.terminate_attempt_count == 1
+        assert not self.instance in self.app.manager.worker_instances
 
     def test_terminate_failure(self):
         self.app.cloud_interface.expect_terminatation( \
@@ -75,6 +78,7 @@ class MasterInstanceTestCase(TestCase):
         # inst is only set to None after success
         assert self.instance.inst is not None
         assert self.instance.terminate_attempt_count == 1
+        assert self.instance in self.app.manager.worker_instances
 
     def test_maintain_reboot_stuck(self):
         """ Test method verifies instance is rebooted after stuck
@@ -229,6 +233,22 @@ class MasterInstanceTestCase(TestCase):
 
         inst = self.__maintain_with_instance(state=instance_states.ERROR)
         assert not inst.was_rebooted
+
+    def test_terminate_attempts(self):
+        for _ in range(4):
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert inst.was_rebooted
+
+        for _ in range(5):
+            self.app.cloud_interface.expect_terminatation( \
+                DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=False)
+
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert self.instance in self.app.manager.worker_instances
+
+        # Ultimately gives on terminates and just reboots.
+        inst = self.__maintain_with_instance(state=instance_states.ERROR)
+        assert self.instance not in self.app.manager.worker_instances
 
     def __maintain_with_instance(self, **instance_kwds):
         inst = self.__seed_fresh_instance(**instance_kwds)
