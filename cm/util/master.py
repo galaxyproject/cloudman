@@ -2393,6 +2393,7 @@ class Instance(object):
     def __init__(self, app, inst=None, m_state=None, last_m_state_change=None,
                  sw_state=None, reboot_required=False, spot_request_id=None):
         self.app = app
+        self.config = app.config
         self.spot_request_id = spot_request_id
         self.lifecycle = instance_lifecycle.SPOT if self.spot_request_id else instance_lifecycle.ONDEMAND
         self.inst = inst  # boto object of the instance
@@ -2482,7 +2483,7 @@ class Instance(object):
                 dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
                 dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
                 dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
-            if (Time.now() - self.last_comm).seconds > 180 and \
+            if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
                (Time.now() - self.last_m_state_change).seconds > 400 and \
                (Time.now() - self.time_rebooted).seconds > 300:
                 reboot_terminate_logic()
