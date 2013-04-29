@@ -218,6 +218,18 @@ class MasterInstanceTestCase(TestCase):
         inst = self.__maintain_with_instance(state=instance_states.ERROR)
         assert not inst.was_rebooted
 
+    def test_change_reboot_attempts(self):
+        self.__setup_app(ud={"instance_reboot_attempts": 2})
+        for _ in range(2):
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert inst.was_rebooted
+
+        self.app.cloud_interface.expect_terminatation( \
+            DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=False)
+
+        inst = self.__maintain_with_instance(state=instance_states.ERROR)
+        assert not inst.was_rebooted
+
     def __maintain_with_instance(self, **instance_kwds):
         inst = self.__seed_fresh_instance(**instance_kwds)
         self.instance.maintain()

@@ -2447,7 +2447,7 @@ class Instance(object):
                 CALL THIS METHOD CAREFULLY because it defaults to terminating the
                 instance!
             """
-            if self.reboot_count < self.REBOOT_COUNT_THRESHOLD:
+            if self.reboot_count < self.config.instance_reboot_attempts:
                 self.reboot()
             elif self.terminate_attempt_count > self.TERMINATE_COUNT_THRESHOLD:
                 log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."
