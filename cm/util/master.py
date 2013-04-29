@@ -265,7 +265,8 @@ class ConsoleManager(BaseConsoleManager):
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
 
-        self.add_master_service(HTCondorService(self.app, "master"))
+        if self.app.ud.get('condor_enabled', True):
+            self.add_master_service(HTCondorService(self.app, "master"))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.ud.get('hadoop_enabled', True):
             self.add_master_service(HadoopService(self.app))
