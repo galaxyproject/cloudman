@@ -360,15 +360,34 @@ def _unpack_cm():
                 os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
 
 
+def _venvburrito_home_dir():
+    return os.getenv('HOME', '/home/ubuntu')
+
+
+def _venvburrito_path():
+    home_dir = _venvburrito_home_dir()
+    vb_path = os.path.join(home_dir, '.venvburrito/startup.sh')
+    return vb_path
+
+
+def _with_venvburrito(cmd):
+    # Need to override LOG dir so when running as root
+    # it doesn't create files that cannot be modified by
+    # user (e.g. ubuntu).
+    ""
+    home_dir = _venvburrito_home_dir()
+    vb_path = _venvburrito_path()
+    return "/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'".format(home_dir, vb_path, cmd)
+
+
 def _virtualenv_exists(venv_name='CM'):
     """
     Check if virtual-burrito is installed and if a virtualenv named ``venv_name``
     exists. If so, return ``True``; ``False`` otherwise.
     """
-    vb_path = os.path.join(os.getenv('HOME', '/home/ubuntu'), '.venvburrito/startup.sh')
-    if os.path.exists(vb_path):
+    if os.path.exists(_venvburrito_path()):
         log.debug("virtual-burrito seems to be installed")
-        cm_venv = _run(log, "/bin/bash -l -c '. {0}; lsvirtualenv | grep {1}'".format(vb_path, venv_name))
+        cm_venv = _run(log, _with_venvburrito('lsvirtualenv | grep {0}'.format(venv_name)))
         if cm_venv and venv_name in cm_venv:
             log.debug("'{0}' virtualenv found".format(venv_name))
             return True
@@ -388,8 +407,8 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
     Example return string: ``cd /mnt/cm; sh run.sh --daemon``
     """
     if _virtualenv_exists(cm_venv_name):
-        cmd = "/bin/bash -l -c '. $HOME/.venvburrito/startup.sh; workon {0}; cd {1}; sh run.sh {2}'"\
-            .format(cm_venv_name, CM_HOME, action)
+        cmd = _with_venvburrito("workon {0}; cd {1}; sh run.sh {2}" \
+            .format(cm_venv_name, CM_HOME, action))
     else:
         cmd = "cd {0}; sh run.sh {1}".format(CM_HOME, action)
     return cmd
