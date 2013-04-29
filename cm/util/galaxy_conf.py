@@ -149,9 +149,13 @@ def populate_galaxy_paths(option_manager):
         join(temp_dir, "pbs")
     properties["ftp_upload_dir"] = \
         join(temp_dir, "ftp")
+    properties["library_import_dir"] = \
+        join(temp_dir, "library_import_dir")
     properties["nginx_upload_store"] = \
         join(path_resolver.galaxy_data, "upload_store")
-    option_manager.set_properties(properties, description="paths")
+    # Allow user data options to override these, spefically database.
+    priority_offset = -1
+    option_manager.set_properties(properties, description="paths", priority_offset=priority_offset)
 
 
 class FileGalaxyOptionManager(object):
@@ -221,15 +225,15 @@ class DirectoryGalaxyOptionManager(object):
                 defaults_source = join(galaxy_home, self.conf_file_name)
                 copyfile(defaults_source, defaults_destination)
 
-    def set_properties(self, properties, section="app:main", description=None):
+    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         if not properties:
             return
 
-        prefix = self.app.ud.get("galaxy_option_priority", "400")
+        priority = int(self.app.ud.get("galaxy_option_priority", "400")) + priority_offset
         conf_dir = self.conf_dir
         if description == None:
             description = properties.keys()[0]
-        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, description)
+        conf_file_name = "%s_cloudman_override_%s.ini" % (str(priority), description)
         conf_file = join(conf_dir, conf_file_name)
         props_str = "\n".join(
             ["%s=%s" % (k, v) for k, v in properties.iteritems()])
