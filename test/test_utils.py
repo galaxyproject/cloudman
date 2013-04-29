@@ -3,6 +3,7 @@ from os.path import join, dirname
 from os import pardir
 from shutil import copyfile
 from logging import getLogger
+from cm.util.bunch import Bunch
 
 
 TEST_INDICES_DIR = "/mnt/indicesTest"
@@ -14,11 +15,45 @@ class TestApp(object):
     """ Dummy version of UniverseApplication used for
     unit testing."""
 
+    TESTFLAG = False
+
     def __init__(self, ud={}, **kwargs):
         self.path_resolver = TestPathResolver()
         self.ud = ud
         for key, value in kwargs.iteritems():
             setattr(self, key, value)
+        self.manager = TestManager()
+        self.cloud_interface = TestCloudInterface()
+
+
+class TestCloudInterface(object):
+
+    def __init__(self):
+        self.terminate_expectations = {}
+
+    def set_mock_instances(self, instances=[]):
+        self.instances = instances
+
+    def get_all_instances(self, id):
+        return [Bunch(instances=self.instances)]
+
+    def expect_terminatation(self, instance_id, spot_request_id=None, success=True):
+        self.terminate_expectations[instance_id] = (spot_request_id, success)
+
+    def terminate_instance(self, instance_id, spot_request_id):
+        if instance_id not in self.terminate_expectations:
+            assert False, "terminate_instance called with unexpected instance_id"
+        (expected_spot_request_id, success) = self.terminate_expectations[instance_id]
+        if spot_request_id != expected_spot_request_id:
+            assert False, "terminate_instance called with wrong spot_request_id"
+        return success
+
+
+class TestManager(object):
+    manager_type = "master"
+
+    def __init__(self, worker_instances=[]):
+        self.worker_instances = worker_instances
 
 
 class TestPathResolver(object):
@@ -45,3 +80,22 @@ class TestPathResolver(object):
 
 def test_logger():
     return getLogger(__name__)
+
+
+DEFAULT_MOCK_BOTO_INSTANCE_ID = "TEST_INSTANCE"
+
+
+class MockBotoInstance(object):
+
+    def __init__(self, id=DEFAULT_MOCK_BOTO_INSTANCE_ID):
+        self.id = id
+        self.ip_address = "10.1.0.1"
+        self.state = None
+        self.was_updated = False
+        self.was_rebooted = False
+
+    def update(self):
+        self.was_updated = True
+
+    def reboot(self):
+        self.was_rebooted = True

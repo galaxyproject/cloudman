@@ -42,6 +42,9 @@ APP_SERVICES = {
     ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService
 }
 
+# Time well in past to seend reboot, last comm times with.
+TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
+
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -2414,11 +2417,11 @@ class Instance(object):
         self.is_alive = False
         self.node_ready = False
         self.num_cpus = 1
-        self.time_rebooted = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
         self.REBOOT_COUNT_THRESHOLD = self.TERMINATE_COUNT_THRESHOLD = 4
         self.terminate_attempt_count = 0
-        self.last_comm = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.last_comm = TIME_IN_PAST  # Initialize to a date in the past
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -2638,6 +2641,7 @@ class Instance(object):
         self.worker_status = "Stopping"
         t_thread = threading.Thread(target=self.__terminate)
         t_thread.start()
+        return t_thread
 
     def __terminate(self):
         inst_terminated = self.app.cloud_interface.terminate_instance(
