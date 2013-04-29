@@ -94,14 +94,3 @@ class GalaxyReportsService(ApplicationService):
         elif self.state != service_states.STARTING:
             log.error("Galaxy reports error; Galaxy reports not runnnig")
             self.state = service_states.ERROR
-
-    def get_service_actions(self):
-        """
-        Returns a list of actions that this service supports
-        """
-        svc_list = []
-        svc_list.append({'name': 'Log', 'action_url': 'service_log?service_name=GalaxyReports'})
-        svc_list.append({'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'})
-        svc_list.append({'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'})
-        svc_list.append({'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'})
-        return svc_list

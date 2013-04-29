@@ -10,7 +10,7 @@ import time
 import datetime as dt
 import json
 import shutil
-import random
+
 
 from cm.util import misc, comm
 from cm.util import (
@@ -74,24 +74,15 @@ class ConsoleManager(BaseConsoleManager):
         self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 10
 
-    def add_service_by_name(self, svc_name):
-        if self.get_services(svc_name=svc_name):
-            raise Exception("A service with this name already exists.")
-        else:
-            if svc_name == "Galaxy":
-                self.add_master_service(GalaxyService(self.app))
-            elif svc_name == "Postgres":
-                self.add_master_service(PostgresService(self.app))
-
     def add_master_service(self, new_service):
         self.services.append(new_service)
-        self.update_dependencies(new_service, "ADD")
+        self._update_dependencies(new_service, "ADD")
 
     def remove_master_service(self, service_to_remove):
         self.services.remove(service_to_remove)
-        self.update_dependencies(service_to_remove, "REMOVE")
+        self._update_dependencies(service_to_remove, "REMOVE")
 
-    def update_dependencies(self, new_service, action):
+    def _update_dependencies(self, new_service, action):
         """
         Updates service dependencies when a new service is added.
         Iterates through all services and if action is "ADD",
@@ -609,64 +600,20 @@ class ConsoleManager(BaseConsoleManager):
             return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
-    @TestFlag([{'svc_name': 'Galaxy',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'},
-                            {'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'}],
-                'requirements': [{'name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
-                                 {'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
-                                 {'name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
-                                 {'name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
-                'status': 'Running'},
-               {'svc_name': 'PostgreSQL',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Postgres'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'}],
-                'requirements': [{'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
-                'status': 'Running'},
-               {'svc_name': 'SGE',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=SGE'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=SGE&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=SGE'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=SGE'},
-                            {'name': 'Q conf', 'action_url': 'service_log?service_name=SGE&q=conf'},
-                            {'name': 'qstat', 'action_url': 'service_log?service_name=SGE&q=qstat'}],
-                'requirements': [],
-                'status': 'Running'},
-               {'svc_name': 'GalaxyReports',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=GalaxyReports'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
-                'requirements': [{'name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
-                'status': 'Running'}], quiet=True)
-    def get_all_application_status(self):
-        service_list = []
-        services = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
-        for svc in services:
-            svc_dict = {'svc_name': svc.name, 'status': svc.state,
-                        'actions': svc.get_service_actions(),
-                        'requirements': svc.get_service_requirements()}
-            service_list.append(svc_dict)
-        return service_list
-
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
                 "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
-                "device": "/dev/vdb", "size_pct": "1", "DoT": "Yes", "size": "60G",
+                "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",
                 "persistent": "No"},
                {"size_used": "33M", "status": "Running", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
                 "err_msg": None, "snapshot_progress": None, "from_snap": None,
-                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4",
+                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
                 "DoT": "No", "size": "1014M", "persistent": "Yes"},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
                 "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
                 "snapshot_progress": "10%", "from_snap": "snap-760fd33d",
-                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2",
+                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2%",
                 "DoT": "No", "size": "5.0G"}], quiet=True)
     def get_all_filesystems_status(self):
         """
@@ -718,6 +665,8 @@ class ConsoleManager(BaseConsoleManager):
             "error_msg": ""})
         return dummy
 
+    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+               "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
@@ -728,90 +677,9 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        status_dict['applications'] = self.get_all_application_status()
-        status_dict['file_systems'] = self.get_all_filesystems_status()
-        status_dict['galaxy_rev'] = self.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.get_galaxy_admins()
-        status_dict['master_is_exec_host'] = self.master_exec_host
+        for srvc in self.services:
+            status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
         return status_dict
-
-    def reassign_dependencies_async(self, remap_list):
-        t_thread = threading.Thread(target=self.reassign_dependencies, args=[remap_list])
-        t_thread.start()
-
-    def reassign_dependencies(self, remap_list):
-        """
-        Reassigns a list of dependent services to another
-        Accepts a list of values with each element being a dictionary containing
-        the values:
-        'role' - the role to reassign
-        'service_to_assign' - the new service to assign
-        'copy_across' - whether to copy across file system contents
-        """
-        for item in remap_list:
-            self.reassign_dependency(item['role'], item['service_to_assign'], item['copy_across'])
-
-    def reassign_dependency(self, role, service_to_assign, copy_across=True):
-        """
-        Reassigns a single dependent service to another.
-        Accepts the following arguments:
-        'role' - the role to reassign
-        'service_to_assign' - the new service to assign
-        'copy_across' - whether to copy across file system contents
-        """
-        current_list = self.get_services(svc_role=role)
-
-        # 1. If file system, sync old with new before service shutdown (to minimize downtime)
-        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
-            if (current_list and copy_across):
-                self.__sync_data(current_list[0], service_to_assign)
-        # 2. Remove all running services dependent on role
-        dependent_svc_list = self.recurse_services_dependent_on_role(role, state=service_states.RUNNING)
-        for svc in dependent_svc_list:
-            svc.remove(synchronous=True)
-        # 3. Sync again after service shutdown (to pick up changes)
-        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
-            # 3.1 sync data
-            if (current_list and copy_across):
-                self.__sync_data(current_list[0], service_to_assign)
-        # 4. Find and remove role from currently assigned service
-        log.debug("Removing role from old service...")
-        for svc in current_list:
-            if role in svc.svc_roles:
-                svc.svc_roles.remove(role)
-                self.app.manager.update_dependencies(svc, "REMOVE")
-        # 5. Assign role to new service
-        log.debug("Assigning role to new service...")
-        if role not in service_to_assign.svc_roles:
-            service_to_assign.svc_roles.append(role)
-            self.app.manager.update_dependencies(service_to_assign, "ADD")
-        # 6. Restart with newly assigned service
-        log.debug("Restarting services...")
-        for svc in dependent_svc_list:
-            svc.add()
-
-    def __sync_data(self, old_fs, new_fs):
-        # make sure trailing slash is added to source or rsync will create subdir
-        source_path = os.path.normpath(old_fs.mount_point) + os.sep
-        cmd = "sudo rsync -az {0} {1}".format(source_path, new_fs.mount_point)
-        log.debug('Rsync data: ' + cmd)
-        misc.run(cmd)
-
-    def recurse_services_dependent_on_role(self, role, state=None):
-        """
-        Recursively finds all services dependent on a particular
-        role. An optional state argument allows for a service state
-        to be matched as well.
-        """
-        dep_list = []
-        for svc in self.app.manager.services:
-            for dependency in svc.dependencies:
-                if dependency.service_role == role:
-                    if state is None or svc.state == state:
-                        dep_list.append(svc)
-                        dep_list.extend(svc.recurse_dependent_services())
-        log.debug("recurse_services_dependent_on_role: Role is: {0} and those that depend on this role are {1}".format(ServiceRole.to_string(role), dep_list))
-        return dep_list
 
     def get_galaxy_rev(self):
         """
@@ -2107,7 +1975,7 @@ class ConsoleManager(BaseConsoleManager):
         Add the new pool to the condor big pool
         """
         srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        # log.debug("HTCondor service found" + str(len(srvs)))
+        #log.debug("HTCondor service found" + str(len(srvs)))
         srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
@@ -2124,7 +1992,7 @@ class ConsoleManager(BaseConsoleManager):
         public_ip = self.app.cloud_interface.get_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
-            load = "{0} {1} {2}".format(random.random(), random.random(), random.random())
+            load = "0.00 0.02 0.39"
             return {'id': 'localtest', 'ld': load,
                     'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
                     'instance_type': 'tester', 'public_ip': public_ip}
@@ -3114,7 +2982,7 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                # #<KWS>
+                ##<KWS>
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
