@@ -2461,7 +2461,7 @@ class Instance(object):
         # Update state then do resolution
         state = self.get_m_state()
         if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
-            if (Time.now() - self.last_m_state_change).seconds > 400 and \
+            if (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
                (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
                     self.get_desc(), state))
@@ -2484,7 +2484,7 @@ class Instance(object):
                 dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
                 dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
             if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
-               (Time.now() - self.last_m_state_change).seconds > 400 and \
+               (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
                (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 reboot_terminate_logic()
 
