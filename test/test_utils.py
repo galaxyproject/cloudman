@@ -3,8 +3,12 @@ from os.path import join, dirname
 from os import pardir
 from shutil import copyfile
 from logging import getLogger
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+
 from cm.util.bunch import Bunch
 
+from mock import patch
 
 TEST_INDICES_DIR = "/mnt/indicesTest"
 TEST_DATA_DIR = "/mnt/dataTest"
@@ -54,6 +58,7 @@ class TestManager(object):
 
     def __init__(self, worker_instances=[]):
         self.worker_instances = worker_instances
+        self.console_monitor = Bunch(conn=None)
 
 
 class TestPathResolver(object):
@@ -99,3 +104,20 @@ class MockBotoInstance(object):
 
     def reboot(self):
         self.was_rebooted = True
+
+
+@contextmanager
+def instrument_time():
+    class MockTime():
+
+        def __init__(self, mock_now):
+            self.initial = datetime.utcnow()
+            self.mock_now = mock_now
+            self.mock_now.return_value = self.initial
+
+        def set_offset(self, **kwds):
+            new_time = self.initial + timedelta(**kwds)
+            self.mock_now.return_value = new_time
+
+    with patch("cm.util.Time.now") as mock_now:
+        yield MockTime(mock_now)

@@ -7,6 +7,7 @@ from cm.util import instance_states
 from test_utils import TestApp
 from test_utils import MockBotoInstance
 from test_utils import DEFAULT_MOCK_BOTO_INSTANCE_ID
+from test_utils import instrument_time
 
 
 class MasterInstanceTestCase(TestCase):
@@ -31,8 +32,7 @@ class MasterInstanceTestCase(TestCase):
 
     def test_get_m_state(self):
         assert self.instance.m_state == None
-        fresh_instance = self.__seed_fresh_instance()
-        fresh_instance.state = instance_states.RUNNING
+        self.__seed_fresh_instance(state=instance_states.RUNNING)
         assert self.instance.get_m_state() == instance_states.RUNNING
         assert self.instance.m_state == instance_states.RUNNING
 
@@ -73,10 +73,67 @@ class MasterInstanceTestCase(TestCase):
         assert self.instance.inst is not None
         assert self.instance.terminate_attempt_count == 1
 
-    def test_maintain(self):
-        self.instance.maintain()
+    def test_maintain_reboot_stuck(self):
+        """ Test method verifies instance is rebooted after stuck
+        in PENDING state for 1000 seconds."""
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
 
-    def __seed_fresh_instance(self):
+            # Not rebooted after 100 seconds
+            time.set_offset(seconds=100)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Does reboot after 600 seconds
+            time.set_offset(seconds=600)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
+    def test_maintain_reboots_on_error(self):
+        inst = self.__maintain_with_instance(state=instance_states.ERROR)
+        assert inst.was_rebooted
+
+    def test_maintain_reboots_after_comm_loss(self):
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert not inst.was_rebooted
+
+            time.set_offset(seconds=500)
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert inst.was_rebooted
+
+    def test_maintain_no_reboot_if_comm_active(self):
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert not inst.was_rebooted
+
+            time.set_offset(seconds=350)
+            self.instance.handle_message("TEST")
+
+            time.set_offset(seconds=500)
+            inst = self.__maintain_with_instance(state=instance_states.RUNNING)
+            assert not inst.was_rebooted
+
+    def test_terminates_after_enough_reboots(self):
+        for _ in range(4):
+            inst = self.__maintain_with_instance(state=instance_states.ERROR)
+            assert inst.was_rebooted
+
+        self.app.cloud_interface.expect_terminatation( \
+            DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=False)
+
+        inst = self.__maintain_with_instance(state=instance_states.ERROR)
+        assert not inst.was_rebooted
+
+    def __maintain_with_instance(self, **instance_kwds):
+        inst = self.__seed_fresh_instance(**instance_kwds)
+        self.instance.maintain()
+        return inst
+
+    def __seed_fresh_instance(self, state=None):
         fresh_instance = MockBotoInstance()
         self.app.cloud_interface.set_mock_instances([fresh_instance])
+        if state:
+            fresh_instance.state = state
         return fresh_instance
