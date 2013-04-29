@@ -261,14 +261,24 @@ class Service(object):
             for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
+                no_services_satisfy_dependency = True
+                remove_dependency = False
                 for svc in self.app.manager.services:
                     # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
+                        no_services_satisfy_dependency = False
                         # log.debug("Service %s:%s running: %s" % (svc.name,
                         # svc.name, svc.state))
                         if svc.running() or svc.completed():
-                            if dependency in failed_prereqs:
-                                failed_prereqs.remove(dependency)
+                            remove_dependency = True
+                if no_services_satisfy_dependency:
+                    if self.app.ud.get("ignore_unsatisfiable_dependencies", False):
+                        remove_dependency = True
+                    else:
+                        # Fall into infinite loop.
+                        pass
+                if remove_dependency and dependency in failed_prereqs:
+                    failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
                 log.info("{0} service prerequisites OK; starting the service".format(
                     self.get_full_name()))
