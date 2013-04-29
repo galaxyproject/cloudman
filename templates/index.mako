@@ -54,7 +54,7 @@ vertical-align: top;
             <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
             <div id="instance_type" class="form-row-input">
                 ## Select available instance types based on cloud name
-                <%include file="clouds/${cloud_name}/instance_types.mako" />
+                <%include file="instance_types.mako" />
             </div>
             ## Spot instances work only for the AWS cloud
             %if cloud_type == 'ec2':
@@ -260,7 +260,7 @@ vertical-align: top;
                 <label>Type of Nodes(s):</label>
                 <div id="instance_type" class="form-row-input">
                     ## Select available instance types based on cloud name
-                    <%include file="clouds/${cloud_name}/instance_types.mako" />
+                    <%include file="instance_types.mako" />
                 </div>
                 <br/><div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
             </div>

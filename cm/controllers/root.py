@@ -25,12 +25,9 @@ class CM(BaseController):
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
+            instance_types = self.app.config.instance_types
             CM_url = self.get_CM_url(trans)
             system_message = None
-            cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
-            # Unify all Amazon regions and/or name variations to a single one
-            if 'amazon' in cloud_name:
-                cloud_name = 'amazon'
             if os.path.exists(paths.SYSTEM_MESSAGES_FILE):
                 # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
@@ -45,7 +42,7 @@ class CM(BaseController):
                                         image_config_support=BunchToo(self.app.config.ic),
                                         CM_url=CM_url,
                                         cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                        cloud_name=cloud_name,
+                                        instance_types=instance_types,
                                         system_message=system_message,
                                         default_data_size=self.app.manager.get_default_data_size())
 
