@@ -53,3 +53,29 @@ def test_no_opennebula_volumes():
         app = UniverseApplication()
         assert app.cloud_type == "opennebula"
         assert not app.use_volumes
+
+
+def test_default_instance_types():
+    with userdata({}):
+        app = UniverseApplication()
+        instance_types = app.config.instance_types
+        assert instance_types[1] == ("t1.micro", "Micro")
+
+
+def test_nectar_instance_types():
+    with userdata({"cloud_name": "nectar"}):
+        app = UniverseApplication()
+        instance_types = app.config.instance_types
+        assert len(instance_types) == 5
+        assert instance_types[4][0] == "m1.xxlarge"
+
+
+def test_dynamic_instance_types():
+    TYPE1 = {"key": "z1.micro", "name": "REALLY SMALL"}
+    TYPE2 = {"key": "z100.huge", "name": "HUGE"}
+    with userdata({"instance_types": [TYPE1, TYPE2]}):
+        app = UniverseApplication()
+        instance_types = app.config.instance_types
+        assert len(instance_types) == 2
+        assert instance_types[0][0] == "z1.micro"
+        assert instance_types[1][1] == "HUGE"
