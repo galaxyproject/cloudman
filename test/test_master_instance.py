@@ -140,6 +140,33 @@ class MasterInstanceTestCase(TestCase):
             inst = self.__maintain_with_instance(state=instance_states.PENDING)
             assert inst.was_rebooted
 
+    def test_maintain_state_change(self):
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # 350 is past reboot timeout (300), but wait for 400 seconds for state change
+            # so no reboot.
+            time.set_offset(seconds=350)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+    def test_maintain_extend_state_change_wait(self):
+        self.__setup_app(ud={"instance_state_change_wait": 700})
+        with instrument_time() as time:
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Does not reboot after 600 seconds, waiting for state change.
+            time.set_offset(seconds=600)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert not inst.was_rebooted
+
+            # Does eventually reboot though
+            time.set_offset(seconds=800)
+            inst = self.__maintain_with_instance(state=instance_states.PENDING)
+            assert inst.was_rebooted
+
     def test_maintain_reboots_on_error(self):
         inst = self.__maintain_with_instance(state=instance_states.ERROR)
         assert inst.was_rebooted
