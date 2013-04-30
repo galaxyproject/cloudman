@@ -426,7 +426,7 @@ cloudmanAdminModule.controller('SystemController', [ '$scope', '$http', '$dialog
 
         } ]);
 
-function FSRemoveDialogController($scope, dialog, fs, cmAlertService) {
+function FSRemoveDialogController($scope, $http, dialog, fs, cmAlertService) {
     $scope.fs = fs;
 
     $scope.cancel = function($event, result) {

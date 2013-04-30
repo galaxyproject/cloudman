@@ -1839,6 +1839,16 @@ class ConsoleManager(BaseConsoleManager):
             w_inst.send_mount_points()
         log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
+    @TestFlag(None)
+    def add_fs_static_path(self, fs_name, static_path_fs_path, fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+        """
+        Add a new file system service for a static path on the system.
+        """
+        log.info("Adding a static-path-based file system {0} from path {1}".format(fs_name, static_path_fs_path))
+        fs = Filesystem(self.app, fs_name, mount_point=static_path_fs_path, persistent=persistent, svc_roles=fs_roles)
+        fs.add_static_path(static_path_fs_path)
+        self.add_master_service(fs)
+
     def stop_worker_instances(self):
         """
         Initiate termination of all worker instances.
