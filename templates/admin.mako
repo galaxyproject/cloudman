@@ -281,6 +281,10 @@
 							    <label class="radio">
 							      <input type="radio" name="fs_kind" value="nfs" ng-model="selected_device" /> NFS
 							    </label>
+							    &nbsp;&nbsp;
+							    <label class="radio">
+							      <input type="radio" name="fs_kind" value="static_path" ng-model="selected_device" /> Static path
+							    </label>
 						    </fieldset>
 						    
 						    <br />						        
@@ -374,6 +378,25 @@
 								</div>
 							</div>
 
+							<!--   Static path form details -->
+							<div class="row-fluid" ng-switch-when="static_path">
+								<div class="span12">
+									<span class="help-block">
+									Use a static path when you want a service to refer to a fixed path on the file system. Can be used when none of the other filesystem types will do, 
+									and it is necessary to start Galaxy off an unsupported filesystem/path that has been mounted manually. (e.g. Gluster)
+									</span>
+									<table><tr>
+					                    <td><label for="static_path_fs_name">File system name: </label></td>
+					                    <td><input type="text" size="20" name="static_path_fs_name" id="static_path_fs_name">
+					                    (no spaces, alphanumeric characters only)</td>
+					                    </tr><tr>
+					                    <td><label for="static_path_fs_path">Path: </label></td>
+					                    <td><input type="text" size="20" name="static_path_fs_path" id="static_path_fs_path"
+					                        placeholder="e.g., /mnt/gluster"></td>
+					                </tr></table>
+								</div>
+							</div>
+							
 							<!--   Delete FS option -->
 							<div class="row-fluid">
 								<div class="span12">								

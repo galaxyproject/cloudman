@@ -122,17 +122,9 @@ class CM(BaseController):
         return trans.fill_template('cm_combined.mako')
 
     @expose
-    def instance_feed(self, trans):
-        return trans.fill_template('instance_feed.mako', instances=self.app.manager.worker_instances)
-
-    @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
-
-    @expose
-    def minibar(self, trans):
-        return trans.fill_template('mini_control.mako')
 
     @expose
     def cluster_type(self, trans):
@@ -196,11 +188,12 @@ class CM(BaseController):
             vol_id=None, vol_fs_name='',
             snap_id=None, snap_fs_name='',
             bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='', **kwargs):
+            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='',
+            static_path_fs_name='', static_path_fs_path='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
-        There are four options from which a new file system can be added (the
+        There are six options from which a new file system can be added (the
         value in parentheses is the expected value of ``fs_kind`` argument for
         the corresponding option)::
             * (AWS S3) bucket (bucket)
@@ -208,6 +201,7 @@ class CM(BaseController):
             * Existing snapshot (snapshot)
             * New volume (new_volume)
             * External NFS server (nfs)
+            * A static path to be mounted (static_path)
 
         The ``dot`` parameter, if set to ``True``, will mark
         the new file system to be **deleted on termination**. The ``persist``
@@ -258,10 +252,15 @@ class CM(BaseController):
             self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
                 vol_size=new_disk_size, persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
-            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
+            log.debug("Adding a new '{0}' file system: nfs-based, {1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
             self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name, username=nfs_username,
                 pwd=nfs_pwd, persistent=persist)
+        elif fs_kind == 'static_path':
+            log.debug("Adding a new '{0}' file system: static-path-based, {1} persistent."
+                .format(static_path_fs_name, ('' if persist else ' not')))
+            self.app.manager.add_fs_static_path(static_path_fs_name, static_path_fs_path,
+                persistent=persist)
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
@@ -777,10 +776,6 @@ class CM(BaseController):
                                    initial_cluster_type=self.app.manager.initial_cluster_type)
 
     @expose
-    def cluster_status(self, trans):
-        return trans.fill_template("cluster_status.mako", instances=self.app.manager.worker_instances)
-
-    @expose
     def get_user_data(self, trans):
         return json.dumps(self.app.ud)
 
@@ -858,16 +853,3 @@ class CM(BaseController):
     @expose
     def update_users_CM(self, trans):
         return json.dumps({'updated': self.app.manager.update_users_CM()})
-
-    @expose
-    def masthead(self, trans):
-        brand = trans.app.config.get("brand", "")
-        if brand:
-            brand = "<span class='brand'>/%s</span>" % brand
-        CM_url = self.get_CM_url(trans)
-        wiki_url = trans.app.config.get("wiki_url", "http://g2.trac.bx.psu.edu/")
-        bugs_email = trans.app.config.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
-        blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
-        screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
-        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
-
