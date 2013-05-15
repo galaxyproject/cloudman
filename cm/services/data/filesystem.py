@@ -11,28 +11,27 @@ from datetime import datetime
 from boto.exception import EC2ResponseError
 
 from cm.util.misc import run
+from cm.util.misc import flock
 from cm.util.misc import nice_size
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import DataService
 from cm.services.data.nfs import NfsFS
-from cm.services.data.static_path import StaticPathFS
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 from cm.services.data.transient_storage import TransientStorage
-from cm.util.nfs_export import NFSExport
 
 import logging
 log = logging.getLogger('cloudman')
 
 
 class Filesystem(DataService):
-
     def __init__(self, app, name, svc_roles=[ServiceRole.GENERIC_FS], mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
         log.debug("Instantiating Filesystem object {0} with service roles: {1}".format(
             name, ServiceRole.to_string(svc_roles)))
         self.svc_roles = svc_roles
+        self.nfs_lock_file = '/tmp/nfs.lockfile'
         # TODO: Introduce a new file system layer that abstracts/consolidates
         # potentially multiple devices under a single file system interface
         # Maybe a class above this class should be introduced, e.g., DataService,
@@ -41,12 +40,12 @@ class Filesystem(DataService):
         self.buckets = []  # A list of cm.services.data.bucket.Bucket objects
         self.transient_storage = []  # Instance's transient storage
         self.nfs_fs = None  # NFS file system object implementing this file system's device
-        self.static_path_fs = None  # A static path which masquerades as a file system service
         self.name = name  # File system name
         self.persistent = persistent  # Whether it should be part of the cluster config
         self.size = None  # Total size of this file system
         self.size_used = None  # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
+        self.dirty = False
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
         self.mount_point = mount_point if mount_point is not None else os.path.join(
             self.app.path_resolver.mount_root, self.name)
@@ -79,8 +78,6 @@ class Filesystem(DataService):
             details = ts._get_details(details)
         if self.kind == 'nfs':
             details = self.nfs_fs._get_details(details)
-        elif self.kind == 'static_path':
-            details = self.static_path_fs._get_details(details)
         return details
 
     def _get_details(self, details):
@@ -128,17 +125,14 @@ class Filesystem(DataService):
                     ts.add()
                 if self.kind == 'nfs':
                     self.nfs_fs.start()
-                elif self.kind == 'static_path':
-                    self.static_path_fs.start()
             except Exception, e:
                 log.error("Error adding file system service {0}: {1}".format(
                     self.get_full_name(), e))
                 return False
             self.status()
-            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4}, {5})"
+            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4})"
                       .format(self.get_full_name(), self.volumes, self.buckets,
-                      self.transient_storage, self.nfs_fs.nfs_server if self.nfs_fs else '-',
-                      self.static_path_fs.static_path if self.static_path_fs else '-'))
+                      self.transient_storage, self.nfs_fs.nfs_server if self.nfs_fs else '-'))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"
@@ -151,8 +145,8 @@ class Filesystem(DataService):
         separate thread and return without waiting for the process to complete.
         """
         log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, "
-                 "transient storage {3}, nfs server {4} and static path {5}".format(self.get_full_name(),
-                 self.volumes, self.buckets, self.transient_storage, self.nfs_fs, self.static_path_fs))
+                 "transient storage {3}, and nfs server {4}".format(self.get_full_name(),
+                 self.volumes, self.buckets, self.transient_storage, self.nfs_fs))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread(target=self.__remove)
         r_thread.start()
@@ -177,8 +171,6 @@ class Filesystem(DataService):
             t.remove()
         if self.nfs_fs:
             self.nfs_fs.stop()
-        elif self.static_path_fs:
-            self.static_path_fs.stop()
         log.debug("Setting state of %s to '%s'" % (
             self.get_full_name(), service_states.SHUT_DOWN))
         self.state = service_states.SHUT_DOWN
@@ -343,6 +335,96 @@ class Filesystem(DataService):
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system "
                         "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
 
+    def add_nfs_share(self, mount_point=None, permissions='rw'):
+        """
+        Share the given/current file system/mount point over NFS. Note that
+        if the given mount point already exists in /etc/exports, replace
+        the existing line with the line composed within this method.
+
+        :type mount_point: string
+        :param mount_point: The mount point to add to the NFS share
+
+        :type permissions: string
+        :param permissions: Choose the type of permissions for the hosts
+                            mounting this NFS mount point. Use: 'rw' for
+                            read-write (default) or 'ro' for read-only
+        """
+        try:
+            ee_file = '/etc/exports'
+            if mount_point is None:
+                mount_point = self.mount_point
+            # Compose the line that will be put into /etc/exports
+            # NOTE: with Spot instances, should we use 'async' vs. 'sync' option?
+            # See: http://linux.die.net/man/5/exports
+            ee_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+                .format(mp=mount_point, perms=permissions)
+            # Make sure we manipulate ee_file by a single process at a time
+            with flock(self.nfs_lock_file):
+                # Determine if the given mount point is already shared
+                with open(ee_file) as f:
+                    shared_paths = f.readlines()
+                in_ee = -1
+                hadoo_mnt_point = "/opt/hadoop"
+                hadoop_set = False
+                for i, sp in enumerate(shared_paths):
+                    if mount_point in sp:
+                        in_ee = i
+                    if hadoo_mnt_point == sp:
+                        hadoop_set = True
+
+                # TODO:: change the follwoing line and make hadoop a file
+                # system
+                if not hadoop_set:
+                    hdp_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
+                        .format(mp="/opt/hadoop", perms='rw')
+                    shared_paths.append(hdp_line)
+
+                # If the mount point is already in /etc/exports, replace the existing
+                # entry with the newly composed ee_line (thus supporting change of
+                # permissions). Otherwise, append ee_line to the end of the
+                # file.
+                if in_ee > -1:
+                    shared_paths[in_ee] = ee_line
+                else:
+                    shared_paths.append(ee_line)
+                # Write out the newly composed file
+                with open(ee_file, 'w') as f:
+                    f.writelines(shared_paths)
+                log.debug("Added '{0}' line to NFS file {1}".format(
+                    ee_line.strip(), ee_file))
+            # Mark the NFS server as being in need of a restart
+            self.dirty = True
+            return True
+        except Exception, e:
+            log.error(
+                "Error configuring {0} file for NFS: {1}".format(ee_file, e))
+            return False
+
+    def remove_nfs_share(self, mount_point=None):
+        """
+        Remove the given/current file system/mount point from being shared
+        over NFS. The method removes the file system's ``mount_point`` from
+        ``/etc/share`` and indcates that the NFS server needs restarting.
+        """
+        try:
+            ee_file = '/etc/exports'
+            if mount_point is None:
+                mount_point = self.mount_point
+            mount_point = mount_point.replace(
+                '/', '\/')  # Escape slashes for sed
+            cmd = "sed -i '/^{0}/d' {1}".format(mount_point, ee_file)
+            log.debug("Removing NSF share for mount point {0}; cmd: {1}".format(
+                mount_point, cmd))
+            # To avoid race conditions between threads, use a lock file
+            with flock(self.nfs_lock_file):
+                run(cmd)
+            self.dirty = True
+            return True
+        except Exception, e:
+            log.error("Error removing FS {0} share from NFS: {1}".format(
+                mount_point, e))
+            return False
+
     def _service_transitioning(self):
         """
         A convenience method indicating if the service is in a transitioning state
@@ -395,7 +477,7 @@ class Filesystem(DataService):
             if len(disk_usage) == 3:
                 self.size = disk_usage[0]  # or should this the device size?
                 self.size_used = disk_usage[1]
-                self.size_pct = disk_usage[2].replace("%", "")
+                self.size_pct = disk_usage[2]
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
@@ -409,7 +491,15 @@ class Filesystem(DataService):
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
         #   % (self.name, self.name, self.state))
-        NFSExport.reload_exports_if_required()
+        if self.dirty:
+            # First check if the NFS server needs to be restarted but do it one
+            # thread at a time
+            with flock(self.nfs_lock_file):
+                if run(
+                    "/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server",
+                    "As part of %s filesystem update, successfully restarted NFS server"
+                        % self.name):
+                    self.dirty = False
         # Transient storage file system has its own process for checking status
         if len(self.transient_storage) > 0:
             for ts in self.transient_storage:
@@ -425,13 +515,6 @@ class Filesystem(DataService):
             pass
         elif self._service_starting():
             pass
-        elif self.kind == 'static_path':
-            if (os.path.exists(self.mount_point)):
-                self.state = service_states.RUNNING
-            else:
-                log.error(
-                        "STATUS CHECK: Static path %s does not exist for FS '%s'" % (self.mount_point, self.name))
-                self.state = service_states.ERROR
         elif self.mount_point is not None:
             mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2"
                                                     % self.mount_point)
@@ -505,12 +588,3 @@ class Filesystem(DataService):
         log.debug("Adding NFS server {0} to file system {1}".format(nfs_server, self.name))
         self.kind = 'nfs'
         self.nfs_fs = NfsFS(self, nfs_server, username, pwd)
-
-    def add_static_path(self, path):
-        """
-        Add a static path based fs. This will simply represent
-        a certain path/mount_point on the system.
-        """
-        log.debug("Adding static path {0} to file system {1}.".format(path, self.name))
-        self.kind = 'static_path'
-        self.static_path_fs = StaticPathFS(self, path)
