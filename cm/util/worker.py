@@ -335,15 +335,17 @@ class ConsoleManager(BaseConsoleManager):
     # # by hadoop instalation process through SGE
     def start_hadoop(self):
         # KWS: Optionally add Hadoop service based on config setting
-        self.hadoop = HadoopService(self.app)
-        self.hadoop.configure_hadoop()
+        if self.app.config.hadoop_enabled:
+            self.hadoop = HadoopService(self.app)
+            self.hadoop.configure_hadoop()
 
     def start_condor(self, host_ip):
         """
         Configure and start condor worker node to join the master pool.
         """
-        self.condor = HTCondorService(self.app, "worker", host_ip)
-        self.condor.start()
+        if self.app.config.condor_enabled:
+            self.condor = HTCondorService(self.app, "worker", host_ip)
+            self.condor.start()
 
     # #<KWS>
     # Updating etc host by fetching the master's etc/hosts file

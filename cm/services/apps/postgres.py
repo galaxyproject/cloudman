@@ -198,14 +198,3 @@ class PostgresService(ApplicationService):
         if self.state != service_states.SHUT_DOWN:
             if self.check_postgres():
                 self.state = service_states.RUNNING
-
-    def get_service_actions(self):
-        """
-        Returns a list of actions that this service supports
-        """
-        svc_list = []
-        svc_list.append({'name': 'Log', 'action_url': 'service_log?service_name=Postgres'})
-        svc_list.append({'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'})
-        svc_list.append({'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'})
-        svc_list.append({'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'})
-        return svc_list

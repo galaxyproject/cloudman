@@ -46,7 +46,7 @@ P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
 
 P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
 
-# # Condor
+## Condor
 P_HTCONDOR_CONFIG_PATH = "/etc/condor/condor_config"
 P_HTCONDOR_HOME = "/etc/init.d"
 
@@ -121,7 +121,6 @@ class PathResolver(object):
         # path to be overridden
         gh = self._get_ud_path('galaxy_home', None)
         if gh:
-            print "Using galaxy_home from user data: %s" % gh
             return gh
         # Get the required file system where Galaxy should be kept
         galaxy_tools_fs_svc = self.manager.get_services(
