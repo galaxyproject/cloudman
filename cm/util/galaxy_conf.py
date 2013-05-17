@@ -81,10 +81,10 @@ def populate_process_options(option_manager):
     web_thread_count = int(app.ud.get("web_thread_count", 1))
     handler_thread_count = int(app.ud.get("handler_thread_count", 1))
     # Setup web threads
-    [__add_server_process(option_manager, i, "web", 8080) \
+    [__add_server_process(option_manager, i, "web", 8080)
         for i in range(web_thread_count)]
     # Setup handler threads
-    handlers = [__add_server_process(option_manager, i, "handler", 9080) \
+    handlers = [__add_server_process(option_manager, i, "handler", 9080)
         for i in range(handler_thread_count)]
     # Setup manager thread
     __add_server_process(option_manager, 0, "manager", 8079)
@@ -171,7 +171,7 @@ class FileGalaxyOptionManager(object):
         """ setup should return conf_dir, in this case there is none."""
         return None
 
-    def set_properties(self, properties, section="app:main", description=None):
+    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         galaxy_home = self.app.path_resolver.galaxy_home
         config_file_path = join(galaxy_home, OPTIONS_FILE_NAME)
         parser = SafeConfigParser()
@@ -231,7 +231,7 @@ class DirectoryGalaxyOptionManager(object):
 
         priority = int(self.app.ud.get("galaxy_option_priority", "400")) + priority_offset
         conf_dir = self.conf_dir
-        if description == None:
+        if description is None:
             description = properties.keys()[0]
         conf_file_name = "%s_cloudman_override_%s.ini" % (str(priority), description)
         conf_file = join(conf_dir, conf_file_name)
