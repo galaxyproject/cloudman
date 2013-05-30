@@ -198,7 +198,7 @@ def formatDelta(delta):
 def bucket_exists(s3_conn, bucket_name, validate=True):
     if s3_conn is None:
         log.debug(
-            "Checking if s3 bucket exists, no s3 connection specified... it does not")
+            "Checking if s3 bucket exists, no s3 connection specified...")
         return False
     if bucket_name:
         try:
@@ -240,6 +240,8 @@ def get_bucket(s3_conn, bucket_name, validate=True):
                 log.error("Problem connecting to bucket '%s', attempt %s/5" % (
                     bucket_name, i + 1))
                 time.sleep(2)
+    else:
+        log.debug("Attempted to get bucket %s but it doesn't exist." % bucket_name)
     return b
 
 
