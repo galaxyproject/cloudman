@@ -195,7 +195,6 @@ class ConsoleManager(BaseConsoleManager):
         Returns a list of dictionaries.
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         snaps_file = 'cm_snaps.yaml'
         snaps = None
         # Get a list of default file system data sources
@@ -274,6 +273,7 @@ class ConsoleManager(BaseConsoleManager):
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
         if "share_string" in self.app.ud:
+            # BUG TODO this currently happens on reboot, and shouldn't.
             self.init_shared_cluster(self.app.ud['share_string'].strip())
         # else look if this is a restart of a previously existing cluster
         # and add appropriate services
