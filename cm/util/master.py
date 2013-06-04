@@ -1300,9 +1300,12 @@ class ConsoleManager(BaseConsoleManager):
                     # scpd['data_filesystems'] = {'galaxyData': [{'vol_id': data_vol.id, 'size': data_vol.size}]}
                     # Compose a persistent_data compatible entry for the shared data volume so that
                     # the appropriate file system can be created as part of ``add_preconfigured_services``
-                    # TODO: make it more general vs. galaxyData specific
-                    data_fs_yaml = {'ids': [data_vol.id], 'kind': 'volume',
-                                    'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'}
+                    # TODO: make it more general vs. galaxy specific
+                    data_fs_yaml = {'ids': [data_vol.id],
+                                    'kind': 'volume',
+                                    'mount_point': '/mnt/galaxy',
+                                    'name': 'galaxy',
+                                    'roles': ['galaxyTools','galaxyData']}
                     scpd['filesystems'].append(data_fs_yaml)
                     log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
                              % (data_vol.id, data_vol.size, snap.id))
