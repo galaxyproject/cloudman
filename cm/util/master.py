@@ -1365,6 +1365,7 @@ class ConsoleManager(BaseConsoleManager):
                               enable sharing of individual objects in the
                               cluster's bucket.
         """
+        # TODO: rewrite this to use > 3 character variable names.
         # TODO: recover services if the process fails midway
         log.info("Setting up the cluster for sharing")
         self.cluster_manipulation_in_progress = True
@@ -1397,7 +1398,11 @@ class ConsoleManager(BaseConsoleManager):
         sfsl = []  # Shared file systems list
         for fs in fsl:
             roles = ServiceRole.from_string_array(fs['roles'])
-            if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
+            # Including GALAXY_TOOLS role here breaks w/ new combined galaxyData/galaxyTools volume.  We should
+            # probably change this to actually inspect and share base snapshots if applicable (like galaxyIndices) but
+            # never volumes.
+            #if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
+            if ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
         misc.dump_yaml_to_file(sud, conf_file_name)
