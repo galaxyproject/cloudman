@@ -70,8 +70,8 @@ def populate_dynamic_options(option_manager):
                 option_manager.set_properties({key: value}, section=section)
 
 
-# # High-level functions that utilize option_manager interface (defined below)
-# # to configure Galaxy's options.
+## High-level functions that utilize option_manager interface (defined below)
+## to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
     Use `option_manager` to populate process (handler, manager, web) sections
@@ -81,10 +81,10 @@ def populate_process_options(option_manager):
     web_thread_count = int(app.ud.get("web_thread_count", 1))
     handler_thread_count = int(app.ud.get("handler_thread_count", 1))
     # Setup web threads
-    [__add_server_process(option_manager, i, "web", 8080) \
+    [__add_server_process(option_manager, i, "web", 8080)
         for i in range(web_thread_count)]
     # Setup handler threads
-    handlers = [__add_server_process(option_manager, i, "handler", 9080) \
+    handlers = [__add_server_process(option_manager, i, "handler", 9080)
         for i in range(handler_thread_count)]
     # Setup manager thread
     __add_server_process(option_manager, 0, "manager", 8079)
@@ -113,7 +113,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
     return server_name
 
 
-# # Abstraction for interacting with Galaxy's options
+## Abstraction for interacting with Galaxy's options
 def galaxy_option_manager(app):
     """ Returns a high-level class for managing Galaxy options.
     """
@@ -134,18 +134,28 @@ def populate_galaxy_paths(option_manager):
     path_resolver = option_manager.app.path_resolver
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
         .format(paths.C_PSQL_PORT)
-    properties["genome_data_path"] = join(path_resolver.galaxy_indices, "genomes")
-    properties["len_file_path"] = join(path_resolver.galaxy_data, "configuration_data", "len")
-    properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
+    properties["genome_data_path"] = \
+        join(path_resolver.galaxy_indices, "genomes")
+    properties["len_file_path"] = \
+        join(path_resolver.galaxy_data, "configuration_data", "len")
+    properties["tool_dependency_dir"] = \
+        join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
     temp_dir = join(path_resolver.galaxy_data, "tmp")
     properties["new_file_path"] = temp_dir
-    properties["job_working_directory"] = join(temp_dir, "job_working_directory")
-    properties["cluster_files_directory"] = join(temp_dir, "pbs")
-    properties["ftp_upload_dir"] = join(temp_dir, "ftp")
-    properties["library_import_dir"] = join(temp_dir, "library_import_dir")
-    properties["nginx_upload_store"] = join(path_resolver.galaxy_data, "upload_store")
-    option_manager.set_properties(properties, description="paths")
+    properties["job_working_directory"] = \
+        join(temp_dir, "job_working_directory")
+    properties["cluster_files_directory"] = \
+        join(temp_dir, "pbs")
+    properties["ftp_upload_dir"] = \
+        join(temp_dir, "ftp")
+    properties["library_import_dir"] = \
+        join(temp_dir, "library_import_dir")
+    properties["nginx_upload_store"] = \
+        join(path_resolver.galaxy_data, "upload_store")
+    # Allow user data options to override these, spefically database.
+    priority_offset = -1
+    option_manager.set_properties(properties, description="paths", priority_offset=priority_offset)
 
 
 class FileGalaxyOptionManager(object):
@@ -161,7 +171,7 @@ class FileGalaxyOptionManager(object):
         """ setup should return conf_dir, in this case there is none."""
         return None
 
-    def set_properties(self, properties, section="app:main", description=None):
+    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         galaxy_home = self.app.path_resolver.galaxy_home
         config_file_path = join(galaxy_home, OPTIONS_FILE_NAME)
         parser = SafeConfigParser()
@@ -215,15 +225,15 @@ class DirectoryGalaxyOptionManager(object):
                 defaults_source = join(galaxy_home, self.conf_file_name)
                 copyfile(defaults_source, defaults_destination)
 
-    def set_properties(self, properties, section="app:main", description=None):
+    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         if not properties:
             return
 
-        prefix = self.app.ud.get("galaxy_option_priority", "400")
+        priority = int(self.app.ud.get("galaxy_option_priority", "400")) + priority_offset
         conf_dir = self.conf_dir
-        if description == None:
+        if description is None:
             description = properties.keys()[0]
-        conf_file_name = "%s_cloudman_override_%s.ini" % (prefix, description)
+        conf_file_name = "%s_cloudman_override_%s.ini" % (str(priority), description)
         conf_file = join(conf_dir, conf_file_name)
         props_str = "\n".join(
             ["%s=%s" % (k, v) for k, v in properties.iteritems()])

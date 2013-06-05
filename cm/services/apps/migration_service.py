@@ -84,7 +84,8 @@ class Migrate1to2:
             self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
 
     def _create_missing_dirs(self):
-        # TODO: on the file system missing/renamig dirs: galaxyData/'files' will need to be renamed to galaxy/data'
+        # TODO: on the file system missing/renamig dirs: galaxyData/'files' will
+        # need to be renamed to galaxy/data'
         pass
 
     def _upgrade_fs_structure(self):
@@ -121,15 +122,32 @@ class Migrate1to2:
                     pass  # skip adding the galaxy tools file system, no longer needed.
                 else:
                     if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
-                        fs['roles'] = ServiceRole.to_string_array([ServiceRole.GALAXY_TOOLS, ServiceRole.GALAXY_DATA])
+                        fs['roles'] = ServiceRole.to_string_array([ServiceRole.GALAXY_TOOLS,
+                            ServiceRole.GALAXY_DATA])
                         new_fs_list.append(fs)
                     else:
                         new_fs_list.append(fs)
             self.app.ud['filesystems'] = new_fs_list
         self.app.ud['deployment_version'] = 2
-        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
+        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset
+                                              # to default. Discuss implications
 
     def _migrate1_prereqs_satisfied(self):
+        """
+        Make sure prerequisites for applying migration 1 to 2 are satisfied.
+        """
+        # 'Old' AMIs do not support this CloudMan version so guard against those
+        old_AMIs = ['ami-da58aab3', 'ami-9a7485f3', 'ami-46d4792f']
+        current_ami = self.app.cloud_interface.get_ami()
+        if current_ami in old_AMIs:
+            msg = ("The Machine Image you are running ({0}) does not support this version "
+                   "of CloudMan. You MUST terminate this instance and launch a new "
+                   "one using a more up-to-date Machine Image. See "
+                   "<a href='http://wiki.galaxyproject.org/CloudMan/' target='_blank'>"
+                   "this page</a> for more details.".format(current_ami))
+            log.critical(msg)
+            self.app.msgs.critical(msg)
+            return False
         fs_galaxy_data_list = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)
         if not fs_galaxy_data_list:
             log.warn("Required File system GALAXY_DATA missing. Aborting migrate1to2.")

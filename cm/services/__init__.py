@@ -21,8 +21,8 @@ service_states = Bunch(
 
 
 class ServiceType(object):
-    FILE_SYSTEM = "FILE_SYSTEM"
-    APPLICATION = "APPLICATION"
+    FILE_SYSTEM = "FileSystem"
+    APPLICATION = "Application"
 
 
 class ServiceRole(object):
@@ -42,8 +42,9 @@ class ServiceRole(object):
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
                      "Transient NFS FS"}
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
-    HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
     MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
+
+    HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
 
     @staticmethod
     def get_type(role):
@@ -256,22 +257,31 @@ class Service(object):
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
             failed_prereqs = self.dependencies[:]
-            # List of service prerequisites that have not been satisfied
+                # List of service prerequisites that have not been satisfied
             for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
+                no_services_satisfy_dependency = True
+                remove_dependency = False
                 for svc in self.app.manager.services:
                     # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
+                        no_services_satisfy_dependency = False
                         # log.debug("Service %s:%s running: %s" % (svc.name,
                         # svc.name, svc.state))
                         if svc.running() or svc.completed():
-                            if dependency in failed_prereqs:
-                                failed_prereqs.remove(dependency)
+                            remove_dependency = True
+                if no_services_satisfy_dependency:
+                    if self.app.ud.get("ignore_unsatisfiable_dependencies", False):
+                        remove_dependency = True
+                    else:
+                        # Fall into infinite loop.
+                        pass
+                if remove_dependency and dependency in failed_prereqs:
+                    failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
                 log.info("{0} service prerequisites OK; starting the service".format(
                     self.get_full_name()))
-                self.app.manager.update_dependencies(self, "ADD")
                 self.start()
                 return True
             else:
@@ -292,8 +302,7 @@ class Service(object):
         for service in self.app.manager.services:
             for dependency in service.dependencies:
                 if (dependency.is_satisfied_by(self)):
-                    service.remove(synchronous=synchronous)
-        self.app.manager.update_dependencies(self, "REMOVE")
+                    service.remove()
 
     def running(self):
         """
@@ -312,37 +321,3 @@ class Service(object):
         Return full name of the service (useful if different from service type)
         """
         return "{0}".format(self.name)
-
-    def get_service_actions(self):
-        """
-        Returns a list of actions that this service supports
-        """
-        return []
-
-    def recurse_dependent_services(self):
-        """
-        Recursively finds all services dependent
-        on a particular service.
-        """
-        dep_list = []
-        for svc in self.app.manager.services:
-            for dependency in svc.dependencies:
-                if dependency.is_satisfied_by(self):
-                    dep_list.append(svc)
-                    dep_list.extend(svc.recurse_dependent_services())
-        return dep_list
-
-    def get_service_requirements(self):
-        """
-        Returns a list of the services that this service requires
-        """
-        reqs_list = []
-        for req in self.dependencies:
-            reqs_dict = {'name': req.service_role['name'],
-                         'type': req.service_role['type'],
-                         'role': ServiceRole.to_string(req.service_role),
-                         'assigned_service': (req.assigned_service.name if req.assigned_service else ""),
-                         'copy_across': (True if self.svc_type == ServiceType.FILE_SYSTEM else False)
-                         }
-            reqs_list.append(reqs_dict)
-        return reqs_list

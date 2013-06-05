@@ -10,9 +10,9 @@ import time
 import datetime as dt
 import json
 import shutil
-import random
 
-from cm.util import misc, comm
+
+from cm.util import misc, comm, Time
 from cm.util import (
     cluster_status, instance_states, instance_lifecycle, spot_states)
 from cm.util.manager import BaseConsoleManager
@@ -42,12 +42,15 @@ APP_SERVICES = {
     ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService
 }
 
+# Time well in past to seend reboot, last comm times with.
+TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
+
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
 
     def __init__(self, app):
-        self.startup_time = dt.datetime.utcnow()
+        self.startup_time = Time.now()
         log.debug("Initializing console manager - cluster start time: %s" %
                   self.startup_time)
         self.app = app
@@ -74,24 +77,15 @@ class ConsoleManager(BaseConsoleManager):
         self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 10
 
-    def add_service_by_name(self, svc_name):
-        if self.get_services(svc_name=svc_name):
-            raise Exception("A service with this name already exists.")
-        else:
-            if svc_name == "Galaxy":
-                self.add_master_service(GalaxyService(self.app))
-            elif svc_name == "Postgres":
-                self.add_master_service(PostgresService(self.app))
-
     def add_master_service(self, new_service):
         self.services.append(new_service)
-        self.update_dependencies(new_service, "ADD")
+        self._update_dependencies(new_service, "ADD")
 
     def remove_master_service(self, service_to_remove):
         self.services.remove(service_to_remove)
-        self.update_dependencies(service_to_remove, "REMOVE")
+        self._update_dependencies(service_to_remove, "REMOVE")
 
-    def update_dependencies(self, new_service, action):
+    def _update_dependencies(self, new_service, action):
         """
         Updates service dependencies when a new service is added.
         Iterates through all services and if action is "ADD",
@@ -201,7 +195,6 @@ class ConsoleManager(BaseConsoleManager):
         Returns a list of dictionaries.
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         snaps_file = 'cm_snaps.yaml'
         snaps = None
         # Get a list of default file system data sources
@@ -271,14 +264,16 @@ class ConsoleManager(BaseConsoleManager):
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSS(self.app))
 
-        self.add_master_service(HTCondorService(self.app, "master"))
+        if self.app.config.condor_enabled:
+            self.add_master_service(HTCondorService(self.app, "master"))
         # KWS: Optionally add Hadoop service based on config setting
-        if self.app.ud.get('hadoop_enabled', True):
+        if self.app.config.hadoop_enabled:
             self.add_master_service(HadoopService(self.app))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
         if "share_string" in self.app.ud:
+            # BUG TODO this currently happens on reboot, and shouldn't.
             self.init_shared_cluster(self.app.ud['share_string'].strip())
         # else look if this is a restart of a previously existing cluster
         # and add appropriate services
@@ -609,64 +604,20 @@ class ConsoleManager(BaseConsoleManager):
             return "'%s' is not running" % srvc
         return "Service '%s' not recognized." % srvc
 
-    @TestFlag([{'svc_name': 'Galaxy',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'},
-                            {'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'}],
-                'requirements': [{'name': 'Galaxy Postgres', 'type': 'APPLICATION', 'role': 'Postgres', 'assigned_service': 'PostgreSQL'},
-                                 {'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'},
-                                 {'name': 'Galaxy Indices FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyIndices', 'assigned_service': 'galaxyIndices'},
-                                 {'name': 'Galaxy Tools FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyTools', 'assigned_service': 'galaxyTools'}],
-                'status': 'Running'},
-               {'svc_name': 'PostgreSQL',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=Postgres'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=Postgres&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=Postgres'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=Postgres'}],
-                'requirements': [{'name': 'Galaxy Data FS', 'type': 'FILE_SYSTEM', 'role': 'galaxyData', 'assigned_service': 'galaxyData'}],
-                'status': 'Running'},
-               {'svc_name': 'SGE',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=SGE'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=SGE&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=SGE'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=SGE'},
-                            {'name': 'Q conf', 'action_url': 'service_log?service_name=SGE&q=conf'},
-                            {'name': 'qstat', 'action_url': 'service_log?service_name=SGE&q=qstat'}],
-                'requirements': [],
-                'status': 'Running'},
-               {'svc_name': 'GalaxyReports',
-                'actions': [{'name': 'Log', 'action_url': 'service_log?service_name=GalaxyReports'},
-                            {'name': 'Stop', 'action_url': 'manage_service?service_name=GalaxyReports&to_be_started=False'},
-                            {'name': 'Start', 'action_url': 'manage_service?service_name=GalaxyReports'},
-                            {'name': 'Restart', 'action_url': 'restart_service?service_name=GalaxyReports'}],
-                'requirements': [{'name': 'Galaxy', 'type': 'APPLICATION', 'role': 'Galaxy', 'assigned_service': 'Galaxy'}],
-                'status': 'Running'}], quiet=True)
-    def get_all_application_status(self):
-        service_list = []
-        services = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
-        for svc in services:
-            svc_dict = {'svc_name': svc.name, 'status': svc.state,
-                        'actions': svc.get_service_actions(),
-                        'requirements': svc.get_service_requirements()}
-            service_list.append(svc_dict)
-        return service_list
-
     @TestFlag([{"size_used": "184M", "status": "Running", "kind": "Transient",
                 "mount_point": "/mnt/transient_nfs", "name": "transient_nfs", "err_msg": None,
-                "device": "/dev/vdb", "size_pct": "1", "DoT": "Yes", "size": "60G",
+                "device": "/dev/vdb", "size_pct": "1%", "DoT": "Yes", "size": "60G",
                 "persistent": "No"},
                {"size_used": "33M", "status": "Running", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
                 "err_msg": None, "snapshot_progress": None, "from_snap": None,
-                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4",
+                "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
                 "DoT": "No", "size": "1014M", "persistent": "Yes"},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
                 "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
                 "snapshot_progress": "10%", "from_snap": "snap-760fd33d",
-                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2",
+                "volume_id": "vol-d5f3f9a9", "device": "/dev/sdh", "size_pct": "2%",
                 "DoT": "No", "size": "5.0G"}], quiet=True)
     def get_all_filesystems_status(self):
         """
@@ -718,6 +669,8 @@ class ConsoleManager(BaseConsoleManager):
             "error_msg": ""})
         return dummy
 
+    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+               "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
         Return a dictionary containing a list of currently running service and
@@ -728,90 +681,9 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        status_dict['applications'] = self.get_all_application_status()
-        status_dict['file_systems'] = self.get_all_filesystems_status()
-        status_dict['galaxy_rev'] = self.get_galaxy_rev()
-        status_dict['galaxy_admins'] = self.get_galaxy_admins()
-        status_dict['master_is_exec_host'] = self.master_exec_host
+        for srvc in self.services:
+            status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
         return status_dict
-
-    def reassign_dependencies_async(self, remap_list):
-        t_thread = threading.Thread(target=self.reassign_dependencies, args=[remap_list])
-        t_thread.start()
-
-    def reassign_dependencies(self, remap_list):
-        """
-        Reassigns a list of dependent services to another
-        Accepts a list of values with each element being a dictionary containing
-        the values:
-        'role' - the role to reassign
-        'service_to_assign' - the new service to assign
-        'copy_across' - whether to copy across file system contents
-        """
-        for item in remap_list:
-            self.reassign_dependency(item['role'], item['service_to_assign'], item['copy_across'])
-
-    def reassign_dependency(self, role, service_to_assign, copy_across=True):
-        """
-        Reassigns a single dependent service to another.
-        Accepts the following arguments:
-        'role' - the role to reassign
-        'service_to_assign' - the new service to assign
-        'copy_across' - whether to copy across file system contents
-        """
-        current_list = self.get_services(svc_role=role)
-
-        # 1. If file system, sync old with new before service shutdown (to minimize downtime)
-        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
-            if (current_list and copy_across):
-                self.__sync_data(current_list[0], service_to_assign)
-        # 2. Remove all running services dependent on role
-        dependent_svc_list = self.recurse_services_dependent_on_role(role, state=service_states.RUNNING)
-        for svc in dependent_svc_list:
-            svc.remove(synchronous=True)
-        # 3. Sync again after service shutdown (to pick up changes)
-        if (ServiceRole.get_type(role) == ServiceType.FILE_SYSTEM):
-            # 3.1 sync data
-            if (current_list and copy_across):
-                self.__sync_data(current_list[0], service_to_assign)
-        # 4. Find and remove role from currently assigned service
-        log.debug("Removing role from old service...")
-        for svc in current_list:
-            if role in svc.svc_roles:
-                svc.svc_roles.remove(role)
-                self.app.manager.update_dependencies(svc, "REMOVE")
-        # 5. Assign role to new service
-        log.debug("Assigning role to new service...")
-        if role not in service_to_assign.svc_roles:
-            service_to_assign.svc_roles.append(role)
-            self.app.manager.update_dependencies(service_to_assign, "ADD")
-        # 6. Restart with newly assigned service
-        log.debug("Restarting services...")
-        for svc in dependent_svc_list:
-            svc.add()
-
-    def __sync_data(self, old_fs, new_fs):
-        # make sure trailing slash is added to source or rsync will create subdir
-        source_path = os.path.normpath(old_fs.mount_point) + os.sep
-        cmd = "sudo rsync -az {0} {1}".format(source_path, new_fs.mount_point)
-        log.debug('Rsync data: ' + cmd)
-        misc.run(cmd)
-
-    def recurse_services_dependent_on_role(self, role, state=None):
-        """
-        Recursively finds all services dependent on a particular
-        role. An optional state argument allows for a service state
-        to be matched as well.
-        """
-        dep_list = []
-        for svc in self.app.manager.services:
-            for dependency in svc.dependencies:
-                if dependency.service_role == role:
-                    if state is None or svc.state == state:
-                        dep_list.append(svc)
-                        dep_list.extend(svc.recurse_dependent_services())
-        log.debug("recurse_services_dependent_on_role: Role is: {0} and those that depend on this role are {1}".format(ServiceRole.to_string(role), dep_list))
-        return dep_list
 
     def get_galaxy_rev(self):
         """
@@ -1016,7 +888,7 @@ class ConsoleManager(BaseConsoleManager):
         log.info("Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
             "associated with this cluster) from the %s cloud console." \
-            % (dt.datetime.utcnow(), (dt.datetime.utcnow() - self.startup_time), self.app.ud.get('cloud_name', '')))
+            % (Time.now(), (Time.now() - self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
@@ -1428,9 +1300,12 @@ class ConsoleManager(BaseConsoleManager):
                     # scpd['data_filesystems'] = {'galaxyData': [{'vol_id': data_vol.id, 'size': data_vol.size}]}
                     # Compose a persistent_data compatible entry for the shared data volume so that
                     # the appropriate file system can be created as part of ``add_preconfigured_services``
-                    # TODO: make it more general vs. galaxyData specific
-                    data_fs_yaml = {'ids': [data_vol.id], 'kind': 'volume',
-                                    'mount_point': '/mnt/galaxyData', 'name': 'galaxyData'}
+                    # TODO: make it more general vs. galaxy specific
+                    data_fs_yaml = {'ids': [data_vol.id],
+                                    'kind': 'volume',
+                                    'mount_point': '/mnt/galaxy',
+                                    'name': 'galaxy',
+                                    'roles': ['galaxyTools','galaxyData']}
                     scpd['filesystems'].append(data_fs_yaml)
                     log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
                              % (data_vol.id, data_vol.size, snap.id))
@@ -1508,8 +1383,7 @@ class ConsoleManager(BaseConsoleManager):
         s3_conn = self.app.cloud_interface.get_s3_connection()
         # All of the shared cluster's config files will be stored with the
         # specified prefix
-        shared_names_root = "shared/%s" % dt.datetime.utcnow(
-        ).strftime("%Y-%m-%d--%H-%M")
+        shared_names_root = "shared/%s" % Time.now().strftime("%Y-%m-%d--%H-%M")
         # Create current cluster config and save it to cluster's shared location,
         # including the freshly generated snap IDs
         conf_file_name = 'cm_shared_cluster_conf.yaml'
@@ -1844,16 +1718,6 @@ class ConsoleManager(BaseConsoleManager):
             w_inst.send_mount_points()
         log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
-    @TestFlag(None)
-    def add_fs_static_path(self, fs_name, static_path_fs_path, fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
-        """
-        Add a new file system service for a static path on the system.
-        """
-        log.info("Adding a static-path-based file system {0} from path {1}".format(fs_name, static_path_fs_path))
-        fs = Filesystem(self.app, fs_name, mount_point=static_path_fs_path, persistent=persistent, svc_roles=fs_roles)
-        fs.add_static_path(static_path_fs_path)
-        self.add_master_service(fs)
-
     def stop_worker_instances(self):
         """
         Initiate termination of all worker instances.
@@ -2122,8 +1986,8 @@ class ConsoleManager(BaseConsoleManager):
         Add the new pool to the condor big pool
         """
         srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        # log.debug("HTCondor service found" + str(len(srvs)))
-        srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
+        if srvs:
+            srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     def get_status_dict(self):
         """
@@ -2139,9 +2003,9 @@ class ConsoleManager(BaseConsoleManager):
         public_ip = self.app.cloud_interface.get_public_ip()
         if self.app.TESTFLAG:
             num_cpus = 1
-            load = "{0} {1} {2}".format(random.random(), random.random(), random.random())
+            load = "0.00 0.02 0.39"
             return {'id': 'localtest', 'ld': load,
-                    'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time),
+                    'time_in_state': misc.formatSeconds(Time.now() - self.startup_time),
                     'instance_type': 'tester', 'public_ip': public_ip}
         else:
             num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
@@ -2155,7 +2019,7 @@ class ConsoleManager(BaseConsoleManager):
                 # Debug only, this should never happen.  If the interface is
                 # able to display this, there is load.
                 load = "0 0 0"
-        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
+        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.formatSeconds(Time.now() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
 
 
 class ConsoleMonitor(object):
@@ -2170,8 +2034,8 @@ class ConsoleMonitor(object):
         self.sleeper = misc.Sleeper()
         self.running = True
         # Keep some local stats to be able to adjust system updates
-        self.last_update_time = dt.datetime.utcnow()
-        self.last_system_change_time = dt.datetime.utcnow()
+        self.last_update_time = Time.now()
+        self.last_system_change_time = Time.now()
         self.update_frequency = 10  # Frequency (in seconds) between system updates
         self.num_workers = -1
         # Start the monitor thread
@@ -2182,7 +2046,7 @@ class ConsoleMonitor(object):
         Start the monitor thread, which monitors and manages all the services
         visible to CloudMan.
         """
-        self.last_state_change_time = dt.datetime.utcnow()
+        self.last_state_change_time = Time.now()
         if not self.app.TESTFLAG:
             # Set 'role' and 'clusterName' tags for the master instance
             try:
@@ -2219,13 +2083,13 @@ class ConsoleMonitor(object):
         """
         # Check if a worker was added/removed since the last update
         if self.num_workers != len(self.app.manager.worker_instances):
-            self.last_system_change_time = dt.datetime.utcnow()
+            self.last_system_change_time = Time.now()
             self.num_workers = len(self.app.manager.worker_instances)
         # Update frequency: as more time passes since a change in the system,
         # progressivley back off on frequency of system updates
-        if (dt.datetime.utcnow() - self.last_system_change_time).seconds > 600:
+        if (Time.now() - self.last_system_change_time).seconds > 600:
             self.update_frequency = 60  # If no system changes for 10 mins, run update every minute
-        elif (dt.datetime.utcnow() - self.last_system_change_time).seconds > 300:
+        elif (Time.now() - self.last_system_change_time).seconds > 300:
             self.update_frequency = 30  # If no system changes for 5 mins, run update every 30 secs
         else:
             self.update_frequency = 10  # If last system change within past 5 mins, run update every 10 secs
@@ -2412,7 +2276,7 @@ class ConsoleMonitor(object):
         added_srvcs = False  # Flag to indicate if cluster conf was changed
         for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
             log.debug("Monitor adding service '%s'" % service.get_full_name())
-            self.last_system_change_time = dt.datetime.utcnow()
+            self.last_system_change_time = Time.now()
             if service.add():
                 added_srvcs = True  # else:
 
@@ -2431,7 +2295,7 @@ class ConsoleMonitor(object):
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
-                self.last_system_change_time = dt.datetime.utcnow()
+                self.last_system_change_time = Time.now()
                 self.expand_user_data_volume()
             # Opennebula has no storage like S3, so this is not working (yet)
                 if self.app.cloud_type != 'opennebula':
@@ -2480,8 +2344,8 @@ class ConsoleMonitor(object):
                 continue
             # Do a periodic system state update (eg, services, workers)
             self._update_frequency()
-            if (dt.datetime.utcnow() - self.last_update_time).seconds > self.update_frequency:
-                self.last_update_time = dt.datetime.utcnow()
+            if (Time.now() - self.last_update_time).seconds > self.update_frequency:
+                self.last_update_time = Time.now()
                 self.app.manager.check_disk()
                 for service in self.app.manager.services:
                     service.status()
@@ -2513,21 +2377,21 @@ class ConsoleMonitor(object):
                     if w_instance.node_ready:
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
-                    if (dt.datetime.utcnow() - w_instance.last_comm).seconds < 22:
+                    if (Time.now() - w_instance.last_comm).seconds < 22:
                         log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
                             w_instance.get_desc(),
-                            (dt.datetime.utcnow() - w_instance.last_comm).seconds))
+                            (Time.now() - w_instance.last_comm).seconds))
                         continue
                     # Explicitly check the state of a quiet instance (but only
                     # periodically)
-                    elif (dt.datetime.utcnow() - w_instance.last_state_update).seconds > 30:
+                    elif (Time.now() - w_instance.last_state_update).seconds > 30:
                         log.debug("Have not checked on quiet instance {0} for a while; checking now"
                                   .format(w_instance.get_desc()))
                         w_instance.maintain()
                     else:
                         log.debug("Not checking quiet instance {0} (last check {1} secs ago)"
                             .format(w_instance.get_desc(),
-                            (dt.datetime.utcnow() - w_instance.last_state_update).seconds))
+                            (Time.now() - w_instance.last_state_update).seconds))
             self.__add_services()
             self.__check_amqp_messages()
 
@@ -2536,6 +2400,7 @@ class Instance(object):
     def __init__(self, app, inst=None, m_state=None, last_m_state_change=None,
                  sw_state=None, reboot_required=False, spot_request_id=None):
         self.app = app
+        self.config = app.config
         self.spot_request_id = spot_request_id
         self.lifecycle = instance_lifecycle.SPOT if self.spot_request_id else instance_lifecycle.ONDEMAND
         self.inst = inst  # boto object of the instance
@@ -2553,19 +2418,18 @@ class Instance(object):
         # Machine state as obtained from the cloud middleware (see
         # instance_states Bunch)
         self.m_state = m_state
-        self.last_m_state_change = dt.datetime.utcnow()
+        self.last_m_state_change = Time.now()
         # A time stamp when the most recent update of the instance state
         # (m_state) took place
-        self.last_state_update = dt.datetime.utcnow()
+        self.last_state_update = Time.now()
         self.sw_state = sw_state  # Software state
         self.is_alive = False
         self.node_ready = False
         self.num_cpus = 1
-        self.time_rebooted = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
-        self.REBOOT_COUNT_THRESHOLD = self.TERMINATE_COUNT_THRESHOLD = 4
         self.terminate_attempt_count = 0
-        self.last_comm = dt.datetime(2012, 1, 1, 0, 0, 0)  # Initialize to a date in the past
+        self.last_comm = TIME_IN_PAST  # Initialize to a date in the past
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -2589,11 +2453,11 @@ class Instance(object):
                 CALL THIS METHOD CAREFULLY because it defaults to terminating the
                 instance!
             """
-            if self.reboot_count < self.REBOOT_COUNT_THRESHOLD:
+            if self.reboot_count < self.config.instance_reboot_attempts:
                 self.reboot()
-            elif self.terminate_attempt_count > self.TERMINATE_COUNT_THRESHOLD:
+            elif self.terminate_attempt_count >= self.config.instance_terminate_attempts:
                 log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."
-                    .format(self.inst.id, self.TERMINATE_COUNT_THRESHOLD))
+                    .format(self.inst.id, self.config.instance_terminate_attempts))
                 self._remove_instance()
             else:
                 log.info("Instance {0} not responding after {1} reboots. Terminating instance."
@@ -2603,10 +2467,10 @@ class Instance(object):
         # Update state then do resolution
         state = self.get_m_state()
         if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
-            if (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
-               (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
-                log.debug("'Maintaining' instance {0} stuck in '{1}' or '{2}' states.".format(
-                    self.get_desc(), instance_states.PENDING, instance_states.SHUTTING_DOWN))
+            if (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
+               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
+                log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
+                    self.get_desc(), state))
                 reboot_terminate_logic()
         elif state == instance_states.ERROR:
             log.debug(
@@ -2622,12 +2486,12 @@ class Instance(object):
             log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
                 "last m_state change before {3} | time_rebooted before {4}".format(
                 self.get_desc(), instance_states.RUNNING,
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_comm).seconds),
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.last_m_state_change).seconds),
-                dt.timedelta(seconds=(dt.datetime.utcnow() - self.time_rebooted).seconds)))
-            if (dt.datetime.utcnow() - self.last_comm).seconds > 180 and \
-               (dt.datetime.utcnow() - self.last_m_state_change).seconds > 400 and \
-               (dt.datetime.utcnow() - self.time_rebooted).seconds > 300:
+                dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
+                dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
+                dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
+            if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
+               (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
+               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 reboot_terminate_logic()
 
     def get_cloud_instance_object(self, deep=False):
@@ -2695,7 +2559,7 @@ class Instance(object):
     def get_status_dict(self):
         toret = {'id': self.id,
                  'ld': self.load,
-                 'time_in_state': misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change),
+                 'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
                  'nfs_data': self.nfs_data,
                  'nfs_tools': self.nfs_tools,
                  'nfs_indices': self.nfs_indices,
@@ -2735,11 +2599,11 @@ class Instance(object):
             elif self.node_ready:
                 ld = "Running"
             return [self.id, ld, misc.formatSeconds(
-                dt.datetime.utcnow() - self.last_m_state_change),
+                Time.now() - self.last_m_state_change),
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
                     self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatSeconds(dt.datetime.utcnow() - self.last_m_state_change), \
+            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change), \
                     self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
                     self.sge_started, self.worker_status]
 
@@ -2772,7 +2636,7 @@ class Instance(object):
             log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
             try:
                 self.inst.reboot()
-                self.time_rebooted = dt.datetime.utcnow()
+                self.time_rebooted = Time.now()
             except EC2ResponseError, e:
                 log.error(
                     "Trouble rebooting instance {0}: {1}".format(self.id, e))
@@ -2785,6 +2649,7 @@ class Instance(object):
         self.worker_status = "Stopping"
         t_thread = threading.Thread(target=self.__terminate)
         t_thread.start()
+        return t_thread
 
     def __terminate(self):
         inst_terminated = self.app.cloud_interface.terminate_instance(
@@ -2840,7 +2705,7 @@ class Instance(object):
             log.debug("Getting m_state for instance {0} but TESTFLAG is set; returning 'running'"
                 .format(self.get_id()))
             return "running"
-        self.last_state_update = dt.datetime.utcnow()
+        self.last_state_update = Time.now()
         self.get_cloud_instance_object(deep=True)
         if self.inst:
             try:
@@ -2849,7 +2714,7 @@ class Instance(object):
                     .format(self.get_desc(), self.m_state, state))
                 if state != self.m_state:
                     self.m_state = state
-                    self.last_m_state_change = dt.datetime.utcnow()
+                    self.last_m_state_change = Time.now()
             except EC2ResponseError, e:
                 log.debug("Error updating instance {0} state: {1}".format(
                     self.get_id(), e))
@@ -3037,7 +2902,7 @@ class Instance(object):
     def handle_message(self, msg):
         # log.debug( "Handling message: %s from %s" % ( msg, self.id ) )
         self.is_alive = True
-        self.last_comm = dt.datetime.utcnow()
+        self.last_comm = Time.now()
         # Transition from states to a particular response.
         if self.app.manager.console_monitor.conn:
             msg_type = msg.split(' | ')[0]
@@ -3129,7 +2994,7 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                # #<KWS>
+                ##<KWS>
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)

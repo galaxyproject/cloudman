@@ -13,6 +13,24 @@ import hoover
 
 log = logging.getLogger('cloudman')
 
+DEFAULT_INSTANCE_REBOOT_TIMEOUT = 300
+DEFAULT_INSTANCE_COMM_TIMEOUT = 180
+DEFAULT_INSTANCE_STATE_CHANGE_WAIT = 400
+DEFAULT_INSTANCE_REBOOT_ATTEMPTS = 4
+DEFAULT_INSTANCE_TERMINATE_ATTEMPTS = 4
+DEFAULT_INSTANCE_TYPES = [
+    ("", "Same as Master"),
+    ("t1.micro", "Micro"),
+    ("m1.small", "Small"),
+    ("m1.medium", "Medium"),
+    ("m1.large", "Large"),
+    ("m1.xlarge", "Extra Large"),
+    ("m2.xlarge", "High-Memory Extra Large"),
+    ("m2.2xlarge", "High-Memory Double Extra Large"),
+    ("m2.4xlarge", "High-Memory Quadruple Extra Large"),
+    ("c1.xlarge", "High-CPU Extra Large"),
+]
+
 
 def resolve_path(path, root):
     """If 'path' is relative make absolute by prepending 'root'"""
@@ -72,6 +90,7 @@ class Configuration(object):
             self.ic = misc.load_yaml_file(paths.IMAGE_CONF_SUPPORT_FILE)
         # Logger is not configured yet so print
         print "Image configuration suports: %s" % self.ic
+        self.instance_types = []
 
     def get(self, key, default):
         return self.config_dict.get(key, default)
@@ -82,6 +101,62 @@ class Configuration(object):
             if not os.path.isdir(path):
                 raise ConfigurationError(
                     "Directory does not exist: %s" % path)
+
+    def init_with_user_data(self, user_data):
+        self.__configure_instance_management(user_data)
+        self.__configure_instance_types(user_data)
+        self.condor_enabled = user_data.get("condor_enabled", True)
+        self.hadoop_enabled = user_data.get("hadoop_enabled", True)
+
+    def __configure_instance_management(self, user_data):
+        """Configure attributes used control reboot/terminate behavior
+        of cm.util.master:Instance."""
+        self.instance_reboot_timeout = \
+            user_data.get("instance_reboot_timeout", DEFAULT_INSTANCE_REBOOT_TIMEOUT)
+        self.instance_comm_timeout = \
+            user_data.get("instance_comm_timeout", DEFAULT_INSTANCE_COMM_TIMEOUT)
+        self.instance_state_change_wait = \
+            user_data.get("instance_state_change_wait", DEFAULT_INSTANCE_STATE_CHANGE_WAIT)
+        self.instance_reboot_attempts = \
+            user_data.get("instance_reboot_attempts", DEFAULT_INSTANCE_REBOOT_ATTEMPTS)
+        self.instance_terminate_attempts = \
+            user_data.get("instance_terminate_attempts", DEFAULT_INSTANCE_TERMINATE_ATTEMPTS)
+
+    def __configure_instance_types(self, user_data):
+        cloud_name = user_data.get('cloud_name', 'amazon').lower()
+        if "instance_types" in user_data:
+            ## Manually specified instance types
+            user_data_instance_types = user_data["instance_types"]
+            instance_types = [(type_def["key"], type_def["name"]) for type_def in user_data_instance_types]
+        elif cloud_name == "nectar":
+            instance_types = [
+                ("", "Same as Master"),
+                ("m1.small", "Small"),
+                ("m1.medium", "Medium"),
+                ("m1.xlarge", "Extra Large"),
+                ("m1.xxlarge", "Extra Extra Large")
+            ]
+        elif cloud_name == "hpcloud":
+            instance_types = [
+                ("", "Same as Master"),
+                ("standard.xsmall", "Extra Small"),
+                ("standard.small", "Small"),
+                ("standard.medium", "Medium"),
+                ("standard.large", "Large"),
+                ("standard.xlarge", "Extra Large"),
+                ("standard.2xlarge", "Extra Extra Large"),
+            ]
+        elif cloud_name == "ict-tas":
+            instance_types = [
+                ("", "Same as Master"),
+                ("m1.small", "Small"),
+                ("m1.medium", "Medium"),
+                ("m1.xlarge", "Extra Large"),
+                ("m1.xxlarge", "Extra Extra Large"),
+            ]
+        else:
+            instance_types = DEFAULT_INSTANCE_TYPES
+        self.instance_types = instance_types
 
 
 def get_database_engine_options(kwargs):

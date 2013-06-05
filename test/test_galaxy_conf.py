@@ -68,7 +68,7 @@ def test_populate_galaxy_paths():
     assert main_options["genome_data_path"] == \
         join(TEST_INDICES_DIR, "genomes")
     assert main_options["len_file_path"] == \
-        join(TEST_INDICES_DIR, "len")
+        join(TEST_DATA_DIR, "configuration_data", "len")
     assert main_options["tool_dependency_dir"] == \
         join(TEST_TOOLS_DIR, "tools")
     assert main_options["file_path"] == \
@@ -100,7 +100,7 @@ class TestOptionManager(object):
         self.app = app
         self.options = {}
 
-    def set_properties(self, properties, section="app:main", description=None):
+    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         if not section in self.options:
             self.options[section] = {}
         self.options[section].update(properties)
