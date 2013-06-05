@@ -179,7 +179,7 @@ def _reconfigure_nginx(ud, nginx_conf_path):
         open(nginx_conf_path, 'w').write(new_nginx_conf)
 
 def _fix_nginx_upload(ud):
-    '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ami-da58aab3\n    '
+    '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
     if os.path.exists('/opt/galaxy/pkg/nginx/conf/nginx.conf'):
         nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
     elif os.path.exists('/usr/nginx/conf/nginx.conf'):
@@ -191,8 +191,11 @@ def _fix_nginx_upload(ud):
     nginx_conf_path = ud.get('nginx_conf_path', nginx_conf_path)
     log.info('Attempting to configure max_client_body_size in {0}'.format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
-        cmd = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
-        if (not _run(log, cmd)):
+        bkup_nginx_conf_path = '/tmp/cm/original_nginx.conf'
+        _run(log, 'cp {0} {1}'.format(nginx_conf_path, bkup_nginx_conf_path))
+        _run(log, 'uniq {0} > {1}'.format(bkup_nginx_conf_path, nginx_conf_path))
+        already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
+        if (not _run(log, already_defined)):
             sedargs = ("'\n/listen/ a        client_max_body_size 2048m;\n' -i %s" % nginx_conf_path)
             _run(log, ('sudo sed %s' % sedargs))
             _run(log, 'sudo kill -HUP `cat /opt/galaxy/pkg/nginx/logs/nginx.pid`')
