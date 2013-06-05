@@ -22,7 +22,7 @@ function update_messages(data) {
             }
             $('<li/>')
             .addClass('message')
-            .text(txt)
+            .html(txt)
             .appendTo(mList);
         });
         $('#messages').show();
