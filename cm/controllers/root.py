@@ -25,12 +25,9 @@ class CM(BaseController):
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
             cluster_name = self.app.ud['cluster_name']
+            instance_types = self.app.config.instance_types
             CM_url = self.get_CM_url(trans)
             system_message = None
-            cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
-            # Unify all Amazon regions and/or name variations to a single one
-            if 'amazon' in cloud_name:
-                cloud_name = 'amazon'
             if os.path.exists(paths.SYSTEM_MESSAGES_FILE):
                 # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
@@ -45,7 +42,7 @@ class CM(BaseController):
                                         image_config_support=BunchToo(self.app.config.ic),
                                         CM_url=CM_url,
                                         cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                        cloud_name=cloud_name,
+                                        instance_types=instance_types,
                                         system_message=system_message,
                                         default_data_size=self.app.manager.get_default_data_size())
 
@@ -122,9 +119,17 @@ class CM(BaseController):
         return trans.fill_template('cm_combined.mako')
 
     @expose
+    def instance_feed(self, trans):
+        return trans.fill_template('instance_feed.mako', instances=self.app.manager.worker_instances)
+
+    @expose
     def instance_feed_json(self, trans):
         dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
+
+    @expose
+    def minibar(self, trans):
+        return trans.fill_template('mini_control.mako')
 
     @expose
     def cluster_type(self, trans):
@@ -166,34 +171,16 @@ class CM(BaseController):
         return "Initiated persisting of '{0}' file system".format(fs_name)
 
     @expose
-    def add_application(self, trans, **kwargs):
-        """
-        Add a new app recognized by cloudman
-        """
-        app_to_process = json.loads(trans.request.body)
-        app_name = app_to_process.get('svc_name', None)
-
-        if (app_name == "Galaxy" or app_name == "Postgres"):
-            if self.app.manager.get_services(svc_name=app_name):
-                return "This service has already been added previously. Remove the existing service first."
-            else:
-                self.app.manager.add_service_by_name(app_name)
-                return "Added new service."
-        else:
-            return "Attempt to add unsupported service: %s" % app_name
-
-    @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
             new_disk_size='', new_vol_fs_name='',
             vol_id=None, vol_fs_name='',
             snap_id=None, snap_fs_name='',
             bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='',
-            static_path_fs_name='', static_path_fs_path='', **kwargs):
+            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
-        There are six options from which a new file system can be added (the
+        There are four options from which a new file system can be added (the
         value in parentheses is the expected value of ``fs_kind`` argument for
         the corresponding option)::
             * (AWS S3) bucket (bucket)
@@ -201,7 +188,6 @@ class CM(BaseController):
             * Existing snapshot (snapshot)
             * New volume (new_volume)
             * External NFS server (nfs)
-            * A static path to be mounted (static_path)
 
         The ``dot`` parameter, if set to ``True``, will mark
         the new file system to be **deleted on termination**. The ``persist``
@@ -252,65 +238,13 @@ class CM(BaseController):
             self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
                 vol_size=new_disk_size, persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
-            log.debug("Adding a new '{0}' file system: nfs-based, {1} persistent."
+            log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
                 .format(nfs_fs_name, ('' if persist else ' not')))
             self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name, username=nfs_username,
                 pwd=nfs_pwd, persistent=persist)
-        elif fs_kind == 'static_path':
-            log.debug("Adding a new '{0}' file system: static-path-based, {1} persistent."
-                .format(static_path_fs_name, ('' if persist else ' not')))
-            self.app.manager.add_fs_static_path(static_path_fs_name, static_path_fs_path,
-                persistent=persist)
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
-
-    @expose
-    def reassign_services(self, trans, **kwargs):
-        """
-        Reassign the service fullfilling a particular dependency. Currently only
-        works with filesystems. For example, a filesystem fulfilling the role GALAXY_DATA
-        could be reassigned to a new file system.  If the copy_across parameter is set, the
-        old filesystem will be rsynced with the new one. This is mainly so that users using one type
-        of filesystem (say volumes) can easily migrate to another.
-        """
-        service_to_process = json.loads(trans.request.body)
-        remap_list = self._get_validated_remap_list(service_to_process)
-        if remap_list:
-            log.debug("Reassigning services {0}".format(remap_list))
-            self.app.manager.reassign_dependencies_async(remap_list)
-            return """Service dependency reassignment initiated. This is a time consuming operation, especially if the 'copy over'
-                   option has been selected. The progress of the copy can be monitored by observing the remaining disk space
-                   on the target file system(s) below. At the end of the copy, all dependent services will be shut down and restarted."""
-        else:
-            return "Nothing to remap"
-
-    def _get_validated_remap_list(self, service_to_process):
-        """
-        Validates client provided values against actual server values
-        and find the list of services that really need to be remapped.
-        This is to ensure that the services which are requested for a remap
-        are actually available to be remapped.
-        """
-        if not service_to_process:
-            return None
-        svc_name = service_to_process.get('svc_name', None)
-        svcs = self.app.manager.get_services(svc_name=svc_name)
-        if not svcs:
-            return None
-
-        remap_list = []
-        svc_to_remap = svcs[0]
-        for dep in svc_to_remap.dependencies:
-            for req in service_to_process['requirements']:
-                new_service = self.app.manager.get_services(svc_name=req['assigned_service'])
-                if new_service:
-                    # roles must match but assigned service must be different to launch a remapping
-                    if dep.service_role in ServiceRole.from_string(req['role']) and dep.assigned_service != new_service[0]:
-                        remap_list.append({'role': dep.service_role,
-                                           'service_to_assign': new_service[0],
-                                           'copy_across': bool(req.get('copy_across', False)) })
-        return remap_list
 
     @expose
     def power(self, trans, number_nodes=0, pss=None):
@@ -487,13 +421,23 @@ class CM(BaseController):
                            'status': self.app.manager.get_srvc_status(srvc)})
 
     @expose
-    def get_cloudman_system_status(self, trans):
+    def get_all_services_status(self, trans):
         status_dict = self.app.manager.get_all_services_status()
+        # status_dict['filesystems'] = self.app.manager.get_all_filesystems_status()
         status_dict['galaxy_dns'] = self.get_galaxy_dns(trans)
+        status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
+        status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
+        snap_status = self.app.manager.snapshot_status()
+        status_dict['snapshot'] = {'status' : str(snap_status[0]),
+                                   'progress' : str(snap_status[1])}
+        status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
-        status_dict['cluster_status'] = self.app.manager.get_cluster_status()
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
+
+    @expose
+    def get_all_filesystems(self, trans):
+        return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
     def full_update(self, trans, l_log=0):
@@ -776,6 +720,10 @@ class CM(BaseController):
                                    initial_cluster_type=self.app.manager.initial_cluster_type)
 
     @expose
+    def cluster_status(self, trans):
+        return trans.fill_template("cluster_status.mako", instances=self.app.manager.worker_instances)
+
+    @expose
     def get_user_data(self, trans):
         return json.dumps(self.app.ud)
 
@@ -853,3 +801,16 @@ class CM(BaseController):
     @expose
     def update_users_CM(self, trans):
         return json.dumps({'updated': self.app.manager.update_users_CM()})
+
+    @expose
+    def masthead(self, trans):
+        brand = trans.app.config.get("brand", "")
+        if brand:
+            brand = "<span class='brand'>/%s</span>" % brand
+        CM_url = self.get_CM_url(trans)
+        wiki_url = trans.app.config.get("wiki_url", "http://g2.trac.bx.psu.edu/")
+        bugs_email = trans.app.config.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
+        blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
+        screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
+        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
+

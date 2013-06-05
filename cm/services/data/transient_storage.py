@@ -13,7 +13,6 @@ import commands
 
 from cm.services import service_states
 from cm.services.data import BlockStorage
-from cm.util.nfs_export import NFSExport
 
 import logging
 log = logging.getLogger('cloudman')
@@ -60,7 +59,7 @@ class TransientStorage(BlockStorage):
                 "ubuntu")[2], grp.getgrnam("ubuntu")[2])
             self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
                                              % self.fs.mount_point)
-            if NFSExport.add_nfs_share(self.fs.mount_point):
+            if self.fs.add_nfs_share(self.fs.mount_point):
                 self.status()
                 return True
             else:
@@ -77,7 +76,7 @@ class TransientStorage(BlockStorage):
         """
         log.debug("Removing transient instance storage from {0}".format(
             self.fs.mount_point))
-        NFSExport.remove_nfs_share(self.fs.mount_point)
+        self.fs.remove_nfs_share()
         self.state = service_states.SHUT_DOWN
 
     def status(self):

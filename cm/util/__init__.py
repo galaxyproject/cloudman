@@ -13,6 +13,7 @@ import os
 import sys
 import stat
 import grp
+from datetime import datetime
 
 from cm.util.bunch import Bunch
 
@@ -453,6 +454,14 @@ def umask_fix_perms(path, umask, unmasked_perms, gid=None):
                                                                                                 path,
                                                                                                 current_group,
                                                                                                 e))
+
+
+class Time:
+    """ Time utilities of now that can be instrumented for testing."""
+
+    @classmethod
+    def now(cls):
+        return datetime.utcnow()
 
 if __name__ == '__main__':
     import doctest

@@ -95,7 +95,7 @@ class GalaxyService(ApplicationService):
             # and one or more processes can fail to start because it "failed" to create
             # said directories (because another process created them first). This hack staggers
             # the process starts in an attempt to circumvent this problem.
-            patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 10/\" %s/run.sh" % self.galaxy_home
+            patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 4/\" %s/run.sh" % self.galaxy_home
             misc.run(patch_run_sh_command)
             self.extra_daemon_args = ""
         else:
@@ -325,15 +325,3 @@ class GalaxyService(ApplicationService):
                 os.path.join(nginx_dir, 'sbin', 'nginx'), nginx_config_file))
         else:
             log.warning("Cannot find nginx directory to reload nginx config")
-
-    def get_service_actions(self):
-        """
-        Returns a list of actions that this service supports
-        """
-        svc_list = []
-        svc_list.append({'name': 'Log', 'action_url': 'service_log?service_name=Galaxy'})
-        svc_list.append({'name': 'Stop', 'action_url': 'manage_service?service_name=Galaxy&to_be_started=False'})
-        svc_list.append({'name': 'Start', 'action_url': 'manage_service?service_name=Galaxy'})
-        svc_list.append({'name': 'Restart', 'action_url': 'restart_service?service_name=Galaxy'})
-        svc_list.append({'name': 'Update DB', 'action_url': 'update_galaxy?db_only=True'})
-        return svc_list
