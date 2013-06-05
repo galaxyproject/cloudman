@@ -175,7 +175,7 @@ def _reconfigure_nginx(ud, nginx_conf_path):
 def _fix_nginx_upload(ud):
     """
     Set ``max_client_body_size`` in nginx config. This is necessary for the
-    Galaxy Cloud AMI ami-da58aab3
+    Galaxy Cloud AMI ``ami-da58aab3``.
     """
     # Accommodate different images and let user data override file location
     if os.path.exists('/opt/galaxy/pkg/nginx/conf/nginx.conf'):
@@ -188,12 +188,16 @@ def _fix_nginx_upload(ud):
         # TODO: Search for nginx.conf?
         nginx_conf_path = ''
     nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
-    log.info("Attempting to configure max_client_body_size in {0}".format(
-        nginx_conf_path))
+    log.info("Attempting to configure max_client_body_size in {0}".format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
-        # first check of the directive is already defined
-        cmd = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
-        if not _run(log, cmd):
+        # Make sure any duplicate entries are collapsed into one (otherwise,
+        # nginx won't start)
+        bkup_nginx_conf_path = "/tmp/cm/original_nginx.conf"
+        _run(log, "cp {0} {1}".format(nginx_conf_path, bkup_nginx_conf_path))
+        _run(log, "uniq {0} > {1}".format(bkup_nginx_conf_path, nginx_conf_path))
+        # Check if the directive is already defined
+        already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
+        if not _run(log, already_defined):
             sedargs = """'
 /listen/ a\
         client_max_body_size 2048m;
@@ -377,7 +381,8 @@ def _with_venvburrito(cmd):
     ""
     home_dir = _venvburrito_home_dir()
     vb_path = _venvburrito_path()
-    return "/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'".format(home_dir, vb_path, cmd)
+    return ("/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'"
+        .format(home_dir, vb_path, cmd))
 
 
 def _virtualenv_exists(venv_name='CM'):
@@ -407,7 +412,7 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
     Example return string: ``cd /mnt/cm; sh run.sh --daemon``
     """
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito("workon {0}; cd {1}; sh run.sh {2}" \
+        cmd = _with_venvburrito("workon {0}; cd {1}; sh run.sh {2}"
             .format(cm_venv_name, CM_HOME, action))
     else:
         cmd = "cd {0}; sh run.sh {1}".format(CM_HOME, action)
