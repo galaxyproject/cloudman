@@ -1,3 +1,4 @@
+import os
 import re
 import fileinput
 from cm.util import templates
@@ -65,11 +66,15 @@ class HTCondorService(ApplicationService):
                 }
             log.debug("HTCondor params: {0}".format(str(htcondor_params)))
             condor_template = condor_template.substitute(htcondor_params)
-            with open(paths.P_HTCONDOR_CONFIG_PATH, 'a') as f:
-                print >> f, condor_template
-            misc.run(paths.P_HTCONDOR_HOME + "/condor restart")
-            all_done = True
-            self.state = service_states.RUNNING
+            if os.path.exists(paths.P_HTCONDOR_CONFIG_PATH):
+                with open(paths.P_HTCONDOR_CONFIG_PATH, 'a') as f:
+                    print >> f, condor_template
+                misc.run(paths.P_HTCONDOR_HOME + "/condor restart")
+                all_done = True
+                self.state = service_states.RUNNING
+            else:
+                log.error("HTCondor config file {0} not found!"
+                    .format(paths.P_HTCONDOR_CONFIG_PATH))
         except Exception, e:
             log.debug("Error while configuring HTCondor: {0}".format(e))
             self.state = service_states.ERROR
