@@ -177,8 +177,10 @@ class Migrate1to2:
         self.app.ud['deployment_version'] = 1
 
         if not self._migrate1_prereqs_satisfied():
-            log.warn("Cannot migrate from version 1 to 2. Pre-requisites not satisfied.")
-            return
+            msg = "Cannot migrate from version 1 to 2. Pre-requisites not satisfied!"
+            log.warn(msg)
+            self.app.msgs.warning(msg)
+            return False
 
         log.debug("Migrating from version 1 to 2...")
         log.debug("Migration: Step 1: Upgrading Postgres Database...")
@@ -199,6 +201,7 @@ class Migrate1to2:
         # Restart file system services
         self.app.manager.add_preconfigured_filesystems()
         log.debug("Migration from version 1 to 2 complete!")
+        return True
 
 
 class MigrationService(ApplicationService, Migrate1to2):
