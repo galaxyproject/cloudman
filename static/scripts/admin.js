@@ -34,7 +34,7 @@ function update(repeat_update){
                 update_messages(data.messages);
                 if (data.galaxy_rev !== 'N/A') {
                     // This will always point to galaxy-central but better than nothing?
-                    var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-central/changesets/" +
+                    var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-dist/changesets/" +
                       data.galaxy_rev.split(':')[1] + "' target='_blank'>" +
                       data.galaxy_rev + '</a>';
                 } else {

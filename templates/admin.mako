@@ -66,7 +66,7 @@
                     </div>
                 </span>
                 <form class="generic_form" action="${h.url_for(controller='root', action='update_galaxy')}" method="post">
-                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-central" class="form_el" name="repository" size="45">
+                    <input type="text" value="http://bitbucket.org/galaxy/galaxy-dist" class="form_el" name="repository" size="45">
                     <input type="submit" value="Update Galaxy">
                 </form>
             </li>
