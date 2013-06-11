@@ -152,10 +152,7 @@ div.form-row-input > input{max-width:300px;}
     color:#707070;
     padding:20px;
     border:2px solid #ccc;
-    -moz-border-radius: 20px;
-    -webkit-border-radius:20px;
-    -khtml-border-radius:20px;
-    border-radius: 20px;
+    border-radius: 10px;
     -moz-box-shadow: 0 1px 5px #333;
     -webkit-box-shadow: 0 1px 5px #333;
     z-index:101;
@@ -367,6 +364,14 @@ div.form-row-input > input{max-width:300px;}
 }
 
 #volume_config{
+    width: 500px;
+    margin-left: -250px;
+    left: 50%;
+    z-index: 101;
+    position: absolute;
+}
+
+#user_data{
     width: 500px;
     margin-left: -250px;
     left: 50%;
