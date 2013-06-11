@@ -152,7 +152,7 @@ class PostgresService(ApplicationService):
             log.info("Stopping PostgreSQL...")
             self.state = service_states.SHUTTING_DOWN
             if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"'
-                % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
+               % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
                 self.state = service_states.SHUT_DOWN
             else:
                 self.state = service_states.ERROR
