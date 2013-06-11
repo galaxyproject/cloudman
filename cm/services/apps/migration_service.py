@@ -182,7 +182,11 @@ class Migrate1to2:
             self.app.msgs.warning(msg)
             return False
 
-        log.debug("Migrating from version 1 to 2...")
+        msg = ("Migrating this deployment from version 1 to 2. Note that this "
+               "may take a while. Please wait until the process completes before "
+               "starting to use any services or features.")
+        log.info(msg)
+        self.app.msgs.info(msg)
         log.debug("Migration: Step 1: Upgrading Postgres Database...")
         self._upgrade_database()
         log.debug("Migration: Step 2: Upgrading to new file system structure...")
@@ -196,11 +200,14 @@ class Migrate1to2:
         # TODO: Is a clean necessary?
         for svc in fs_svcs:
             svc.remove(synchronous=True)
-
         log.debug("Migration: Step 6: Migration: Restarting all file system services...")
         # Restart file system services
         self.app.manager.add_preconfigured_filesystems()
-        log.debug("Migration from version 1 to 2 complete!")
+        # Migration 1 to 2 complete
+        msg = ("Migration from version 1 to 2 complete! Please continue to wait "
+               "until all the services have completed initializing.")
+        log.info(msg)
+        self.app.msgs.info(msg)
         return True
 
 
