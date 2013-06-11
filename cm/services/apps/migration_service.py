@@ -26,7 +26,7 @@ class Migrate1to2:
         new_data_dir = self.app.path_resolver.psql_dir
         if old_data_dir == new_data_dir:
             log.debug("Nothing to upgrade in database - paths are the same: %s" % old_data_dir)
-            return
+            return True
 
         if os.path.exists(old_data_dir):
             with open(os.path.join(old_data_dir, "PG_VERSION")) as in_handle:
@@ -56,15 +56,17 @@ class Migrate1to2:
                 self._as_postgres("{0}/pg_ctl -w -l {1} -D {2} stop".
                                   format(self.app.path_resolver.pg_home, log_loc, new_data_dir),
                                   cwd=new_data_dir)
-                self._as_postgres("{0}/pg_upgrade -d {1} -D {2} -p 5840 -P {3} -b /usr/lib/postgresql/8.4/bin"
+                # Assume that if this step works, all the previous ones worked
+                ok = self._as_postgres("{0}/pg_upgrade -d {1} -D {2} -p 5840 -P {3} -b /usr/lib/postgresql/8.4/bin"
                                   " -B {0} -l {4}".
                                   format(self.app.path_resolver.pg_home, backup_dir,
                                          new_data_dir, paths.C_PSQL_PORT, log_loc),
                                   cwd=new_data_dir)
                 misc.run("apt-get -y --force-yes remove postgresql-8.4 postgresql-client-8.4")
+        return ok
 
     def _upgrade_database(self):
-        self._upgrade_postgres_8_to_9()
+        return self._upgrade_postgres_8_to_9()
 
     def _as_galaxy(self, cmd):
         return misc.run('%s - galaxy -c "%s"' % (paths.P_SU, cmd))
@@ -74,23 +76,35 @@ class Migrate1to2:
         fs_galaxy_tools = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_TOOLS)[0]
         source_path = os.path.join(fs_galaxy_tools.mount_point, "tools")
         target_path = os.path.join(fs_galaxy_data.mount_point, "tools")
-        self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
+        ok_tools = self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
 
         source_path = os.path.join(fs_galaxy_tools.mount_point, "galaxy-central")
         target_path = os.path.join(fs_galaxy_data.mount_point, "galaxy-app")
         if (os.path.exists(target_path)):
-            log.debug("Target path galaxy-app already exists! Skipping...")
+            log.debug("Target path for galaxy-app ({0}) already exists! Skipping..."
+                .format(target_path))
+            ok_galaxy = True
         else:
-            self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
+            ok_galaxy = self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
+        if (ok_tools and ok_galaxy):
+            return True
+        else:
+            log.error("Problems copying data to the new file system; look at the log.")
+            return False
 
     def _create_missing_dirs(self):
         # TODO: on the file system missing/renamig dirs: galaxyData/'files' will
         # need to be renamed to galaxy/data'
-        pass
+        return True
 
     def _upgrade_fs_structure(self):
-        self._copy_to_new_fs()
-        self._create_missing_dirs()
+        ok_fs = self._copy_to_new_fs()
+        ok_dirs = self._create_missing_dirs()
+        if (ok_fs and ok_dirs):
+            return True
+        else:
+            log.error("Problems upgrading file system structure; look at the log.")
+            return False
 
     def _adjust_stored_paths(self):
         # Adjust galaxy mercurial location for future updates
@@ -100,11 +114,16 @@ class Migrate1to2:
             self._as_galaxy("sed -i 's/central/dist/' %s" % os.path.join(galaxy_loc, '.hg', 'hgrc'))
         # Adjust tools location in galaxy
         galaxy_ini_loc = os.path.join(galaxy_loc, 'universe_wsgi.ini')
-        self._as_galaxy("sed -i 's|tool_dependency_dir = /mnt/galaxyTools/tools|tool_dependency_dir = {0}|' {1}".
+        ok_tools = self._as_galaxy("sed -i 's|tool_dependency_dir = /mnt/galaxyTools/tools|tool_dependency_dir = {0}|' {1}".
                         format(os.path.join(galaxy_data_loc, 'tools'), galaxy_ini_loc))
 
-        self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
+        ok_db = self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
                         format(paths.C_PSQL_PORT, galaxy_ini_loc))
+        if (ok_tools and ok_db):
+            return True
+        else:
+            log.error("Problems updating Galaxy tools or database location; look at the log.")
+            return False
 
     def _update_user_data(self):
         if 'filesystems' in self.app.ud:
@@ -131,6 +150,7 @@ class Migrate1to2:
         self.app.ud['deployment_version'] = 2
         self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset
                                               # to default. Discuss implications
+        return True
 
     def _migrate1_prereqs_satisfied(self):
         """
@@ -188,27 +208,31 @@ class Migrate1to2:
         log.info(msg)
         self.app.msgs.info(msg)
         log.debug("Migration: Step 1: Upgrading Postgres Database...")
-        self._upgrade_database()
-        log.debug("Migration: Step 2: Upgrading to new file system structure...")
-        self._upgrade_fs_structure()
-        log.debug("Migration: Step 3: Adjusting paths in configuration files...")
-        self._adjust_stored_paths()
-        log.debug("Migration: Step 4: Updating user data...")
-        self._update_user_data()
-        log.debug("Migration: Step 5: Shutting down all file system services...")
-        fs_svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
-        # TODO: Is a clean necessary?
-        for svc in fs_svcs:
-            svc.remove(synchronous=True)
-        log.debug("Migration: Step 6: Migration: Restarting all file system services...")
-        # Restart file system services
-        self.app.manager.add_preconfigured_filesystems()
+        ok = self._upgrade_database()
+        if ok:
+            log.debug("Migration: Step 2: Upgrading to new file system structure...")
+            ok = self._upgrade_fs_structure()
+        if ok:
+            log.debug("Migration: Step 3: Adjusting paths in configuration files...")
+            ok = self._adjust_stored_paths()
+        if ok:
+            log.debug("Migration: Step 4: Updating user data...")
+            ok = self._update_user_data()
+        if ok:
+            log.debug("Migration: Step 5: Shutting down all file system services...")
+            fs_svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
+            # TODO: Is a clean necessary?
+            for svc in fs_svcs:
+                svc.remove(synchronous=True)
+            log.debug("Migration: Step 6: Restarting all file system services...")
+            ok = self.app.manager.add_preconfigured_filesystems()
         # Migration 1 to 2 complete
-        msg = ("Migration from version 1 to 2 complete! Please continue to wait "
-               "until all the services have completed initializing.")
-        log.info(msg)
-        self.app.msgs.info(msg)
-        return True
+        if ok:
+            msg = ("Migration from version 1 to 2 complete! Please continue to wait "
+                   "until all the services have completed initializing.")
+            log.info(msg)
+            self.app.msgs.info(msg)
+        return ok
 
 
 class MigrationService(ApplicationService, Migrate1to2):
@@ -239,7 +263,11 @@ class MigrationService(ApplicationService, Migrate1to2):
         if self._is_migration_needed():
             self.state = service_states.RUNNING
             try:
-                self._start()
+                if not self._apply():
+                    msg = "Error running the migration service! Look at the log for clues."
+                    log.error(msg)
+                    self.app.msgs.error(msg)
+                    self.state = service_states.ERROR
             except Exception, e:
                 log.error("Error starting migration service: {0}".format(e))
                 self.state = service_states.ERROR
@@ -249,19 +277,21 @@ class MigrationService(ApplicationService, Migrate1to2):
             log.debug("No migration required. Service complete.")
             self.state = service_states.COMPLETED
 
-    def _start(self):
+    def _apply(self):
         """
-        Do the actual work
+        Apply the migration; do the actual work.
         """
         log.debug("Migration is required. Starting...")
-        self._perform_migration()
+        return self._perform_migration()
 
     def _perform_migration(self):
         """
         Based on the version number, carry out appropriate migration actions
         """
         if self._get_old_version() <= 1:
-            self.migrate_1to2()
+            return self.migrate_1to2()
+        # No migration necessary so all is good
+        return True
 
     def _is_migration_needed(self):
         return self._get_old_version() < self._get_current_version()
