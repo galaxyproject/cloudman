@@ -1187,7 +1187,9 @@ class ConsoleManager(BaseConsoleManager):
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
-        log.info("Initializing '%s' cluster type." % cluster_type)
+        msg = "Initializing '%s' cluster type. Please wait..." % cluster_type
+        log.info(msg)
+        self.app.msgs.info(msg)
         if cluster_type == 'Galaxy':
             # Turn those data sources into file systems
             if self.snaps:
