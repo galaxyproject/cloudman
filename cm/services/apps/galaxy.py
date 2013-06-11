@@ -210,14 +210,14 @@ class GalaxyService(ApplicationService):
                 log.debug("Galaxy already running.")
         else:
             log.info("Shutting down Galaxy...")
-            stop_command = self.galaxy_run_command(
-                "%s --stop-daemon" % self.extra_daemon_args)
+            self.state = service_states.SHUTTING_DOWN
+            stop_command = self.galaxy_run_command("%s --stop-daemon" % self.extra_daemon_args)
             if misc.run(stop_command):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 # Move all log files
-                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow().strftime(
-                    '%H_%M'), shell=True)
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'"
+                    % datetime.utcnow().strftime('%H_%M'), shell=True)
 
     def _multiple_processes(self):
         return self.app.ud.get("configure_multiple_galaxy_processes", False)
