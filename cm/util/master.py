@@ -178,7 +178,7 @@ class ConsoleManager(BaseConsoleManager):
         fsarr = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for fs in fsarr:
             for vol in fs.volumes:
-                if vol.snapshot_status != None:
+                if vol.snapshot_status is not None:
                     return (vol.snapshot_status, vol.snapshot_progress)
             # No volume is being snapshoted; check if waiting to 'grow' one
             if fs.grow:
@@ -187,6 +187,7 @@ class ConsoleManager(BaseConsoleManager):
             return ("configuring", None)
         return (None, None)
 
+    @TestFlag([])
     def _load_snapshot_data(self):
         """
         Retrieve and return information about the default filesystems.
@@ -610,7 +611,7 @@ class ConsoleManager(BaseConsoleManager):
                 "persistent": "No"},
                {"size_used": "33M", "status": "Running", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
-                "err_msg": None, "snapshot_progress": None, "from_snap": None,
+                "err_msg": None, "snapshot_progress": None, "from_snap": "snap-galaxyFS",
                 "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
                 "DoT": "No", "size": "1014M", "persistent": "Yes"},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
