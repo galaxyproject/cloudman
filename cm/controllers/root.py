@@ -484,7 +484,7 @@ class CM(BaseController):
             return "Cannot find %s service." % service_name
 
     @expose
-    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-central", db_only=False):
+    def update_galaxy(self, trans, repository="http://bitbucket.org/galaxy/galaxy-dist", db_only=False):
         if db_only == 'True':
             db_only = True
             log.debug("Updating Galaxy database...")
@@ -813,4 +813,3 @@ class CM(BaseController):
         blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
         screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
         return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
-
