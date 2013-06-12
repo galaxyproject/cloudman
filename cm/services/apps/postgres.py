@@ -73,7 +73,8 @@ class PostgresService(ApplicationService):
                 # Make Galaxy database directory
                 if os.path.exists(self.app.path_resolver.galaxy_data) and not os.path.exists(psql_data_dir):
                     cont = misc.run('mkdir -p %s' % psql_data_dir,
-                                    "Error creating Galaxy database cluster dir", "Successfully created Galaxy database cluster dir")
+                                    "Error creating Galaxy database cluster dir",
+                                    "Successfully created Galaxy database cluster dir")
                 else:
                     log.error("'%s' directory doesn't exist yet; will configure PostgreSQL later." %
                               self.app.path_resolver.galaxy_data)
@@ -83,13 +84,16 @@ class PostgresService(ApplicationService):
                     cont = misc.run(
                         '%s -R postgres:postgres %s' % (
                             paths.P_CHOWN, psql_data_dir),
-                        "Error changing ownership of just created directory", "Successfully changed ownership of just created directory")
+                        "Error changing ownership of just created directory",
+                        "Successfully changed ownership of just created directory")
                 # Initialize/configure database cluster
                 if cont:
                     log.debug(
                         "Initializing PostgreSQL database for Galaxy...")
                     cont = misc.run('%s - postgres -c "%s/initdb -D %s"' % (
-                        paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir), "Error initializing Galaxy database", "Successfully initialized Galaxy database")
+                        paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir),
+                        "Error initializing Galaxy database.",
+                        "Successfully initialized Galaxy database.")
                     if cont:
                         misc.replace_string(
                             '%s/postgresql.conf' % psql_data_dir,
@@ -100,9 +104,14 @@ class PostgresService(ApplicationService):
                 # created
                 if cont:
                     log.debug(
-                        "Starting PostgreSQL as part of the initial setup...")
-                    cont = misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o \\\"-p %s\\\" start"' % (
-                        paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port), "Error starting postgres server as part of the initial configuration", "Successfully started postgres server as part of the initial configuration.")
+                        "Starting PostgreSQL on port {0} as part of the initial setup..."
+                        .format(self.psql_port))
+                    cmd = ('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o \\\"-p %s\\\" start"'
+                        % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port))
+                    cont = misc.run(cmd,
+                        "Error starting postgres server as part of the initial configuration",
+                        "Successfully started Postgres on port {0} as part of the initial configuration."
+                        .format(self.psql_port))
                 # Create role for galaxy user
                 if cont:
                     log.debug(
@@ -112,13 +121,15 @@ class PostgresService(ApplicationService):
                     cont = misc.run(
                         '%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxy LOGIN CREATEDB\\\" "' % (
                             paths.P_SU, self.app.path_resolver.pg_home, self.psql_port),
-                        "Error creating role for 'galaxy' user", "Successfully created role for 'galaxy' user")
+                        "Error creating role for 'galaxy' user",
+                        "Successfully created role for 'galaxy' user")
                 # Create database for Galaxy, as galaxy user
                 if cont:
                     log.debug(
                         "Creating PostgreSQL database as 'galaxy' user...")
                     cont = misc.run('%s - galaxy -c "%s/createdb -p %s galaxy"' % (
-                        paths.P_SU, self.app.path_resolver.pg_home, self.psql_port), "Error creating 'galaxy' database", "Successfully created 'galaxy' database")
+                        paths.P_SU, self.app.path_resolver.pg_home, self.psql_port),
+                        "Error creating 'galaxy' database", "Successfully created 'galaxy' database")
                 # Now create role and permissons for galaxyftp user on the
                 # created 'galaxy' database
                 if cont:
@@ -127,7 +138,8 @@ class PostgresService(ApplicationService):
                     cont = misc.run(
                         '%s - postgres -c "%s/psql -p %s -c \\\"CREATE ROLE galaxyftp LOGIN PASSWORD \'fu5yOj2sn\'\\\" "' % (
                             paths.P_SU, self.app.path_resolver.pg_home, self.psql_port),
-                        "Error creating role for 'galaxyftp' user", "Successfully created role for 'galaxyftp' user")
+                        "Error creating role for 'galaxyftp' user",
+                        "Successfully created role for 'galaxyftp' user")
                 else:
                     log.error("Setting up Postgres did not go smoothly.")
                     self.state = service_states.ERROR
@@ -139,17 +151,15 @@ class PostgresService(ApplicationService):
                 # Start PostgreSQL database
                 log.debug("Starting PostgreSQL...")
                 if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' %
-                           (paths.P_SU,
-                            self.app.path_resolver.pg_home, psql_data_dir, self.psql_port),
-                            "Error starting PostgreSQL server in %s" % psql_data_dir,
-                            "Successfully started PostgreSQL server in %s" % psql_data_dir):
+                           (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
                     self.status()
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (
                     to_be_started, self.state))
         elif not to_be_started:
             # Stop PostgreSQL database
-            log.info("Stopping PostgreSQL...")
+            log.info("Stopping PostgreSQL from {0} on port {1}...".format(
+                psql_data_dir, self.psql_port))
             self.state = service_states.SHUTTING_DOWN
             if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -o\\\"-p %s\\\" stop"'
                % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
@@ -174,11 +184,11 @@ class PostgresService(ApplicationService):
             # log.debug("\tPostgreSQL daemon running. Trying to connect and
             # select tables.")
             dbs = commands.getoutput(
-                '%s - postgres -c "%s/psql -p %s -c \\\"SELECT datname FROM PG_DATABASE;\\\" "' % (paths.P_SU,
-                                                                                                   self.app.path_resolver.pg_home, self.psql_port))
+                '%s - postgres -c "%s/psql -p %s -c \\\"SELECT datname FROM PG_DATABASE;\\\" "'
+                % (paths.P_SU, self.app.path_resolver.pg_home, self.psql_port))
             if dbs.find('galaxy') > -1:
-                # log.debug("\tPostgreSQL daemon OK, 'galaxy' database
-                # exists.")
+                # log.debug("\tPostgreSQL daemon on port {0} OK, 'galaxy' database exists."
+                #     .format(self.psql_port))
                 return True
             else:
                 log.warning(
