@@ -105,8 +105,7 @@ class Volume(BlockStorage):
                 log.error("Trouble getting volume reference for volume {0}: {1}"
                           .format(vol_id, e))
             if not vols:
-                log.error(
-                    'Attempting to connect to a non-existent volume {0}'.format(vol_id))
+                log.error('Attempting to connect to a non-existent volume {0}'.format(vol_id))
                 self.volume = None
                 self.device = None
             vol = vols[0]
@@ -114,7 +113,8 @@ class Volume(BlockStorage):
             vol = vol_id
         log.debug("Updating current volume reference '%s' to a new one '%s'" % (
             self.volume_id, vol.id))
-        if vol.attachment_state() == 'attached' and vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id():
+        if (vol.attachment_state() == 'attached' and
+           vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id()):
             log.error('Attempting to connect to a volume ({0} that is already attached "\
                 "to a different instance ({1}'.format(vol.volume_id, vol.attach_data.instance_id))
             self.volume = None
@@ -125,32 +125,33 @@ class Volume(BlockStorage):
             if run('ls {0}'.format(attach_device), quiet=True):
                 self.device = attach_device
             else:
-                # Attach device is different than the system device so figure
-                # it out
+                # Attach device is different than the system device so figure it out
                 log.debug("Volume {0} (attached as {1}) is visible as something else???"
                           .format(vol.id, attach_device))
-                try:
-                    device_id = attach_device[-1]  # Letter-only based device IDs (e.g., /dev/xvdc)
-                    if (str(device_id).isdigit()):
-                        device_id = attach_device[-2:]  # Number-based device IDs (e.g., /dev/sdg1)
-                    attach_device = '/dev/xvd' + device_id
-                    log.debug(
-                        "Trying visible device {0}...".format(attach_device))
-                except Exception, e:
-                    log.error("Attach device's ID ({0}) too short? {1}".format(
-                        attach_device, e))
-                if run('ls {0}'.format(attach_device), quiet=True):
-                    self.device = attach_device
+                if attach_device:
+                    try:
+                        device_id = attach_device[-1]  # Letter-only based device IDs (e.g., /dev/xvdc)
+                        if (str(device_id).isdigit()):
+                            device_id = attach_device[-2:]  # Number-based device IDs (e.g., /dev/sdg1)
+                        attach_device = '/dev/xvd' + device_id
+                        log.debug("Trying visible device {0}...".format(attach_device))
+                    except Exception, e:
+                        log.error("Attach device's ID ({0}) too short? {1}".format(
+                            attach_device, e))
+                    if run('ls {0}'.format(attach_device), quiet=True):
+                        self.device = attach_device
+                    else:
+                        log.error("Problems discovering volume {0} attach device {0} vs. system device ?"
+                                  .format(vol.id, attach_device))
+                        self.device = None
                 else:
-                    log.error("Problems discovering volume {0} attach device {0} vs. system device ?"
-                              .format(vol.id, attach_device))
-                    self.device = None
+                    log.debug("No attach_device candidate for volume {0}".format(vol.id))
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
             if self.from_snapshot_id == '':
-                log.debug("Setting volume {0}'s ({1}) from_snapshot_id to {2}"
-                    .format(self.volume_id, self.fs.get_full_name(), self.from_snapshot_id))
                 self.from_snapshot_id = None
+            log.debug("For volume {0} ({1}) set from_snapshot_id to {2}"
+                .format(self.volume_id, self.fs.get_full_name(), self.from_snapshot_id))
 
     @property
     def volume_id(self):
