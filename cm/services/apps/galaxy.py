@@ -127,7 +127,8 @@ class GalaxyService(ApplicationService):
                                    'tool_conf.xml',
                                    'tool_data_table_conf.xml',
                                    'shed_tool_conf.xml',
-                                   'datatypes_conf.xml']:
+                                   'datatypes_conf.xml',
+                                   'shed_tool_data_table_conf.xml']:
                         f_path = os.path.join(self.galaxy_home, f_name)
                         if not os.path.exists(f_path):
                             if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
