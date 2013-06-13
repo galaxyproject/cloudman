@@ -151,14 +151,15 @@ class GalaxyService(ApplicationService):
                 # Make sure the temporary job_working_directory exists on user
                 # data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
-                    os.makedirs('%s/tmp/job_working_directory/' %
-                                self.app.path_resolver.galaxy_data)
-                attempt_chown_galaxy(
-                    '%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
+                    os.makedirs('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
+                # Make sure the default shed_tools directory exists
+                if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
+                    os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
                 # Setup environment for the FTP server and start it
                 if not os.path.exists('%s/tmp/ftp' % self.app.path_resolver.galaxy_data):
-                    os.makedirs(
-                        '%s/tmp/ftp' % self.app.path_resolver.galaxy_data)
+                    os.makedirs('%s/tmp/ftp' % self.app.path_resolver.galaxy_data)
                 misc.run('/etc/init.d/proftpd start')
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE
                 # DATA TABLES

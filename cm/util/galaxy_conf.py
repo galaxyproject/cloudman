@@ -143,6 +143,9 @@ def populate_galaxy_paths(option_manager):
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
     temp_dir = join(path_resolver.galaxy_data, "tmp")
     properties["new_file_path"] = temp_dir
+    # This is something a user may change so this is not an ideal solution
+    # but a relation to the required files is necessary so here it is.
+    properties['tool_config_file'] = "tool_conf.xml,shed_tool_conf.xml"
     properties["job_working_directory"] = \
         join(temp_dir, "job_working_directory")
     properties["cluster_files_directory"] = \
