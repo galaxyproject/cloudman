@@ -833,13 +833,12 @@ class ConsoleManager(BaseConsoleManager):
         return attached_volumes
 
     @TestFlag(None)
-    def shutdown(
-        self, sd_galaxy=True, sd_sge=True, sd_postgres=True, sd_filesystems=True,
-        sd_instances=True, sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
-            rebooting=False):
+    def shutdown(self, sd_apps=True, sd_filesystems=True, sd_instances=True,
+        sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
+        rebooting=False):
         """
-        Shut down this cluster. This means shutting down all services, optionally,
-        deleting the cluster.
+        Shut down this cluster. This means shutting down all services (dependent
+        on method arguments) and optionally, deleting the cluster.
 
         .. seealso:: `~cm.util.master.delete_cluster`
         """
@@ -849,16 +848,21 @@ class ConsoleManager(BaseConsoleManager):
         # Services need to be shut down in particular order
         if sd_autoscaling:
             self.stop_autoscaling()
-        full_svc_list = self.services[:]  # A copy to ensure consistency
-        for svc in full_svc_list:
-            log.debug("Initiating removal of service {0}".format(svc.name))
-            svc.remove()
         if sd_instances:
             self.stop_worker_instances()
         if sd_spot_requests:
             for wi in self.worker_instances:
                 if wi.is_spot() and not wi.spot_was_filled():
                     wi.terminate()
+        # full_svc_list = self.services[:]  # A copy to ensure consistency
+        if sd_apps:
+            for svc in self.get_services(svc_type=ServiceType.APPLICATION):
+                log.debug("Initiating removal of service {0}".format(svc.name))
+                svc.remove()
+        if sd_filesystems:
+            for svc in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
+                log.debug("Initiating removal of file system service {0}".format(svc.name))
+                svc.remove()
         # Wait for all the services to shut down before declaring the cluster shut down
         # (but don't wait indefinitely)
         # This is required becasue with the file systems being removed in parallel via
