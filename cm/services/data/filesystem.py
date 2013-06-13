@@ -333,7 +333,8 @@ class Filesystem(DataService):
                     self.app.manager.console_monitor.store_cluster_config()
         else:
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system "
-                        "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(), device, self.name, vols))
+                        "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(),
+                        device, self.name, vols))
 
     def add_nfs_share(self, mount_point=None, permissions='rw'):
         """
@@ -464,20 +465,24 @@ class Filesystem(DataService):
         """
         Update local size fields to reflect the current file system usage.
         The optional ``cmd`` can be specified if the process of obtaining the
-        file system size differe from the *standard* one. If provided, the output
-        from this command must have the following format: *total used percentage*
-        For example: ``335G 199M 1%``
+        file system size differs from the *standard* one. If provided, the output
+        from this command must have the following format: *total used percentage*,
+        in bytes. For example: ``11524096   2314808   21%``
         """
         if not cmd:
-            cmd = "df | grep %s$  | awk '{print $2, $3, $5}'" % self.name
-        # Get size & usage
+            # Get the size and usage status for this file system in bytes
+            cmd = "df --block-size 1 | grep %s$  | awk '{print $2, $3, $5}'" % self.name
+        # Extract size & usage
         try:
             disk_usage = commands.getoutput(cmd)
-            disk_usage = disk_usage.split(' ')
-            if len(disk_usage) == 3:
-                self.size = disk_usage[0]  # or should this the device size?
-                self.size_used = disk_usage[1]
-                self.size_pct = disk_usage[2]
+            if disk_usage:
+                disk_usage = disk_usage.split(' ')
+                if len(disk_usage) == 3:
+                    self.size = disk_usage[0]
+                    self.size_used = disk_usage[1]
+                    self.size_pct = disk_usage[2]
+            else:
+                log.warning("Empty disk usage for FS {0}".format(self.name))
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))

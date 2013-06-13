@@ -864,27 +864,28 @@ def nice_size(size):
     >>> nice_size(100000000)
     '95.4 MB'
     """
-    words = [ 'bytes', 'KB', 'MB', 'GB', 'TB' ]
+    words = ['bytes', 'KB', 'MB', 'GB', 'TB']
     try:
-        size = float( size )
+        size = float(size)
     except:
-        return '??? bytes'
+        return 'N/A'
     for ind, word in enumerate(words):
-        step  = 1024 ** (ind + 1)
+        step = 1024 ** (ind + 1)
         if step > size:
             size = size / float(1024 ** ind)
-            if word == 'bytes': # No decimals for bytes
+            if word == 'bytes':  # No decimals for bytes
                 return "%d bytes" % size
             return "%.1f %s" % (size, word)
-    return '??? bytes'
+    return 'N/A'
 
-def size_to_bytes( size ):
+
+def size_to_bytes(size):
     """
     Returns a number of bytes if given a reasonably formatted string with the size
     """
     # Assume input in bytes if we can convert directly to an int
     try:
-        return int( size )
+        return int(size)
     except:
         pass
     # Otherwise it must have non-numeric characters

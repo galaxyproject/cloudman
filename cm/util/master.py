@@ -876,9 +876,8 @@ class ConsoleManager(BaseConsoleManager):
             if num_off == len(self.services):
                 log.debug("All services shut down")
                 break
-            elif rebooting == True:
-                log.debug(
-                    "Not waiting for all the services to shut down because we're just rebooting.")
+            elif rebooting:
+                log.debug("Not waiting for all the services to shut down because we're just rebooting.")
                 break
             sleep_time = 6
             time.sleep(sleep_time)
@@ -888,7 +887,7 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
-            "associated with this cluster) from the %s cloud console." \
+            "associated with this cluster) from the %s cloud console."
             % (Time.now(), (Time.now() - self.startup_time), self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
@@ -897,10 +896,11 @@ class ConsoleManager(BaseConsoleManager):
             return False
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
+        log.debug("Initiating cluster reboot.")
         self.shutdown(sd_filesystems=False, sd_instances=False, rebooting=True)
         if soft:
-            if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'], \
-                self.app.ud['boot_script_name']))):
+            if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'],
+               self.app.ud['boot_script_name']))):
                 return True
             else:
                 log.error(

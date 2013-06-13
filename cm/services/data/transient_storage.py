@@ -107,8 +107,10 @@ class TransientStorage(BlockStorage):
                 for shared_path in shared_paths:
                     if self.fs.mount_point in shared_path:
                         self.fs.state = service_states.RUNNING
-                        update_size_cmd = "df -h %s | grep -v Filesystem | awk '{print $2, $3, $5}'" \
-                            % self.fs.mount_point
+                        # Transizent storage needs to be special-cased because
+                        # it's not a mounted disk per se but a disk on an
+                        # otherwise default device for an instance (i.e., /mnt)
+                        update_size_cmd = "df --block-size 1 | grep /mnt$ | awk '{print $2, $3, $5}'"
                         self.fs._update_size(cmd=update_size_cmd)
                         return
                 # Or should this set it to UNSTARTED? Because this FS is just an
