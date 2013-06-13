@@ -32,7 +32,7 @@ class Migrate1to2:
             with open(os.path.join(old_data_dir, "PG_VERSION")) as in_handle:
                 version = in_handle.read().strip()
             if version.startswith("8"):
-                log.info("Upgrading Postgres from version 8 to 9")
+                log.debug("Upgrading Postgres from version 8 to 9")
                 old_debs = ["http://launchpadlibrarian.net/102366400/postgresql-client-8.4_8.4.11-1_amd64.deb",
                             "http://launchpadlibrarian.net/102366396/postgresql-8.4_8.4.11-1_amd64.deb"]
                 for deb in old_debs:
@@ -207,28 +207,28 @@ class Migrate1to2:
                "starting to use any services or features.")
         log.info(msg)
         self.app.msgs.info(msg)
-        log.debug("Migration: Step 1: Upgrading Postgres Database...")
+        log.info("Migration: Step 1: Upgrading Postgres Database...")
         ok = self._upgrade_database()
         if ok:
-            log.debug("Migration: Step 2: Upgrading to new file system structure...")
+            log.info("Migration: Step 2: Upgrading to new file system structure...")
             ok = self._upgrade_fs_structure()
         if ok:
-            log.debug("Migration: Step 3: Adjusting paths in configuration files...")
+            log.info("Migration: Step 3: Adjusting paths in configuration files...")
             ok = self._adjust_stored_paths()
         if ok:
-            log.debug("Migration: Step 4: Updating user data...")
+            log.info("Migration: Step 4: Updating user data...")
             ok = self._update_user_data()
         if ok:
-            log.debug("Migration: Step 5: Shutting down all file system services...")
+            log.info("Migration: Step 5: Shutting down all file system services...")
             fs_svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
             # TODO: Is a clean necessary?
             for svc in fs_svcs:
                 svc.remove(synchronous=True)
-            log.debug("Migration: Step 6: Restarting all file system services...")
+            log.info("Migration: Step 6: Restarting all file system services...")
             ok = self.app.manager.add_preconfigured_filesystems()
         # Migration 1 to 2 complete
         if ok:
-            msg = ("Migration from version 1 to 2 complete! Please continue to wait "
+            msg = ("Migration from version 1 to 2 complete. Please continue to wait "
                    "until all the services have completed initializing.")
             log.info(msg)
             self.app.msgs.info(msg)
