@@ -746,6 +746,8 @@ def replace_string(file_name, pattern, subst):
     :type subst: str
     :param subst: String pattern to replace search pattern with
     """
+    log.debug("Replacing string '{0}' with '{1}' in file {2}"
+        .format(pattern, subst, file_name))
     # Create temp file
     fh, abs_path = mkstemp()
     new_file = open(abs_path, 'w')

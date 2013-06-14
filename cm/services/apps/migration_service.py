@@ -1,6 +1,7 @@
 import os
 import pwd
 import grp
+import fnmatch
 from cm.services import ServiceRole
 from cm.services import service_states
 from cm.services import ServiceDependency
@@ -119,6 +120,15 @@ class Migrate1to2:
 
         ok_db = self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
                         format(paths.C_PSQL_PORT, galaxy_ini_loc))
+        # Adjust content of tools' env.sh to reflect the new path
+        env_files = []
+        for root, dirnames, filenames in os.walk(os.path.join(galaxy_data_loc, 'tools')):
+            for filename in fnmatch.filter(filenames, 'env.sh'):
+                env_files.append(os.path.join(root, filename))
+        log.debug("Found the following env.sh files: {0}".format(env_files))
+        for f in env_files:
+            cmd = "sed --in-place=.orig 's/galaxyTools/galaxyData/g' {0}".format(f)
+            misc.run(cmd)
         if (ok_tools and ok_db):
             return True
         else:
