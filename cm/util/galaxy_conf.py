@@ -177,8 +177,11 @@ class FileGalaxyOptionManager(object):
     def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         galaxy_home = self.app.path_resolver.galaxy_home
         config_file_path = join(galaxy_home, OPTIONS_FILE_NAME)
+        input_config_file_path = config_file_path
+        if not exists(input_config_file_path):
+            input_config_file_path = "%s.sample" % config_file_path
         parser = SafeConfigParser()
-        configfile = open(config_file_path, 'rt')
+        configfile = open(input_config_file_path, 'rt')
         parser.readfp(configfile)
         for key, value in properties.iteritems():
             parser.set(section, key, value)
