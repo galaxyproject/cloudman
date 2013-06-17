@@ -423,9 +423,8 @@ class Volume(BlockStorage):
         Try it for some time.
         Returns the attached device path, or None if it can't attach
         """
-        log.debug(
-            'Starting volume.attach for volume {0} ({1})'.format(self.volume_id,
-            self.fs.get_full_name()))
+        log.info('Adding volume {0} ({1})...'.format(
+            self.volume_id, self.fs.get_full_name()))
         # Bail if the volume doesn't exist, or is already attached
         if self.status == volume_status.NONE or self.status == volume_status.DELETING:
             log.error('Attempt to attach non-existent volume {0}'.format(
