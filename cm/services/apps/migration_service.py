@@ -121,14 +121,27 @@ class Migrate1to2:
         ok_db = self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
                         format(paths.C_PSQL_PORT, galaxy_ini_loc))
         # Adjust content of tools' env.sh to reflect the new path
+        tools_dir = os.path.join(galaxy_data_loc, 'tools')
         env_files = []
-        for root, dirnames, filenames in os.walk(os.path.join(galaxy_data_loc, 'tools')):
+        for root, dirnames, filenames in os.walk(tools_dir):
             for filename in fnmatch.filter(filenames, 'env.sh'):
                 env_files.append(os.path.join(root, filename))
         log.debug("Found the following env.sh files: {0}".format(env_files))
         for f in env_files:
             cmd = "sed --in-place=.orig 's/galaxyTools/galaxyData/g' {0}".format(f)
             misc.run(cmd)
+        # Update broken symlinks for the tools' `default` dirs
+        default_symlinks = misc.detect_symlinks('/mnt/galaxyData/tools', 'default',
+            symlink_as_file=False)
+        if not default_symlinks:
+            log.debug("No 'default' symlinks found to update!")
+        for link in default_symlinks:
+            link_name = link[0]
+            # We'll make the symlinks relative so extract target's basename
+            target_name = os.path.basename(link[1])
+            os.unlink(link_name)
+            os.symlink(target_name, link_name)
+            log.debug("Updated symlink {0} to {1}.".format(link_name, target_name))
         if (ok_tools and ok_db):
             return True
         else:
