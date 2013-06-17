@@ -907,3 +907,32 @@ def size_to_bytes(size):
     elif multiple.startswith( 'b' ):
         return int( size )
 
+def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
+    """
+    Recursively walk the given directory looking for symlinks. Return
+    a list of tuples containing the symlinks and the link targets (e.g.,
+    (('/mnt/galaxyTools/tools/pass/default', '/mnt/galaxyTools/tools/pass/2.0'))).
+    If the optional ``link_name`` is provided, return only symlinks with the
+    given name. If ``symlink_as_file`` is set, treat symlinks as files;
+    otherwise treat them as directories.
+    If no symlink are found, return an empty list.
+    """
+    links = []
+    for root, dirs, files in os.walk(dir_path):
+        entities = files if symlink_as_file else dirs
+        for entity in entities:
+            path = os.path.join(root, entity)
+            if os.path.islink(path):
+                target_path = os.readlink(path)
+                # Resolve relative symlinks
+                if not os.path.isabs(target_path):
+                    target_path = os.path.join(os.path.dirname(path), target_path)
+                if not link_name:
+                    links.append((path, target_path))
+                elif entity == link_name:
+                    links.append((path, target_path))
+            else:
+                # If it's not a symlink we're not interested.
+                continue
+    return links
+
