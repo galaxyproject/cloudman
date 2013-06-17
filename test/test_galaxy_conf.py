@@ -7,6 +7,7 @@ from test_utils import TestApp
 from test_utils import TEST_DATA_DIR, TEST_INDICES_DIR, TEST_TOOLS_DIR
 from tempfile import mkdtemp
 from os.path import join
+from os import rename
 from ConfigParser import SafeConfigParser
 
 
@@ -17,6 +18,24 @@ def test_file_option_manager():
     _set_test_property(option_manager)
     test_galaxy_home = app.path_resolver.galaxy_home
     universe_path = join(test_galaxy_home, 'universe_wsgi.ini')
+    with open(universe_path, 'rt') as f:
+        parser = SafeConfigParser()
+        parser.readfp(f)
+        assert parser.get('app:main', "admin_users") == "test@example.org"
+
+
+def test_on_universe_missing_uses_sample():
+    app = TestApp()
+    option_manager = galaxy_option_manager(app)
+    option_manager.setup()
+
+    # Rename universe_wsgi.ini to universe_wsgi.ini.sample so it is missing.
+    test_galaxy_home = app.path_resolver.galaxy_home
+    universe_path = join(test_galaxy_home, 'universe_wsgi.ini')
+    sample_path = join(test_galaxy_home, 'universe_wsgi.ini.sample')
+    rename(universe_path, sample_path)
+
+    _set_test_property(option_manager)
     with open(universe_path, 'rt') as f:
         parser = SafeConfigParser()
         parser.readfp(f)
