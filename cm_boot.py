@@ -55,7 +55,7 @@ def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_file
         log.debug(("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name)))
         if k.exists():
             k.get_contents_to_filename(local_filename)
-            log.info(("Successfully retrieved file '%s' from bucket '%s' to '%s'" % (remote_filename, bucket_name, local_filename)))
+            log.info(("Successfully retrieved file '%s' from bucket '%s' via connection '%s' to '%s'" % (remote_filename, bucket_name, s3_conn.host, local_filename)))
             return True
         else:
             log.error(("File '%s' in bucket '%s' not found." % (remote_filename, bucket_name)))
