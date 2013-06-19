@@ -1198,28 +1198,29 @@ class ConsoleManager(BaseConsoleManager):
             # Turn those data sources into file systems
             if self.snaps:
                 attached_volumes = self.get_attached_volumes()
-                for snap in self.snaps:
-                    fs = Filesystem(self.app, snap['name'],
-                        svc_roles=ServiceRole.from_string_array(snap['roles']))
-                    # Check if an already attached volume maps to the current filesystem
-                    att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
-                    if att_vol:
-                        log.debug("{0} file system has volume(s) already attached".format(
-                            snap['name']))
-                        fs.add_volume(vol_id=att_vol.id,
-                                      size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                        # snap_size = att_vol.size
-                    else:
-                        log.debug("There are no volumes already attached for file system {0}"
-                            .format(snap['name']))
-                        size = 0
-                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
-                            size = pss
-                        fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
-                        # snap_size = snap.get('size', 0)
-                    log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
-                        .format(fs.get_full_name(), fs.volumes))
-                    self.add_master_service(fs)
+                for snap in self.snaps and 'name' in snap:
+                    if 'roles' in snap:
+                        fs = Filesystem(self.app, snap['name'],
+                             svc_roles=ServiceRole.from_string_array(snap['roles']))
+                        # Check if an already attached volume maps to the current filesystem
+                        att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
+                        if att_vol:
+                            log.debug("{0} file system has volume(s) already attached".format(
+                                snap['name']))
+                            fs.add_volume(vol_id=att_vol.id,
+                                          size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                            # snap_size = att_vol.size
+                        else:
+                            log.debug("There are no volumes already attached for file system {0}"
+                                .format(snap['name']))
+                            size = 0
+                            if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
+                                size = pss
+                            fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
+                            # snap_size = snap.get('size', 0)
+                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
+                            .format(fs.get_full_name(), fs.volumes))
+                        self.add_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
                 _add_data_fs()
@@ -2173,6 +2174,7 @@ class ConsoleMonitor(object):
             cc['filesystems'] = fss
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
+            cc['cluster_name'] = self.app.ud['cluster_name']
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
             # If 'deployment_version' is not in UD, don't store it in the config
             if 'deployment_version' in self.app.ud:

@@ -570,8 +570,8 @@ def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validat
         k = Key(b, remote_filename)
         try:
             k.get_contents_to_filename(local_file)
-            log.debug("Retrieved file '%s' from bucket '%s' to '%s'."
-                      % (remote_filename, bucket_name, local_file))
+            log.debug("Retrieved file '%s' from bucket '%s' on host '%s' to '%s'."
+                      % (remote_filename, bucket_name, conn.host, local_file))
         except S3ResponseError as e:
             log.debug("Failed to get file '%s' from bucket '%s': %s" % (
                 remote_filename, bucket_name, e))

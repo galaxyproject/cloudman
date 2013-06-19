@@ -6,7 +6,10 @@ import boto
 from boto.exception import BotoServerError
 from boto.exception import EC2ResponseError
 from boto.s3.connection import S3Connection
+from boto.s3.connection import OrdinaryCallingFormat
+from boto.s3.connection import SubdomainCallingFormat
 from boto.ec2.connection import EC2Connection
+
 
 from cm.clouds import CloudInterface
 from cm.util.master import Instance
