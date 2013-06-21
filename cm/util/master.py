@@ -1198,7 +1198,7 @@ class ConsoleManager(BaseConsoleManager):
             # Turn those data sources into file systems
             if self.snaps:
                 attached_volumes = self.get_attached_volumes()
-                for snap in self.snaps and 'name' in snap:
+                for snap in [s for s in self.snaps if 'name' in s]:
                     if 'roles' in snap:
                         fs = Filesystem(self.app, snap['name'],
                              svc_roles=ServiceRole.from_string_array(snap['roles']))
