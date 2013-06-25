@@ -52,6 +52,7 @@ function update(repeat_update){
                 update_application_status("#postgres_status", data.Postgres);
                 update_application_status("#sge_status", data.SGE);
                 update_application_status("#galaxy_reports_status", data.GalaxyReports);
+                update_application_status("#lwr_status", data.LWR);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking

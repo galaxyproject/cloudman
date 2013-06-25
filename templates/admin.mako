@@ -111,6 +111,15 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
             <tr>
+                <td>LWR</td>
+                <td><span id="lwr_status">&nbsp;</span></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=LWR">Log</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=LWR&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=LWR" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=LWR" target="_blank">Restart</a></td>
+            </tr>
+
+            <tr>
                 <td>Galaxy Reports</td>
                 <td><span id="galaxy_reports_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=GalaxyReports">Log</a></td>

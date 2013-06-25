@@ -43,8 +43,8 @@ class ServiceRole(object):
                      "Transient NFS FS"}
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
     MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
-
     HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
+    LWR = {'type': ServiceType.APPLICATION, 'name': "LWR Service"}
 
     @staticmethod
     def get_type(role):
@@ -88,6 +88,8 @@ class ServiceRole(object):
             return ServiceRole.GALAXY_POSTGRES
         elif val == "GalaxyReports":
             return ServiceRole.GALAXY_REPORTS
+        elif val == "LWR":
+            return ServiceRole.LWR
         elif val == "Autoscale":
             return ServiceRole.AUTOSCALE
         elif val == "PSS":
@@ -137,6 +139,8 @@ class ServiceRole(object):
             return "Postgres"
         elif svc_role == ServiceRole.GALAXY_REPORTS:
             return "GalaxyReports"
+        elif svc_role == ServiceRole.LWR:
+            return "LWR"
         elif svc_role == ServiceRole.AUTOSCALE:
             return "Autoscale"
         elif svc_role == ServiceRole.PSS:
