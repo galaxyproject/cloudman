@@ -110,10 +110,12 @@ class PathResolver(object):
             return P_GALAXY_TOOLS
 
     def _get_ud_path(self, name, default_path):
+        path = None
         if self.manager.app.ud:
-            return self.manager.app.ud.get('galaxy_home', get_path('name', default_path))
-        else:
-            return get_path('name', default_path)
+            path = self.manager.app.ud.get(name, None)
+        if not path:
+            path = get_path(name, default_path)
+        return path
 
     @property
     def galaxy_home(self):
