@@ -935,4 +935,3 @@ def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
                 # If it's not a symlink we're not interested.
                 continue
     return links
-
