@@ -1,7 +1,7 @@
 from tempfile import mkdtemp
 from os.path import join, dirname
 from os import pardir
-from shutil import copyfile
+from shutil import copyfile, rmtree
 from logging import getLogger
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -124,3 +124,10 @@ def instrument_time():
 
     with patch("cm.util.Time.now") as mock_now:
         yield MockTime(mock_now)
+
+
+@contextmanager
+def temp_dir():
+    temp_directory = mkdtemp()
+    yield temp_directory
+    rmtree(temp_directory)
