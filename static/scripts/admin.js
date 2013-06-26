@@ -586,7 +586,7 @@ jQuery.fn.serializeObject = function() {
                 '<table><tr>' +
                     '<td><label for="new_disk_size">New file system size: </label></td>' +
                     '<td><input type="text" size="20" name="new_disk_size" id="new_disk_size" ' +
-                        'placeholder="e.g., 100"> (minimum 1GB, maximum 1000GB)</td>' +
+                        'placeholder="e.g., 100"> (number only; min 1, max 1000 (in GB))</td>' +
                     '</tr><tr>' +
                     '<td><label for="new_vol_fs_name">File system name: </label></td>' +
                     '<td><input type="text" size="20" name="new_vol_fs_name" id="new_vol_fs_name"> ' +
