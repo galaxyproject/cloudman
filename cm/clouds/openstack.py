@@ -37,7 +37,7 @@ class OSInterface(EC2Interface):
         return self.region_name
 
     def get_ec2_connection(self):
-        if self.ec2_conn == None:
+        if not self.ec2_conn:
             try:
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish Nova connection, but TESTFLAG is set. "
@@ -71,7 +71,7 @@ class OSInterface(EC2Interface):
                                         region=region,
                                         port=self.ec2_port,
                                         path=self.ec2_conn_path,
-                                        validate_certs=False)  # https://github.com/boto/boto/wiki/2.6.0-release-notes
+                                        validate_certs=False)  # github.com/boto/boto/wiki/2.6.0-release-notes
         except EC2ResponseError, e:
             log.error("Trouble creating a Nova connection: {0}".format(e))
         return ec2_conn
@@ -80,7 +80,7 @@ class OSInterface(EC2Interface):
         # TODO: Port this use_object_store logic to other clouds as well
         if self.app and not self.app.use_object_store:
             return None
-        if self.s3_conn == None:
+        if not self.s3_conn:
             log.debug("Establishing a boto Swift connection.")
             try:
                 self.s3_conn = boto.connect_s3(
@@ -115,7 +115,7 @@ class OSInterface(EC2Interface):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
                     #This is not only nectar specific but I left nectar for backward compatibility
-                    if self.use_private_ip or  self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                    if self.use_private_ip or self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
                         fp = urllib.urlopen(
@@ -131,10 +131,10 @@ class OSInterface(EC2Interface):
 
     def add_tag(self, resource, key, value):
         log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not "
-                  "support tags".format(key=key, value=value, resource=resource))
+                  "support tags via boto.".format(key=key, value=value, resource=resource))
         pass
 
     def get_tag(self, resource, key):
-        log.debug("Would get tag {key} from resource {resource} but OpenStack does not support tags"
-                  .format(key=key, resource=resource))
+        log.debug("Would get tag {key} from resource {resource} but OpenStack "
+            "does not support tags via boto.".format(key=key, resource=resource))
         pass
