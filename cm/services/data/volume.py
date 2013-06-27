@@ -583,21 +583,28 @@ class Volume(BlockStorage):
         if self.attach():
             self.mount(self.fs.mount_point)
 
-    def remove(self, mount_point, delete_vols=True):
+    def remove(self, mount_point, delete_vols=True, detach=True):
         """
         Remove this volume from the system. This implies unmounting the associated
         file system, detaching the volume, and, optionally, deleting the volume.
+        If ``detach`` is set, detach the current volume in the process of removing
+        it. Otherwise, leave it attached (this is useful during snapshot creation
+        but note that creating a snapshot for an attached volume works only on AWS).
         """
         self.unmount(mount_point)
-        log.debug("Detaching volume {0} as {1}".format(
-            self.volume_id, self.fs.get_full_name()))
-        if self.detach():
-            log.debug("Detached volume {0} as {1}".format(
+        if detach:
+            log.debug("Detaching volume {0} as {1}".format(
                 self.volume_id, self.fs.get_full_name()))
-            if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and delete_vols:
-                log.debug("Deleting volume {0} as part of {1}".format(
+            if self.detach():
+                log.debug("Detached volume {0} as {1}".format(
                     self.volume_id, self.fs.get_full_name()))
-                self.delete()
+                if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and delete_vols:
+                    log.debug("Deleting volume {0} as part of {1}".format(
+                        self.volume_id, self.fs.get_full_name()))
+                    self.delete()
+        else:
+            log.debug("Unmounted FS {0} but instructed not to detach volume {1}"
+                .format(self.fs.get_full_name(), self.volume_id))
 
     def mount(self, mount_point):
         """

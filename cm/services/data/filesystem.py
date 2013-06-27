@@ -153,18 +153,21 @@ class Filesystem(DataService):
         if synchronous:
             r_thread.join()
 
-    def __remove(self, delete_vols=True, remove_from_master=True):
+    def __remove(self, delete_vols=True, remove_from_master=True, detach=True):
         """
         Do the actual removal of devices used to compose this file system.
         After the service is successfully stopped, if ``remove_from_master``
         is set to ``True``, the service is automatically removed
-        from the list of services monitored by the master.
+        from the list of services monitored by the master. ``detach`` applies
+        to volume-based file systems only and, if set, the given volume will be
+        detached in the process of removing the file system. Otherwise, it will
+        be left attached (this is useful during snapshot creation).
         """
         super(Filesystem, self).remove(synchronous=True)
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
-            vol.remove(self.mount_point, delete_vols)
+            vol.remove(self.mount_point, delete_vols, detach=detach)
         for b in self.buckets:
             b.unmount()
         for t in self.transient_storage:
@@ -267,7 +270,12 @@ class Filesystem(DataService):
         .. note::
             This functionality applies only to file systems based on volumes.
         """
-        self.__remove(delete_vols=False)
+        detach = True
+        if self.app.cloud_type == "ec2":
+            # On AWS it is possible to snapshot a volume while it's still
+            # attached so do that because it's faster
+            detach = False
+        self.__remove(delete_vols=False, detach=detach)
         snap_ids = []
         # Create a snapshot of the detached volumes
         for vol in self.volumes:
