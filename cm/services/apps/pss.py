@@ -28,7 +28,6 @@ class PSS(ApplicationService):
         # Name of the default script to run
         self.pss_filename = 'post_start_script' if self.instance_role == 'master' \
             else 'worker_post_start_script'
-        self.already_ran = False  # True if the service has already been run
         self.pss_url = self.app.ud.get('post_start_script_url', None) if self.instance_role == 'master' \
             else self.app.ud.get('worker_post_start_script_url', None)
 
@@ -49,9 +48,12 @@ class PSS(ApplicationService):
         self.app.cloud_interface.get_local_hostname()
 
     def add(self):
-        if not self.already_ran and self.app.manager.initial_cluster_type is not None:
-            # log.debug("Custom-checking '%s' service prerequisites" %
-            # self.name)
+        """
+        Check if prerequisites for running this service are satisfied and, if so,
+        start the service, else set its state to ``UNSTARTED`` and return ``False``.
+        """
+        if (self.state != service_states.COMPLETED and
+           self.app.manager.initial_cluster_type is not None):
             self.state = service_states.STARTING
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
@@ -64,8 +66,9 @@ class PSS(ApplicationService):
             self.start()
             return True
         else:
-            log.debug("Not adding {0} svc; it already ran ({1}) or the cluster was not yet initialized ({2})"
-                      .format(self.name, self.already_ran, self.app.manager.initial_cluster_type))
+            log.debug("Not adding {0} svc; it completed ({1}) or the cluster was "
+                "not yet initialized ({2})".format(self.name,
+                self.state == service_states.COMPLETED, self.app.manager.initial_cluster_type))
             return False
 
     def start(self):
@@ -119,7 +122,7 @@ class PSS(ApplicationService):
             # On master, remove the service upon completion (PSS runs only
             # once)
             self.remove()
-        self.already_ran = True
+        self.state = service_states.COMPLETED
         # Once this service is complete, it's safe to assume the cluster is
         # READY
         self.app.manager.cluster_status = cluster_status.READY
