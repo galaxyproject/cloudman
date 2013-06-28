@@ -50,19 +50,43 @@ class PSS(ApplicationService):
     def add(self):
         """
         Check if prerequisites for running this service are satisfied and, if so,
-        start the service, else set its state to ``UNSTARTED`` and return ``False``.
+        start the service and return ``True``, else set its state to ``UNSTARTED``
+        and return ``False``.
         """
         if (self.state != service_states.COMPLETED and
            self.app.manager.initial_cluster_type is not None):
             self.state = service_states.STARTING
+            prereqs_ok = True
+            # There is a race condition w/ this service so when we're setting up
+            # a 'Galaxy' clutser, make sure Galaxy service actually exists before
+            # deciding all the services are running.
+            # TODO: there's probably a better way to do this
+            awaiting_galaxy = False
+            if self.app.manager.initial_cluster_type == 'Galaxy':
+                awaiting_galaxy = True
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
             for srvc in self.app.manager.services:
                 if srvc != self and not (srvc.running() or srvc.completed()):
-                    log.debug("%s not running (%s), %s service prerequisites not met afterall,"
-                              "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
-                    self.state = service_states.UNSTARTED  # Reset state so it gets picked up by monitor again
-                    return False
+                    prereqs_ok = False
+                    break
+            if prereqs_ok and awaiting_galaxy:
+                # Make sure Galaxy service exists before assuming all services
+                # are there
+                galaxy_svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
+                if not galaxy_svc:
+                    log.debug("No Galaxy service in a Galaxy cluster; waiting.")
+                    prereqs_ok = False
+                elif len(galaxy_svc) > 0 and not galaxy_svc[0].running():
+                    log.debug("Galaxy service not running yet; waiting.")
+                    prereqs_ok = False
+                else:
+                    log.debug("Galaxy service OK for PSS")
+            if not prereqs_ok:
+                log.debug("%s not running (%s), %s service prerequisites not met afterall,"
+                          "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
+                self.state = service_states.UNSTARTED  # Reset state so it gets picked up by monitor again
+                return False
             self.start()
             return True
         else:
