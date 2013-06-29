@@ -355,7 +355,7 @@ vertical-align: top;
     <span class="action-button" id="del_scf_cancel">Do not delete</span></p>
 </div>
 <div id="voloverlay" class="overlay" style="display:none"></div>
-<div id="popupoverlay" class="overlay" style="display:none"></div>
+<!-- <div id="popupoverlay" class="overlay" style="display:none"></div> -->
 <div class="box" id="volume_config">
     <h2 style="text-align:center;">Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
@@ -904,11 +904,11 @@ $(document).ready(function() {
     $('#initial_volume_config_form').ajaxForm( {
         type: 'POST',
         dataType: 'json',
-        beforeSubmit: function(data){
+        beforeSubmit: function(){
             cluster_status = "STARTING";
+            toggleVolDialog();
         },
-        success: function( data ) {
-            hidebox();
+        success: function(data) {
             update_ui(data);
         }
     });
