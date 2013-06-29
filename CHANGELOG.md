@@ -1,3 +1,89 @@
+### CloudMan - June 29, 2013.
+
+* Unification of ``galaxyTools`` and ``galaxyData`` file systems into a single
+  ``galaxy`` filesystem. This file system is based on a common snapshot but
+  following the initial volume creation, the volume remains as a permamanet
+  part of the given cluster. This change makes it possible to utilize the
+  [Galaxy Tool Shed][19] for installing tools into Galaxy.
+
+* Due to the above file system unification, all existing clusters will need to
+  go through a migration that performs the file system unification. This process
+  has been automated via a newly developed *Migration Service*.
+
+* For AWS, created a new base machine image (ami-118bfc78) and a new snapshot
+  for the ``galaxy`` file system. This snapshot includes the current latest
+  release of Galaxy and an updated set of tools.
+
+* Added initial support for Hadoop-type workloads (see [this page][15] for more
+  usage details and [this paper][18] more technical details)
+
+* Added initial support for cluster federation via HTCondor (see [this page][16]
+  for more usage details and [this paper][18] more technical details)
+
+* Added a new file system service for instance's transient storage, allowing the
+  transient storage to be used across the cluster over NFS as temporary data
+  storage
+
+* Added the ability to add an external NFS file system
+
+* Added the ability to add an new-volume based file system
+
+* Added the ability to add a file system from instance's local path (i.e., one
+  that has been manually made avalable on an instance)
+
+* Added support to persist a bucket-based file system between cluster invocations
+
+* Added a service for the Galaxy Reports webapp
+
+* Added support for [Loggly][17] based off-site logging; simply register
+  on the site and provide your token (i.e., input key) as part of user data key
+  ``cm_loggly_token``
+
+* For AWS, added tags to spot instances (tags added after a Spot request is filled);
+  added cluster name tag to any attached volume as well as any snapshots created
+  during persisting of a file system; added cluster's bucket as a Volume tag
+
+* Revamed the format for ``snaps.yaml`` allowing multiple clouds, multiple
+  regions within a cloud, and multiple deployments within a region to be
+  specified in the same file
+
+* Added system message functionality to the web UI (for out-of-band status
+  communication)
+
+* Added a UI message at the start of new cluster initialization and one at the
+  end of the initialization, providing more information about the status of
+  the cluster and services within
+
+* Implemented *pre-install* commands via user data (see the [User Data page][6]
+  for the list of all user data options)
+
+* Allow user data override of Galaxy's ``universe_wsgi.ini`` options
+
+* Allow user-data override of ``nginx.conf`` (either by URL or base64 encoding
+  contents in user-data)
+
+* Added automatic (re)configuraiton of ``nginx.conf`` to reflect currenlty valid
+  service paths
+
+* Allow disabling of specific mounting by worker nodes by label in user data
+
+* Introduced a new format for the cluster configuration file,
+  ``persistent_data.yaml``
+
+* Added an API method for retrieving the type of the cluster and CloudMan version
+
+* Generalized ``paths.py`` to allow more paths to be overridden by a user
+
+* Galaxy configuration is updated based on runtime settings
+
+* Introduce notion of multiple ``service_roles``, ``name`` and ``type``, helping
+  remove disambiguation with ``service_type``
+
+* If available, run CloudMan in virtualenv (named ``CM``)
+
+* Enabled more detailed *wsgi* error logging
+
+
 ### CloudMan - November 26, 2012.
 
 * Support for Eucalyptus cloud middleware. Thanks to [Alex Richter][11].
@@ -94,3 +180,8 @@
 [12]: https://www.hpcloud.com/
 [13]: https://bitbucket.org/jmchilton
 [14]: https://bitbucket.org/galaxy/cloudman/changesets/tip/3a63b9a40331%3A35baec1
+[15]: http://wiki.galaxyproject.org/CloudMan/Hadoop
+[16]: http://wiki.galaxyproject.org/CloudMan/HTCondor
+[17]: http://www.loggly.com
+[18]: http://bib.irb.hr/datoteka/631016.CloudMan_for_Big_Data.pdf
+[19]: http://wiki.galaxyproject.org/Tool%20Shed
