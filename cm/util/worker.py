@@ -20,6 +20,7 @@ from cm.services.apps.pss import PSS
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
+from cm.services.apps import sge
 
 log = logging.getLogger('cloudman')
 
@@ -276,23 +277,7 @@ class ConsoleManager(BaseConsoleManager):
                       fakeretcode)
             return fakeretcode
         log.info("Configuring SGE...")
-        # Check if /lib64/libc.so.6 exists - it's required by SGE but on
-        # Ubuntu 11.04 the location and name of the library have changed
-        if not os.path.exists('/lib64/libc.so.6'):
-            if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
-                os.symlink(
-                    '/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
-            # Ubuntu 11.10 support
-            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.13.so"):
-                os.symlink(
-                    "/lib/x86_64-linux-gnu/libc-2.13.so", "/lib64/libc.so.6")
-            # Kernel 3.2 support (Ubuntu 12.04)
-            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.15.so"):
-                os.symlink(
-                    "/lib/x86_64-linux-gnu/libc-2.15.so", "/lib64/libc.so.6")
-            else:
-                log.error(
-                    "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+        sge.fix_libc()
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init

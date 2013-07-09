@@ -22,6 +22,22 @@ from cm.util import misc
 import logging
 log = logging.getLogger('cloudman')
 
+def fix_libc():
+    """Check if /lib64/libc.so.6 exists - it's required by SGE but
+    the location changes as minor versions increase with new Ubuntu releases.
+    """
+    if not os.path.exists('/lib64/libc.so.6'):
+        fixed = False
+        # Handles Ubuntu 11.04-13.04 and future proofed for new minor releases
+        for libbase in ["/lib", "/lib64"]:
+            for minor_version in range(13, 50):
+                libname = '%s/x86_64-linux-gnu/libc-2.%s.so' % (libbase, minor_version)
+                if not fixed and os.path.exists(libname):
+                    os.symlink(libname, '/lib64/libc.so.6')
+                    fixed = True
+        if not fixed:
+            log.error(
+                "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
 
 class SGEService(ApplicationService):
     def __init__(self, app):
@@ -148,23 +164,7 @@ class SGEService(ApplicationService):
                  grp.getgrnam("sgeadmin")[2])
         log.debug(
             "Created SGE install template as file '%s'" % SGE_config_file)
-        # Check if /lib64/libc.so.6 exists - it's required by SGE but on
-        # Ubuntu 11.04 the location and name of the library have changed
-        if not os.path.exists('/lib64/libc.so.6'):
-            if os.path.exists('/lib64/x86_64-linux-gnu/libc-2.13.so'):
-                os.symlink(
-                    '/lib64/x86_64-linux-gnu/libc-2.13.so', '/lib64/libc.so.6')
-            # Ubuntu 11.10 support
-            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.13.so"):
-                os.symlink(
-                    "/lib/x86_64-linux-gnu/libc-2.13.so", "/lib64/libc.so.6")
-            # Kernel 3.2 support (Ubuntu 12.04)
-            elif os.path.exists("/lib/x86_64-linux-gnu/libc-2.15.so"):
-                os.symlink(
-                    "/lib/x86_64-linux-gnu/libc-2.15.so", "/lib64/libc.so.6")
-            else:
-                log.error(
-                    "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+        fix_libc()
         log.debug("Setting up SGE.")
         self._fix_util_arch()
         if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (self.app.path_resolver.sge_root, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
