@@ -15,11 +15,14 @@ class DataService(Service):
 
 
 volume_status = Bunch(
+    # Possible volume states
     NONE="does not exist",
     CREATING="creating",
     AVAILABLE="available",
     IN_USE="in use",
+    ATTACHING="attaching",
     ATTACHED="attached",
+    DETACHING="detaching",
     DELETING="deleting"
 )
 

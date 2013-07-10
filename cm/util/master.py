@@ -2161,8 +2161,8 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'nfs':
                             fs['nfs_server'] = srvc.nfs_fs.nfs_server
                         else:
-                            log.error("Unknown filesystem kind {0}".format(
-                                srvc.kind))
+                            log.error("For filesystem {0}, unknown kind: {0}"
+                                .format(srvc.name, srvc.kind))
                         fss.append(fs)
                 else:
                     s = {}

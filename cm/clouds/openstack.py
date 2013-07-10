@@ -48,7 +48,9 @@ class OSInterface(EC2Interface):
                 self.ec2_conn = self._get_default_ec2_conn()
                 # Do a simple query to test if provided credentials are valid
                 try:
-                    self.ec2_conn.get_all_instances()
+                    log.debug("Testing the new boto Nova connection ({0})"
+                        .format(self.ec2_conn))
+                    self.ec2_conn.get_all_key_pairs()
                     log.debug("Got boto Nova connection for region {0}".format(
                         self.ec2_conn.region.name))
                 except EC2ResponseError, e:
@@ -56,7 +58,8 @@ class OSInterface(EC2Interface):
                               "(AK:{0}, SK:{1}): {2}".format(self.aws_access_key, self.aws_secret_key, e))
                     self.ec2_conn = None
             except Exception, e:
-                log.error(e)
+                log.error("Trouble getting boto Nova connection: {0}".format(e))
+                self.ec2_conn = None
         return self.ec2_conn
 
     def _get_default_ec2_conn(self, region=None):
