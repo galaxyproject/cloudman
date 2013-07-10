@@ -27,6 +27,7 @@ volume_status_map = {
     'creating': volume_status.CREATING,
     'available': volume_status.AVAILABLE,
     'in-use': volume_status.IN_USE,
+    'attaching': volume_status.ATTACHING,
     'attached': volume_status.ATTACHED,
     'deleting': volume_status.DELETING,
 }
@@ -192,8 +193,8 @@ class Volume(BlockStorage):
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
                 if not status:
-                    log.error('Unknown volume status {0}. Assuming volume_status.NONE'.format(
-                        self.volume.status))
+                    log.error("Unknown volume status: {0}. Setting status to volume_status.NONE"
+                        .format(self.volume.status))
                     status = volume_status.NONE
                 self._status = status
                 self._last_status_check = time.time()
@@ -265,7 +266,7 @@ class Volume(BlockStorage):
                 # until general volumes arrive
                 if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
-                    if zone != 'melbourne-qh2':
+                    if zone not in ['melbourne-qh2', 'qld']:
                         msg = "It seems you're running on the NeCTAR cloud and in " \
                             "zone other than 'melbourne-qh2'. However, volumes work " \
                             "only in that zone. You must restart this cluster in the " \

@@ -437,7 +437,7 @@ def main():
         content = conf_file_obj.get('content')
         _write_conf_file(content, path)
     if ('no_start' not in ud):
-        if (ud.get('cloud_name', '').lower() == 'nectar'):
+        if ('nectar' in ud.get('cloud_name', '').lower()):
             _fix_etc_hosts()
         _start_nginx(ud)
         _start(ud)
