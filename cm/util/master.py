@@ -1291,7 +1291,7 @@ class ConsoleManager(BaseConsoleManager):
                 shared_cluster_pd_file):
             scpd = misc.load_yaml_file(shared_cluster_pd_file)
             self.initial_cluster_type = scpd.get('cluster_type', None)
-            log.debug("Initializing %s cluster type from shared cluster")
+            log.debug("Initializing %s cluster type from shared cluster" % self.initial_cluster_type)
             if 'shared_data_snaps' in scpd:
                 shared_data_vol_snaps = scpd['shared_data_snaps']
                 try:
