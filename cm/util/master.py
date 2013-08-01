@@ -1272,9 +1272,8 @@ class ConsoleManager(BaseConsoleManager):
         # Copy contents of the shared cluster's bucket to the current cluster's
         # bucket
         fl = "shared_instance_file_list.txt"
-        if misc.get_file_from_bucket(
-            s3_conn, bucket_name, os.path.join(cluster_config_prefix, fl),
-                fl, validate=False):
+        if misc.get_file_from_bucket( s3_conn, bucket_name,
+                os.path.join(cluster_config_prefix, fl), fl, validate=False):
             key_list = misc.load_yaml_file(fl)
             for key in key_list:
                 misc.copy_file_in_bucket(
@@ -1291,6 +1290,8 @@ class ConsoleManager(BaseConsoleManager):
             s3_conn, self.app.ud['bucket_cluster'], 'persistent_data.yaml',
                 shared_cluster_pd_file):
             scpd = misc.load_yaml_file(shared_cluster_pd_file)
+            self.initial_cluster_type = scpd.get('cluster_type', None)
+            log.debug("Initializing %s cluster type from shared cluster")
             if 'shared_data_snaps' in scpd:
                 shared_data_vol_snaps = scpd['shared_data_snaps']
                 try:
