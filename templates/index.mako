@@ -206,7 +206,7 @@ vertical-align: top;
             If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
             <p></p><b>Also delete this cluster?</b>
             <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
-            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted.</div>
+            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted, including any shared clusters.</div>
             <div style="padding-top: 20px;"><input type="submit" value="Yes, power off"></div>
         </div>
     </form>
