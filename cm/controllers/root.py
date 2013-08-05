@@ -140,7 +140,7 @@ class CM(BaseController):
         return json.dumps(cluster_type)
 
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, fs_name, vol_expand_desc=None, delete_snap=False):
+    def expand_user_data_volume(self, trans, new_vol_size, fs_name=None, vol_expand_desc=None, delete_snap=False):
         if not fs_name:
             fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
         if delete_snap:
