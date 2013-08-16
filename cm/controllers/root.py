@@ -1,5 +1,4 @@
 import os
-import re
 import logging
 import subprocess
 import json
@@ -524,8 +523,7 @@ class CM(BaseController):
             # formatted ones
             admins_list_check = admins_list
             for admin in admins_list_check:
-                m = re.search('(\w+@\w+(?:\.\w+)+)', admin)
-                if not m:
+                if '@' not in admin:
                     admins_list.remove(admin)
             # Get a handle to Galaxy service and add admins
             svcs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
