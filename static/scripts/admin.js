@@ -45,6 +45,9 @@ function update(repeat_update){
                 } else {
                     var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>";
                 }
+                if (data.galaxy_admins !== ''){
+                    $("#galaxy_admin_users").val(data.galaxy_admins);
+                }
                 $('#galaxy_dns').html(galaxy_dns);
                 $('#galaxy_admins').html(data.galaxy_admins);
                 $('#galaxy_rev').html(rev_html);
