@@ -717,7 +717,8 @@ class CM(BaseController):
                                    filesystems=filesystems,
                                    bucket_cluster=self.app.ud['bucket_cluster'],
                                    cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                   initial_cluster_type=self.app.manager.initial_cluster_type)
+                                   initial_cluster_type=self.app.manager.initial_cluster_type,
+                                   cluster_name=self.app.ud['cluster_name'])
 
     @expose
     def cluster_status(self, trans):
