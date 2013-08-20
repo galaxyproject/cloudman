@@ -27,16 +27,16 @@
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
-                        Set Galaxy admin users. This action sets the
-                        admin_users value in Galaxy's universe_wsgi.ini file.
-                        Once these users are registered, or if they already
-                        are, they will now be administrator users for this
-                        galaxy instance.  Note that this action will restart
-                        the Galaxy service.
+                        Set admin users for the Galaxy application. This action
+                        sets the admin_users value in Galaxy's
+                        universe_wsgi.ini file.  Once these users are
+                        registered, or if they already are, they will be
+                        administrator users for this galaxy instance.  Note
+                        that this action will restart the Galaxy service.
                     </div>
                 </span>
                 <form class="generic_form" action="${h.url_for(controller='root', action='add_galaxy_admin_users')}" method="post">
-                    <input id="admin_users" type="text" value="CSV list of emails to be added as admins" class="form_el" name="admin_users" size="45">
+                    <input id="galaxy_admin_users" type="text" value="CSV list of emails to be added as admins" class="form_el" name="admin_users" size="45">
                     <input type="submit" value="Set admin users">
                 </form>
             </li>
