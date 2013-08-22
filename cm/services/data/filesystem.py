@@ -139,35 +139,51 @@ class Filesystem(DataService):
                       .format(self.get_full_name(), service_states.UNSTARTED, self.state))
         return False
 
-    def remove(self, synchronous=False):
+    def remove(self, synchronous=False, delete_devices=False):
         """
         Initiate removal of this file system from the system; do it in a
         separate thread and return without waiting for the process to complete.
+        If ``delete_devices`` is set, ensure all devices composing this file
+        system are deleted in the process of service removal.
+
+        .. warning::
+
+            Setting ``delete_devices`` is irreversible. All data will be
+            permanently deleted.
+
         """
         log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, "
                  "transient storage {3}, and nfs server {4}".format(self.get_full_name(),
                  self.volumes, self.buckets, self.transient_storage, self.nfs_fs))
         self.state = service_states.SHUTTING_DOWN
-        r_thread = threading.Thread(target=self.__remove)
+        r_thread = threading.Thread(target=self.__remove, kwargs={'delete_devices':
+            delete_devices})
         r_thread.start()
         if synchronous:
             r_thread.join()
 
-    def __remove(self, delete_vols=True, remove_from_master=True, detach=True):
+    def __remove(self, delete_devices=False, remove_from_master=True, detach=True):
         """
         Do the actual removal of devices used to compose this file system.
+
+        Setting ``delete_devices`` will instruct the underlying service to delete
+        any of its devices. **Warning**: all data on those devices will be
+        permanently deleted. *Note* that for the time being, ``delete_devices`` is
+        only propagated to the ``volume`` service/devices.
+
         After the service is successfully stopped, if ``remove_from_master``
         is set to ``True``, the service is automatically removed
-        from the list of services monitored by the master. ``detach`` applies
-        to volume-based file systems only and, if set, the given volume will be
-        detached in the process of removing the file system. Otherwise, it will
-        be left attached (this is useful during snapshot creation).
+        from the list of services monitored by the master.
+
+        ``detach`` applies to volume-based file systems only and, if set, the
+        given volume will be detached in the process of removing the file system.
+        Otherwise, it will be left attached (this is useful during snapshot creation).
         """
         super(Filesystem, self).remove(synchronous=True)
         log.debug("Removing {0} devices".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
         for vol in self.volumes:
-            vol.remove(self.mount_point, delete_vols, detach=detach)
+            vol.remove(self.mount_point, delete_vols=delete_devices, detach=detach)
         for b in self.buckets:
             b.unmount()
         for t in self.transient_storage:
@@ -186,7 +202,7 @@ class Filesystem(DataService):
         Remove this file system and clean up the system as if the file system was
         never there. Useful for CloudMan restarts.
         """
-        self.__remove()
+        self.__remove(delete_devices=True)
         # If the service was successfuly removed, remove the mount point
         if self.state == service_states.SHUT_DOWN:
             try:
@@ -208,7 +224,7 @@ class Filesystem(DataService):
         Also note that this method applies only to Volume-based file systems.
         """
         if self.grow is not None:
-            self.__remove(delete_vols=False, remove_from_master=False)
+            self.__remove(delete_devices=False, remove_from_master=False)
             self.state = service_states.CONFIGURING
             smaller_vol_ids = []
             # Create a snapshot of the detached volume
@@ -275,7 +291,7 @@ class Filesystem(DataService):
             # On AWS it is possible to snapshot a volume while it's still
             # attached so do that because it's faster
             detach = False
-        self.__remove(delete_vols=False, detach=detach)
+        self.__remove(delete_devices=False, detach=detach)
         snap_ids = []
         # Create a snapshot of the detached volumes
         for vol in self.volumes:
