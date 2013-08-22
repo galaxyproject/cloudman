@@ -140,8 +140,7 @@ class PSS(ApplicationService):
         # on some clouds, do so in a separate thread)
         threading.Thread(target=self._prime_data).start()
         self.state = service_states.SHUT_DOWN
-        log.debug(
-            "%s service done and marked as '%s'" % (self.name, self.state))
+        log.debug("%s service done and marked as '%s'" % (self.name, self.state))
         if self.instance_role == 'master':
             # On master, remove the service upon completion (PSS runs only
             # once)
