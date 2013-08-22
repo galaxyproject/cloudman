@@ -75,7 +75,7 @@ class ConsoleManager(BaseConsoleManager):
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
-        self.default_galaxy_data_size = 10
+        self.default_galaxy_data_size = None
 
     def add_master_service(self, new_service):
         self.services.append(new_service)
@@ -197,9 +197,11 @@ class ConsoleManager(BaseConsoleManager):
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
         snaps_file = 'cm_snaps.yaml'
-        snaps = None
+        snaps = []
+        cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
         # Get a list of default file system data sources
-        if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+        if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'],
+           'snaps.yaml', snaps_file):
             snaps_file = misc.load_yaml_file(snaps_file)
             if 'static_filesystems' in snaps_file:
                 # Old snaps.yaml format
@@ -210,12 +212,11 @@ class ConsoleManager(BaseConsoleManager):
                     f['name'] = f['filesystem']  # Rename the key
                     f.pop('filesystem', None)  # Delete the old key
             else:
-                cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
                 # Unify all Amazon regions and/or name variations to a single one
                 if 'amazon' in cloud_name:
                     cloud_name = 'amazon'
                 for cloud in snaps_file['clouds']:
-                    if cloud['name'] == cloud_name:
+                    if cloud_name in cloud['name']:
                         current_cloud = cloud
                         for r in current_cloud['regions']:
                             if r['name'] == self.app.cloud_interface.get_region_name():
@@ -223,7 +224,8 @@ class ConsoleManager(BaseConsoleManager):
                                     # TODO: Make the deployment name a UD option
                                     if d['name'] == 'GalaxyCloud':
                                         snaps = d['filesystems']
-        log.debug("Loaded default snapshot data: {0}".format(snaps))
+        log.debug("Loaded default snapshot data for cloud {1}: {0}".format(snaps,
+            cloud_name))
         return snaps
 
     @TestFlag(10)
@@ -232,8 +234,11 @@ class ConsoleManager(BaseConsoleManager):
             for snap in self.snaps:
                 roles = ServiceRole.from_string_array(snap['roles'])
                 if ServiceRole.GALAXY_DATA in roles:
-                    self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0]
+                    self.snapshot = (self.app.cloud_interface.get_ec2_connection()
+                        .get_all_snapshots([snap['snap_id']])[0])
                     self.default_galaxy_data_size = self.snapshot.volume_size
+                    log.debug("Got default galaxy FS size as {0}GB".format(
+                        self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
     @TestFlag(False)
@@ -837,8 +842,8 @@ class ConsoleManager(BaseConsoleManager):
         sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
         rebooting=False):
         """
-        Shut down this cluster. This means shutting down all services (dependent
-        on method arguments) and optionally, deleting the cluster.
+        Shut down this cluster. This means shutting down all the services
+        (dependent on method arguments) and, optionally, deleting the cluster.
 
         .. seealso:: `~cm.util.master.delete_cluster`
         """
@@ -862,7 +867,7 @@ class ConsoleManager(BaseConsoleManager):
         if sd_filesystems:
             for svc in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
                 log.debug("Initiating removal of file system service {0}".format(svc.name))
-                svc.remove()
+                svc.remove(delete_devices=delete_cluster)
         # Wait for all the services to shut down before declaring the cluster shut down
         # (but don't wait indefinitely)
         # This is required becasue with the file systems being removed in parallel via
@@ -936,7 +941,9 @@ class ConsoleManager(BaseConsoleManager):
     def delete_cluster(self):
         """
         Completely delete this cluster. This involves deleting the cluster's
-        bucket as well as volumes containing user data file system(s)!
+        bucket as well as volumes containing user data file system(s)! The
+        list of volumes to be deleted can either be provided as an argument or,
+        for the case of EC2 only, will be automatically derived.
 
         .. warning::
 
@@ -944,9 +951,8 @@ class ConsoleManager(BaseConsoleManager):
 
         """
         log.info("All services shut down; deleting this cluster.")
-        # Delete any remaining volume(s) assoc. w/ given cluster
+        # Delete any remaining volume(s) assoc. w/ the current cluster
         try:
-            # TODO: Fix filtering for non-ec2 clouds
             if self.app.cloud_type == 'ec2':
                 filters = {'tag:clusterName': self.app.ud['cluster_name']}
                 vols = self.app.cloud_interface.get_all_volumes(filters=filters)
@@ -1652,7 +1658,6 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Removing file system '%s' service as part of the file system update"
                               % file_system_name)
                     svc.remove()
-                    # self.services.remove(svc) # Done by the Filesystem.__remove method now
                     log.debug("Creating file system '%s' from snaps '%s'" % (file_system_name, snap_ids))
                     fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:

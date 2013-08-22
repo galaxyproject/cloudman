@@ -228,7 +228,7 @@ class Volume(BlockStorage):
             while wait_forever or time.time() <= end_time:
                 if self.status == status:
                     log.debug(
-                        'Volume {0} ({1}) has reached status {2}'.format(self.volume_id,
+                        "Volume {0} ({1}) has reached status '{2}'".format(self.volume_id,
                         self.fs.get_full_name(), status))
                     return True
                 else:
@@ -251,7 +251,8 @@ class Volume(BlockStorage):
             return None
 
         if self.from_snapshot_id and not self.volume:
-            self.snapshot = self.app.cloud_interface.get_ec2_connection().get_all_snapshots([self.from_snapshot_id])[0]
+            self.snapshot = (self.app.cloud_interface.get_ec2_connection()
+                            .get_all_snapshots([self.from_snapshot_id])[0])
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
             if self.size == 0:
@@ -267,10 +268,10 @@ class Volume(BlockStorage):
                 if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
                     if zone not in ['melbourne-qh2', 'qld']:
-                        msg = "It seems you're running on the NeCTAR cloud and in " \
-                            "zone other than 'melbourne-qh2'. However, volumes work " \
-                            "only in that zone. You must restart this cluster in the " \
-                            "correct zone."
+                        msg = ("It seems you're running on the NeCTAR cloud and in "
+                               "zone other than 'melbourne-qh2'. However, volumes "
+                               "work only in that zone. You must restart this cluster "
+                               "in the correct zone.")
                         log.critical(msg)
                         self.app.msgs.error(msg)
                         return None
@@ -278,7 +279,8 @@ class Volume(BlockStorage):
                     % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(
                     self.size, self.app.cloud_interface.get_zone(), snapshot=self.from_snapshot_id)
-                self.size = int(self.volume.size or 0)  # when creating from a snapshot in Euca, volume.size may be None
+                self.size = int(self.volume.size or 0)  # when creating from a snapshot
+                                                        # in Euca, volume.size may be None
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'"
                     % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
             except EC2ResponseError, e:
@@ -313,8 +315,8 @@ class Volume(BlockStorage):
             log.debug("Deleted volume '%s'" % volume_id)
             self.volume = None
         except EC2ResponseError, e:
-            log.error("Error deleting volume '%s' - you should delete it manually after the cluster has shut down: %s" %
-                      (self.volume_id, e))
+            log.error("Error deleting volume '%s' - you should delete it manually "
+                "after the cluster has shut down: %s" % (self.volume_id, e))
 
     # attachment helper methods
 
@@ -406,9 +408,11 @@ class Volume(BlockStorage):
         except EC2ResponseError, e:
             for er in e.errors:
                 if er[0] == 'InvalidVolume.ZoneMismatch':
-                    msg = "Volume '{0}' is located in the wrong availability zone for this instance. "\
-                        "You MUST terminate this instance and start a new one in zone '{1}' instead of '{2}'."\
-                        .format(self.volume_id, self.volume.zone.name, self.app.cloud_interface.get_zone())
+                    msg = ("Volume '{0}' is located in the wrong availability zone "
+                           "for this instance. You MUST terminate this instance "
+                           "and start a new one in zone '{1}' instead of '{2}'."
+                           .format(self.volume_id, self.volume.zone.name,
+                            self.app.cloud_interface.get_zone()))
                     self.app.msgs.critical(msg)
                     log.error(msg)
                 else:
@@ -471,8 +475,9 @@ class Volume(BlockStorage):
                         self.device = attempted_device
                         return attempted_device
                     elif len(new_devices) > 1:
-                        log.error("Multiple devices (%s) added to OS during process, and none are the requested device. Can't determine new device. Aborting"
-                                  % ', '.join(new_devices))
+                        log.error("Multiple devices (%s) added to OS during process, "
+                                  "and none are the requested device. Can't determine "
+                                  "new device. Aborting" % ', '.join(new_devices))
                         return None
                     else:
                         device = tuple(new_devices)[0]
@@ -584,13 +589,20 @@ class Volume(BlockStorage):
         if self.attach():
             self.mount(self.fs.mount_point)
 
-    def remove(self, mount_point, delete_vols=True, detach=True):
+    def remove(self, mount_point, delete_vols=False, detach=True):
         """
         Remove this volume from the system. This implies unmounting the associated
         file system, detaching the volume, and, optionally, deleting the volume.
+        Note that a volume will get deleted if it is marked as ``static`` regardless
+        of whether ``delete_vols`` is set. ``delete_vols`` overrides everything else.
         If ``detach`` is set, detach the current volume in the process of removing
         it. Otherwise, leave it attached (this is useful during snapshot creation
         but note that creating a snapshot for an attached volume works only on AWS).
+
+        .. warning::
+
+            Setting ``delete_vols`` is irreversible. All data will be
+            permanently deleted.
         """
         self.unmount(mount_point)
         if detach:
@@ -599,8 +611,9 @@ class Volume(BlockStorage):
             if self.detach():
                 log.debug("Detached volume {0} as {1}".format(
                     self.volume_id, self.fs.get_full_name()))
-                if self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and delete_vols:
-                    log.debug("Deleting volume {0} as part of {1}".format(
+                if ((self.static and (not ServiceRole.GALAXY_DATA in self.fs.svc_roles))
+                   or delete_vols):
+                    log.debug("Deleting volume {0} as part of {1} removal".format(
                         self.volume_id, self.fs.get_full_name()))
                     self.delete()
         else:
