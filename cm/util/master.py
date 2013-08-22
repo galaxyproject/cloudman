@@ -867,7 +867,7 @@ class ConsoleManager(BaseConsoleManager):
         if sd_filesystems:
             for svc in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
                 log.debug("Initiating removal of file system service {0}".format(svc.name))
-                svc.remove(delete_devices=delete_cluster)
+                svc.remove(synchronous=True, delete_devices=delete_cluster)
         # Wait for all the services to shut down before declaring the cluster shut down
         # (but don't wait indefinitely)
         # This is required becasue with the file systems being removed in parallel via
