@@ -158,6 +158,13 @@ urgency_slots     min
 accounting_summary FALSE
 """
 
+SGE_REQUEST_TEMPLATE = """
+-b no
+-shell yes
+-v PATH=/opt/sge/bin/lx24-amd64:$psql_home:/usr/nginx/sbin:$galaxy_tools_dir/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+-v DISPLAY=:42
+"""
+
 NGINX_CONF_TEMPLATE = """worker_processes  2;
 
 events {

@@ -10,17 +10,17 @@ import commands
 
 from string import Template
 
-from cm.services.apps.hadoop import HadoopService
-from cm.services.apps import ApplicationService
-
-from cm.util import paths, templates
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
+from cm.services.apps import ApplicationService
 from cm.util import misc
+from cm.util import paths
+from cm.util import templates
 
 import logging
 log = logging.getLogger('cloudman')
+
 
 def fix_libc():
     """Check if /lib64/libc.so.6 exists - it's required by SGE but
@@ -38,6 +38,7 @@ def fix_libc():
         if not fixed:
             log.error(
                 "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+
 
 class SGEService(ApplicationService):
     def __init__(self, app):
@@ -205,9 +206,20 @@ class SGEService(ApplicationService):
                 "Error modifying all.q", "Successfully modified all.q")
             log.debug("Configuring users' SGE profiles")
             with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
-                f.write(
-                    "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
+                f.write("\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
                 f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
+            # Write out the .sge_request file for individual users
+            sge_request_template = Template(templates.SGE_REQUEST_TEMPLATE)
+            sge_request_params = {
+                'psql_home': self.app.path_resolver.pg_home,
+                'galaxy_tools_dir': self.app.path_resolver.galaxy_tools,
+            }
+            users = ['galaxy', 'ubuntu']
+            for user in users:
+                sge_request_file = os.path.join('/home', user, '.sge_request')
+                with open(sge_request_file, 'w') as f:
+                    print >> f, sge_request_template.substitute(sge_request_params)
+                os.chown(sge_request_file, pwd.getpwnam(user)[2], grp.getgrnam(user)[2])
             return True
         return False
 
