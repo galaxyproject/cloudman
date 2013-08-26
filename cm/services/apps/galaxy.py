@@ -144,9 +144,8 @@ class GalaxyService(ApplicationService):
                                           .format(f_name, self.app.ud['bucket_default']))
                                 local_file = os.path.join(self.galaxy_home, f_name)
                                 misc.get_file_from_bucket(s3_conn,
-                                                          self.app.ud[
-                                                          'bucket_default'],
-                                                          '{0}.cloud'.format(f_name), local_file)
+                                    self.app.ud['bucket_default'], '{0}.cloud'.format(f_name),
+                                    local_file)
                                 attempt_chown_galaxy_if_exists(local_file)
 
                 # Make sure the temporary job_working_directory exists on user
@@ -158,9 +157,10 @@ class GalaxyService(ApplicationService):
                 if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
                 attempt_chown_galaxy('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
-                # Setup environment for the FTP server and start it
+                # Setup the data dir for FTP and start the server
                 if not os.path.exists('%s/tmp/ftp' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/tmp/ftp' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/../tmp/ftp' % self.app.path_resolver.galaxy_data)
                 misc.run('/etc/init.d/proftpd start')
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE
                 # DATA TABLES
