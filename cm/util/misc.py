@@ -748,20 +748,23 @@ def replace_string(file_name, pattern, subst):
     """
     log.debug("Replacing string '{0}' with '{1}' in file {2}"
         .format(pattern, subst, file_name))
-    # Create temp file
-    fh, abs_path = mkstemp()
-    new_file = open(abs_path, 'w')
-    old_file = open(file_name)
-    for line in old_file:
-        new_file.write(line.replace(pattern, subst))
-    # Close temp file
-    new_file.close()
-    os.close(fh)
-    old_file.close()
-    # Remove original file
-    os.remove(file_name)
-    # Move new file
-    shutil.move(abs_path, file_name)
+    try:
+        # Create temp file
+        fh, abs_path = mkstemp()
+        new_file = open(abs_path, 'w')
+        old_file = open(file_name)
+        for line in old_file:
+            new_file.write(line.replace(pattern, subst))
+        # Close temp file
+        new_file.close()
+        os.close(fh)
+        old_file.close()
+        # Remove original file
+        os.remove(file_name)
+        # Move new file
+        shutil.move(abs_path, file_name)
+    except Exception, e:
+        log.error("Trouble replacing string in file {0}: {1}".format(file_name, e))
 
 
 def _if_not_installed(prog_name):

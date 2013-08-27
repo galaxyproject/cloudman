@@ -24,6 +24,7 @@ from cm.services.apps.migration_service import MigrationService
 from cm.services.apps.sge import SGEService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
+from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
@@ -1232,6 +1233,8 @@ class ConsoleManager(BaseConsoleManager):
                 _add_data_fs()
             # Add PostgreSQL service
             self.add_master_service(PostgresService(self.app))
+            # Add ProFTPd service
+            self.add_master_service(ProFTPdService(self.app))
             # Add Galaxy service
             self.add_master_service(GalaxyService(self.app))
         elif cluster_type == 'Data':

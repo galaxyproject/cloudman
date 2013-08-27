@@ -134,6 +134,7 @@ def populate_galaxy_paths(option_manager):
     path_resolver = option_manager.app.path_resolver
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
         .format(paths.C_PSQL_PORT)
+    properties["use_pbkdf2"] = "False"  # Required for FTP
     properties["genome_data_path"] = \
         join(path_resolver.galaxy_indices, "genomes")
     properties["len_file_path"] = \
