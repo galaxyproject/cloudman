@@ -128,11 +128,12 @@ class Configuration(object):
             ## Manually specified instance types
             user_data_instance_types = user_data["instance_types"]
             instance_types = [(type_def["key"], type_def["name"]) for type_def in user_data_instance_types]
-        elif cloud_name == "nectar":
+        elif "nectar" in cloud_name:
             instance_types = [
                 ("", "Same as Master"),
                 ("m1.small", "Small"),
                 ("m1.medium", "Medium"),
+                ("m1.large", "Large"),
                 ("m1.xlarge", "Extra Large"),
                 ("m1.xxlarge", "Extra Extra Large")
             ]
