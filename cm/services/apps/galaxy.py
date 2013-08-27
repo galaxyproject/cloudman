@@ -43,7 +43,8 @@ class GalaxyService(ApplicationService):
             ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
             ServiceDependency(self, ServiceRole.GALAXY_DATA),
             ServiceDependency(self, ServiceRole.GALAXY_INDICES),
-            ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
+            ServiceDependency(self, ServiceRole.GALAXY_TOOLS),
+            ServiceDependency(self, ServiceRole.PROFTPD)
         ]
         self.option_manager = galaxy_option_manager(app)
 
@@ -157,11 +158,6 @@ class GalaxyService(ApplicationService):
                 if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
                 attempt_chown_galaxy('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
-                # Setup the data dir for FTP and start the server
-                if not os.path.exists('%s/tmp/ftp' % self.app.path_resolver.galaxy_data):
-                    os.makedirs('%s/tmp/ftp' % self.app.path_resolver.galaxy_data)
-                attempt_chown_galaxy('%s/../tmp/ftp' % self.app.path_resolver.galaxy_data)
-                misc.run('/etc/init.d/proftpd start')
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE
                 # DATA TABLES
                 if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):

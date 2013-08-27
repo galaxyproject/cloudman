@@ -46,6 +46,8 @@ class ServiceRole(object):
 
     HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
 
+    PROFTPD = {'type': ServiceType.APPLICATION, 'name': "ProFTPd Service"}
+
     @staticmethod
     def get_type(role):
         return role['type']
@@ -108,6 +110,8 @@ class ServiceRole(object):
             return ServiceRole.MIGRATION
         elif val == "HTCondor":
             return ServiceRole.HTCONDOR
+        elif val == "ProFTPd":
+            return ServiceRole.PROFTPD
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -157,6 +161,8 @@ class ServiceRole(object):
             return "Hadoop"
         elif svc_role == ServiceRole.MIGRATION:
             return "Migration"
+        elif svc_role == ServiceRole.PROFTPD:
+            return "ProFTPd"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))
