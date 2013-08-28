@@ -2185,6 +2185,7 @@ class ConsoleMonitor(object):
             cc['cluster_type'] = self.app.manager.initial_cluster_type
             cc['cluster_name'] = self.app.ud['cluster_name']
             cc['placement'] = self.app.cloud_interface.get_zone()
+            cc['machine_image_id'] = self.app.cloud_interface.get_ami()
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
             # If 'deployment_version' is not in UD, don't store it in the config
             if 'deployment_version' in self.app.ud:
