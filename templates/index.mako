@@ -400,9 +400,12 @@ vertical-align: top;
                 <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
                     <label for="share-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster.
+                        <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster. <i>Note</i> that this form field works only
+                        for instances that were shared after July 1, 2013! For instances
+                        shared before that date, please use <a href="http://usegalaxy.org/cloudlaunch" target="_blank">CloudLaunch<a/>
+                        and provide the share string there. <br/>
                         Specify the provided cluster share-string (for example,
-                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2011-08-19--21-00</span>):
+                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00</span>):
                     </span>
                     </label>
                 </p>
