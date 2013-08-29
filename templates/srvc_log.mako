@@ -16,6 +16,6 @@
         | <a href="${h.url_for(controller='root', action='admin')}">Back to admin view</a>
     </div>
     <div class="srvc_log">
-        <pre>${log}</pre>
+        <pre>${log_contents}</pre>
     </div>
 </%def>
