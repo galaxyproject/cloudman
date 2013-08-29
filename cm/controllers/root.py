@@ -363,6 +363,7 @@ class CM(BaseController):
     def service_log(self, trans, service_name, show=None, num_lines=None, **kwargs):
         # Choose log file path based on service name
         log_contents = "No '%s' log available." % service_name
+        log_file = None
         if service_name == 'Galaxy':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
@@ -398,7 +399,7 @@ class CM(BaseController):
         else:
             num_lines = 200  # By default, read the most recent 200 lines of the log
         # Get the log file content
-        if os.path.exists(log_file):
+        if log_file and os.path.exists(log_file):
             if show == 'all':
                 with open(log_file) as f:
                     log_contents = f.read()
