@@ -28,6 +28,7 @@ from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
+from cm.services.apps.lwr import LwrService
 from cm.services import ServiceType
 from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
@@ -40,7 +41,8 @@ log = logging.getLogger('cloudman')
 APP_SERVICES = {
     ServiceRole.to_string(ServiceRole.GALAXY): GalaxyService,
     ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES): PostgresService,
-    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService
+    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService,
+    ServiceRole.to_string(ServiceRole.LWR): LwrService,
 }
 
 # Time well in past to seend reboot, last comm times with.
