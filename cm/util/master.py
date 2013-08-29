@@ -124,7 +124,8 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
-            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES]:
+            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES,
+                             ServiceRole.PROFTPD]:
                 try:
                     svc = self.get_services(svc_role=svc_role)
                     if svc:
@@ -138,7 +139,8 @@ class ConsoleManager(BaseConsoleManager):
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
         # to be added)
-        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.GALAXY]:
+        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.PROFTPD,
+                         ServiceRole.GALAXY]:
             try:
                 svc = self.get_services(svc_role=svc_role)
                 if svc:
@@ -1820,9 +1822,8 @@ class ConsoleManager(BaseConsoleManager):
                     return True
         return False
 
-    def expand_user_data_volume(
-        self, new_vol_size, fs_name, snap_description=None,
-            delete_snap=False):
+    def expand_user_data_volume(self, new_vol_size, fs_name, snap_description=None,
+                                delete_snap=False):
         """
         Mark the file system ``fs_name`` for size expansion. For full details on how
         this works, take a look at the file system expansion method for the
@@ -1832,16 +1833,15 @@ class ConsoleManager(BaseConsoleManager):
         that will be creted during the expansion process under the given cloud account.
         If the snapshot is to be kept, a brief ``snap_description`` can be provided.
         """
-        # Mark the file system as needing to be expanded
-
-        # matches fs_name, or if it's null or empty, the GALAXY_DATA role
+        # Match fs_name with a service or if it's null or empty, default to
+        # GALAXY_DATA role
         if fs_name:
             svcs = self.app.manager.get_services(svc_name=fs_name)
             if svcs:
                 svc = svcs[0]
             else:
-                log.warning("Could not initiate expansion of {0} file system because the "
-                            "file system was not found?".format(fs_name))
+                log.error("Could not initiate expansion of {0} file system because "
+                    "the file system was not found?".format(fs_name))
                 return
         else:
             svc = self.app.manager.get_services(

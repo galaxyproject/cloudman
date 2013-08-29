@@ -56,11 +56,14 @@ class Filesystem(DataService):
                                                    # STARTING; it is used to avoid brief ERROR
                                                    # states during the system configuration.
 
+    def __repr__(self):
+        return self.get_full_name()
+
     def get_full_name(self):
         """
         Return a descriptive name of this file system
         """
-        return "FS-%s" % self.name
+        return "FS object for {0}".format(self.name)
 
     def get_details(self):
         """
