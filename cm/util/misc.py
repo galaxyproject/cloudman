@@ -894,21 +894,21 @@ def size_to_bytes(size):
     except:
         pass
     # Otherwise it must have non-numeric characters
-    size_re = re.compile( '([\d\.]+)\s*([tgmk]b?|b|bytes?)$' )
-    size_match = re.match( size_re, size.lower() )
+    size_re = re.compile('([\d\.]+)\s*([tgmk]b?|b|bytes?)$')
+    size_match = re.match(size_re, size.lower())
     assert size_match is not None
-    size = float( size_match.group(1) )
+    size = float(size_match.group(1))
     multiple = size_match.group(2)
-    if multiple.startswith( 't' ):
-        return int( size * 1024**4 )
-    elif multiple.startswith( 'g' ):
-        return int( size * 1024**3 )
-    elif multiple.startswith( 'm' ):
-        return int( size * 1024**2 )
-    elif multiple.startswith( 'k' ):
-        return int( size * 1024 )
-    elif multiple.startswith( 'b' ):
-        return int( size )
+    if multiple.startswith('t'):
+        return int(size * 1024 ** 4)
+    elif multiple.startswith('g'):
+        return int(size * 1024 ** 3)
+    elif multiple.startswith('m'):
+        return int(size * 1024 ** 2)
+    elif multiple.startswith('k'):
+        return int(size * 1024)
+    elif multiple.startswith('b'):
+        return int(size)
 
 def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
     """
@@ -939,3 +939,14 @@ def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
                 continue
     return links
 
+def extract_archive_content_to_path(archive_url, path):
+    """
+    Extracts an archive from a given url to a specified path.
+    Currently supports only tar files
+    """
+    import requests
+    import tarfile
+    r = requests.get(archive_url, stream=True)
+    archive = tarfile.open(fileobj=r.raw, mode='r|*')
+    archive.extractall(path=path)
+    archive.close()

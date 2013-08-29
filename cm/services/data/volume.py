@@ -17,6 +17,7 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
+from cm.util import misc
 
 import logging
 log = logging.getLogger('cloudman')
@@ -37,7 +38,7 @@ class Volume(BlockStorage):
 
     def __init__(
         self, filesystem, vol_id=None, device=None, attach_device=None,
-            size=0, from_snapshot_id=None, static=False):
+            size=0, from_snapshot_id=None, static=False, from_archive_url=None):
         super(Volume, self).__init__(filesystem.app)
         self.fs = filesystem
         self.app = self.fs.app
@@ -45,6 +46,7 @@ class Volume(BlockStorage):
         self.device = device  # Device ID visible by the operating system
         self.size = size
         self.from_snapshot_id = from_snapshot_id
+        self.from_archive_url = from_archive_url
         self.snapshot = None
         self.device = None
         self.static = static  # Indicates if a volume is created from a snapshot
@@ -56,7 +58,7 @@ class Volume(BlockStorage):
 
         if (vol_id):  # get the volume object immediately, if id is passed
             self.update(vol_id)
-        elif from_snapshot_id:
+        elif from_snapshot_id or from_archive_url:
             self.create()
 
     def __str__(self):
@@ -66,7 +68,10 @@ class Volume(BlockStorage):
         if self.volume_id is not None:
             return self.get_full_name()
         else:
-            return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
+            if self.from_archive_url:
+                return "No volume ID yet; {0} ({1})".format(self.from_archive_url, self.fs.get_full_name())
+            else:
+                return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
 
     def get_full_name(self):
         """
@@ -83,6 +88,7 @@ class Volume(BlockStorage):
         details['device'] = self.device
         details['volume_id'] = self.volume_id
         details['from_snap'] = "No" if not self.from_snapshot_id else self.from_snapshot_id
+        details['from_archive_url'] = "No" if not self.from_archive_url else self.from_archive_url
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
@@ -149,6 +155,7 @@ class Volume(BlockStorage):
                     log.debug("No attach_device candidate for volume {0}".format(vol.id))
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
+            self.from_archive_url = vol.from_archive_url
             if self.from_snapshot_id == '':
                 self.from_snapshot_id = None
             log.debug("For volume {0} ({1}) set from_snapshot_id to {2}"
@@ -204,7 +211,7 @@ class Volume(BlockStorage):
                 status = volume_status.NONE
         return status
 
-    def wait_for_status(self, status, timeout=-1):
+    def wait_for_status(self, status, timeout= -1):
         """
         Wait for ``timeout`` seconds, or until the volume reaches a desired status
         Returns ``False`` if it never hit the request status before timeout.
@@ -246,8 +253,8 @@ class Volume(BlockStorage):
         """
         Create a new volume.
         """
-        if not self.size and not self.from_snapshot_id:
-            log.error('Cannot add a volume without a size or snapshot ID')
+        if not self.size and not self.from_snapshot_id and not self.from_archive_url:
+            log.error('Cannot add a volume without a size, snapshot ID or archive url')
             return None
 
         if self.from_snapshot_id and not self.volume:
@@ -267,7 +274,7 @@ class Volume(BlockStorage):
                 # until general volumes arrive
                 if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
-                    if zone not in ['melbourne-qh2', 'qld']:
+                    if zone not in ['melbourne-qh2', 'qld', 'monash-01']:
                         msg = ("It seems you're running on the NeCTAR cloud and in "
                                "zone other than 'melbourne-qh2'. However, volumes "
                                "work only in that zone. You must restart this cluster "
@@ -574,7 +581,7 @@ class Volume(BlockStorage):
         # Mark a volume as 'static' if created from a snapshot
         # Note that if a volume is marked as 'static', it is assumed it
         # can be deleted upon cluster termination!
-        if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and self.from_snapshot_id is not None:
+        if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and (self.from_snapshot_id is not None or self.from_archive_url is not None):
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
             # FIXME: This is a major problem - any new volumes added from a snapshot
@@ -582,8 +589,11 @@ class Volume(BlockStorage):
             # arbitrary volume as a file system but is no good any more. The
             # problem is in automatically detecting volumes that are supposed
             # to be static and are being added automatically at startup
-            self.static = True
-            self.fs.kind = 'snapshot'
+            if self.from_archive_url:
+                self.fs.kind = 'volume'  # Treated as a regular volume after initial extraction
+            else:
+                self.static = True
+                self.fs.kind = 'snapshot'
         else:
             self.fs.kind = 'volume'
         if self.attach():
@@ -703,6 +713,12 @@ class Volume(BlockStorage):
                 except OSError, e:
                     log.debug(
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
+
+                # If based on bucket, extract bucket contents onto new volume
+                if self.from_archive_url:
+                    log.info("Extracting archive url: %s to mount point: %s. This could take a while..." % (self.from_archive_url, mount_point))
+                    misc.extract_archive_content_to_path(self.from_archive_url, mount_point)
+
                 # Lastly, share the newly mounted file system over NFS
                 if self.fs.add_nfs_share(mount_point):
                     return True

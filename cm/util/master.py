@@ -1217,7 +1217,7 @@ class ConsoleManager(BaseConsoleManager):
                             fs.add_volume(vol_id=att_vol.id,
                                           size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
                             # snap_size = att_vol.size
-                        else:
+                        elif 'snap_id' in snap:
                             log.debug("There are no volumes already attached for file system {0}"
                                 .format(snap['name']))
                             size = 0
@@ -1225,6 +1225,18 @@ class ConsoleManager(BaseConsoleManager):
                                 size = pss
                             fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
                             # snap_size = snap.get('size', 0)
+                        elif 'archive_url' in snap:
+                            log.debug("Attaching a volume based on a bucket {0}"
+                                .format(snap['name']))
+                            if 'size' in snap:
+                                size = snap['size']
+                                if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
+                                    if pss > snap['size']:
+                                        size = pss
+                                fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                            else:
+                                log.debug("Format error in snaps.yaml file. No size specified for volume based on bucket {0}"
+                                .format(snap['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
                             .format(fs.get_full_name(), fs.volumes))
                         self.add_master_service(fs)
@@ -1281,7 +1293,7 @@ class ConsoleManager(BaseConsoleManager):
         # Copy contents of the shared cluster's bucket to the current cluster's
         # bucket
         fl = "shared_instance_file_list.txt"
-        if misc.get_file_from_bucket( s3_conn, bucket_name,
+        if misc.get_file_from_bucket(s3_conn, bucket_name,
                 os.path.join(cluster_config_prefix, fl), fl, validate=False):
             key_list = misc.load_yaml_file(fl)
             for key in key_list:
@@ -1323,7 +1335,7 @@ class ConsoleManager(BaseConsoleManager):
                                     'kind': 'volume',
                                     'mount_point': '/mnt/galaxy',
                                     'name': 'galaxy',
-                                    'roles': ['galaxyTools','galaxyData']}
+                                    'roles': ['galaxyTools', 'galaxyData']}
                     scpd['filesystems'].append(data_fs_yaml)
                     log.info("Created a data volume '%s' of size %sGB from shared cluster's snapshot '%s'"
                              % (data_vol.id, data_vol.size, snap.id))
@@ -1419,7 +1431,7 @@ class ConsoleManager(BaseConsoleManager):
             # Including GALAXY_TOOLS role here breaks w/ new combined galaxyData/galaxyTools volume.  We should
             # probably change this to actually inspect and share base snapshots if applicable (like galaxyIndices) but
             # never volumes.
-            #if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
+            # if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
             if ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
@@ -3014,7 +3026,7 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                ##<KWS>
+                # #<KWS>
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
