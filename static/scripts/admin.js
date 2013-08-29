@@ -45,7 +45,8 @@ function update(repeat_update){
                 } else {
                     var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>";
                 }
-                if (data.galaxy_admins !== ''){
+                if ((data.galaxy_admins !== 'None') && !($("#galaxy_admin_users").is(":focus"))){
+                    // Bit of a hack -- we should probably prepopulate some other way.
                     $("#galaxy_admin_users").val(data.galaxy_admins);
                 }
                 $('#galaxy_dns').html(galaxy_dns);
