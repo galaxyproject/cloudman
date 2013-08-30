@@ -78,7 +78,7 @@ class ConsoleManager(BaseConsoleManager):
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
-        self.default_galaxy_data_size = None
+        self.default_galaxy_data_size = 0
 
     def add_master_service(self, new_service):
         self.services.append(new_service)
