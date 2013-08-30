@@ -48,6 +48,20 @@ APP_SERVICES = {
 # Time well in past to seend reboot, last comm times with.
 TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
 
+s3_rlock = threading.RLock()
+
+def synchronized(rlock):
+    """
+        Synchronization decorator
+        http://stackoverflow.com/a/490090
+    """
+    def wrap(f):
+        def newFunction(*args, **kw):
+            with rlock:
+                return f(*args, **kw)
+        return newFunction
+    return wrap
+
 
 class ConsoleManager(BaseConsoleManager):
     node_type = "master"
@@ -193,6 +207,7 @@ class ConsoleManager(BaseConsoleManager):
         return (None, None)
 
     @TestFlag([])
+    @synchronized(s3_rlock)
     def _load_snapshot_data(self):
         """
         Retrieve and return information about the default filesystems.
@@ -1265,6 +1280,7 @@ class ConsoleManager(BaseConsoleManager):
                 % cluster_type)
 
     @TestFlag(True)
+    @synchronized(s3_rlock)
     def init_shared_cluster(self, share_string):
         """
         Initialize a new (i.e., derived) cluster from a shared one, whose details
@@ -1380,6 +1396,7 @@ class ConsoleManager(BaseConsoleManager):
         return True
 
     @TestFlag({})
+    @synchronized(s3_rlock)
     def share_a_cluster(self, user_ids=None, canonical_ids=None):
         """
         Setup the environment to make the current cluster shared (via a shared
@@ -1529,6 +1546,7 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
+    @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
         Get a list of point-in-time shared instances of this cluster.
@@ -1586,6 +1604,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem retrieving references to shared instances: %s" % e)
         return lst
 
+    @synchronized(s3_rlock)
     def delete_shared_instance(self, shared_instance_folder, snap_id):
         """
         Deletes all files under shared_instance_folder (i.e., all keys with
@@ -1767,6 +1786,7 @@ class ConsoleManager(BaseConsoleManager):
             # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({})  # {'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
+    @synchronized(s3_rlock)
     def check_for_new_version_of_CM(self):
         """
         Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
@@ -1793,6 +1813,7 @@ class ConsoleManager(BaseConsoleManager):
                 pass
         return {}
 
+    @synchronized(s3_rlock)
     def update_users_CM(self):
         """
         If the revision number of CloudMan (CM) source file (as stored in file's metadata)
@@ -1954,6 +1975,7 @@ class ConsoleManager(BaseConsoleManager):
     # ==========================================================================
     # ============================ UTILITY METHODS =============================
     # ========================================================================
+    @synchronized(s3_rlock)
     def _make_file_from_list(self, input_list, file_name, bucket_name=None):
         """
         Create a file from provided list so that each list element is
@@ -2211,6 +2233,7 @@ class ConsoleMonitor(object):
             log.error("Problem creating cluster configuration file: '%s'" % e)
         return file_name
 
+    @synchronized(s3_rlock)
     def store_cluster_config(self):
         """
         Create a cluster configuration file and store it into cluster's bucket under name

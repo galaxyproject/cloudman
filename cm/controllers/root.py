@@ -362,7 +362,8 @@ class CM(BaseController):
     @expose
     def service_log(self, trans, service_name, show=None, num_lines=None, **kwargs):
         # Choose log file path based on service name
-        log = "No '%s' log available." % service_name
+        log_contents = "No '%s' log available." % service_name
+        log_file = None
         if service_name == 'Galaxy':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
@@ -400,18 +401,18 @@ class CM(BaseController):
         else:
             num_lines = 200  # By default, read the most recent 200 lines of the log
         # Get the log file content
-        if os.path.exists(log_file):
+        if log_file and os.path.exists(log_file):
             if show == 'all':
                 with open(log_file) as f:
-                    log = f.read()
+                    log_contents = f.read()
             else:
-                log = self.tail(log_file, num_lines=num_lines)
+                log_contents = self.tail(log_file, num_lines=num_lines)
         # Convert the log file contents to unicode for proper display
-        log = self.to_unicode(log)
+        log_contents = self.to_unicode(log_contents)
         trans.response.set_content_type("text")
         return trans.fill_template("srvc_log.mako",
                                    service_name=service_name,
-                                   log=log,
+                                   log_contents=log_contents,
                                    num_lines=num_lines,
                                    full=(show == 'all'),
                                    log_file=log_file)
