@@ -1,0 +1,12 @@
+access_key: <your AWS access key>
+boot_script_name: [cm_boot.py]
+boot_script_path: [/tmp/cm]
+bucket_cluster: cm-<hash>
+bucket_default: [cloudman]
+cloudman_home: /mnt/cm
+cluster_name: <your Galaxy CloudMan cluster name>
+[master_ip: <*exists only if worker*; master internal IP address>]
+[password: <your Galaxy CloudMan web console password>]
+role:<master or worker>
+secret_key: <your AWS secret key>
+[testflag: False]
