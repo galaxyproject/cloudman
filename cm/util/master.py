@@ -203,28 +203,36 @@ class ConsoleManager(BaseConsoleManager):
         # Get a list of default file system data sources
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'],
            'snaps.yaml', snaps_file):
-            snaps_file = misc.load_yaml_file(snaps_file)
-            if 'static_filesystems' in snaps_file:
-                # Old snaps.yaml format
-                snaps = snaps_file['static_filesystems']
-                # Convert the old format into the new one and return a
-                # uniform snaps dict
-                for f in snaps:
-                    f['name'] = f['filesystem']  # Rename the key
-                    f.pop('filesystem', None)  # Delete the old key
-            else:
-                # Unify all Amazon regions and/or name variations to a single one
-                if 'amazon' in cloud_name:
-                    cloud_name = 'amazon'
-                for cloud in snaps_file['clouds']:
-                    if cloud_name in cloud['name']:
-                        current_cloud = cloud
-                        for r in current_cloud['regions']:
-                            if r['name'] == self.app.cloud_interface.get_region_name():
-                                for d in r['deployments']:
-                                    # TODO: Make the deployment name a UD option
-                                    if d['name'] == 'GalaxyCloud':
-                                        snaps = d['filesystems']
+            pass
+        elif misc.get_file_from_public_s3_url(self.app.ud, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
+            log.warn("Couldn't get snaps.yaml from bucket: %s. However, managed to retrieve from public s3 url instead." % self.app.ud['bucket_default'])
+        else:
+            log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
+            return []
+
+        snaps_file = misc.load_yaml_file(snaps_file)
+        if 'static_filesystems' in snaps_file:
+            # Old snaps.yaml format
+            snaps = snaps_file['static_filesystems']
+            # Convert the old format into the new one and return a
+            # uniform snaps dict
+            for f in snaps:
+                f['name'] = f['filesystem']  # Rename the key
+                f.pop('filesystem', None)  # Delete the old key
+        else:
+            # Unify all Amazon regions and/or name variations to a single one
+            if 'amazon' in cloud_name:
+                cloud_name = 'amazon'
+            for cloud in snaps_file['clouds']:
+                if cloud_name in cloud['name']:
+                    current_cloud = cloud
+                    for r in current_cloud['regions']:
+                        if r['name'] == self.app.cloud_interface.get_region_name():
+                            for d in r['deployments']:
+                                # TODO: Make the deployment name a UD option
+                                if d['name'] == 'GalaxyCloud':
+                                    snaps = d['filesystems']
+
         log.debug("Loaded default snapshot data for cloud {1}: {0}".format(snaps,
             cloud_name))
         return snaps
@@ -235,11 +243,14 @@ class ConsoleManager(BaseConsoleManager):
             for snap in self.snaps:
                 roles = ServiceRole.from_string_array(snap['roles'])
                 if ServiceRole.GALAXY_DATA in roles:
-                    self.snapshot = (self.app.cloud_interface.get_ec2_connection()
-                        .get_all_snapshots([snap['snap_id']])[0])
-                    self.default_galaxy_data_size = self.snapshot.volume_size
-                    log.debug("Got default galaxy FS size as {0}GB".format(
-                        self.default_galaxy_data_size))
+                    if 'size' in snap:
+                        self.default_galaxy_data_size = snap['size']
+                    elif 'snap_id' in snap:
+                        self.snapshot = (self.app.cloud_interface.get_ec2_connection()
+                            .get_all_snapshots([snap['snap_id']])[0])
+                        self.default_galaxy_data_size = self.snapshot.volume_size
+                        log.debug("Got default galaxy FS size as {0}GB".format(
+                            self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
     @TestFlag(False)

@@ -702,6 +702,42 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
+def get_file_from_public_s3_url(ud, bucket_name, remote_filename, local_file):
+    """
+    A fallback method which does the equivalent of a wget from
+    the S3 REST API.
+    """
+    import urlparse
+    import requests
+
+    s3_host = ud.get('s3_host', 's3.amazonaws.com')
+    s3_port = ud.get('s3_port', 80)
+    s3_conn_path = ud.get('s3_conn_path', '/')
+    cloud_type = ud.get('cloud_type', 'ec2')
+
+    s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
+    s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
+
+    # TODO: assume openstack public bucket with specific access rights. Fix later
+    if cloud_type == "openstack":
+        url = urlparse.urljoin(s3_base_url, '/V1/AUTH_377/')
+    else:
+        url = s3_base_url
+
+    url = urlparse.urljoin(url, bucket_name + "/")
+    url = urlparse.urljoin(url, remote_filename)
+
+    r = requests.get(url)
+    if r.status_code == requests.codes.ok:
+        f = open(local_file, 'w')
+        f.write(r.content)
+        f.close()
+        return True
+    else:
+        log.warn("Could not fetch file from s3 public url: %s" % url)
+        return False
+
+
 def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     """
     Convenience method for executing a shell command ``cmd``. Returns
