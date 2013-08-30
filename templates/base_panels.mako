@@ -6,7 +6,13 @@ from routes import url_for
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 
 ## Default title
-<%def name="title()">CloudMan: ${cluster_name}</%def>
+<%def name="title()">
+% if not cluster_name is UNDEFINED:
+    CloudMan: ${cluster_name}
+% else:
+    CloudMan
+%endif
+</%def>
 
 ## Default stylesheets
 <%def name="stylesheets()">
