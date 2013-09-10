@@ -1,7 +1,6 @@
 from datetime import datetime
 import os
 import subprocess
-import urllib2
 
 from cm.services.apps import ApplicationService
 
@@ -14,6 +13,7 @@ from cm.util.galaxy_conf import DirectoryGalaxyOptionManager
 
 import logging
 log = logging.getLogger('cloudman')
+DEFAULT_REPORTS_PORT = 9901
 
 
 class GalaxyReportsService(ApplicationService):
@@ -21,6 +21,7 @@ class GalaxyReportsService(ApplicationService):
     def __init__(self, app):
         super(GalaxyReportsService, self).__init__(app)
         self.galaxy_home = self.app.path_resolver.galaxy_home
+        self.reports_port = DEFAULT_REPORTS_PORT
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
         self.dependencies = [ServiceDependency(
@@ -29,12 +30,7 @@ class GalaxyReportsService(ApplicationService):
             self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
     def _check_galaxy_reports_running(self):
-        dns = "http://127.0.0.1:9001"
-        try:
-            urllib2.urlopen(dns)
-            return True
-        except:
-            return False
+        return self._port_bound(self.reports_port)
 
     def start(self):
         self.state = service_states.STARTING

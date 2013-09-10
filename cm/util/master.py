@@ -28,6 +28,7 @@ from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.postgres import PostgresService
+from cm.services.apps.lwr import LwrService
 from cm.services import ServiceType
 from cm.services import ServiceRole
 from cm.util.decorators import TestFlag
@@ -40,11 +41,26 @@ log = logging.getLogger('cloudman')
 APP_SERVICES = {
     ServiceRole.to_string(ServiceRole.GALAXY): GalaxyService,
     ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES): PostgresService,
-    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService
+    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService,
+    ServiceRole.to_string(ServiceRole.LWR): LwrService,
 }
 
 # Time well in past to seend reboot, last comm times with.
 TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
+
+s3_rlock = threading.RLock()
+
+def synchronized(rlock):
+    """
+        Synchronization decorator
+        http://stackoverflow.com/a/490090
+    """
+    def wrap(f):
+        def newFunction(*args, **kw):
+            with rlock:
+                return f(*args, **kw)
+        return newFunction
+    return wrap
 
 
 class ConsoleManager(BaseConsoleManager):
@@ -76,7 +92,7 @@ class ConsoleManager(BaseConsoleManager):
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
-        self.default_galaxy_data_size = None
+        self.default_galaxy_data_size = 0
 
     def add_master_service(self, new_service):
         self.services.append(new_service)
@@ -124,7 +140,8 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
-            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES]:
+            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES,
+                             ServiceRole.PROFTPD]:
                 try:
                     svc = self.get_services(svc_role=svc_role)
                     if svc:
@@ -138,7 +155,8 @@ class ConsoleManager(BaseConsoleManager):
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
         # to be added)
-        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.GALAXY]:
+        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.PROFTPD,
+                         ServiceRole.GALAXY]:
             try:
                 svc = self.get_services(svc_role=svc_role)
                 if svc:
@@ -189,6 +207,7 @@ class ConsoleManager(BaseConsoleManager):
         return (None, None)
 
     @TestFlag([])
+    @synchronized(s3_rlock)
     def _load_snapshot_data(self):
         """
         Retrieve and return information about the default filesystems.
@@ -1272,6 +1291,7 @@ class ConsoleManager(BaseConsoleManager):
                 % cluster_type)
 
     @TestFlag(True)
+    @synchronized(s3_rlock)
     def init_shared_cluster(self, share_string):
         """
         Initialize a new (i.e., derived) cluster from a shared one, whose details
@@ -1387,6 +1407,7 @@ class ConsoleManager(BaseConsoleManager):
         return True
 
     @TestFlag({})
+    @synchronized(s3_rlock)
     def share_a_cluster(self, user_ids=None, canonical_ids=None):
         """
         Setup the environment to make the current cluster shared (via a shared
@@ -1536,6 +1557,7 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
+    @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
         Get a list of point-in-time shared instances of this cluster.
@@ -1593,6 +1615,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem retrieving references to shared instances: %s" % e)
         return lst
 
+    @synchronized(s3_rlock)
     def delete_shared_instance(self, shared_instance_folder, snap_id):
         """
         Deletes all files under shared_instance_folder (i.e., all keys with
@@ -1774,6 +1797,7 @@ class ConsoleManager(BaseConsoleManager):
             # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({})  # {'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
+    @synchronized(s3_rlock)
     def check_for_new_version_of_CM(self):
         """
         Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
@@ -1800,6 +1824,7 @@ class ConsoleManager(BaseConsoleManager):
                 pass
         return {}
 
+    @synchronized(s3_rlock)
     def update_users_CM(self):
         """
         If the revision number of CloudMan (CM) source file (as stored in file's metadata)
@@ -1843,9 +1868,8 @@ class ConsoleManager(BaseConsoleManager):
                     return True
         return False
 
-    def expand_user_data_volume(
-        self, new_vol_size, fs_name, snap_description=None,
-            delete_snap=False):
+    def expand_user_data_volume(self, new_vol_size, fs_name, snap_description=None,
+                                delete_snap=False):
         """
         Mark the file system ``fs_name`` for size expansion. For full details on how
         this works, take a look at the file system expansion method for the
@@ -1855,16 +1879,15 @@ class ConsoleManager(BaseConsoleManager):
         that will be creted during the expansion process under the given cloud account.
         If the snapshot is to be kept, a brief ``snap_description`` can be provided.
         """
-        # Mark the file system as needing to be expanded
-
-        # matches fs_name, or if it's null or empty, the GALAXY_DATA role
+        # Match fs_name with a service or if it's null or empty, default to
+        # GALAXY_DATA role
         if fs_name:
             svcs = self.app.manager.get_services(svc_name=fs_name)
             if svcs:
                 svc = svcs[0]
             else:
-                log.warning("Could not initiate expansion of {0} file system because the "
-                            "file system was not found?".format(fs_name))
+                log.error("Could not initiate expansion of {0} file system because "
+                    "the file system was not found?".format(fs_name))
                 return
         else:
             svc = self.app.manager.get_services(
@@ -1963,6 +1986,7 @@ class ConsoleManager(BaseConsoleManager):
     # ==========================================================================
     # ============================ UTILITY METHODS =============================
     # ========================================================================
+    @synchronized(s3_rlock)
     def _make_file_from_list(self, input_list, file_name, bucket_name=None):
         """
         Create a file from provided list so that each list element is
@@ -2220,6 +2244,7 @@ class ConsoleMonitor(object):
             log.error("Problem creating cluster configuration file: '%s'" % e)
         return file_name
 
+    @synchronized(s3_rlock)
     def store_cluster_config(self):
         """
         Create a cluster configuration file and store it into cluster's bucket under name

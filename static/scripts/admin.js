@@ -45,7 +45,8 @@ function update(repeat_update){
                 } else {
                     var galaxy_dns = "<a href='"+data.galaxy_dns+"' target='_blank'>Access Galaxy</a>";
                 }
-                if (data.galaxy_admins !== ''){
+                if ((data.galaxy_admins !== 'None') && !($("#galaxy_admin_users").is(":focus"))){
+                    // Bit of a hack -- we should probably prepopulate some other way.
                     $("#galaxy_admin_users").val(data.galaxy_admins);
                 }
                 $('#galaxy_dns').html(galaxy_dns);
@@ -55,6 +56,7 @@ function update(repeat_update){
                 update_application_status("#postgres_status", data.Postgres);
                 update_application_status("#sge_status", data.SGE);
                 update_application_status("#galaxy_reports_status", data.GalaxyReports);
+                update_application_status("#lwr_status", data.LWR);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
