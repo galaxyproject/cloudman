@@ -719,7 +719,7 @@ def get_file_from_public_s3_url(ud, bucket_name, remote_filename, local_file):
     s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
 
     # TODO: assume openstack public bucket with specific access rights. Fix later
-    if cloud_type == "openstack":
+    if 'nectar' in ud.get('cloud_name', '').lower():
         url = urlparse.urljoin(s3_base_url, '/V1/AUTH_377/')
     else:
         url = s3_base_url

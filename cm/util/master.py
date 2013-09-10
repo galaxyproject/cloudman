@@ -249,7 +249,7 @@ class ConsoleManager(BaseConsoleManager):
                         self.snapshot = (self.app.cloud_interface.get_ec2_connection()
                             .get_all_snapshots([snap['snap_id']])[0])
                         self.default_galaxy_data_size = self.snapshot.volume_size
-                        log.debug("Got default galaxy FS size as {0}GB".format(
+                    log.debug("Got default galaxy FS size as {0}GB".format(
                             self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
