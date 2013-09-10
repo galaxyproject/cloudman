@@ -139,20 +139,31 @@ class CM(BaseController):
         return json.dumps(cluster_type)
 
     @expose
-    def expand_user_data_volume(self, trans, new_vol_size, fs_name=None, vol_expand_desc=None, delete_snap=False):
-        if not fs_name:
-            fs_name = self.app.manager.get_services(svc_role=ServiceRole.GALAXY_DATA)[0]
+    def expand_user_data_volume(self, trans, new_vol_size, fs_name='', vol_expand_desc='',
+                                delete_snap=False):
+        """
+        Check for the validity of provided information and initiate expansion of
+        a volume underlying the file system. If ``fs_name`` is provided, look for
+        a file system with that name; otherwise, default to file system with role
+        ``GALAXY_DATA``. During the resizing process, a volume snapshot is created.
+        This snapshot can be preserved in user's account or with an optional
+        description ``vol_expand_desc`` or deleted upon process completion by
+        setting ``delete_snap``.
+        """
         if delete_snap:
             delete_snap = True
-        log.debug("Initiating expansion of {0} file system to size {1} w/ snap desc '{2}', which "\
-                "{3} be deleted".format(fs_name, new_vol_size, vol_expand_desc,
-                "will" if delete_snap else "will not"))
+        log.debug("Initiating expansion of {0} file system to size {1} w/ "
+            "snap desc '{2}', which {3} be deleted after the expansion process "
+            "completes.".format(fs_name, new_vol_size, vol_expand_desc,
+            "will" if delete_snap else "will not"))
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
                 # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
-                if new_vol_size > self.app.manager.get_permanent_storage_size() and new_vol_size < 1000:
-                    self.app.manager.expand_user_data_volume(new_vol_size, vol_expand_desc, delete_snap)
+                if (new_vol_size > self.app.manager.get_permanent_storage_size()
+                   and new_vol_size < 1000):
+                    self.app.manager.expand_user_data_volume(new_vol_size, fs_name=fs_name,
+                        snap_description=vol_expand_desc, delete_snap=delete_snap)
         except ValueError, e:
             log.error("You must provide valid values: %s" % e)
             return "ValueError exception. Check the log."
@@ -351,7 +362,8 @@ class CM(BaseController):
     @expose
     def service_log(self, trans, service_name, show=None, num_lines=None, **kwargs):
         # Choose log file path based on service name
-        log = "No '%s' log available." % service_name
+        log_contents = "No '%s' log available." % service_name
+        log_file = None
         if service_name == 'Galaxy':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
@@ -378,6 +390,8 @@ class CM(BaseController):
             log_file = "paster.log"
         elif service_name == 'GalaxyReports':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
+        elif service_name == 'LWR':
+            log_file = os.path.join(self.app.path_resolver.lwr_home, 'paster.log')
         # Set log length
         if num_lines:
             if show == 'more':
@@ -387,18 +401,18 @@ class CM(BaseController):
         else:
             num_lines = 200  # By default, read the most recent 200 lines of the log
         # Get the log file content
-        if os.path.exists(log_file):
+        if log_file and os.path.exists(log_file):
             if show == 'all':
                 with open(log_file) as f:
-                    log = f.read()
+                    log_contents = f.read()
             else:
-                log = self.tail(log_file, num_lines=num_lines)
+                log_contents = self.tail(log_file, num_lines=num_lines)
         # Convert the log file contents to unicode for proper display
-        log = self.to_unicode(log)
+        log_contents = self.to_unicode(log_contents)
         trans.response.set_content_type("text")
         return trans.fill_template("srvc_log.mako",
                                    service_name=service_name,
-                                   log=log,
+                                   log_contents=log_contents,
                                    num_lines=num_lines,
                                    full=(show == 'all'),
                                    log_file=log_file)

@@ -49,7 +49,7 @@ upload_cm_to_S3.py
 # Dev files
 .coverage
 htmlcov
-
+cm_webapp.pid
 
 #Eclise+PyDev project files
 .project

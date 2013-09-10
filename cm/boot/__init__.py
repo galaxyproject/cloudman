@@ -19,6 +19,7 @@ from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
 
 from .util import _run, _is_running, _make_dir
+from .conf import _install_authorized_keys, _install_conf_files, _configure_nginx
 from .object_store import _get_file_from_bucket
 
 logging.getLogger(
@@ -72,7 +73,7 @@ def _start_nginx(ud):
     # url = 'http://userwww.service.emory.edu/~eafgan/content/nginx.conf'
     # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
     # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
-    _configure_nginx(ud)
+    _configure_nginx(log, ud)
     _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
     upload_store_dir = '/mnt/galaxyData/upload_store'
@@ -130,46 +131,6 @@ def _get_nginx_dir():
                 if os.path.exists(path):
                     nginx_dir = path
     return nginx_dir
-
-
-def _write_conf_file(contents_descriptor, path):
-    destination_directory = os.path.dirname(path)
-    if not os.path.exists(destination_directory):
-        os.makedirs(destination_directory)
-    if contents_descriptor.startswith("http") or contents_descriptor.startswith("ftp"):
-        log.info("Fetching file from %s" % contents_descriptor)
-        _run(log, "wget --output-document='%s' '%s'" % (contents_descriptor, path))
-    else:
-        log.info("Writing out configuration file encoded in user-data:")
-        with open(path, "w") as output:
-            output.write(base64.b64decode(contents_descriptor))
-
-
-def _configure_nginx(ud):
-    # User specified nginx.conf file, can be specified as
-    # url or base64 encoded plain-text.
-    nginx_conf = ud.get("nginx_conf_contents", None)
-    nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
-    if nginx_conf:
-        _write_conf_file(nginx_conf, nginx_conf_path)
-    reconfigure_nginx = ud.get("reconfigure_nginx", True)
-    if reconfigure_nginx:
-        _reconfigure_nginx(ud, nginx_conf_path)
-
-
-def _reconfigure_nginx(ud, nginx_conf_path):
-    configure_multiple_galaxy_processes = ud.get(
-        "configure_multiple_galaxy_processes", False)
-    web_threads = ud.get("web_thread_count", 1)
-    if configure_multiple_galaxy_processes and web_threads > 1:
-        ports = [8080 + i for i in range(web_threads)]
-        servers = ["server localhost:%d;" % port for port in ports]
-        upstream_galaxy_app_conf = "upstream galaxy_app { %s } " % "".join(
-            servers)
-        nginx_conf = open(nginx_conf_path, "r").read()
-        new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}",
-                                upstream_galaxy_app_conf, nginx_conf)
-        open(nginx_conf_path, "w").write(new_nginx_conf)
 
 
 def _fix_nginx_upload(ud):
@@ -541,13 +502,9 @@ def main():
             sys.exit(0)
         else:
             usage()
-    # Currently using this to configure nginx SSL, but it could be used
-    # to configure anything really.
-    conf_files = ud.get('conf_files', [])
-    for conf_file_obj in conf_files:
-        path = conf_file_obj.get('path')
-        content = conf_file_obj.get('content')
-        _write_conf_file(content, path)
+
+    _install_conf_files(log, ud)
+    _install_authorized_keys(log, ud)
 
     if 'no_start' not in ud:
         if ('nectar' in ud.get('cloud_name', '').lower()):

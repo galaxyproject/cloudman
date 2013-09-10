@@ -1,7 +1,7 @@
 from tempfile import mkdtemp
 from os.path import join, dirname
 from os import pardir
-from shutil import copyfile
+from shutil import copyfile, rmtree
 from logging import getLogger
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -70,6 +70,7 @@ class TestPathResolver(object):
 
     def __init__(self):
         self._galaxy_home = None
+        self._lwr_home = None
         self.galaxy_data = TEST_DATA_DIR
         self.galaxy_tools = TEST_TOOLS_DIR
         self.galaxy_indices = TEST_INDICES_DIR
@@ -84,6 +85,12 @@ class TestPathResolver(object):
             copyfile(src, dest)
             copyfile(src, '%s.sample' % dest)
         return self._galaxy_home
+
+    @property
+    def lwr_home(self):
+        if not self._lwr_home:
+            self._lwr_home = mkdtemp()
+        return self._lwr_home
 
 
 def test_logger():
@@ -111,7 +118,7 @@ class MockBotoInstance(object):
 
 @contextmanager
 def instrument_time():
-    class MockTime():
+    class MockTime(object):
 
         def __init__(self, mock_now):
             self.initial = datetime.utcnow()
@@ -124,3 +131,17 @@ def instrument_time():
 
     with patch("cm.util.Time.now") as mock_now:
         yield MockTime(mock_now)
+
+
+@contextmanager
+def mock_runner():
+    with patch("cm.util.misc.run") as mock_run:
+        mock_run.return_value = True
+        yield mock_run
+
+
+@contextmanager
+def temp_dir():
+    temp_directory = mkdtemp()
+    yield temp_directory
+    rmtree(temp_directory)

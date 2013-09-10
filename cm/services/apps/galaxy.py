@@ -83,9 +83,9 @@ class GalaxyService(ApplicationService):
             log.debug("Attempted to manage Galaxy, but TESTFLAG is set.")
             return
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
-        os.putenv("GALAXY_HOME", self.galaxy_home)
-        os.putenv("TEMP", self.app.path_resolver.galaxy_temp)
-        os.putenv("TMPDIR", self.app.path_resolver.galaxy_temp)
+        self.env_vars["GALAXY_HOME"] = self.galaxy_home
+        self.env_vars["TEMP"] =  self.app.path_resolver.galaxy_temp
+        self.env_vars["TMPDIR"] = self.app.path_resolver.galaxy_temp
         conf_dir = self.option_manager.setup()
         if conf_dir:
             self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
