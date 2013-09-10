@@ -702,7 +702,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
-def get_file_from_public_s3_url(ud, bucket_name, remote_filename, local_file):
+def get_file_from_public_bucket(ud, bucket_name, remote_filename, local_file):
     """
     A fallback method which does the equivalent of a wget from
     the S3 REST API.
