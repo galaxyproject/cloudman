@@ -155,7 +155,6 @@ class Volume(BlockStorage):
                     log.debug("No attach_device candidate for volume {0}".format(vol.id))
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
-            self.from_archive_url = vol.from_archive_url
             if self.from_snapshot_id == '':
                 self.from_snapshot_id = None
             log.debug("For volume {0} ({1}) set from_snapshot_id to {2}"
