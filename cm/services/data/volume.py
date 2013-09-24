@@ -715,9 +715,13 @@ class Volume(BlockStorage):
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
 
                 # If based on bucket, extract bucket contents onto new volume
-                if self.from_archive_url:
-                    log.info("Extracting archive url: %s to mount point: %s. This could take a while..." % (self.from_archive_url, mount_point))
-                    misc.extract_archive_content_to_path(self.from_archive_url, mount_point)
+                try:
+                    if self.from_archive_url:
+                        log.info("Extracting archive url: %s to mount point: %s. This could take a while..." % (self.from_archive_url, mount_point))
+                        misc.extract_archive_content_to_path(self.from_archive_url, mount_point)
+                except Exception, e:
+                    log.error("Error while extracting archive: {0}".format(e))
+                    return False
 
                 # Lastly, share the newly mounted file system over NFS
                 if self.fs.add_nfs_share(mount_point):
