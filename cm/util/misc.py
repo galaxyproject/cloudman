@@ -711,9 +711,8 @@ def get_file_from_public_bucket(ud, bucket_name, remote_filename, local_file):
     import requests
 
     s3_host = ud.get('s3_host', 's3.amazonaws.com')
-    s3_port = ud.get('s3_port', 80)
+    s3_port = ud.get('s3_port', 443)
     s3_conn_path = ud.get('s3_conn_path', '/')
-    cloud_type = ud.get('cloud_type', 'ec2')
 
     s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
     s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
