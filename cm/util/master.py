@@ -280,7 +280,8 @@ class ConsoleManager(BaseConsoleManager):
         and start available cluster services (as provided in the cluster's
         configuration and persistent data).
         """
-        log.debug("ud at manager start: %s" % self.app.ud)
+        log.debug("User Data at manager start, with secret_key and password filtered out: %s" %
+                dict((k, self.app.ud[k]) for k in self.app.ud.keys() if k not in ['password', 'secret_key']))
 
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
