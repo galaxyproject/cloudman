@@ -123,7 +123,7 @@ class Volume(BlockStorage):
         if (vol.attachment_state() == 'attached' and
            vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id()):
             log.error('Attempting to connect to a volume ({0} that is already attached "\
-                "to a different instance ({1}'.format(vol.volume_id, vol.attach_data.instance_id))
+                "to a different instance ({1}'.format(vol.id, vol.attach_data.instance_id))
             self.volume = None
             self.device = None
         else:
@@ -210,7 +210,7 @@ class Volume(BlockStorage):
                 status = volume_status.NONE
         return status
 
-    def wait_for_status(self, status, timeout= -1):
+    def wait_for_status(self, status, timeout=-1):
         """
         Wait for ``timeout`` seconds, or until the volume reaches a desired status
         Returns ``False`` if it never hit the request status before timeout.
@@ -580,7 +580,8 @@ class Volume(BlockStorage):
         # Mark a volume as 'static' if created from a snapshot
         # Note that if a volume is marked as 'static', it is assumed it
         # can be deleted upon cluster termination!
-        if (not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and (self.from_snapshot_id is not None or self.from_archive_url is not None):
+        if ((not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and
+           (self.from_snapshot_id is not None or self.from_archive_url is not None)):
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
             # FIXME: This is a major problem - any new volumes added from a snapshot
@@ -716,7 +717,8 @@ class Volume(BlockStorage):
                 # If based on bucket, extract bucket contents onto new volume
                 try:
                     if self.from_archive_url:
-                        log.info("Extracting archive url: %s to mount point: %s. This could take a while..." % (self.from_archive_url, mount_point))
+                        log.info("Extracting archive url: %s to mount point: %s. This could take a while..."
+                        % (self.from_archive_url, mount_point))
                         misc.extract_archive_content_to_path(self.from_archive_url, mount_point)
                 except Exception, e:
                     log.error("Error while extracting archive: {0}".format(e))
