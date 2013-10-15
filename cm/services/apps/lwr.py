@@ -1,13 +1,12 @@
 import os
-import urllib2
 
-from cm.services.apps import ApplicationService
 
 from cm.util import paths
 from cm.util import misc
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
+from cm.services.apps import ApplicationService
 
 import logging
 log = logging.getLogger('cloudman')

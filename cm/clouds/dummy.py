@@ -1,19 +1,9 @@
-import urllib
 import socket
 from cm.clouds import CloudInterface
-from cm.services.data.filesystem import Volume
-
-from oca import Client, VirtualMachine, VirtualMachinePool, CONNECTED
-from oca.exceptions import OpenNebulaException
-
-import new
 
 # Obtaining IP and MAC addresses
-import socket
 import fcntl
 import struct
-
-import subprocess
 
 import logging
 log = logging.getLogger('cloudman')
