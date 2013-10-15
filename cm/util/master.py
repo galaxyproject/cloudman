@@ -43,6 +43,7 @@ APP_SERVICES = {
     ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES): PostgresService,
     ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService,
     ServiceRole.to_string(ServiceRole.LWR): LwrService,
+    ServiceRole.to_string(ServiceRole.PROFTPD): ProFTPdService,
 }
 
 # Time well in past to seend reboot, last comm times with.
