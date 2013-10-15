@@ -1,0 +1,42 @@
+version: 1
+clouds:
+  - name: amazon
+    regions:
+    - deployments:
+      - name: GalaxyCloud
+        filesystems:
+        - name: galaxy
+          roles: galaxyTools,galaxyData
+          snap_id: snap-324bba7b
+        - name: galaxyIndices
+          roles: galaxyIndices
+          snap_id: snap-5b030634
+        default_mi: ami-da7e23dd
+        bucket: cloudman
+      name: us-east-1
+    - deployments:
+      - name: GalaxyCloud
+        filesystems:
+        - name: galaxy
+          roles: galaxyTools,galaxyData
+          snap_id: snap-678e1757
+        - name: galaxyIndices
+          roles: galaxyIndices
+          snap_id: snap-43c45d73
+        default_mi: ami-f8df4ec2
+        bucket: cloudman-os
+      name: ap-southeast-2
+  - name: nectar
+    regions:
+    - deployments:
+        - name: GalaxyCloud
+          filesystems:
+            - name: galaxy
+              roles: galaxyTools,galaxyData
+              snap_id: snap-87fhviuk
+            - name: galaxyIndices
+              roles: galaxyIndices
+              snap_id: snap-8943fjcl
+          default_mi: ami-9v8hdfic
+          bucket: cloudman-os
+      name: melbourne
