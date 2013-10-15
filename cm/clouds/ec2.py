@@ -410,10 +410,11 @@ class EC2Interface(CloudInterface):
             ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
         log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
                   "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
-                  "security_groups=['{sgs}'], user_data=[{ud}], instance_type='{type}', placement='{zone}')"
+                  "security_groups=['{sgs}'], user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}')"
                   .format(iid=self.get_ami(), min_num=min_num, num=num,
                     key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
-                    ud=worker_ud_str, type=instance_type, zone=self.get_zone()))
+                    ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                    type=instance_type, zone=self.get_zone()))
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
