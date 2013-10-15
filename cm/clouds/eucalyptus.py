@@ -192,7 +192,6 @@ class EucaInterface(EC2Interface):
         return self.public_hostname
 
     def run_instances(self, num, instance_type, spot_price=None, **kwargs):
-        use_spot = False
         if spot_price is not None:
             log.warning(
                 'Eucalyptus does not support spot instances -- submitting normal request')
