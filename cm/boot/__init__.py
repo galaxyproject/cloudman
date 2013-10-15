@@ -4,10 +4,8 @@ Requires:
     PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
     boto http://code.google.com/p/boto/ (easy_install boto)
 """
-import base64
 import logging
 import os
-import re
 import shutil
 import sys
 import tarfile

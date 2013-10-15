@@ -237,7 +237,6 @@ class DefaultWebTransaction(object):
 # tempfiles.  Necessary for externalizing the upload tool.  It's a little hacky
 # but for performance reasons it's way better to use Paste's tempfile than to
 # create a new one and copy.
-import cgi
 import tempfile
 
 

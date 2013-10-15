@@ -1,8 +1,5 @@
 """Contains functionality needed in every webapp interface"""
-import os
-import time
 import logging
-from cm import util
 
 log = logging.getLogger('cloudman')
 

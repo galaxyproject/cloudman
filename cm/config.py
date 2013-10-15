@@ -1,11 +1,9 @@
 """Universe configuration builder."""
-import time
-import sys
-import os
+import ConfigParser
 import logging
 import logging.config
-import ConfigParser
-# from optparse import OptionParser
+import os
+import sys
 from cm.util import string_as_bool
 from cm.util import misc
 from cm.util import paths

@@ -1,4 +1,3 @@
-import urllib
 import socket
 from cm.clouds import CloudInterface
 from cm.services.data.filesystem import Volume
@@ -9,7 +8,6 @@ from oca.exceptions import OpenNebulaException
 import new
 
 # Obtaining IP and MAC addresses
-import socket
 import fcntl
 import struct
 

@@ -3,12 +3,8 @@ Middleware that profiles the request with cProfile and displays profiling
 information at the bottom of each page.
 """
 
-import sys
-import os
 import threading
 import cgi
-import time
-from cStringIO import StringIO
 from paste import response
 
 try:
