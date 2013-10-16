@@ -1,7 +1,6 @@
 """
-An implementation of the NFS-based file system service capable of managing
-interactions with a remote NFS server and making it available locally as a
-file system.
+An implementation of a file system service capable of managing
+interactions with any filesystem that can be mounted via *nix mount
 """
 import os
 import time
@@ -14,30 +13,30 @@ import logging
 log = logging.getLogger('cloudman')
 
 
-class NfsFS(object):
-    def __init__(self, filesystem, nfs_server, username=None, pwd=None):
+class MountableFS(object):
+
+    def __init__(self, filesystem, fs_type, device):
         self.fs = filesystem  # File system encapsulating this implementation
+        self.fs_type = fs_type
         self.app = self.fs.app  # A local reference to app (used by @TestFlag)
-        self.nfs_server = nfs_server
-        self.server_username = username
-        self.server_pwd = pwd
+        self.device = device
 
     def __str__(self):
-        return str(self.nfs_server)
+        return str(self.device)
 
     def __repr__(self):
-        return str(self.nfs_server)
+        return str(self.device)
 
     def _get_details(self, details):
-        details['nfs_server'] = self.nfs_server
+        details['device'] = self.device
         details['DoT'] = "No"
-        details['kind'] = 'External NFS'
+        details['kind'] = self.fs_type
         return details
 
     def start(self):
         """
-        Start NfsFS service.
-        Satisfy any preconditions and try to mount ``self.nfs_server`` locally at
+        Start the service.
+        Satisfy any preconditions and try to mount the device self.device locally at
         ``self.fs.mount_point``
         """
         if not os.path.exists(self.fs.mount_point):
@@ -46,7 +45,7 @@ class NfsFS(object):
 
     def stop(self):
         """
-        Stop NfsFS service and cleanup the ``self.fs.mount_point`` directory.
+        Stop the service and cleanup the ``self.fs.mount_point`` directory.
         """
         if self.unmount():
             # Clean up the system path now that the file system is unmounted
@@ -58,30 +57,30 @@ class NfsFS(object):
 
     def mount(self):
         """
-        Do the actual mounting of the remote NFS file system locally.
+        Do the actual mounting of the device locally.
         """
-        log.debug("Mounting NFS FS {0} from {1}".format(self.fs.mount_point, self.nfs_server))
-        cmd = '/bin/mount -t nfs {0} {1}'.format(self.nfs_server, self.fs.mount_point)
+        log.debug("Mounting device of type {0} from location {0} to mount pount {1}".format(self.fs_type, self.device, self.fs.mount_point))
+        cmd = '/bin/mount -t {0} {1} {2}'.format(self.fs_type, self.device, self.fs.mount_point)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         _, _ = process.communicate()
         if process.returncode != 0:
-            log.error("Trouble mounting file system at {0} from NFS server {1}"
-                .format(self.fs.mount_point, self.nfs_server))
+            log.error("Trouble mounting file system at {0} from server {1} of type {2}"
+                .format(self.fs.mount_point, self.device, self.fs_type))
         else:
-            log.info("Successfully mounted file system at {0} from {1}"
-                .format(self.fs.mount_point, self.nfs_server))
+            log.info("Successfully mounted file system at {0} from {1} of type {2}"
+                .format(self.fs.mount_point, self.device, self.fs_type))
 
     def unmount(self):
         """
         Do the actual unmounting of this file system.
         """
-        log.debug("Unmounting NFS-based FS from {0}".format(self.fs.mount_point))
+        log.debug("Unmounting FS of type {0} from {1}".format(self.fs_type, self.fs.mount_point))
         for counter in range(10):
             if (self.fs.state == service_states.RUNNING and
                 run('/bin/umount %s' % self.fs.mount_point)):
                 break
             if counter == 9:
-                log.warning("Could not unmount file system at '%s'" % self.fs.mount_point)
+                log.warning("Could not unmount file system of type %s at '%s'" % (self.fs_type, self.fs.mount_point))
                 return False
             counter += 1
             time.sleep(3)

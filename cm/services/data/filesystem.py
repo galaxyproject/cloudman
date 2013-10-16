@@ -16,8 +16,7 @@ from cm.util.misc import nice_size
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import DataService
-from cm.services.data.nfs import NfsFS
-from cm.services.data.glusterfs import GlusterFS
+from cm.services.data.mountablefs import MountableFS
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 from cm.services.data.transient_storage import TransientStorage
@@ -627,7 +626,7 @@ class Filesystem(DataService):
         """
         log.debug("Adding Gluster server {0} to file system {1}".format(gluster_server, self.name))
         self.kind = 'gluster'
-        self.gluster_fs = GlusterFS(self, gluster_server)
+        self.gluster_fs = MountableFS(self, 'glusterfs', gluster_server)
 
     def add_nfs(self, nfs_server, username=None, pwd=None):
         """
@@ -635,4 +634,4 @@ class Filesystem(DataService):
         """
         log.debug("Adding NFS server {0} to file system {1}".format(nfs_server, self.name))
         self.kind = 'nfs'
-        self.nfs_fs = NfsFS(self, nfs_server, username, pwd)
+        self.nfs_fs = MountableFS(self, 'nfs', nfs_server)
