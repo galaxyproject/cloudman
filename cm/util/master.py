@@ -2251,9 +2251,9 @@ class ConsoleMonitor(object):
                             fs['ids'] = [
                                 v.from_snapshot_id for v in srvc.volumes]
                         elif srvc.kind == 'nfs':
-                            fs['nfs_server'] = srvc.nfs_fs.nfs_server
+                            fs['nfs_server'] = srvc.nfs_fs.device
                         elif srvc.kind == 'gluster':
-                            fs['gluster_server'] = srvc.gluster_fs.gluster_server
+                            fs['gluster_server'] = srvc.gluster_fs.device
                         else:
                             log.error("For filesystem {0}, unknown kind: {0}"
                                 .format(srvc.name, srvc.kind))
@@ -2960,10 +2960,10 @@ class Instance(object):
         for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
             if fs.nfs_fs:
                 fs_type = "nfs"
-                server = fs.nfs_fs.nfs_server
+                server = fs.nfs_fs.device
             elif fs.gluster_fs:
                 fs_type = "glusterfs"
-                server = fs.gluster_fs.gluster_server
+                server = fs.gluster_fs.device
             else:
                 fs_type = "nfs"
                 server = self.app.cloud_interface.get_private_ip()
