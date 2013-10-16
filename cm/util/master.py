@@ -388,6 +388,10 @@ class ConsoleManager(BaseConsoleManager):
                                     from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
+                    elif fs['kind'] == 'nfs':
+                        filesystem.add_nfs(fs['nfs_server'], None, None)
+                    elif fs['kind'] == 'gluster':
+                        filesystem.add_glusterfs(fs['gluster_server'])
                     elif fs['kind'] == 'bucket':
                         a_key = fs.get('access_key', None)
                         s_key = fs.get('secret_key', None)
@@ -1257,18 +1261,32 @@ class ConsoleManager(BaseConsoleManager):
                                 size = pss
                             fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
                             # snap_size = snap.get('size', 0)
-                        elif 'archive_url' in snap:
-                            log.debug("Attaching a volume based on a bucket {0}"
-                                .format(snap['name']))
-                            if 'size' in snap:
-                                size = snap['size']
-                                if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
-                                    if pss > snap['size']:
-                                        size = pss
-                                fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                        elif 'type' in snap:
+                            if 'archive' == snap['type'] and 'archive_url' in snap:
+                                log.debug("Attaching a volume based on an archive named {0}"
+                                    .format(snap['name']))
+                                if 'size' in snap:
+                                    size = snap['size']
+                                    if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
+                                        if pss > snap['size']:
+                                            size = pss
+                                    fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                                else:
+                                    log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
+                                    .format(snap['name']))
+                            elif 'gluster' == snap['type'] and 'server' in snap:
+                                log.debug("Attaching a glusterfs based filesystem named {0}"
+                                    .format(snap['name']))
+                                fs.add_glusterfs(snap['server'])
+                            elif 'nfs' == snap['type'] and 'server' in snap:
+                                log.debug("Attaching an nfs based filesystem named {0}"
+                                    .format(snap['name']))
+                                fs.add_nfs(snap['server'], None, None)
+                            elif 's3fs' == snap['type'] and 'bucket_name' in snap and 'bucket_a_key' in snap and 'bucket_s_key' in snap:
+                                fs.add_bucket(snap['bucket_name'], snap['bucket_a_key'], snap['bucket_s_key'])
                             else:
-                                log.debug("Format error in snaps.yaml file. No size specified for volume based on bucket {0}"
-                                .format(snap['name']))
+                                log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
+                                    .format(snap['type]'], snap['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
                             .format(fs.get_full_name(), fs.volumes))
                         self.add_master_service(fs)
@@ -1765,6 +1783,23 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
 
     @TestFlag(None)
+    def add_fs_gluster(self, gluster_server, fs_name,
+        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+        """
+        Add a new file system service for a Gluster-based file system.
+        """
+        log.info("Adding a Gluster-based file system {0} from Gluster server {1}".format(fs_name, gluster_server))
+        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+        fs.add_glusterfs(gluster_server)
+        self.add_master_service(fs)
+        # Inform all workers to add the same FS (the file system will be the same
+        # and sharing it over NFS does not seems to work)
+        for w_inst in self.worker_instances:
+            # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+            w_inst.send_mount_points()
+        log.debug("Master done adding FS from Gluster server {0}".format(gluster_server))
+
+    @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
         fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
@@ -2217,7 +2252,9 @@ class ConsoleMonitor(object):
                             fs['ids'] = [
                                 v.from_snapshot_id for v in srvc.volumes]
                         elif srvc.kind == 'nfs':
-                            fs['nfs_server'] = srvc.nfs_fs.nfs_server
+                            fs['nfs_server'] = srvc.nfs_fs.device
+                        elif srvc.kind == 'gluster':
+                            fs['gluster_server'] = srvc.gluster_fs.device
                         else:
                             log.error("For filesystem {0}, unknown kind: {0}"
                                 .format(srvc.name, srvc.kind))
@@ -2923,11 +2960,17 @@ class Instance(object):
         mount_points = []
         for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
             if fs.nfs_fs:
-                nfs_server = fs.nfs_fs.nfs_server
+                fs_type = "nfs"
+                server = fs.nfs_fs.device
+            elif fs.gluster_fs:
+                fs_type = "glusterfs"
+                server = fs.gluster_fs.device
             else:
-                nfs_server = self.app.cloud_interface.get_private_ip()
+                fs_type = "nfs"
+                server = self.app.cloud_interface.get_private_ip()
             mount_points.append(
-                {'nfs_server': nfs_server,
+                {'fs_type': fs_type,
+                 'server': server,
                  'shared_mount_path': fs.get_details()['mount_point'],
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})

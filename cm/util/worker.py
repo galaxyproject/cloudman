@@ -99,7 +99,7 @@ class ConsoleManager(BaseConsoleManager):
         # Default to the most comprehensive type
         self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
         self.mount_points = []  # A list of current mount points; each list element must have the
-                                # following structure: (label, local_path, nfs_server_ip)
+                                # following structure: (label, local_path, type, server_path)
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -137,9 +137,11 @@ class ConsoleManager(BaseConsoleManager):
     def get_cluster_status(self):
         return "This is a worker node, cluster status not available."
 
-    def mount_disk(self, master_ip, path, source_path=None):
-        if source_path is None:
-            source_path = path
+    def mount_disk(self, fs_type, server, path):
+        # If a path is not specific for an nfs server, and only its ip is provided, assume that the target path to mount at is
+        # the path on the server as well
+        if fs_type == 'nfs' and ':' not in server:
+            server = server + ":" + path
         # Before mounting, check if the file system is already mounted
         mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2"
                                                 % path)
@@ -147,11 +149,11 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("{0} is already mounted".format(path))
             return mnt_location[0]
         else:
-            log.debug("Mounting %s:%s to %s..." % (master_ip, source_path, path))
+            log.debug("Mounting fs of type: %s from: %s to: %s..." % (fs_type, server, path))
             if not os.path.exists(path):
                 os.mkdir(path)
             ret_code = subprocess.call(
-                "mount %s:%s %s" % (master_ip, source_path, path), shell=True)
+                "mount -t %s %s %s" % (fs_type, server, path), shell=True)
             log.debug(
                 "Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
@@ -173,7 +175,7 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path'], mp['nfs_server']))
+                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']))
             else:
                 raise Exception("Mount point parsing failure.")
         except:
@@ -183,38 +185,38 @@ class ConsoleManager(BaseConsoleManager):
             # Build list of mounts based on cluster type
             if self.cluster_type == 'Galaxy':
                 mount_points.append(
-                    ('nfs_tools', self.app.path_resolver.galaxy_tools, master_ip))
+                    ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip))
                 mount_points.append(
-                    ('nfs_indices', self.app.path_resolver.galaxy_indices, master_ip))
+                    ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip))
             if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
                 mount_points.append(
-                    ('nfs_data', self.app.path_resolver.galaxy_data, master_ip))
+                    ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip))
             # Mount master's transient storage regardless of cluster type
-            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', master_ip))
+            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip))
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, master_ip))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip))
 
         # <KWS>Mount Hadoop regardless of cluster type
-        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, master_ip))
+        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip))
 
         # Mount master's transient storage regardless of cluster type
         # mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
-            mount_points.append(('extra_mount_%d' % i, extra_mount, master_ip))
+            mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip))
         # For each main mount point, mount it and set status based on label
-        for (label, path, nfs_server) in mount_points:
-            log.debug("Mounting FS w/ label '{0}' to path: {1} from nfs_server: {2}".format(
-                label, path, nfs_server))
+        for (label, path, fs_type, server) in mount_points:
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3}".format(
+                label, path, server, fs_type))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
             source_path = None
             # See if a specific path on the nfs_server is used
-            if ':' in nfs_server:
-                source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
-                nfs_server = nfs_server.split(':')[0]
-            ret_code = self.mount_disk(nfs_server, path, source_path)
+#             if ':' in nfs_server:
+#                 source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
+#                 nfs_server = nfs_server.split(':')[0]
+            ret_code = self.mount_disk(fs_type, server, path)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
         # Filter out any differences between new and old mount points and unmount
@@ -229,8 +231,8 @@ class ConsoleManager(BaseConsoleManager):
         if self.worker_status != worker_states.READY:
             self.console_monitor.conn.send("MOUNT_DONE")
 
-    def unmount_nfs(self):
-        log.info("Unmounting NFS directories: {0}".format(self.mount_points))
+    def unmount_filesystems(self):
+        log.info("Unmounting directories: {0}".format(self.mount_points))
         for mp in self.mount_points:
             self._umount(mp[1])
 
@@ -454,7 +456,7 @@ class ConsoleMonitor(object):
             m_ip = message.split(' | ')[1]
             log.info("Master at %s requesting RESTART" % m_ip)
             self.app.ud['master_ip'] = m_ip
-            self.app.manager.unmount_nfs()
+            self.app.manager.unmount_filesystems()
             self.app.manager.mount_nfs(self.app.ud['master_ip'])
             self.send_alive_message()
 
