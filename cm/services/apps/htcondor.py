@@ -15,7 +15,7 @@ log = logging.getLogger('cloudman')
 
 
 class HTCondorService(ApplicationService):
-    def __init__(self, app, srv_type, host=""):
+    def __init__(self, app, srv_type="master", host=""):
         """
         the srv_type defines whether we are running a master node or a
         worker node. If we have run a worker the host IP should be passed
@@ -26,7 +26,7 @@ class HTCondorService(ApplicationService):
         self.svc_roles = [ServiceRole.HTCONDOR]
         self.name = ServiceRole.to_string(ServiceRole.HTCONDOR)
         self.srv_type = srv_type
-        if srv_type == "master":
+        if self.srv_type == "master":
             self.flock_to = ""
         else:
             self.host = host
