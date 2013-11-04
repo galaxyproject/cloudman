@@ -87,7 +87,7 @@ def _configure_nginx(log, ud):
 
 def _reconfigure_nginx(ud, nginx_conf_path):
     configure_multiple_galaxy_processes = ud.get(
-        "configure_multiple_galaxy_processes", False)
+        "configure_multiple_galaxy_processes", True)
     web_threads = ud.get("web_thread_count", 1)
     if configure_multiple_galaxy_processes and web_threads > 1:
         ports = [8080 + i for i in range(web_threads)]
@@ -97,7 +97,7 @@ def _reconfigure_nginx(ud, nginx_conf_path):
         nginx_conf = open(nginx_conf_path, "r").read()
         new_nginx_conf = re.sub("upstream galaxy_app.*\\{([^\\}]*)}",
                                 upstream_galaxy_app_conf, nginx_conf)
-        open(nginx_conf_path, "w").write(new_nginx_conf)
+        open(nginx_conf_path, "w").write(new_nginx_conf).close()
 
 
 def _shellquote(s):

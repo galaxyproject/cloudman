@@ -184,8 +184,10 @@ class FileGalaxyOptionManager(object):
         parser = SafeConfigParser()
         configfile = open(input_config_file_path, 'rt')
         parser.readfp(configfile)
+        if not parser.has_section(section):
+            parser.add_section(section)
         for key, value in properties.iteritems():
-            parser.set(section, key, value)
+            parser.set(section, key, str(value))
         configfile.close()
         new_config_file_path = join(galaxy_home, 'universe_wsgi.ini.new')
         with open(new_config_file_path, 'wt') as output_file:
