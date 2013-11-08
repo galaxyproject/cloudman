@@ -89,7 +89,7 @@ paste.app_factory = galaxy.web.buildapp:app_factory
 # may use a SQLAlchemy connection string to specify an external database
 # instead.  This string takes many options which are explained in detail in the
 # config file documentation.
-database_connection = postgres://galaxy@localhost:5840/galaxy
+database_connection = postgres://galaxy@localhost:5910/galaxy
 
 # If the server logs errors about not having enough database pool connections,
 # you will want to increase these values, or consider running more Galaxy
