@@ -18,7 +18,7 @@ P_LN = "/bin/ln"
 C_PSQL_PORT = "5910"
 USER_DATA_FILE = "userData.yaml"
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
-LOGIN_SHELL_SCRIPT = "/etc/profile"
+LOGIN_SHELL_SCRIPT = "/etc/bash.bashrc"
 
 # Paths
 P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
