@@ -244,10 +244,10 @@ class ConsoleManager(BaseConsoleManager):
             if 'amazon' in cloud_name:
                 cloud_name = 'amazon'
             for cloud in snaps_file['clouds']:
-                if cloud_name in cloud['name']:
+                if cloud_name == cloud['name'].lower():
                     current_cloud = cloud
                     for r in current_cloud['regions']:
-                        if r['name'] == self.app.cloud_interface.get_region_name():
+                        if r['name'].lower() == self.app.cloud_interface.get_region_name().lower():
                             for d in r['deployments']:
                                 # TODO: Make the deployment name a UD option
                                 if d['name'] == 'GalaxyCloud':
