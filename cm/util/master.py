@@ -749,7 +749,7 @@ class ConsoleManager(BaseConsoleManager):
         Return a string with either the revision (e.g., ``5757:963e73d40e24``)
         or ``N/A`` if unable to get the revision number.
         """
-        cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (
+        cmd = "%s - galaxy -c \"cd %s; hg tip | grep -m 1 changeset | cut -d':' -f2,3\"" % (
             paths.P_SU, self.app.path_resolver.galaxy_home)
         process = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
