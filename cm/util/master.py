@@ -1130,6 +1130,9 @@ class ConsoleManager(BaseConsoleManager):
                      % num_terminated)
         else:
             log.info("Did not terminate any instances.")
+        # If no more workers, add master back as execution host.
+        if len(self.worker_instances) == 0 and not self.master_exec_host:
+            self.toggle_master_as_exec_host()
 
     def remove_instance(self, instance_id=''):
         """
@@ -1183,6 +1186,9 @@ class ConsoleManager(BaseConsoleManager):
             "Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
+        # Remove master from execution queue automatically
+        if self.master_exec_host:
+            self.toggle_master_as_exec_host()
         self.app.cloud_interface.run_instances(num=num_nodes,
                                                instance_type=instance_type,
                                                spot_price=spot_price)
