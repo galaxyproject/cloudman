@@ -12,26 +12,23 @@ import json
 import shutil
 
 
-from cm.util import misc, comm, Time
-from cm.util import (
-    cluster_status, instance_states, instance_lifecycle, spot_states)
-from cm.util.manager import BaseConsoleManager
-from cm.services.autoscale import Autoscale
+from cm.services import ServiceRole
+from cm.services import ServiceType
 from cm.services import service_states
-from cm.services.data.filesystem import Filesystem
-from cm.services.apps.pss import PSS
-from cm.services.apps.migration import MigrationService
-from cm.services.apps.sge import SGEService
+from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
-from cm.services.apps.proftpd import ProFTPdService
-from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxy_reports import GalaxyReportsService
+from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
-from cm.services.apps.lwr import LwrService
-from cm.services import ServiceType
-from cm.services import ServiceRole
+from cm.services.apps.proftpd import ProFTPdService
+from cm.services.apps.pss import PSS
+from cm.services.apps.sge import SGEService
+from cm.services.autoscale import Autoscale
+from cm.services.data.filesystem import Filesystem
+from cm.util import (cluster_status, comm, instance_lifecycle, instance_states,
+        misc, spot_states, Time)
 from cm.util.decorators import TestFlag
+from cm.util.manager import BaseConsoleManager
 
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, S3ResponseError
