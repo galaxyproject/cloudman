@@ -1,0 +1,16 @@
+access_key: <your tenant id:your access key>
+secret_key: <your secret key>
+cluster_name: Sample cluster on HPcloud
+password: pwd
+freenxpass: pwd
+cloud_name: HPcloud
+bucket_default: cloudman-os
+s3_port: 443
+cloud_type: openstack
+region_name: HP
+region_endpoint: az-1.region-a.geo-1.ec2-compute.hpcloudsvc.com
+ec2_port: 443
+s3_host: region-a.geo-1.objects.hpcloudsvc.com
+is_secure: True
+s3_conn_path: /
+ec2_conn_path: /services/Cloud
