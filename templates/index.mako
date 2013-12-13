@@ -385,9 +385,9 @@ vertical-align: top;
                     </label>
                     <div style="text-align:left;margin-left: 18px">
                     <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-                    <label for="galaxy-default-size">Volume - Default Size (${default_data_size} GB)</label>
+                    <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
                     <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
-                    <label for="galaxy-custom-size">Volume - Custom Size:</label>
+                    <label for="galaxy-custom-size">Volume - Custom:</label>
                     <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
                     </div>
                     <div style="text-align:left;margin-left: 18px">
