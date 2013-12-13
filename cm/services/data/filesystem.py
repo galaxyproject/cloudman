@@ -127,7 +127,6 @@ class Filesystem(DataService):
                         b.bucket_name))
                 for ts in self.transient_storage:
                     self.kind = 'transient'
-                    self.persistent = False
                     ts.add()
                 if self.kind == 'nfs':
                     self.nfs_fs.start()
@@ -610,7 +609,7 @@ class Filesystem(DataService):
         self.buckets.append(
             Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
 
-    def add_transient_storage(self):
+    def add_transient_storage(self, from_archive_url=None, persistent=False):
         """
         Add instance's transient storage and make it available over NFS to the
         cluster. All this really does is makes a directory under ``/mnt`` and
@@ -618,7 +617,9 @@ class Filesystem(DataService):
         """
         log.debug("Configuring instance transient storage at {0} with NFS.".format(
             self.mount_point))
-        self.transient_storage.append(TransientStorage(self))
+        self.kind = 'transient'
+        self.persistent = True if from_archive_url else persistent
+        self.transient_storage.append(TransientStorage(self, from_archive_url=from_archive_url))
 
     def add_glusterfs(self, gluster_server):
         """

@@ -13,20 +13,22 @@ import commands
 
 from cm.services import service_states
 from cm.services.data import BlockStorage
+from cm.util import misc
 
 import logging
 log = logging.getLogger('cloudman')
 
 
 class TransientStorage(BlockStorage):
-    def __init__(self, filesystem):
+    def __init__(self, filesystem, from_archive_url=None):
         """
-        Instance's transient storage expossed over NFS.
+        Instance's transient storage exposed over NFS.
         """
         super(TransientStorage, self).__init__(filesystem.app)
         self.fs = filesystem
         self.app = self.fs.app
         self.device = None
+        self.from_archive_url = from_archive_url
 
     def __repr__(self):
         return self.get_full_name()
@@ -59,6 +61,18 @@ class TransientStorage(BlockStorage):
                 "ubuntu")[2], grp.getgrnam("ubuntu")[2])
             self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
                                              % self.fs.mount_point)
+
+            # If based on bucket, extract bucket contents onto new volume
+            try:
+                if self.from_archive_url:
+                    log.info("Extracting archive url: %s to mount point: %s. This could take a while..."
+                        % (self.from_archive_url, self.fs.mount_point))
+                    misc.extract_archive_content_to_path(self.from_archive_url, self.fs.mount_point)
+                    self.fs.persistent = True
+            except Exception, e:
+                log.error("Error while extracting archive: {0}".format(e))
+                return False
+
             if self.fs.add_nfs_share(self.fs.mount_point):
                 self.status()
                 return True

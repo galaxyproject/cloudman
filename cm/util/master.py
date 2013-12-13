@@ -392,6 +392,8 @@ class ConsoleManager(BaseConsoleManager):
                         filesystem.add_nfs(fs['nfs_server'], None, None)
                     elif fs['kind'] == 'gluster':
                         filesystem.add_glusterfs(fs['gluster_server'])
+                    elif fs['kind'] == 'transient':
+                        filesystem.add_transient_storage(persistent=True)
                     elif fs['kind'] == 'bucket':
                         a_key = fs.get('access_key', None)
                         s_key = fs.get('secret_key', None)
@@ -1204,7 +1206,7 @@ class ConsoleManager(BaseConsoleManager):
         return False
 
     @TestFlag(None)
-    def init_cluster(self, cluster_type, pss=0):
+    def init_cluster(self, cluster_type, pss=0, storage_type='volume'):
         """
         Initialize the type for this cluster and start appropriate services,
         storing the cluster configuration into the cluster's bucket.
@@ -1265,15 +1267,21 @@ class ConsoleManager(BaseConsoleManager):
                             if 'archive' == snap['type'] and 'archive_url' in snap:
                                 log.debug("Attaching a volume based on an archive named {0}"
                                     .format(snap['name']))
-                                if 'size' in snap:
-                                    size = snap['size']
-                                    if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
-                                        if pss > snap['size']:
-                                            size = pss
-                                    fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                                if storage_type == 'volume':
+                                    if 'size' in snap:
+                                        size = snap['size']
+                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
+                                            if pss > snap['size']:
+                                                size = pss
+                                        fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                                    else:
+                                        log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
+                                                  .format(snap['name']))
+                                elif storage_type == 'transient':
+                                    fs.add_transient_storage(from_archive_url=snap['archive_url'])
                                 else:
-                                    log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
-                                    .format(snap['name']))
+                                    log.error("Unknown storage type {0} for archive extraction."
+                                              .format(storage_type))
                             elif 'gluster' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
                                     .format(snap['name']))
@@ -2255,6 +2263,8 @@ class ConsoleMonitor(object):
                             fs['nfs_server'] = srvc.nfs_fs.device
                         elif srvc.kind == 'gluster':
                             fs['gluster_server'] = srvc.gluster_fs.device
+                        elif srvc.kind == 'transient':
+                            pass
                         else:
                             log.error("For filesystem {0}, unknown kind: {0}"
                                 .format(srvc.name, srvc.kind))

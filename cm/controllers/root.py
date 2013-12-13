@@ -67,7 +67,11 @@ class CM(BaseController):
             if startup_opt == "Galaxy" or startup_opt == "Data":
                 # Initialize form on the main UI contains two fields named ``pss``,
                 # which arrive as a list so pull out the actual storage size value
-                if galaxy_data_option == "custom-size":
+                if galaxy_data_option == "transient":
+                    storage_type = "transient"
+                    pss = 0
+                elif galaxy_data_option == "custom-size":
+                    storage_type = "volume"
                     if isinstance(pss, list):
                         ss = None
                         for x in pss:
@@ -75,10 +79,11 @@ class CM(BaseController):
                                 ss = x
                         pss = ss
                 else:
+                    storage_type = "volume"
                     pss = str(self.app.manager.get_default_data_size())
-                if pss and pss.isdigit():
+                if storage_type == "transient" or (pss and pss.isdigit()):
                     pss_int = int(pss)
-                    self.app.manager.init_cluster(startup_opt, pss_int)
+                    self.app.manager.init_cluster(startup_opt, pss_int, storage_type=storage_type)
                     return self.instance_state_json(trans)
                 else:
                     msg = "Wrong or no value provided for the persistent "\
