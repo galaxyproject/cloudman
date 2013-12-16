@@ -3124,7 +3124,13 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                # #<KWS>
+                # Make sure the instace is tagged (this is also necessary to do
+                # here for OpenStack because it does not allow tags to be added
+                # until an instance is 'running')
+                self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
+                self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
+                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}"
+                    .format(self.app.ud['cluster_name']))
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
