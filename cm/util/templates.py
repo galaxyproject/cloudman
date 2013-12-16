@@ -187,7 +187,7 @@ http {
     gzip_disable "MSIE [1-6].(?!.*SV1)";
 
     upstream galaxy_app {
-        server localhost:8080;
+        $galaxy_server
     }
 
     upstream cm_app {
