@@ -28,7 +28,7 @@ class OSInterface(EC2Interface):
         if type(resource) == boto.ec2.instance.Instance:
             return True
         log.debug("Not adding tag to resource %s because that resource "
-            "in OpenStack does not support tags.")
+            "in OpenStack does not support tags." % resource)
         return False
 
     def set_configuration(self):
