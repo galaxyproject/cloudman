@@ -112,12 +112,14 @@ def _configure_nginx(log, ud):
         _write_conf_file(log, nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get('reconfigure_nginx', True)
     if reconfigure_nginx:
-        _reconfigure_nginx(ud, nginx_conf_path)
+        _reconfigure_nginx(ud, nginx_conf_path, log)
 
-def _reconfigure_nginx(ud, nginx_conf_path):
+def _reconfigure_nginx(ud, nginx_conf_path, log):
+    log.debug('Reconfiguring nginx conf')
     configure_multiple_galaxy_processes = ud.get('configure_multiple_galaxy_processes', True)
     web_threads = ud.get('web_thread_count', 3)
     if (configure_multiple_galaxy_processes and (web_threads > 1)):
+        log.debug(('Reconfiguring nginx to support Galaxy running %s web threads.' % web_threads))
         ports = [(8080 + i) for i in range(web_threads)]
         servers = [('server localhost:%d;' % port) for port in ports]
         upstream_galaxy_app_conf = ('upstream galaxy_app { %s } ' % ''.join(servers))
