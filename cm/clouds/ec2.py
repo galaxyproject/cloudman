@@ -267,7 +267,7 @@ class EC2Interface(CloudInterface):
 
     def get_fqdn(self):
         log.debug("Retrieving FQDN")
-        if self.fqdn == None:
+        if not self.fqdn:
             try:
                 self.fqdn = socket.getfqdn()
             except IOError:
@@ -305,7 +305,7 @@ class EC2Interface(CloudInterface):
         return self.region
 
     def get_ec2_connection(self):
-        if self.ec2_conn == None:
+        if not self.ec2_conn:
             try:
                 if self.app.TESTFLAG is True:
                     log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
@@ -332,7 +332,7 @@ class EC2Interface(CloudInterface):
 
     def get_s3_connection(self):
         # log.debug( 'Getting boto S3 connection' )
-        if self.s3_conn == None:
+        if not self.s3_conn:
             log.debug("No S3 Connection, creating a new one.")
             try:
                 self.s3_conn = S3Connection(
@@ -430,10 +430,12 @@ class EC2Interface(CloudInterface):
                            # 'solution')
             if reservation:
                 for instance in reservation.instances:
-                    self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
-                    self.add_tag(instance, 'role', worker_ud['role'])
-                    self.add_tag(instance, 'Name', "Worker: {0}"
-                        .format(self.app.ud['cluster_name']))
+                    # At this point in the launch, tag only amazon instances
+                    if 'amazon' in self.app.ud.get('cloud_name', 'amazon').lower():
+                        self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                        self.add_tag(instance, 'role', worker_ud['role'])
+                        self.add_tag(instance, 'Name', "Worker: {0}"
+                            .format(self.app.ud['cluster_name']))
                     i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
