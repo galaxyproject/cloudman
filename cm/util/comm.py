@@ -22,7 +22,7 @@ class CMMasterComm(object):
         self.queue = 'master'
 
     def is_connected(self):
-        return not self.conn
+        return self.conn is not None
 
     def setup(self):
         """Master will use a static 'master' routing key, while all of the instances use their own iid"""
@@ -86,7 +86,7 @@ class CMWorkerComm(object):
         self.got_conn = False
 
     def is_connected(self):
-        return not self.conn
+        return self.conn is not None
 
     def setup(self):
         try:
