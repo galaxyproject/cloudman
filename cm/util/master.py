@@ -12,44 +12,34 @@ import json
 import shutil
 
 
-from cm.util import misc, comm, Time
-from cm.util import (
-    cluster_status, instance_states, instance_lifecycle, spot_states)
-from cm.util.manager import BaseConsoleManager
-from cm.services.autoscale import Autoscale
+from cm.services import ServiceRole
+from cm.services import ServiceType
 from cm.services import service_states
-from cm.services.data.filesystem import Filesystem
-from cm.services.apps.pss import PSS
-from cm.services.apps.migration_service import MigrationService
-from cm.services.apps.sge import SGEService
+from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
-from cm.services.apps.proftpd import ProFTPdService
-from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxy_reports import GalaxyReportsService
+from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
-from cm.services.apps.lwr import LwrService
-from cm.services import ServiceType
-from cm.services import ServiceRole
+from cm.services.apps.proftpd import ProFTPdService
+from cm.services.apps.pss import PSS
+from cm.services.apps.sge import SGEService
+from cm.services.autoscale import Autoscale
+from cm.services.data.filesystem import Filesystem
+from cm.util import (cluster_status, comm, instance_lifecycle, instance_states,
+        misc, spot_states, Time)
 from cm.util.decorators import TestFlag
+from cm.util.manager import BaseConsoleManager
 
 import cm.util.paths as paths
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
 
-APP_SERVICES = {
-    ServiceRole.to_string(ServiceRole.GALAXY): GalaxyService,
-    ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES): PostgresService,
-    ServiceRole.to_string(ServiceRole.GALAXY_REPORTS): GalaxyReportsService,
-    ServiceRole.to_string(ServiceRole.LWR): LwrService,
-    ServiceRole.to_string(ServiceRole.PROFTPD): ProFTPdService,
-}
-
 # Time well in past to seend reboot, last comm times with.
 TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
 
 s3_rlock = threading.RLock()
+
 
 def synchronized(rlock):
     """
@@ -424,35 +414,56 @@ class ConsoleManager(BaseConsoleManager):
             return False
 
     def add_preconfigured_applications(self):
+        """
+        Dynamically add any previously available applications to the service
+        registry, which will in turn start those apps. The service list is
+        extracted from the user data.
+
+        Note that this method is automatically called when an existing cluster
+        is being recreated.
+
+        In order for the dynamic service loading to work, there are some requirements
+        on the structure of user data and services themselves. Namely, user data
+        must contain a name for the service. The service implementation must be in
+        a module inside ``cm.services.apps`` and it must match the service name
+        (e.g., ``cm.services.apps.proftpd``). The provided service/file name must
+        match the service class without the "Service" string. For example, if service
+        name is ``ProFTPd``, file name must be proftpd.py and the service class
+        name must be ``ProFTPdService``, properly capitilized.
+        """
         try:
+            ok = True  # Flag keeping up with progress
             # Process the current cluster config
-            log.debug("Processing application services in an existing cluster config")
+            log.debug("Processing previously-available application services in "
+                "an existing cluster config")
+            # TODO: Should we inspect a provided path for service availability vs. UD only?
             if "services" in self.app.ud:
+                log.debug("Previously-available applications: {0}"
+                    .format(self.app.ud['services']))
                 for srvc in self.app.ud['services']:
-                    service_roles = ServiceRole.from_string_array(
-                        srvc.get('roles', srvc['name']))
-                    # TODO: translation from predefined service names into
-                    # classes is not quite ideal...
-                    processed_service = False
-                    service_class = APP_SERVICES.get(
-                        ServiceRole.to_string(service_roles), None)
+                    service_class = None
+                    svc_name = srvc.get('name', None)
+                    if svc_name:
+                        # Import service module and get a reference to the service object
+                        try:
+                            module_name = svc_name.lower()
+                            svc_name += "Service"  # Service class name must match this str!
+                            module = __import__('cm.services.apps.'+module_name,
+                                fromlist=[svc_name])
+                            service_class = getattr(module, svc_name)
+                        except Exception, e:
+                            log.warning("Trouble importing service class {0}: {1}"
+                                .format(svc_name, e))
                     if service_class:
+                        # Add the service into the service registry
                         self.add_master_service(service_class(self.app))
-                        processed_service = True
-                    # List of services that get added by default
-                    default_services = [ServiceRole.SGE, ServiceRole.MIGRATION,
-                        ServiceRole.HTCONDOR, ServiceRole.HADOOP]
-                    # if (not processed_service) and (ServiceRole.SGE not in service_roles):  # SGE is added by default:
-                    if not processed_service:
-                        for role in service_roles:
-                            if role not in default_services:
-                            # (ServiceRole.SGE not in service_roles):  # SGE is added by default
-                                log.warning("Could not find service class matching "
-                                    "userData service entry: %s" % srvc['name'])
-            return True
+                    else:
+                        ok = False
+                        log.warning("Could not find service class matching "
+                            "userData service entry: %s" % svc_name)
+            return ok
         except Exception, e:
-            log.error(
-                "Error processing applications in existing cluster configuration: %s" % e)
+            log.error("Error processing applications in existing cluster configuration: %s" % e)
             self.manager_started = False
             return False
 
@@ -737,7 +748,7 @@ class ConsoleManager(BaseConsoleManager):
         Return a string with either the revision (e.g., ``5757:963e73d40e24``)
         or ``N/A`` if unable to get the revision number.
         """
-        cmd = "%s - galaxy -c \"cd %s; hg tip | grep changeset | cut -d':' -f2,3\"" % (
+        cmd = "%s - galaxy -c \"cd %s; hg tip | grep -m 1 changeset | cut -d':' -f2,3\"" % (
             paths.P_SU, self.app.path_resolver.galaxy_home)
         process = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1118,6 +1129,9 @@ class ConsoleManager(BaseConsoleManager):
                      % num_terminated)
         else:
             log.info("Did not terminate any instances.")
+        # If no more workers, add master back as execution host.
+        if len(self.worker_instances) == 0 and not self.master_exec_host:
+            self.toggle_master_as_exec_host()
 
     def remove_instance(self, instance_id=''):
         """
@@ -1171,6 +1185,9 @@ class ConsoleManager(BaseConsoleManager):
             "Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
+        # Remove master from execution queue automatically
+        if self.master_exec_host:
+            self.toggle_master_as_exec_host()
         self.app.cloud_interface.run_instances(num=num_nodes,
                                                instance_type=instance_type,
                                                spot_price=spot_price)
@@ -3117,7 +3134,13 @@ class Instance(object):
                         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
                 log.debug("Instance '%s' reported as having '%s' CPUs." %
                           (self.id, self.num_cpus))
-                # #<KWS>
+                # Make sure the instace is tagged (this is also necessary to do
+                # here for OpenStack because it does not allow tags to be added
+                # until an instance is 'running')
+                self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
+                self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
+                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}"
+                    .format(self.app.ud['cluster_name']))
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)

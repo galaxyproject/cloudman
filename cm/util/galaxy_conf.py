@@ -78,7 +78,7 @@ def populate_process_options(option_manager):
     for Galaxy.
     """
     app = option_manager.app
-    web_thread_count = int(app.ud.get("web_thread_count", 1))
+    web_thread_count = int(app.ud.get("web_thread_count", 3))
     handler_thread_count = int(app.ud.get("handler_thread_count", 1))
     # Setup web threads
     [__add_server_process(option_manager, i, "web", 8080)
