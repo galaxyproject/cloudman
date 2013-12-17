@@ -944,10 +944,11 @@ class ConsoleManager(BaseConsoleManager):
         if delete_cluster:
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
-        log.info("Cluster shut down at %s (uptime: %s). If not done automatically, "
+        log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
             "manually terminate the master instance (and any remaining instances "
             "associated with this cluster) from the %s cloud console."
-            % (Time.now(), (Time.now() - self.startup_time), self.app.ud.get('cloud_name', '')))
+            % (self.app.ud['cluster_name'], Time.now(), (Time.now() - self.startup_time),
+                self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
         if self.app.TESTFLAG is True:
