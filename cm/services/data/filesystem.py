@@ -403,7 +403,7 @@ class Filesystem(DataService):
                 for i, sp in enumerate(shared_paths):
                     if mount_point in sp:
                         in_ee = i
-                    if hadoo_mnt_point == sp:
+                    if hadoo_mnt_point in sp:
                         hadoop_set = True
 
                 # TODO:: change the follwoing line and make hadoop a file
