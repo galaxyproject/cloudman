@@ -18,7 +18,7 @@ P_LN = "/bin/ln"
 C_PSQL_PORT = "5910"
 USER_DATA_FILE = "userData.yaml"
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
-LOGIN_SHELL_SCRIPT = "/etc/profile"
+LOGIN_SHELL_SCRIPT = "/etc/bash.bashrc"
 
 # Paths
 P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
@@ -85,13 +85,13 @@ def get_path(name, default_path):
 
 P_MOUNT_ROOT = "/mnt"
 P_GALAXY_TOOLS = get_path(
-    "galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxyTools"))
+    "galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxy"))
 P_GALAXY_HOME = get_path(
-    "galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-central"))
+    "galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-app"))
 P_LWR_HOME = get_path(
     "lwr_home", os.path.join(P_GALAXY_TOOLS, "lwr"))
 P_GALAXY_DATA = get_path(
-    "galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxyData'))
+    "galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxy'))
 P_GALAXY_INDICES = get_path(
     "galaxy_indices", os.path.join(P_MOUNT_ROOT, "galaxyIndices"))
 

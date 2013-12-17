@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 '\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)\n    boto http://code.google.com/p/boto/ (easy_install boto)\n'
-import base64
 import logging
 import os
-import re
 import shutil
 import sys
 import tarfile
@@ -114,18 +112,22 @@ def _configure_nginx(log, ud):
         _write_conf_file(log, nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get('reconfigure_nginx', True)
     if reconfigure_nginx:
-        _reconfigure_nginx(ud, nginx_conf_path)
+        _reconfigure_nginx(ud, nginx_conf_path, log)
 
-def _reconfigure_nginx(ud, nginx_conf_path):
+def _reconfigure_nginx(ud, nginx_conf_path, log):
+    log.debug('Reconfiguring nginx conf')
     configure_multiple_galaxy_processes = ud.get('configure_multiple_galaxy_processes', True)
-    web_threads = ud.get('web_thread_count', 1)
+    web_threads = ud.get('web_thread_count', 3)
     if (configure_multiple_galaxy_processes and (web_threads > 1)):
+        log.debug(('Reconfiguring nginx to support Galaxy running %s web threads.' % web_threads))
         ports = [(8080 + i) for i in range(web_threads)]
         servers = [('server localhost:%d;' % port) for port in ports]
         upstream_galaxy_app_conf = ('upstream galaxy_app { %s } ' % ''.join(servers))
-        nginx_conf = open(nginx_conf_path, 'r').read()
+        with open(nginx_conf_path, 'r') as old_conf:
+            nginx_conf = old_conf.read()
         new_nginx_conf = re.sub('upstream galaxy_app.*\\{([^\\}]*)}', upstream_galaxy_app_conf, nginx_conf)
-        open(nginx_conf_path, 'w').write(new_nginx_conf)
+        with open(nginx_conf_path, 'w') as new_conf:
+            new_conf.write(new_nginx_conf)
 
 def _shellquote(s):
     '\n    http://stackoverflow.com/questions/35817/how-to-escape-os-system-calls-in-python\n    '

@@ -22,7 +22,7 @@ class CMMasterComm(object):
         self.queue = 'master'
 
     def is_connected(self):
-        return self.conn != None
+        return not self.conn
 
     def setup(self):
         """Master will use a static 'master' routing key, while all of the instances use their own iid"""
@@ -61,8 +61,9 @@ class CMMasterComm(object):
             msg = self.channel.basic_get(self.queue)
             if msg is not None:
                 if msg.properties['reply_to'] is not None:
-                    log.debug("R_COMM: Recv from %s message %s" % (
-                        msg.properties['reply_to'], msg.body))
+                    # log.debug("R_COMM: Recv from %s message %s" % (
+                    #     msg.properties['reply_to'], msg.body))
+                    pass
                 else:
                     log.debug(
                         "R_COMM: Recv from NO_REPLYTO message %s" % msg.body)
@@ -85,7 +86,7 @@ class CMWorkerComm(object):
         self.got_conn = False
 
     def is_connected(self):
-        return self.conn != None
+        return not self.conn
 
     def setup(self):
         try:

@@ -311,11 +311,22 @@ class GalaxyService(ApplicationService):
         """
         nginx_dir = self.app.path_resolver.nginx_dir
         if nginx_dir:
+            galaxy_server = "server localhost:8080;"
+            if self._multiple_processes():
+                web_thread_count = int(self.app.ud.get("web_thread_count", 3))
+                galaxy_server = ''
+                if web_thread_count > 9:
+                    log.warning("Current code supports max 9 web threads. "
+                        "Setting the web thread count to 9.")
+                    web_thread_count = 9
+                for i in range(web_thread_count):
+                    galaxy_server += "server localhost:808%s;" % i
             # Customize the template
             nginx_conf_template = Template(templates.NGINX_CONF_TEMPLATE)
             params = {
                 'galaxy_home': self.galaxy_home,
-                'galaxy_data': self.app.path_resolver.galaxy_data
+                'galaxy_data': self.app.path_resolver.galaxy_data,
+                'galaxy_server': galaxy_server
             }
             templ = nginx_conf_template.substitute(params)
             # Write out the file

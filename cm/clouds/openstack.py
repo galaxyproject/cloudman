@@ -16,8 +16,20 @@ class OSInterface(EC2Interface):
     def __init__(self, app=None):
         super(OSInterface, self).__init__()
         self.app = app
-        self.tags_supported = False
+        self.tags_supported = False  # Not used here, see _tags_supported method instead
         self.set_configuration()
+
+    def _tags_supported(self, resource):
+        """
+        ``True`` if tagging for a given resource is operational. ``False``
+        otherwise.
+        """
+        # Havana release of Open Stack supports tags for Instance objects only
+        if type(resource) == boto.ec2.instance.Instance:
+            return True
+        log.debug("Not adding tag to resource %s because that resource "
+            "in OpenStack does not support tags." % resource)
+        return False
 
     def set_configuration(self):
         super(OSInterface, self).set_configuration()
@@ -133,11 +145,22 @@ class OSInterface(EC2Interface):
         return self.self_public_ip
 
     def add_tag(self, resource, key, value):
-        log.debug("Would add tag {key}:{value} to resource {resource} but OpenStack does not "
-                  "support tags via boto.".format(key=key, value=value, resource=resource))
-        pass
+        if self._tags_supported(resource):
+            try:
+                log.debug("Adding tag '%s:%s' to resource '%s'" % (
+                    key, value, resource.id if resource.id else resource))
+                resource.add_tag(key, value)
+            except EC2ResponseError, e:
+                log.error("Exception adding tag '%s:%s' to resource '%s': %s"
+                    % (key, value, resource, e))
 
     def get_tag(self, resource, key):
-        log.debug("Would get tag {key} from resource {resource} but OpenStack "
-            "does not support tags via boto.".format(key=key, resource=resource))
-        pass
+        value = None
+        if self._tags_supported(resource):
+            try:
+                log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
+                value = resource.tags.get(key, None)
+            except EC2ResponseError, e:
+                log.error("Exception getting tag '%s' on resource '%s': %s" %
+                    (key, resource, e))
+        return value
