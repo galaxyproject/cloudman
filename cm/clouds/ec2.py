@@ -430,6 +430,7 @@ class EC2Interface(CloudInterface):
                            # 'solution')
             if reservation:
                 for instance in reservation.instances:
+                    # At this point in the launch, tag only amazon instances
                     if 'amazon' in self.app.ud.get('cloud_name', 'amazon').lower():
                         self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
                         self.add_tag(instance, 'role', worker_ud['role'])
