@@ -27,6 +27,10 @@ DEFAULT_INSTANCE_TYPES = [
     ("m2.2xlarge", "High-Memory Double Extra Large"),
     ("m2.4xlarge", "High-Memory Quadruple Extra Large"),
     ("c1.xlarge", "High-CPU Extra Large"),
+    ("i2.xlarge", "High I/O Extra Large"),
+    ("i2.2xlarge", "High I/O Double Extra Large"),
+    ("i2.4xlarge", "High I/O Quadruple Extra Large"),
+    ("i2.8xlarge", "High I/O 8x Extra Large")
 ]
 
 
