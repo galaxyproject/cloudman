@@ -109,21 +109,20 @@ class SGEService(ApplicationService):
             os.mkdir(self.app.path_resolver.sge_root)
         # Ensure SGE_ROOT directory is empty (useful for restarts)
         if len(os.listdir(self.app.path_resolver.sge_root)) > 0:
+            log.debug("SGE_ROOT directory %s is not empty" % self.app.path_resolver.sge_root)
             # Check if qmaster is running in that case
             self.status()
             if self.state == service_states.RUNNING:
                 log.info("Found SGE already running; will reconfigure it.")
                 self.stop_sge()
-            log.debug(
-                "Cleaning '%s' directory." % self.app.path_resolver.sge_root)
+            log.debug("Cleaning '%s' directory." % self.app.path_resolver.sge_root)
             for base, dirs, files in os.walk(self.app.path_resolver.sge_root):
                 for f in files:
                     os.unlink(os.path.join(base, f))
                 for d in dirs:
                     shutil.rmtree(os.path.join(base, d))
         log.debug("Unpacking SGE to '%s'." % self.app.path_resolver.sge_root)
-        tar = tarfile.open(
-            '%s/ge-6.2u5-common.tar.gz' % self.app.path_resolver.sge_tars)
+        tar = tarfile.open('%s/ge-6.2u5-common.tar.gz' % self.app.path_resolver.sge_tars)
         tar.extractall(path=self.app.path_resolver.sge_root)
         tar.close()
         tar = tarfile.open('%s/ge-6.2u5-bin-lx24-amd64.tar.gz' %
@@ -205,9 +204,10 @@ class SGEService(ApplicationService):
                     self.app.path_resolver.sge_root, SGE_allq_file),
                 "Error modifying all.q", "Successfully modified all.q")
             log.debug("Configuring users' SGE profiles")
-            with open(paths.LOGIN_SHELL_SCRIPT, 'a') as f:
-                f.write("\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
-                f.write("\n. $SGE_ROOT/default/common/settings.sh\n")
+            misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
+                "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
+            misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
+                "\n. $SGE_ROOT/default/common/settings.sh\n")
             # Write out the .sge_request file for individual users
             sge_request_template = Template(templates.SGE_REQUEST_TEMPLATE)
             sge_request_params = {
@@ -404,8 +404,8 @@ class SGEService(ApplicationService):
         for inst in self.app.manager.worker_instances:
             self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km'
-                 % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Problems stopping SGE master",
-                 "Successfully stopped SGE master.")
+            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
+            "Problems stopping SGE master", "Successfully stopped SGE master.")
 
     def write_allhosts_file(self, filename='/tmp/ah', to_add=None, to_remove=None):
         ahl = []
