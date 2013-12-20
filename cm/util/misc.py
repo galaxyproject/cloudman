@@ -802,6 +802,22 @@ def replace_string(file_name, pattern, subst):
         log.error("Trouble replacing string in file {0}: {1}".format(file_name, e))
 
 
+def append_to_file(file_name, line):
+    """
+    Append ``line`` to ``file_name`` but only if not already present in the file.
+
+    :type file_name: str
+    :param file_name: Full path to the file where the line is to be appended
+
+    :type line: str
+    :param line: A line to be appended to the file
+    """
+    with open(file_name, 'a+') as f:
+        if not any(line.strip() == x.rstrip('\r\n') for x in f):
+            log.debug("Appending line '%s' to file %s" % (line, file_name))
+            f.write(line + '\n')
+
+
 def _if_not_installed(prog_name):
     """
     Decorator that checks if a callable program is installed.
@@ -945,6 +961,7 @@ def size_to_bytes(size):
     elif multiple.startswith('b'):
         return int(size)
 
+
 def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
     """
     Recursively walk the given directory looking for symlinks. Return
@@ -973,6 +990,7 @@ def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
                 # If it's not a symlink we're not interested.
                 continue
     return links
+
 
 def extract_archive_content_to_path(archive_url, path):
     """

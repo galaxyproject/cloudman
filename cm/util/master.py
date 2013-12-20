@@ -86,8 +86,12 @@ class ConsoleManager(BaseConsoleManager):
         self.default_galaxy_data_size = 0
 
     def add_master_service(self, new_service):
-        self.services.append(new_service)
-        self._update_dependencies(new_service, "ADD")
+        if not self.get_services(svc_name=new_service.name):
+            log.debug("Adding service %s into the master service registry" % new_service.name)
+            self.services.append(new_service)
+            self._update_dependencies(new_service, "ADD")
+        else:
+            log.debug("Would add master service %s but one already exists" % new_service.name)
 
     def remove_master_service(self, service_to_remove):
         self.services.remove(service_to_remove)
@@ -448,7 +452,7 @@ class ConsoleManager(BaseConsoleManager):
                         try:
                             module_name = svc_name.lower()
                             svc_name += "Service"  # Service class name must match this str!
-                            module = __import__('cm.services.apps.'+module_name,
+                            module = __import__('cm.services.apps.' + module_name,
                                 fromlist=[svc_name])
                             service_class = getattr(module, svc_name)
                         except Exception, e:
