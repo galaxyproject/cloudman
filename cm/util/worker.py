@@ -16,7 +16,7 @@ from cm.util.bunch import Bunch
 from cm.util import misc, comm, paths
 from cm.util.manager import BaseConsoleManager
 from cm.services import ServiceRole
-from cm.services.apps.pss import PSS
+from cm.services.apps.pss import PSSService
 from cm.services.data.filesystem import Filesystem
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
@@ -476,7 +476,7 @@ class ConsoleMonitor(object):
                 log.info("SGE daemon started successfully.")
                 # Now that the instance is ready, run the PSS service in a
                 # separate thread
-                pss = PSS(self.app, instance_role='worker')
+                pss = PSSService(self.app, instance_role='worker')
                 threading.Thread(target=pss.start).start()
                 self.send_node_ready()
                 self.app.manager.worker_status = worker_states.READY

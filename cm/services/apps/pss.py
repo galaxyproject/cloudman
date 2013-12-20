@@ -10,7 +10,7 @@ import logging
 log = logging.getLogger('cloudman')
 
 
-class PSS(ApplicationService):
+class PSSService(ApplicationService):
     """ post_start_script service - this service runs once at the end of the
         configuration of all services defined in CloudMan. It runs a predefined
         script.
@@ -20,7 +20,7 @@ class PSS(ApplicationService):
         be extended to run arbitrary script when a condition is met."""
 
     def __init__(self, app, instance_role='master'):
-        super(PSS, self).__init__(app)
+        super(PSSService, self).__init__(app)
         self.svc_roles = [ServiceRole.PSS]
         self.name = ServiceRole.to_string(ServiceRole.PSS)
         self.instance_role = instance_role
@@ -179,7 +179,7 @@ class PSS(ApplicationService):
                       .format(self.pss_filename, self.app.ud['bucket_cluster']))
 
     def remove(self, synchronous=False):
-        super(PSS, self).remove(synchronous)
+        super(PSSService, self).remove(synchronous)
         if self.state == service_states.UNSTARTED:
             self.state = service_states.SHUT_DOWN
         if self.state == service_states.SHUT_DOWN:
