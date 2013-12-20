@@ -21,7 +21,7 @@ from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
-from cm.services.apps.pss import PSS
+from cm.services.apps.pss import PSSService
 from cm.services.apps.sge import SGEService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
@@ -291,7 +291,7 @@ class ConsoleManager(BaseConsoleManager):
         self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.add_master_service(PSS(self.app))
+        self.add_master_service(PSSService(self.app))
 
         if self.app.config.condor_enabled:
             self.add_master_service(HTCondorService(self.app, "master"))
@@ -2293,7 +2293,11 @@ class ConsoleMonitor(object):
                     s['roles'] = ServiceRole.to_string_array(srvc.svc_roles)
                     if ServiceRole.GALAXY in srvc.svc_roles:
                         s['home'] = self.app.path_resolver.galaxy_home
-                    svcs.append(s)
+                    if ServiceRole.AUTOSCALE in srvc.svc_roles:
+                        # We do not persist Autoscale service
+                        pass
+                    else:
+                        svcs.append(s)
             cc['filesystems'] = fss
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
