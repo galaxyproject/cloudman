@@ -61,7 +61,7 @@ from routes import url_for
       %endif
         <a href="${h.url_for(controller='root', action='admin')}">Admin</a>
         | <a href="mailto:galaxy-bugs@bx.psu.edu">Report bugs</a>
-        | <a target="_blank" href="http://usegalaxy.org/cloud">Wiki</a>
+        | <a target="_blank" href="https://wiki.galaxyproject.org/CloudMan">Wiki</a>
         | <a target="_blank" href="http://screencast.g2.bx.psu.edu/cloud/">Screencast</a>
         &nbsp;
       </td>
