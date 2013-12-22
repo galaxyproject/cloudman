@@ -110,7 +110,8 @@ class CM(BaseController):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
             try:
-                CM_url = trans.app.config.get("CM_url", "http://bitbucket.org/galaxy/cloudman/changesets/tip/")
+                CM_url = trans.app.config.get("CM_url",
+                    "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
                 CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
