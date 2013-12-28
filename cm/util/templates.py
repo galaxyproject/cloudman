@@ -226,8 +226,8 @@ http {
             expires 24h;
         }
 
-        location /reports {
-            rewrite ^/reports/(.*) /$$1 break;
+        location /reports/ {
+            rewrite ^/reports/(.*)$$ /reports/$$1/ break;
             proxy_pass http://galaxy_reports_app;
             proxy_set_header   X-Forwarded-Host $$host;
             proxy_set_header   X-Forwarded-For  $$proxy_add_x_forwarded_for;
