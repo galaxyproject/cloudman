@@ -112,6 +112,9 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
+            <%doc>
+            ## Given LWR is not quite ready within CloudMan, hide the service
+            ## actions for the time being
             <tr>
                 <td>LWR</td>
                 <td><span id="lwr_status">&nbsp;</span></td>
@@ -120,7 +123,7 @@
                 <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=LWR" target="_blank">Start</a></td>
                 <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=LWR" target="_blank">Restart</a></td>
             </tr>
-
+            </%doc>
             <tr>
                 <td>Galaxy Reports</td>
                 <td><span id="galaxy_reports_status">&nbsp;</span></td>
