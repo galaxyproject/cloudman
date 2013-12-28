@@ -16,6 +16,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
 from cm.services.apps.galaxy import GalaxyService
+from cm.services.apps.galaxy_reports import GalaxyReportsService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.migration import MigrationService
@@ -563,8 +564,9 @@ class ConsoleManager(BaseConsoleManager):
                 return [s]  # Only one match possible - so return it immediately
             elif svc_role in s.svc_roles:
                 svcs.append(s)
-            elif s.svc_type == svc_type and svc_role == None:
+            elif s.svc_type == svc_type and svc_role is None:
                 svcs.append(s)
+
         return svcs
 
     def all_fs_status_text(self):
@@ -1329,6 +1331,8 @@ class ConsoleManager(BaseConsoleManager):
             self.add_master_service(ProFTPdService(self.app))
             # Add Galaxy service
             self.add_master_service(GalaxyService(self.app))
+            # Add Galaxy Reports service
+            self.add_master_service(GalaxyReportsService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs()
