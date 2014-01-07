@@ -838,6 +838,10 @@ class ConsoleManager(BaseConsoleManager):
         else:
             log.warning(
                 "SGE not running thus cannot toggle master as exec host")
+        if self.master_exec_host:
+            log.info("The master instance has been set to execute jobs.  To manually change this, use the cloudman admin panel.")
+        else:
+            log.info("The master instance has been set to *not* execute jobs.  To manually change this, use the cloudman admin panel.")
         return self.master_exec_host
 
     def get_worker_instances(self):
@@ -1136,9 +1140,6 @@ class ConsoleManager(BaseConsoleManager):
                      % num_terminated)
         else:
             log.info("Did not terminate any instances.")
-        # If no more workers, add master back as execution host.
-        if len(self.worker_instances) == 0 and not self.master_exec_host:
-            self.toggle_master_as_exec_host()
 
     def remove_instance(self, instance_id=''):
         """
@@ -2828,6 +2829,9 @@ class Instance(object):
                 self.app.manager.worker_instances.remove(self)
                 log.info(
                     "Instance '%s' removed from the internal instance list." % self.id)
+                # If this was the last worker removed, add master back as execution host.
+                if len(self.app.manager.worker_instances) == 0 and not self.app.manager.master_exec_host:
+                    self.app.manager.toggle_master_as_exec_host()
         except ValueError, e:
             log.warning("Instance '%s' no longer in instance list, the global monitor probably "
                 "picked it up and deleted it already: %s" % (self.id, e))
