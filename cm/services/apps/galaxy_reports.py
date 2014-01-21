@@ -29,6 +29,9 @@ class GalaxyReportsService(ApplicationService):
         self.conf_dir = os.path.join(
             self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
+    def __repr__(self):
+        return "Galaxy Reports service on port {0}".format(DEFAULT_REPORTS_PORT)
+
     def _check_galaxy_reports_running(self):
         return self._port_bound(self.reports_port)
 
