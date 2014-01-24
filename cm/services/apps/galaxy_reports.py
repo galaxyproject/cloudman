@@ -83,8 +83,7 @@ class GalaxyReportsService(ApplicationService):
     def _run(self, args):
         command = '%s - galaxy -c "export GALAXY_REPORTS_CONFIG_DIR=\'%s\'; sh $GALAXY_HOME/run_reports.sh %s"' % (
             paths.P_SU, self.conf_dir, args)
-        return misc.run(command, "Error invoking Galaxy Reports",
-            "Successfully invoked Galaxy Reports.")
+        return misc.run(command)
 
     def status(self):
         if self.state == service_states.SHUTTING_DOWN or \
