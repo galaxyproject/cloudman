@@ -3115,7 +3115,7 @@ class Instance(object):
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
-                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" \
+                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts"
                     % self.id)
                 try:
                     sge_svc = self.app.manager.get_services(
@@ -3130,7 +3130,7 @@ class Instance(object):
                         for fs in fss:
                             if len(fs.buckets) > 0:
                                 for b in fs.buckets:
-                                    self.send_add_s3fs(b.bucket_name)
+                                    self.send_add_s3fs(b.bucket_name, fs.svc_roles)
                         log.info("Waiting on worker instance %s to configure itself..."
                             % self.get_desc())
                     else:
