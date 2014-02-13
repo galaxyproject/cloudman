@@ -971,9 +971,16 @@ $(document).ready(function() {
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
         var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        
+        ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
+        %if cloud_type == 'ec2':
+        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
+        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        %else:
+        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, onlyInteger: true } );
+        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
+        %endif
     }
     if ($('#spot_price').length != 0) {
         // Add LiveValidation only if the field is actually present on the page
