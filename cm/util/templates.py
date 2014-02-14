@@ -30,8 +30,8 @@ SGE_JVM_LIB_PATH=""
 SGE_ADDITIONAL_JVM_ARGS=""
 CELL_NAME="default"
 ADMIN_USER=""
-QMASTER_SPOOL_DIR="/opt/sge/default/spool/qmaster"
-EXECD_SPOOL_DIR="/opt/sge/default/spool/execd"
+QMASTER_SPOOL_DIR="/opt/sge/default/qmaster/spool"
+EXECD_SPOOL_DIR="/opt/sge/default/execd/spool"
 GID_RANGE="20000-20100"
 SPOOLING_METHOD="classic"
 DB_SPOOLING_SERVER="none"
@@ -95,7 +95,7 @@ ckpt_list             NONE
 pe_list               make smp mpi
 rerun                 FALSE
 slots                 1
-tmpdir                /mnt/galaxyData/tmp
+tmpdir                /mnt/galaxy/tmp
 shell                 /bin/bash
 prolog                $prolog_path
 epilog                $epilog_path
