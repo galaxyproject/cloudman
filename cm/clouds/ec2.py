@@ -178,7 +178,7 @@ class EC2Interface(CloudInterface):
         if self.self_private_ip is None:
             if self.app.TESTFLAG is True:
                 log.debug(
-                    "Attempted to get key pair name, but TESTFLAG is set. Returning '127.0.0.1'")
+                    "Attempted to get private ip, but TESTFLAG is set. Returning '127.0.0.1'")
                 self.self_private_ip = '127.0.0.1'
                 return self.self_private_ip
             for i in range(0, 5):
@@ -200,7 +200,7 @@ class EC2Interface(CloudInterface):
         if self.local_hostname is None:
             if self.app.TESTFLAG is True:
                 log.debug(
-                    "Attempted to get key pair name, but TESTFLAG is set. Returning 'localhost'")
+                    "Attempted to get local hostname, but TESTFLAG is set. Returning 'localhost'")
                 self.local_hostname = 'localhost'
                 return self.local_hostname
             for i in range(0, 5):
