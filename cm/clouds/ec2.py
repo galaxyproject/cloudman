@@ -131,7 +131,7 @@ class EC2Interface(CloudInterface):
     def get_security_groups(self):
         if self.security_groups is None:
             if self.app.TESTFLAG is True:
-                log.debug("Attempted to get key pair name, but TESTFLAG is set. Returning 'cloudman_sg'")
+                log.debug("Attempted to get security groups, but TESTFLAG is set. Returning 'cloudman_sg'")
                 self.security_groups = ['cloudman_sg']
                 return self.security_groups
             for i in range(0, 5):
