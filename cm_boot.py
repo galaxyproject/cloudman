@@ -136,8 +136,9 @@ from boto.s3.key import Key
 from boto.exception import S3ResponseError
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
+    log.debug(('Getting file %s from bucket %s' % (remote_filename, bucket_name)))
     try:
-        b = s3_conn.get_bucket(bucket_name)
+        b = s3_conn.get_bucket(bucket_name, validate=False)
         k = Key(b, remote_filename)
         log.debug(("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name)))
         if k.exists():
@@ -291,7 +292,7 @@ def _get_s3connection(ud):
     s3_conn = None
     try:
         s3_conn = S3Connection(aws_access_key_id=access_key, aws_secret_access_key=secret_key, is_secure=is_secure, port=port, host=host, path=path, calling_format=calling_format)
-        log.debug('Got boto S3 connection')
+        log.debug(('Got boto S3 connection: %s' % s3_conn))
     except BotoServerError as e:
         log.error('Exception getting S3 connection; {0}'.format(e))
     return s3_conn
