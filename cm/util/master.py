@@ -16,7 +16,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
 from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxy_reports import GalaxyReportsService
+from cm.services.apps.galaxyreports import GalaxyReportsService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.migration import MigrationService
@@ -945,7 +945,8 @@ class ConsoleManager(BaseConsoleManager):
             if num_off == len(self.services):
                 log.debug("All services shut down")
                 break
-            elif rebooting:
+            elif rebooting and self.app.cloud_type == 'ec2':
+                # For the EC2 cloud it's ok to reboot with volumes attached
                 log.debug("Not waiting for all the services to shut down because we're just rebooting.")
                 break
             sleep_time = 6
@@ -967,7 +968,11 @@ class ConsoleManager(BaseConsoleManager):
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
         log.debug("Initiating cluster reboot.")
-        self.shutdown(sd_filesystems=False, sd_instances=False, rebooting=True)
+        # Don't detach volumes only on the EC2 cloud
+        sd_filesystems = True
+        if self.app.cloud_type == 'ec2':
+            sd_filesystems = False
+        self.shutdown(sd_filesystems=sd_filesystems, sd_instances=False, rebooting=True)
         if soft:
             if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'],
                self.app.ud['boot_script_name']))):
