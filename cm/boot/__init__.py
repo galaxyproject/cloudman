@@ -215,7 +215,7 @@ def _get_s3connection(ud):
             path=path,
             calling_format=calling_format,
         )
-        log.debug('Got boto S3 connection')
+        log.debug('Got boto S3 connection: %s' % s3_conn)
     except BotoServerError as e:
         log.error("Exception getting S3 connection; {0}".format(e))
 

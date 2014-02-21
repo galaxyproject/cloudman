@@ -3,8 +3,9 @@ from boto.exception import S3ResponseError
 
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
+    log.debug("Getting file %s from bucket %s" % (remote_filename, bucket_name))
     try:
-        b = s3_conn.get_bucket(bucket_name)
+        b = s3_conn.get_bucket(bucket_name, validate=False)
         k = Key(b, remote_filename)
 
         log.debug("Attempting to retrieve file '%s' from bucket '%s'" % (
