@@ -448,9 +448,12 @@ def _fix_etc_hosts():
         fp = urllib.urlopen(
             'http://169.254.169.254/latest/meta-data/public-hostname')
         hn = fp.read()
-        _run(log, 'echo "# Added by CloudMan for NeCTAR" >> /etc/hosts')
-        _run(log, 'echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(
-            ip=ip, hn1=hn, hn2=hn.split('.')[0]))
+        line = "{ip} {hn1} {hn2}".format(ip=ip, hn1=hn, hn2=hn.split('.')[0])
+        with open('/etc/hosts', 'a+') as f:
+            if not any(line.strip() == x.rstrip('\r\n') for x in f):
+                log.debug("Appending line %s to /etc/hosts" % line)
+                f.write("# Added by CloudMan for NeCTAR\n")
+                f.write(line + '\n')
     except Exception, e:
         log.error("Trouble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
