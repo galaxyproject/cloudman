@@ -151,6 +151,13 @@ def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_file
     except S3ResponseError as e:
         log.error(("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e)))
         return False
+
+def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
+    '\n    Check if an object (ie, key) of name ``key_name`` exists in bucket\n    ``bucket_name``. Return ``True`` if so, ``False`` otherwise.\n    '
+    b = s3_conn.get_bucket(bucket_name, validate=False)
+    k = Key(b, key_name)
+    log.debug(("Checking if key '%s' exists in bucket '%s'" % (key_name, bucket_name)))
+    return k.exists()
 logging.getLogger('boto').setLevel(logging.INFO)
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
@@ -312,16 +319,14 @@ def _get_cm(ud):
     if (use_object_store and ('access_key' in ud) and ('secret_key' in ud)):
         if ((ud['access_key'] is not None) and (ud['secret_key'] is not None)):
             s3_conn = _get_s3connection(ud)
-    b = None
     if s3_conn:
         if ('bucket_cluster' in ud):
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if b:
-            log.info(("Cluster bucket '%s' found." % b.name))
-            if _get_file_from_bucket(log, s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, b.name)
-                log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
-                return True
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+                log.info(("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster']))
+                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME, local_cm_file):
+                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
+                    log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
+                    return True
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name)))
             _write_cm_revision_to_file(s3_conn, default_bucket_name)
