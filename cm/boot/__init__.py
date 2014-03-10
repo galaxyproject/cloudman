@@ -18,7 +18,7 @@ from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCal
 
 from .util import _run, _is_running, _make_dir
 from .conf import _install_authorized_keys, _install_conf_files, _configure_nginx
-from .object_store import _get_file_from_bucket
+from .object_store import _get_file_from_bucket, _key_exists_in_bucket
 
 logging.getLogger(
     'boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
@@ -215,7 +215,7 @@ def _get_s3connection(ud):
             path=path,
             calling_format=calling_format,
         )
-        log.debug('Got boto S3 connection')
+        log.debug('Got boto S3 connection: %s' % s3_conn)
     except BotoServerError as e:
         log.error("Exception getting S3 connection; {0}".format(e))
 
@@ -240,17 +240,17 @@ def _get_cm(ud):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3connection(ud)
     # Test for existence of user's bucket and download appropriate CM instance
-    b = None
     if s3_conn:  # if not use_object_store, then s3_connection never gets attempted
         if 'bucket_cluster' in ud:
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if b:  # Try to retrieve user's instance of CM
-            log.info("Cluster bucket '%s' found." % b.name)
-            if _get_file_from_bucket(log, s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, b.name)
-                log.info("Restored Cloudman from bucket_cluster %s" %
-                         (ud['bucket_cluster']))
-                return True
+            # Try to retrieve user's instance of CM
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+                log.info("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster'])
+                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'],
+                   CM_REMOTE_FILENAME, local_cm_file):
+                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
+                    log.info("Restored Cloudman from bucket_cluster %s" %
+                             (ud['bucket_cluster']))
+                    return True
         # ELSE: Attempt to retrieve default instance of CM from local s3
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (
@@ -448,9 +448,12 @@ def _fix_etc_hosts():
         fp = urllib.urlopen(
             'http://169.254.169.254/latest/meta-data/public-hostname')
         hn = fp.read()
-        _run(log, 'echo "# Added by CloudMan for NeCTAR" >> /etc/hosts')
-        _run(log, 'echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(
-            ip=ip, hn1=hn, hn2=hn.split('.')[0]))
+        line = "{ip} {hn1} {hn2}".format(ip=ip, hn1=hn, hn2=hn.split('.')[0])
+        with open('/etc/hosts', 'a+') as f:
+            if not any(line.strip() == x.rstrip('\r\n') for x in f):
+                log.debug("Appending line %s to /etc/hosts" % line)
+                f.write("# Added by CloudMan for NeCTAR\n")
+                f.write(line + '\n')
     except Exception, e:
         log.error("Trouble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
