@@ -46,7 +46,7 @@ P_HADOOP_INTEGRATION_FOLDER = "sge_integration"
 
 P_ETC_TRANSIENT_PATH = "/mnt/transient_nfs/hosts"
 
-## Condor
+# # Condor
 P_HTCONDOR_CONFIG_PATH = "/etc/condor/condor_config"
 P_HTCONDOR_HOME = "/etc/init.d"
 
