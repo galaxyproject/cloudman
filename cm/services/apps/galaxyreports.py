@@ -97,7 +97,7 @@ class GalaxyReportsService(ApplicationService):
            self.state == service_states.UNSTARTED or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif self._check_daemon('galaxy_reports'):
+        elif self._check_daemon('galaxyreports'):
             if self._check_galaxy_reports_running():
                 self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:

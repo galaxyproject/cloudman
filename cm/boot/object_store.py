@@ -3,8 +3,9 @@ from boto.exception import S3ResponseError
 
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
+    log.debug("Getting file %s from bucket %s" % (remote_filename, bucket_name))
     try:
-        b = s3_conn.get_bucket(bucket_name)
+        b = s3_conn.get_bucket(bucket_name, validate=False)
         k = Key(b, remote_filename)
 
         log.debug("Attempting to retrieve file '%s' from bucket '%s'" % (
@@ -22,3 +23,15 @@ def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_file
         log.error("Failed to get file '%s' from bucket '%s': %s" %
                   (remote_filename, bucket_name, e))
         return False
+
+
+def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
+    """
+    Check if an object (ie, key) of name ``key_name`` exists in bucket
+    ``bucket_name``. Return ``True`` if so, ``False`` otherwise.
+    """
+    b = s3_conn.get_bucket(bucket_name, validate=False)
+    k = Key(b, key_name)
+    log.debug("Checking if key '%s' exists in bucket '%s'" % (
+        key_name, bucket_name))
+    return k.exists()
