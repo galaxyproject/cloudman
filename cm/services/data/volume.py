@@ -210,7 +210,7 @@ class Volume(BlockStorage):
                 status = volume_status.NONE
         return status
 
-    def wait_for_status(self, status, timeout=-1):
+    def wait_for_status(self, status, timeout= -1):
         """
         Wait for ``timeout`` seconds, or until the volume reaches a desired status
         Returns ``False`` if it never hit the request status before timeout.
@@ -273,14 +273,13 @@ class Volume(BlockStorage):
                 # until general volumes arrive
                 if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
-                    if zone not in ['melbourne-qh2', 'qld', 'monash-01']:
+                    if zone in ['sa']:
                         msg = ("It seems you're running on the NeCTAR cloud and in "
-                               "zone other than 'melbourne-qh2'. However, volumes "
-                               "work only in that zone. You must restart this cluster "
-                               "in the correct zone.")
-                        log.critical(msg)
-                        self.app.msgs.error(msg)
-                        return None
+                               "zone 'SA'. However, volumes do not currently"
+                               "work in that zone. Will attempt to continue but failure"
+                               "is likely")
+                        log.warning(msg)
+                        self.app.msgs.warning(msg)
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
                     % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(
