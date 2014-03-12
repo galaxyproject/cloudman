@@ -94,7 +94,7 @@ qtype                 BATCH INTERACTIVE
 ckpt_list             NONE
 pe_list               make smp mpi
 rerun                 FALSE
-slots                 1
+slots                 $slots
 tmpdir                /mnt/galaxy/tmp
 shell                 /bin/bash
 prolog                $prolog_path
