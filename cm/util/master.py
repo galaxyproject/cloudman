@@ -71,7 +71,7 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
+        self.worker_instances = self.get_worker_instances() if (self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
