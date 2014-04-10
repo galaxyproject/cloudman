@@ -322,23 +322,18 @@ class GalaxyService(ApplicationService):
                 for i in range(web_thread_count):
                     galaxy_server += "server localhost:808%s;" % i
             # Customize the template
-            nginx_conf_template = templates.NGINX_CONF_TEMPLATE
-            nginx_galaxy_template = Template(templates.NGINX_GALAXY_CONF_TEMPLATE)
+            nginx_conf_template = Template(templates.NGINX_CONF_TEMPLATE)
             params = {
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server
             }
-            nginx_galaxy_template = nginx_galaxy_template.substitute(params)
+            template = nginx_conf_template.substitute(params)
 
             # Write out the files
             nginx_config_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
             with open(nginx_config_file, 'w') as f:
-                print >> f, nginx_conf_template
-
-            nginx_galaxy_config_file = os.path.join(nginx_dir, 'conf', 'galaxy_locations.conf')
-            with open(nginx_galaxy_config_file, 'w') as f:
-                print >> f, nginx_galaxy_template
+                print >> f, template
 
             nginx_cmdline_config_file = os.path.join(nginx_dir, 'conf', 'commandline_utilities_http.conf')
             misc.run('touch {0}'.format(nginx_cmdline_config_file))
