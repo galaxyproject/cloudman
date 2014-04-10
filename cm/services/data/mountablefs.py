@@ -32,7 +32,7 @@ class MountableFS(object):
         details['device'] = self.device
         details['DoT'] = "No"
         details['kind'] = self.fs_type
-        details['options'] = self.options
+        details['options'] = self.mount_options
         return details
 
     def start(self):
@@ -62,7 +62,7 @@ class MountableFS(object):
         Do the actual mounting of the device locally.
         """
         log.debug("Mounting device of type {0} from location {0} to mount pount {1}".format(self.fs_type, self.device, self.fs.mount_point))
-        options = "-o {0}".format(self.options) if self.mount_options else ""
+        options = "-o {0}".format(self.mount_options) if self.mount_options else ""
         cmd = '/bin/mount -t {0} {1} {2} {3}'.format(self.fs_type, options, self.device, self.fs.mount_point)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         _, _ = process.communicate()
