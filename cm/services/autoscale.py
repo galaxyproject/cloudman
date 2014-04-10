@@ -59,13 +59,15 @@ class Autoscale(Service):
                - number of nodes is more than the max size of the cluster set by user
                - there are idle nodes and a new hour is about to begin (so not to get charged for the new hour)
         """
-        log.debug("Checking if cluster is too LARGE")
+        # log.debug("Checking if cluster is too LARGE")
         if len(self.app.manager.worker_instances) > self.as_max:
+            log.debug("Cluster is too explicitly large")
             return True
         elif int(datetime.datetime.utcnow().strftime("%M")) > 57 and \
             len(self.app.manager.worker_instances) > self.as_min and \
                 self.get_num_instances_to_remove() > 0:
             # len(self.app.manager.get_idle_instances()) > 0 and \
+            log.debug("Cluster is too large")
             return True
         return False
 
@@ -102,9 +104,8 @@ class Autoscale(Service):
           :type num_queued_jobs: int
           :param num_queued_jobs: Number of jobs that should be queued before indicating slow job turnover
         """
-
         q_jobs = self.get_queue_jobs()
-        log.debug('q_jobs: %s' % q_jobs)
+        # log.debug('q_jobs: %s' % q_jobs)
         r_jobs_mean, r_jobs_stdv = self.meanstdv(q_jobs['running'])
         qw_jobs_mean, qw_jobs_stdv = self.meanstdv(q_jobs['queued'])
         log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s' % (len(
