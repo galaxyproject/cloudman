@@ -449,7 +449,7 @@ class ConsoleMonitor(object):
                self.app.manager.load,
                self.app.manager.worker_status,
                self.app.manager.nfs_tfs)
-        log.debug("Sending message '%s'" % msg_body)
+        # log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
 
     def handle_message(self, message):

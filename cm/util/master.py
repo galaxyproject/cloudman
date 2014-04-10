@@ -71,7 +71,7 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
+        self.worker_instances = self.get_worker_instances() if (self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
@@ -2531,18 +2531,19 @@ class ConsoleMonitor(object):
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (Time.now() - w_instance.last_comm).seconds < 22:
-                        log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
-                            w_instance.get_desc(),
-                            (Time.now() - w_instance.last_comm).seconds))
+                        # log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
+                        #     w_instance.get_desc(),
+                        #     (Time.now() - w_instance.last_comm).seconds))
                         continue
                     # Explicitly check the state of a quiet instance (but only
                     # periodically)
                     elif (Time.now() - w_instance.last_state_update).seconds > 30:
-                        log.debug("Have not checked on quiet instance {0} for a while; checking now"
-                                  .format(w_instance.get_desc()))
+                        log.debug("Have not heard from or checked on instance {0} "
+                            "for a while; checking now.".format(w_instance.get_desc()))
                         w_instance.maintain()
                     else:
-                        log.debug("Not checking quiet instance {0} (last check {1} secs ago)"
+                        log.debug("Instance {0} has been quiet for a while (last check "
+                            "{1} secs ago); will wait a bit longer before a check..."
                             .format(w_instance.get_desc(),
                             (Time.now() - w_instance.last_state_update).seconds))
             self.__add_services()
@@ -3027,7 +3028,7 @@ class Instance(object):
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})
         self.app.manager.console_monitor.conn.send('MOUNT | %s' % jmp, self.id)
-        log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
+        # log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
 
     def send_master_pubkey(self):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
