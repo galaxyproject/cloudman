@@ -384,9 +384,9 @@ class ConsoleManager(BaseConsoleManager):
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
                     elif fs['kind'] == 'nfs':
-                        filesystem.add_nfs(fs['nfs_server'], None, None)
+                        filesystem.add_nfs(fs['nfs_server'], None, None, mount_options=fs.get('mount_options', None))
                     elif fs['kind'] == 'gluster':
-                        filesystem.add_glusterfs(fs['gluster_server'])
+                        filesystem.add_glusterfs(fs['gluster_server'], mount_options=fs.get('mount_options', None))
                     elif fs['kind'] == 'transient':
                         filesystem.add_transient_storage(persistent=True)
                     elif fs['kind'] == 'bucket':
@@ -1266,7 +1266,7 @@ class ConsoleManager(BaseConsoleManager):
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
-        msg = "Initializing '%s' cluster type. Please wait..." % cluster_type
+        msg = "Initializing '{0}' cluster type with storage type '{1}'. Please wait...".format(cluster_type, storage_type)
         log.info(msg)
         self.app.msgs.info(msg)
         if cluster_type == 'Galaxy':
@@ -1315,11 +1315,11 @@ class ConsoleManager(BaseConsoleManager):
                             elif 'gluster' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
                                     .format(snap['name']))
-                                fs.add_glusterfs(snap['server'])
+                                fs.add_glusterfs(snap['server'], mount_options=snap.get('mount_options', None))
                             elif 'nfs' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching an nfs based filesystem named {0}"
                                     .format(snap['name']))
-                                fs.add_nfs(snap['server'], None, None)
+                                fs.add_nfs(snap['server'], None, None, mount_options=snap.get('mount_options', None))
                             elif 's3fs' == snap['type'] and 'bucket_name' in snap and 'bucket_a_key' in snap and 'bucket_s_key' in snap:
                                 fs.add_bucket(snap['bucket_name'], snap['bucket_a_key'], snap['bucket_s_key'])
                             else:
@@ -3011,15 +3011,18 @@ class Instance(object):
             if fs.nfs_fs:
                 fs_type = "nfs"
                 server = fs.nfs_fs.device
+                options = fs.nfs_fs.mount_options
             elif fs.gluster_fs:
                 fs_type = "glusterfs"
                 server = fs.gluster_fs.device
+                options = fs.gluster_fs.mount_options
             else:
                 fs_type = "nfs"
                 server = self.app.cloud_interface.get_private_ip()
             mount_points.append(
                 {'fs_type': fs_type,
                  'server': server,
+                 'mount_options': options,
                  'shared_mount_path': fs.get_details()['mount_point'],
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})

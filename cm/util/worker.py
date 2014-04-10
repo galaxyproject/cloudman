@@ -137,7 +137,7 @@ class ConsoleManager(BaseConsoleManager):
     def get_cluster_status(self):
         return "This is a worker node, cluster status not available."
 
-    def mount_disk(self, fs_type, server, path):
+    def mount_disk(self, fs_type, server, path, mount_options):
         # If a path is not specific for an nfs server, and only its ip is provided, assume that the target path to mount at is
         # the path on the server as well
         if fs_type == 'nfs' and ':' not in server:
@@ -152,8 +152,9 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Mounting fs of type: %s from: %s to: %s..." % (fs_type, server, path))
             if not os.path.exists(path):
                 os.mkdir(path)
+            options = "-o {0}".format(mount_options) if mount_options else ""
             ret_code = subprocess.call(
-                "mount -t %s %s %s" % (fs_type, server, path), shell=True)
+                "mount -t %s %s %s %s" % (fs_type, mount_options, server, path), shell=True)
             log.debug(
                 "Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
@@ -175,7 +176,7 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']))
+                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']), mp['mount_options'])
             else:
                 raise Exception("Mount point parsing failure.")
         except:
@@ -185,29 +186,29 @@ class ConsoleManager(BaseConsoleManager):
             # Build list of mounts based on cluster type
             if self.cluster_type == 'Galaxy':
                 mount_points.append(
-                    ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip))
+                    ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip, ''))
                 mount_points.append(
-                    ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip))
+                    ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip, ''))
             if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
                 mount_points.append(
-                    ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip))
+                    ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip, ''))
             # Mount master's transient storage regardless of cluster type
-            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip))
+            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip, ''))
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
         # <KWS>Mount Hadoop regardless of cluster type
-        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip))
+        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
 
         # Mount master's transient storage regardless of cluster type
         # mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
-            mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip))
+            mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip, ''))
         # For each main mount point, mount it and set status based on label
-        for (label, path, fs_type, server) in mount_points:
-            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3}".format(
-                label, path, server, fs_type))
+        for (label, path, fs_type, server, mount_options) in mount_points:
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3} with mount_options: {4}".format(
+                label, path, server, fs_type, mount_options))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
@@ -216,7 +217,7 @@ class ConsoleManager(BaseConsoleManager):
 #             if ':' in nfs_server:
 #                 source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
 #                 nfs_server = nfs_server.split(':')[0]
-            ret_code = self.mount_disk(fs_type, server, path)
+            ret_code = self.mount_disk(fs_type, server, path, mount_options)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
         # Filter out any differences between new and old mount points and unmount

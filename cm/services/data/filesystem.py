@@ -621,18 +621,18 @@ class Filesystem(DataService):
         self.persistent = True if from_archive_url else persistent
         self.transient_storage.append(TransientStorage(self, from_archive_url=from_archive_url))
 
-    def add_glusterfs(self, gluster_server):
+    def add_glusterfs(self, gluster_server, mount_options=None):
         """
         Add a Gluster server (e.g., ``172.22.169.17:/gluster_dir``) to mount the file system from
         """
         log.debug("Adding Gluster server {0} to file system {1}".format(gluster_server, self.name))
         self.kind = 'gluster'
-        self.gluster_fs = MountableFS(self, 'glusterfs', gluster_server)
+        self.gluster_fs = MountableFS(self, 'glusterfs', gluster_server, mount_options=mount_options)
 
-    def add_nfs(self, nfs_server, username=None, pwd=None):
+    def add_nfs(self, nfs_server, username=None, pwd=None, mount_options=None):
         """
         Add a NFS server (e.g., ``172.22.169.17:/nfs_dir``) to mount the file system from
         """
         log.debug("Adding NFS server {0} to file system {1}".format(nfs_server, self.name))
         self.kind = 'nfs'
-        self.nfs_fs = MountableFS(self, 'nfs', nfs_server)
+        self.nfs_fs = MountableFS(self, 'nfs', nfs_server, mount_options=mount_options)
