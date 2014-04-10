@@ -204,6 +204,9 @@ http {
         server_name             localhost;
         proxy_read_timeout      600;
 
+        include commandline_utilities_http.conf;
+        include galaxy_locations.conf
+
         location /cloud {
             proxy_pass  http://cm_app;
             proxy_set_header   X-Forwarded-Host $$host;
@@ -225,6 +228,11 @@ http {
             alias /mnt/cm/static/scripts;
             expires 24h;
         }
+    }
+}
+"""
+
+NGINX_GALAXY_CONF_TEMPLATE = """
 
         location /reports/ {
             rewrite ^/reports/(.*)$$ /reports/$$1/ break;
@@ -294,6 +302,4 @@ http {
         location /errdoc {
             root   html;
         }
-    }
-}
 """
