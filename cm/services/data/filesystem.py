@@ -585,7 +585,7 @@ class Filesystem(DataService):
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'"
                       % (self.name, self.mount_point, self.state))
 
-    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None, dot=False, from_archive_url=None):
+    def add_volume(self, vol_id=None, size=0, from_snapshot_id=None, dot=False, from_archive=None):
         """
         Add a volume device to this file system.
 
@@ -595,7 +595,7 @@ class Filesystem(DataService):
         log.debug("Adding Volume (id={id}, size={size}, snap={snap}) into Filesystem {fs}"
                   .format(id=vol_id, size=size, snap=from_snapshot_id, fs=self.get_full_name()))
         self.volumes.append(Volume(self, vol_id=vol_id, size=size,
-                            from_snapshot_id=from_snapshot_id, static=dot, from_archive_url=from_archive_url))
+                            from_snapshot_id=from_snapshot_id, static=dot, from_archive=from_archive))
 
     def add_bucket(self, bucket_name, bucket_a_key=None, bucket_s_key=None):
         """
@@ -609,7 +609,7 @@ class Filesystem(DataService):
         self.buckets.append(
             Bucket(self, bucket_name, bucket_a_key, bucket_s_key))
 
-    def add_transient_storage(self, from_archive_url=None, persistent=False):
+    def add_transient_storage(self, from_archive=None, persistent=False):
         """
         Add instance's transient storage and make it available over NFS to the
         cluster. All this really does is makes a directory under ``/mnt`` and
@@ -618,8 +618,8 @@ class Filesystem(DataService):
         log.debug("Configuring instance transient storage at {0} with NFS.".format(
             self.mount_point))
         self.kind = 'transient'
-        self.persistent = True if from_archive_url else persistent
-        self.transient_storage.append(TransientStorage(self, from_archive_url=from_archive_url))
+        self.persistent = True if from_archive else persistent
+        self.transient_storage.append(TransientStorage(self, from_archive=from_archive))
 
     def add_glusterfs(self, gluster_server, mount_options=None):
         """
