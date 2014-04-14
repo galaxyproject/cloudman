@@ -1303,12 +1303,14 @@ class ConsoleManager(BaseConsoleManager):
                                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                                             if pss > snap['size']:
                                                 size = pss
-                                        fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                                        from_archive = {'url': snap['archive_url'], 'md5_sum': snap.get('archive_md5', None) }
+                                        fs.add_volume(size=size, from_archive=from_archive)
                                     else:
                                         log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
                                                   .format(snap['name']))
                                 elif storage_type == 'transient':
-                                    fs.add_transient_storage(from_archive_url=snap['archive_url'])
+                                    from_archive = {'url': snap['archive_url'], 'md5_sum': snap.get('archive_md5', None) }
+                                    fs.add_transient_storage(from_archive=from_archive)
                                 else:
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))

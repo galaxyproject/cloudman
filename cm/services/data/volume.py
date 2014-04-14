@@ -38,7 +38,7 @@ class Volume(BlockStorage):
 
     def __init__(
         self, filesystem, vol_id=None, device=None, attach_device=None,
-            size=0, from_snapshot_id=None, static=False, from_archive_url=None):
+            size=0, from_snapshot_id=None, static=False, from_archive=None):
         super(Volume, self).__init__(filesystem.app)
         self.fs = filesystem
         self.app = self.fs.app
@@ -46,7 +46,7 @@ class Volume(BlockStorage):
         self.device = device  # Device ID visible by the operating system
         self.size = size
         self.from_snapshot_id = from_snapshot_id
-        self.from_archive_url = from_archive_url
+        self.from_archive = from_archive
         self.snapshot = None
         self.device = None
         self.static = static  # Indicates if a volume is created from a snapshot
@@ -58,7 +58,7 @@ class Volume(BlockStorage):
 
         if (vol_id):  # get the volume object immediately, if id is passed
             self.update(vol_id)
-        elif from_snapshot_id or from_archive_url:
+        elif from_snapshot_id or from_archive:
             self.create()
 
     def __str__(self):
@@ -68,8 +68,8 @@ class Volume(BlockStorage):
         if self.volume_id is not None:
             return self.get_full_name()
         else:
-            if self.from_archive_url:
-                return "No volume ID yet; {0} ({1})".format(self.from_archive_url, self.fs.get_full_name())
+            if self.from_archive:
+                return "No volume ID yet; {0} ({1})".format(self.from_archive, self.fs.get_full_name())
             else:
                 return "No volume ID yet; {0} ({1})".format(self.from_snapshot_id, self.fs.get_full_name())
 
@@ -88,7 +88,7 @@ class Volume(BlockStorage):
         details['device'] = self.device
         details['volume_id'] = self.volume_id
         details['from_snap'] = "No" if not self.from_snapshot_id else self.from_snapshot_id
-        details['from_archive_url'] = "No" if not self.from_archive_url else self.from_archive_url
+        details['from_archive'] = "No" if not self.from_archive else self.from_archive['url']
         details['snapshot_progress'] = self.snapshot_progress
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
@@ -252,7 +252,7 @@ class Volume(BlockStorage):
         """
         Create a new volume.
         """
-        if not self.size and not self.from_snapshot_id and not self.from_archive_url:
+        if not self.size and not self.from_snapshot_id and not self.from_archive:
             log.error('Cannot add a volume without a size, snapshot ID or archive url')
             return None
 
@@ -580,7 +580,7 @@ class Volume(BlockStorage):
         # Note that if a volume is marked as 'static', it is assumed it
         # can be deleted upon cluster termination!
         if ((not ServiceRole.GALAXY_DATA in self.fs.svc_roles) and
-           (self.from_snapshot_id is not None or self.from_archive_url is not None)):
+           (self.from_snapshot_id is not None or self.from_archive is not None)):
             log.debug("Marked volume '%s' from file system '%s' as 'static'" % (
                 self.volume_id, self.fs.name))
             # FIXME: This is a major problem - any new volumes added from a snapshot
@@ -588,7 +588,7 @@ class Volume(BlockStorage):
             # arbitrary volume as a file system but is no good any more. The
             # problem is in automatically detecting volumes that are supposed
             # to be static and are being added automatically at startup
-            if self.from_archive_url:
+            if self.from_archive:
                 self.fs.kind = 'volume'  # Treated as a regular volume after initial extraction
             else:
                 self.static = True
@@ -715,10 +715,9 @@ class Volume(BlockStorage):
 
                 # If based on bucket, extract bucket contents onto new volume
                 try:
-                    if self.from_archive_url:
-                        log.info("Extracting archive url: %s to mount point: %s. This could take a while..."
-                        % (self.from_archive_url, mount_point))
-                        misc.extract_archive_content_to_path(self.from_archive_url, mount_point)
+                    if self.from_archive:
+                        log.info("Extracting archive url: {0} to mount point: {1}. This could take a while...".format(self.from_archive['url'], mount_point))
+                        misc.extract_archive_content_to_path(self.from_archive['url'], mount_point, self.from_archive['md5_sum'])
                 except Exception, e:
                     log.error("Error while extracting archive: {0}".format(e))
                     return False

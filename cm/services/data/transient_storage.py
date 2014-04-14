@@ -20,7 +20,7 @@ log = logging.getLogger('cloudman')
 
 
 class TransientStorage(BlockStorage):
-    def __init__(self, filesystem, from_archive_url=None):
+    def __init__(self, filesystem, from_archive=None):
         """
         Instance's transient storage exposed over NFS.
         """
@@ -28,7 +28,7 @@ class TransientStorage(BlockStorage):
         self.fs = filesystem
         self.app = self.fs.app
         self.device = None
-        self.from_archive_url = from_archive_url
+        self.from_archive = from_archive
 
     def __repr__(self):
         return self.get_full_name()
@@ -64,10 +64,9 @@ class TransientStorage(BlockStorage):
 
             # If based on bucket, extract bucket contents onto new volume
             try:
-                if self.from_archive_url:
-                    log.info("Extracting archive url: %s to mount point: %s. This could take a while..."
-                        % (self.from_archive_url, self.fs.mount_point))
-                    misc.extract_archive_content_to_path(self.from_archive_url, self.fs.mount_point)
+                if self.from_archive:
+                    log.info("Extracting archive url: {0} to mount point: {1}. This could take a while...".format(self.from_archive['url'], self.fs.mount_point))
+                    misc.extract_archive_content_to_path(self.from_archive['url'], self.fs.mount_point, self.from_archive['md5_sum'])
                     self.fs.persistent = True
             except Exception, e:
                 log.error("Error while extracting archive: {0}".format(e))
