@@ -338,7 +338,9 @@ class CM(BaseController):
     def reboot_instance(self, trans, instance_id=''):
         if instance_id == '':
             return
-        self.app.manager.reboot_instance(instance_id)
+        # Set `count_reboot` to False by default because we don't want to count
+        # manually-invoked reboots.
+        self.app.manager.reboot_instance(instance_id, count_reboot=False)
         return self.instance_state_json(trans)
 
     @expose
@@ -346,7 +348,7 @@ class CM(BaseController):
         try:
             number_nodes = int(number_nodes)
             force_termination = True if force_termination == 'True' else False
-            log.debug("Num nodes requested to terminate: %s, force termination: %s" \
+            log.debug("Num nodes requested to terminate: %s, force termination: %s"
                 % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
