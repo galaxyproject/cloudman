@@ -2901,7 +2901,14 @@ class Instance(object):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
 
     def send_sync_etc_host(self, msg):
-        self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
+        # Because the hosts file is synced over the transientFS, give the FS
+        # some time to become available before sending the msg
+        for i in range(5):
+            if self.nfs_tfs:
+                self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
+                break
+            log.debug("Transient FS on instance not available; waiting a bit...")
+            time.sleep(7)
 
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
