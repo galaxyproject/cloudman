@@ -265,7 +265,7 @@ class ConsoleManager(BaseConsoleManager):
                             .get_all_snapshots([snap['snap_id']])[0])
                         self.default_galaxy_data_size = self.snapshot.volume_size
                     log.debug("Got default galaxy FS size as {0}GB".format(
-                            self.default_galaxy_data_size))
+                        self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
     @TestFlag(False)
@@ -577,7 +577,7 @@ class ConsoleManager(BaseConsoleManager):
             if vol[3] is None:
                 tr.append("%s+nodata" % key)
             else:
-                if vol[3] == True:
+                if vol[3] is True:
                     tr.append("%s+green" % key)
                 else:
                     tr.append("%s+red" % key)
@@ -591,7 +591,7 @@ class ConsoleManager(BaseConsoleManager):
             if vol[3] is None:
                 tr.append([key, "nodata"])
             else:
-                if vol[3] == True:
+                if vol[3] is True:
                     tr.append([key, "green"])
                 else:
                     tr.append([key, "red"])
@@ -882,8 +882,8 @@ class ConsoleManager(BaseConsoleManager):
                 # filtering w/ boto is supported only with ec2
                 f = {'attachment.instance-id':
                      self.app.cloud_interface.get_instance_id()}
-                attached_volumes = self.app.cloud_interface.get_ec2_connection(
-                    ).get_all_volumes(filters=f)
+                attached_volumes = self.app.cloud_interface.get_ec2_connection()\
+                    .get_all_volumes(filters=f)
             else:
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
                 for vol in volumes:
@@ -899,8 +899,8 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def shutdown(self, sd_apps=True, sd_filesystems=True, sd_instances=True,
-        sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
-        rebooting=False):
+                 sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
+                 rebooting=False):
         """
         Shut down this cluster. This means shutting down all the services
         (dependent on method arguments) and, optionally, deleting the cluster.
@@ -1307,13 +1307,15 @@ class ConsoleManager(BaseConsoleManager):
                                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                                             if pss > snap['size']:
                                                 size = pss
-                                        from_archive = {'url': snap['archive_url'], 'md5_sum': snap.get('archive_md5', None) }
+                                        from_archive = {'url': snap['archive_url'],
+                                            'md5_sum': snap.get('archive_md5', None)}
                                         fs.add_volume(size=size, from_archive=from_archive)
                                     else:
                                         log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
                                                   .format(snap['name']))
                                 elif storage_type == 'transient':
-                                    from_archive = {'url': snap['archive_url'], 'md5_sum': snap.get('archive_md5', None) }
+                                    from_archive = {'url': snap['archive_url'],
+                                        'md5_sum': snap.get('archive_md5', None)}
                                     fs.add_transient_storage(from_archive=from_archive)
                                 else:
                                     log.error("Unknown storage type {0} for archive extraction."
@@ -1331,7 +1333,7 @@ class ConsoleManager(BaseConsoleManager):
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
                                     .format(snap['type]'], snap['name']))
-                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
+                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                             .format(fs.get_full_name(), fs.volumes))
                         self.add_master_service(fs)
             # Add a file system for user's data
@@ -1796,7 +1798,7 @@ class ConsoleManager(BaseConsoleManager):
             return False
 
     def add_fs_bucket(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS],
-        bucket_a_key=None, bucket_s_key=None, persistent=False):
+                      bucket_a_key=None, bucket_s_key=None, persistent=False):
         """
         Add a new file system service for a bucket-based file system.
         """
@@ -1814,7 +1816,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
+                      fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
         """
         Add a new file system based on an existing volume, a snapshot, or a new
         volume. Provide ``fs_kind`` to distinguish between these (accepted values
@@ -1830,7 +1832,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_gluster(self, gluster_server, fs_name,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+                       fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
         Add a new file system service for a Gluster-based file system.
         """
@@ -1847,7 +1849,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+                   fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
         Add a new file system service for a NFS-based file system. Optionally,
         provide password-based credentials (``username`` and ``pwd``) for
@@ -1923,7 +1925,7 @@ class ConsoleManager(BaseConsoleManager):
             return None
         if self.check_for_new_version_of_CM():
             log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
-                "It will be automatically available the next time this cluster is instantiated." \
+                "It will be automatically available the next time this cluster is instantiated."
                 % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
@@ -2410,7 +2412,7 @@ class ConsoleMonitor(object):
                 with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
                     rev = rev_file.read()
                 misc.set_file_metadata(s3_conn, self.app.ud[
-                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+                    'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
         except Exception, e:
             log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
                       'bucket_cluster'], e))
@@ -2645,10 +2647,10 @@ class Instance(object):
         elif state == instance_states.RUNNING:
             log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
                 "last m_state change before {3} | time_rebooted before {4}".format(
-                self.get_desc(), instance_states.RUNNING,
-                dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
-                dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
-                dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
+                    self.get_desc(), instance_states.RUNNING,
+                    dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
+                    dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
+                    dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
             if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
                (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
                (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
@@ -2760,12 +2762,12 @@ class Instance(object):
                 ld = "Running"
             return [self.id, ld, misc.formatSeconds(
                 Time.now() - self.last_m_state_change),
-                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
-                    self.sge_started, self.worker_status]
+                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
+                self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change), \
-                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
-                    self.sge_started, self.worker_status]
+            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change),
+                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
+                self.sge_started, self.worker_status]
 
     def get_id(self):
         if self.app.TESTFLAG is True:

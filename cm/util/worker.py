@@ -154,9 +154,8 @@ class ConsoleManager(BaseConsoleManager):
                 os.mkdir(path)
             options = "-o {0}".format(mount_options) if mount_options else ""
             ret_code = subprocess.call(
-                "mount -t %s %s %s %s" % (fs_type, mount_options, server, path), shell=True)
-            log.debug(
-                "Process mounting '%s' returned code '%s'" % (path, ret_code))
+                "mount -t %s %s %s %s" % (fs_type, options, server, path), shell=True)
+            log.debug("Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
 
     def mount_nfs(self, master_ip, mount_json):
@@ -212,11 +211,6 @@ class ConsoleManager(BaseConsoleManager):
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
-            source_path = None
-            # See if a specific path on the nfs_server is used
-#             if ':' in nfs_server:
-#                 source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
-#                 nfs_server = nfs_server.split(':')[0]
             ret_code = self.mount_disk(fs_type, server, path, mount_options)
             status = 1 if ret_code == 0 else -1
             setattr(self, label, status)
@@ -411,7 +405,7 @@ class ConsoleMonitor(object):
 
     def send_worker_hostcert(self):
         host_cert = self.app.manager.get_host_cert()
-        if host_cert != None:
+        if host_cert is not None:
             m_response = "WORKER_H_CERT | %s " % host_cert
             log.debug("Composing worker host cert message: '%s'" % m_response)
             self.conn.send(m_response)
@@ -518,9 +512,7 @@ class ConsoleMonitor(object):
             self.send_alive_message()
         elif message.startswith('SYNC_ETC_HOSTS'):
             # <KWS> syncing etc host using the master one
-            sync_path = message.split(' | ')[1]
             self.app.manager.sync_etc_host()
-
         else:
             log.debug("Unknown message '%s'" % message)
 
