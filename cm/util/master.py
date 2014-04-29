@@ -962,6 +962,9 @@ class ConsoleManager(BaseConsoleManager):
                 self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
+        """
+        Reboot the entire cluster, first shutting down appropriate services.
+        """
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
             return False
@@ -1182,20 +1185,21 @@ class ConsoleManager(BaseConsoleManager):
         log.info("Initiated requested termination of instance. Terminating '%s'." %
                  instance_id)
 
-    def reboot_instance(self, instance_id=''):
+    def reboot_instance(self, instance_id='', count_reboot=True):
         """
         Using cloud middleware API, reboot instance with ID ``instance_id``.
+        ``count_reboot`` indicates whether this count should be counted toward
+        the instance ``self.config.instance_reboot_attempts`` (see `Instance`
+        `reboot` method).
         """
         if instance_id == '':
-            log.warning(
-                "Tried to reboot an instance but did not receive instance ID")
+            log.warning("Tried to reboot an instance but did not receive instance ID")
             return False
         log.info("Specific reboot of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-                inst.reboot()
-        log.info(
-            "Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
+                inst.reboot(count_reboot=count_reboot)
+        log.info("Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
         # Remove master from execution queue automatically
@@ -2785,8 +2789,11 @@ class Instance(object):
             return "'{sid}'".format(sid=self.spot_request_id)
         return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
 
-    def reboot(self):
-        """ Reboot this instance.
+    def reboot(self, count_reboot=True):
+        """
+        Reboot this instance. If ``count_reboot`` is set, increment the number
+        of reboots for this instance (a treshold in this count leads to eventual
+        instance termination, see ``self.config.instance_reboot_attempts``).
         """
         if self.inst is not None:
             log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
@@ -2799,7 +2806,11 @@ class Instance(object):
         else:
             log.debug("Attampted to reboot instance {0} but no instance object? (doing nothing)"
                 .format(self.get_id()))
-        self.reboot_count += 1  # Increment irespective of success to allow for eventual termination
+        if count_reboot:
+            # Increment irespective of success to allow for eventual termination
+            self.reboot_count += 1
+            log.debug("Incremented instance reboot count to {0} (out of {1})"
+                .format(self.reboot_count, self.config.instance_reboot_attempts))
 
     def terminate(self):
         self.worker_status = "Stopping"
@@ -3022,6 +3033,7 @@ class Instance(object):
             else:
                 fs_type = "nfs"
                 server = self.app.cloud_interface.get_private_ip()
+                options = None
             mount_points.append(
                 {'fs_type': fs_type,
                  'server': server,
@@ -3034,10 +3046,10 @@ class Instance(object):
 
     def send_master_pubkey(self):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s' \
+        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s'
             % self.app.manager.get_root_public_key(), self.id)
         log.debug("Sent master public key to worker instance '%s'." % self.id)
-        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'" \
+        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'"
             % (self.app.manager.get_root_public_key(), self.id))
 
     def send_start_sge(self):
