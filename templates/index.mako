@@ -972,7 +972,7 @@ $(document).ready(function() {
     if (permanent_storage_size === 0) {
         var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        
+
         ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
         %if cloud_type == 'ec2':
         	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
