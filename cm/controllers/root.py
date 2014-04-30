@@ -464,21 +464,18 @@ class CM(BaseController):
         return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
-    def full_update(self, trans, l_log=0):
+    def full_update(self, trans):
         return json.dumps(
             {'ui_update_data': self.instance_state_json(trans, no_json=True),
-             'log_update_data': self.log_json(trans, l_log, no_json=True),
+             'log_update_data': self.log_json(trans, no_json=True),
              'messages': self.messages_string(self.app.msgs.get_messages())})
 
     @expose
-    def log_json(self, trans, l_log=0, no_json=False):
+    def log_json(self, trans, no_json=False):
         if no_json:
-            return {'log_messages': self.app.logger.logmessages[int(l_log):],
-                    'log_cursor': len(self.app.logger.logmessages)}
+            return {'log_messages': self.app.logger.logmessages}
         else:
-            return json.dumps(
-                {'log_messages': self.app.logger.logmessages[int(l_log):],
-                             'log_cursor': len(self.app.logger.logmessages)})
+            return json.dumps({'log_messages': self.app.logger.logmessages})
 
     def messages_string(self, messages):
         """
