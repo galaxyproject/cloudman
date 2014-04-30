@@ -473,7 +473,6 @@ vertical-align: top;
 var instances = Array();
 var cluster_status = "OFF";
 var fs_det_vis = false;
-var last_log = 0;
 var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
@@ -631,18 +630,11 @@ function update_ui(data){
 function update_log(data){
     if (data){
         if(data.log_messages.length > 0){
-            // Check to make sure the log isn't huge (1000? 5000?) and truncate it first if it is.
-            var loglen = $('#log_container_body>ul>li').size();
-            if (loglen > 200){
-                $('#log_container_body>ul>li:lt(' +(loglen - 100)+')').remove();
-                $('#log_container_body>ul').prepend('<li>The log has been truncated to keep up performance.  The <a href="/cloud/log/">full log is available here</a>. </li>');
-            }
-            last_log = data.log_cursor;
-            var to_add = "";
+            var logMsgs = "";
             for (i = 0; i < data.log_messages.length; i++){
-                to_add += "<li>"+data.log_messages[i]+"</li>";
+                logMsgs += "<li>"+data.log_messages[i]+"</li>";
             }
-            $('#log_container_body>ul').append(to_add);
+            $('#log_container_body>ul').html(logMsgs);
             scrollLog();
         }
     }
@@ -650,7 +642,7 @@ function update_log(data){
 
 function update(repeat_update){
     $.getJSON("${h.url_for(controller='root',action='full_update')}",
-        {l_log : last_log},
+        {},
         function(data){
             if (data){
                 update_ui(data.ui_update_data);
