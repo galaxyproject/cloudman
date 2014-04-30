@@ -62,7 +62,7 @@ class ProFTPdService(ApplicationService):
             os.makedirs(ftp_data_dir)
         attempt_chown_galaxy(ftp_data_dir)
         # Some images have vsFTPd server included so stop it first
-        vsFTPd_exists = misc.run('status vsftpd')
+        vsFTPd_exists = misc.run('status vsftpd', quiet=True)
         if vsFTPd_exists and 'start/running' in vsFTPd_exists:
             log.debug("Stopping vsFTPd")
             misc.run('stop vsftpd')
