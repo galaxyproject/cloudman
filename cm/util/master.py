@@ -2908,7 +2908,7 @@ class Instance(object):
         # Because the hosts file is synced over the transientFS, give the FS
         # some time to become available before sending the msg
         for i in range(5):
-            if self.nfs_tfs:
+            if int(self.nfs_tfs):
                 self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
                 break
             log.debug("Transient FS on instance not available; waiting a bit...")
