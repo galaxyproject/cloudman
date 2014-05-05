@@ -203,7 +203,7 @@
                 </span>
             </li>
             <li>
-                <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot master instance</a>
+                <a class='action' href="${h.url_for(controller='root', action='reboot')}">Reboot the cluster</a>
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
                     <div class="help_content" style="display: none">
