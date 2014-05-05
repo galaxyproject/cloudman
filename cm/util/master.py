@@ -2800,16 +2800,18 @@ class Instance(object):
         instance termination, see ``self.config.instance_reboot_attempts``).
         """
         if self.inst is not None:
-            log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
+            # Show reboot count only if this reboot counts toward the reboot quota
+            s = " (reboot #{0})".format(self.reboot_count + 1)
+            log.info("Rebooting instance {0}{1}.".format(self.get_desc(),
+                s if count_reboot else ''))
             try:
                 self.inst.reboot()
                 self.time_rebooted = Time.now()
             except EC2ResponseError, e:
-                log.error(
-                    "Trouble rebooting instance {0}: {1}".format(self.id, e))
+                log.error("Trouble rebooting instance {0}: {1}".format(self.get_desc(), e))
         else:
-            log.debug("Attampted to reboot instance {0} but no instance object? (doing nothing)"
-                .format(self.get_id()))
+            log.debug("Attampted to reboot instance {0} but no instance object? "
+                "(doing nothing)".format(self.get_desc()))
         if count_reboot:
             # Increment irespective of success to allow for eventual termination
             self.reboot_count += 1
@@ -3200,7 +3202,7 @@ class Instance(object):
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split(' | ')
                 self.nfs_data = msplit[1]
-                self.nfs_tools = msplit[2]
+                self.nfs_tools = msplit[2]  # Workers currently do not update this field
                 self.nfs_indices = msplit[3]
                 self.nfs_sge = msplit[4]
                 self.get_cert = msplit[5]
