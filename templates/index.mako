@@ -384,14 +384,22 @@ vertical-align: top;
                     </span>
                     </label>
                     <div style="text-align:left;margin-left: 18px">
+                    %if cloud_type == 'ec2':
                     <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
+                    %else:
+                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size">
+                    %endif
                     <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
                     <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
                     <label for="galaxy-custom-size">Volume - Custom:</label>
                     <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
                     </div>
                     <div style="text-align:left;margin-left: 18px">
+                    %if cloud_type == 'ec2':
                     <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient">
+                    %else:
+                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
+                    %endif
                     <label for="galaxy-transient">Transient Storage</label>
                     </div>
                     <div style="height: 5px;">
