@@ -175,24 +175,25 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']), mp['mount_options'])
+                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']), mp.get('mount_options', None))
             else:
                 raise Exception("Mount point parsing failure.")
-        except:
-            # malformed json, revert to old behavior.
-            log.info("Mounting NFS directories from master with IP address: %s..." %
-                     master_ip)
-            # Build list of mounts based on cluster type
-            if self.cluster_type == 'Galaxy':
-                mount_points.append(
-                    ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip, ''))
-                mount_points.append(
-                    ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip, ''))
-            if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-                mount_points.append(
-                    ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip, ''))
-            # Mount master's transient storage regardless of cluster type
-            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip, ''))
+        except Exception, e:
+            log.error("Error mounting devices: {0}\n Attempting to continue, but failure likely...".format(e))
+#             # malformed json, revert to old behavior.
+#             log.info("Mounting NFS directories from master with IP address: %s..." %
+#                      master_ip)
+#             # Build list of mounts based on cluster type
+#             if self.cluster_type == 'Galaxy':
+#                 mount_points.append(
+#                     ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip, ''))
+#                 mount_points.append(
+#                     ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip, ''))
+#             if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
+#                 mount_points.append(
+#                     ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip, ''))
+#             # Mount master's transient storage regardless of cluster type
+#             mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip, ''))
         # Mount SGE regardless of cluster type
         mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
