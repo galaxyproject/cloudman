@@ -2301,10 +2301,10 @@ class ConsoleMonitor(object):
                                 v.from_snapshot_id for v in srvc.volumes]
                         elif srvc.kind == 'nfs':
                             fs['nfs_server'] = srvc.nfs_fs.device
-                            fs['mount_options'] = fs.nfs_fs.mount_options
+                            fs['mount_options'] = srvc.nfs_fs.mount_options
                         elif srvc.kind == 'gluster':
                             fs['gluster_server'] = srvc.gluster_fs.device
-                            fs['mount_options'] = fs.gluster_fs.mount_options
+                            fs['mount_options'] = srvc.gluster_fs.mount_options
                         elif srvc.kind == 'transient':
                             pass
                         else:
