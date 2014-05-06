@@ -81,6 +81,7 @@ class ConsoleManager(BaseConsoleManager):
         # host in SGE and thus not be running any jobs
         self.master_exec_host = True
         self.initial_cluster_type = None
+        self.cluster_storage_type = None
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
@@ -952,7 +953,9 @@ class ConsoleManager(BaseConsoleManager):
             sleep_time = 6
             time.sleep(sleep_time)
             time_limit -= sleep_time
-        if delete_cluster:
+        # Automatically delete transient clusters on terminate (because no data
+        # will persist so no point in poluting the list of buckets)
+        if delete_cluster or (self.cluster_storage_type == 'transient' and not rebooting):
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
@@ -1270,6 +1273,7 @@ class ConsoleManager(BaseConsoleManager):
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
+        self.cluster_storage_type = storage_type
         msg = "Initializing '{0}' cluster type with storage type '{1}'. Please wait...".format(cluster_type, storage_type)
         log.info(msg)
         self.app.msgs.info(msg)
