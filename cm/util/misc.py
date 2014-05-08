@@ -752,8 +752,8 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
         err = "---> PROBLEM"
     if ok is None:
         ok = "'%s' command OK" % cmd
-    process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=None)
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
