@@ -229,6 +229,8 @@ http {
         }
 
         location /reports/ {
+            auth_pam    "Secure Zone";
+            auth_pam_service_name   "nginx";
             rewrite ^/reports/(.*)$$ /reports/$$1/ break;
             proxy_pass http://galaxy_reports_app;
             proxy_set_header   X-Forwarded-Host $$host;
