@@ -157,6 +157,7 @@ def populate_galaxy_paths(option_manager):
         join(temp_dir, "library_import_dir")
     properties["nginx_upload_store"] = \
         join(path_resolver.galaxy_data, "upload_store")
+    properties['ftp_upload_site'] = option_manager.app.cloud_interface.get_public_ip()
     # Allow user data options to override these, spefically database.
     priority_offset = -1
     option_manager.set_properties(properties, description="paths", priority_offset=priority_offset)
