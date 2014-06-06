@@ -21,6 +21,19 @@ from cm.util import paths
 from cm.app import UniverseApplication
 
 
+class CMAuthentication( object ):
+    def __init__(self):
+        self._pass = ''
+
+    def __call__(self, environ, username, password):
+        if not self._pass:
+            ud = misc.load_yaml_file(paths.USER_DATA_FILE)
+            self._pass = ud['password']
+        return self._pass == password
+
+cm_authfunc = CMAuthentication()
+
+
 def add_controllers(webapp, app):
     """
     Search for controllers in the 'cm.controllers' module and add
@@ -65,14 +78,6 @@ def app_factory(global_conf, **kwargs):
         webapp = wrap_in_static(webapp, global_conf, **kwargs)
     # Return
     return webapp
-
-
-def cm_authfunc(environ, username, password):
-    ud = misc.load_yaml_file(paths.USER_DATA_FILE)
-    if 'password' in ud:
-        if password == str(ud['password']):
-            return True
-    return False
 
 
 def wrap_in_middleware(app, global_conf, **local_conf):
@@ -142,10 +147,9 @@ def wrap_in_middleware(app, global_conf, **local_conf):
     log.debug("Enabling 'x-forwarded-host' middleware")
     # Paste digest authentication
     ud = misc.load_yaml_file(paths.USER_DATA_FILE)
-    if 'password' in ud:
-        if ud['password'] != '':
-            from paste.auth.basic import AuthBasicHandler
-            app = AuthBasicHandler(app, 'CM Administration', cm_authfunc)
+    if ud.get('password', ''):
+        from paste.auth.basic import AuthBasicHandler
+        app = AuthBasicHandler(app, 'CM Administration', cm_authfunc)
     return app
 
 
