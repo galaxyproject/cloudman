@@ -6,6 +6,7 @@ from cm.clouds.openstack import OSInterface
 from cm.clouds.opennebula import ONInterface
 from cm.clouds.dummy import DummyInterface
 from cm.clouds.eucalyptus import EucaInterface
+from cm.clouds.libcloudinterface import LibCloudInterface
 
 
 class CloudConfig(object):
@@ -38,6 +39,11 @@ class CloudConfig(object):
         """
         if cloud_type is None:
             cloud_type = self.get_cloud_type()
+
+        # WIP!
+        cloud_interface = LibCloudInterface(app=self.app)
+        return cloud_interface
+
         cloud_interface = None
         if cloud_type == "ec2":
             cloud_interface = EC2Interface(app=self.app)
