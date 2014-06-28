@@ -23,6 +23,10 @@ class LibCloudInterface(CloudInterface):
         self.update_frequency = 60
         self.public_hostname_updated = time.time()
         self.set_configuration()
+        try:
+            log.debug("Using libcloud version {0}".format(libcloud.__version__))
+        except:
+            pass
 
     def get_ec2_connection(self):
         """
@@ -88,4 +92,127 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('ami-l0ca1')
     def get_ami(self):
-        log.debug("dummy getting zone")
+        if self.ami is None:
+            node = self.get_instance_object()
+            self.ami = node.image
+        return self.ami
+
+    @TestFlag('something.good')
+    def get_type(self):
+        if self.instance_type is None:
+            node = self.get_instance_object()
+            self.instance_type = node.size
+        return self.instance_type
+
+    @TestFlag('id-LOCAL')
+    def get_instance_id(self):
+        """"
+        Retrieve the instance id for the node.
+        """"
+        if self.instance_id is None:
+            driver = self.get_instance_id()
+            my_ip = _get_ip_address("eth0")
+            for node in driver.list_nodes():
+                for ip in node.public_ips:
+                    if my_ip == ip:
+                        self.instance_id = node.id
+                        break
+        return self.instance_id
+
+    @TestFlag('127.0.0.1')
+    def _getIpAddress(self, ifname):
+        """
+        Retrieve the ip address bound to an interface.
+        """
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            ip = socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15])
+            )[20:24])
+        except IOError:
+            return None
+        return ip
+
+    def get_instance_object(self):
+        log.debug("Getting instance object: %s" % self.instance)
+        if self.instance is None:
+            if self.app.TESTFLAG is True:
+                log.debug(
+                    "Attempted to get instance object, but TESTFLAG is set. Returning 'None'")
+                return self.instance
+            log.debug("Getting instance libcloud object")
+            i_id = self.get_instance_id()
+            driver = self.get_ec2_connection()
+            # Figure out which of the nodes is the cloudman instance.
+            for node in driver.list_nodes():
+                if node.state == NodeState.RUNNING && node.id = i_id:
+                    self.instance = node
+                    break
+        return self.instance
+
+    @TestFlag('local_keypair')
+    def get_key_pair_name(self):
+        if self.key_pair_name is None:
+            driver = self.get_ec2_connection()
+            key_pairs = driver.list_key_pairs()
+            if key_pairs:
+                self.key_pair_name = key_pairs()[0].name
+        return self.key_pair_name
+
+    @TestFlag('127.0.0.1')
+    def get_private_ip(self):
+        if self.self_private_ip is None:
+            node = self.get_instance_object()
+            if node.private_ips:
+                self.self_private_ip = node.private_ips[0]
+        return self.self_private_ip
+
+    @TestFlag('127.0.0.1')
+    def get_public_ip(self):
+        if self.self_public_ip is None:
+            node = self.get_instance_object()
+            if node.public_ips:
+                self.self_public_ip = node.public_ips[0]
+        return self.self_public_ip
+
+    @TestFlag('localhost.localdomain')
+    def get_fqdn(self):
+        log.debug("Retrieving FQDN")
+        if not self.fqdn:
+            try:
+                self.fqdn = socket.getfqdn()
+            except IOError:
+                pass
+        return self.fqdn
+
+    def get_all_volumes(self, volume_ids=None, filters=None):
+        """
+        Get all Volumes associated with the current credentials.
+
+        :type volume_ids: list
+        :param volume_ids: Not used in the base implementation.
+
+        :type filters: dict
+        :param filters: Not used in the base implementation.
+
+        :rtype: list
+        :return: The requested Volume objects
+        """
+        return self.get_ec2_connection().list_volumes()
+
+    def get_all_instances(self, instance_ids=None, filters=None):
+        """
+        Retrieve all the instances associated with current credentials.
+
+        :type instance_ids: list
+        :param instance_ids: Not used in the base implementation.
+
+        :type filters: dict
+        :param filters: Not used in the base implementation.
+
+        :rtype: list
+        :return: A list of instances
+        """
+        return self.get_ec2_connection().list_nodes()
