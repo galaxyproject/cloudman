@@ -86,14 +86,17 @@ class LibCloudInterface(CloudInterface):
                 self.s3_conn = None
         return self.s3_conn
 
-    @TestFlag('Local_zone')
+    @TestFlag('us-east-1a)
     def get_zone(self):
-        log.debug("dummy getting zone")
+        return self.zone
 
     @TestFlag('ami-l0ca1')
     def get_ami(self):
         """
         Get the image that is backing the instance.
+
+        :rtype: NodeImage
+        :return: The image that is backing the instance.
         """
         if self.ami is None:
             node = self.get_instance_object()
@@ -104,6 +107,9 @@ class LibCloudInterface(CloudInterface):
     def get_type(self):
         """
         Get the resource template for the compute node.
+
+        :rtype: NodeSize
+        :return: The resource template for the compute node.
         """
         if self.instance_type is None:
             node = self.get_instance_object()
@@ -262,12 +268,20 @@ class LibCloudInterface(CloudInterface):
     def _get_instance(self, instance_id):
         """
         Get an instance by it's instance_id.
+
+        :type instance_id: str
+        :param instance_id: the instance_id to retrieve
+
+        :rtype: Node
+        :return: the Node for the instance, None if there's no instance with
+        the given instance_id.
         """
         for node in self.get_ec2_connection().list_nodes():
             if node.id == instance_id:
                 return node
         return None
 
+    @TestFlag([])
     def run_instance(self, num, instance_type, spot_price=None, **kwargs):
         """
         Create num new instances.
