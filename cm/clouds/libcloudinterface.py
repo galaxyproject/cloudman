@@ -92,6 +92,9 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('ami-l0ca1')
     def get_ami(self):
+        """
+        Get the image that is backing the instance.
+        """
         if self.ami is None:
             node = self.get_instance_object()
             self.ami = node.image
@@ -99,6 +102,9 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('something.good')
     def get_type(self):
+        """
+        Get the resource template for the compute node.
+        """
         if self.instance_type is None:
             node = self.get_instance_object()
             self.instance_type = node.size
@@ -135,13 +141,13 @@ class LibCloudInterface(CloudInterface):
             return None
         return ip
 
+    @TestFlag(None)
     def get_instance_object(self):
+        """
+        Get the object representing the cloudman instance.
+        """
         log.debug("Getting instance object: %s" % self.instance)
         if self.instance is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get instance object, but TESTFLAG is set. Returning 'None'")
-                return self.instance
             log.debug("Getting instance libcloud object")
             i_id = self.get_instance_id()
             driver = self.get_ec2_connection()
@@ -154,6 +160,9 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('local_keypair')
     def get_key_pair_name(self):
+        """
+        Get the name of the keypair that is used to authenticate.
+        """
         if self.key_pair_name is None:
             driver = self.get_ec2_connection()
             key_pairs = driver.list_key_pairs()
@@ -187,6 +196,7 @@ class LibCloudInterface(CloudInterface):
                 pass
         return self.fqdn
 
+    @TestFlag([])
     def get_all_volumes(self, volume_ids=None, filters=None):
         """
         Get all Volumes associated with the current credentials.
@@ -216,3 +226,68 @@ class LibCloudInterface(CloudInterface):
         :return: A list of instances
         """
         return self.get_ec2_connection().list_nodes()
+
+    def _compose_worker_user_data(self):
+        """
+        Compose worker instance user data.
+        """
+        worker_ud = {}
+        worker_ud['role'] = 'worker'
+        worker_ud['master_public_ip'] = self.get_public_ip()
+        worker_ud['master_ip'] = self.get_private_ip()
+        worker_ud['master_hostname'] = self.get_local_hostname()
+        worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
+        # Merge the worker's user data with the master's user data
+        worker_ud = dict(self.app.ud.items() + worker_ud.items())
+        return worker_ud
+
+    def terminate_instance(self, instance_id, spot_request=None):
+        """
+        Terminate an instance.
+
+        :type instance_id: str
+        :param instance_id: The id of the instance to terminate
+
+        :type spot_request: bool
+        :param spot_request: Not used in the base implementation.
+
+        :rtype: bool
+        :return: True if the instance was terminated
+        """
+        node = _get_instance(instance_id)
+        if not node:
+            return False
+        return node.destroy()
+
+    def _get_instance(self, instance_id):
+        """
+        Get an instance by it's instance_id.
+        """
+        for node in self.get_ec2_connection().list_nodes():
+            if node.id == instance_id:
+                return node
+        return None
+
+    def run_instance(self, num, instance_type, spot_price=None, **kwargs):
+        """
+        Create num new instances.
+        :type num: int
+        :param num: the number of instances to create
+
+        :type instance_type: NodeSize
+        :param instance_type: the type of instance to create
+
+        :type spot_price: bool
+        :param spot_price: Not used in the base implementation.
+
+        :rtype: list
+        :return: a list of instance_id's for the created instances.
+        """
+        driver = self.get_ec2_connection()
+        nodes= []
+        for i in range(0, num):
+            node = driver.create_node(name="",
+                size=instance_type, image=self.get_ami(),
+                location=self.get_zone(),auth=driver.list_key_pairs()[0])
+            nodes.append(node.id)
+        return nodes
