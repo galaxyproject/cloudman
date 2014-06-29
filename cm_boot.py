@@ -487,7 +487,7 @@ def main():
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')
-        _run(log, 'easy_install boto>=2.6.0')
+        _run(log, 'easy_install boto==2.29.1')
         _run(log, 'easy_install hoover')
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
