@@ -360,21 +360,22 @@ def _virtualenv_exists(venv_name='CM'):
     return False
 
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
     """
     Compose a system level command used to control (i.e., start/stop) CloudMan.
     Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``
     or ``--reload``. Note that this method will check if a virtualenv
     ``cm_venv_name`` exists and, if it does, the returned control command
-    will include activation of the virtualenv.
+    will include activation of the virtualenv. If the extra command ``ex_cmd``
+    is provided, insert that command into the returned activation command.
 
-    Example return string: ``cd /mnt/cm; sh run.sh --daemon``
+    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``
     """
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito("workon {0}; cd {1}; sh run.sh {2}"
-            .format(cm_venv_name, CM_HOME, action))
+        cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2}"
+            .format(cm_venv_name, CM_HOME, action, ex_cmd))
     else:
-        cmd = "cd {0}; sh run.sh {1}".format(CM_HOME, action)
+        cmd = "cd {0}; {2}; sh run.sh {1}".format(CM_HOME, action, ex_cmd)
     return cmd
 
 
@@ -384,7 +385,8 @@ def _start_cm():
     shutil.copyfile(os.path.join(
         CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
-    _run(log, _get_cm_control_command(action='--daemon'))
+    ex_cmd = "pip install -U boto"  # Required for VPC for AMI v2.3
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 
 def _stop_cm(clean=False):
@@ -493,7 +495,7 @@ def main():
         # ``run.sh``?
         _run(log, 'easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
         _run(log, 'easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run(log, 'easy_install boto==2.6.0')  # required for older AMIs
+        _run(log, 'easy_install boto>=2.6.0')  # required for older AMIs
         _run(log, 'easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)

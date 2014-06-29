@@ -403,19 +403,20 @@ def _virtualenv_exists(venv_name='CM'):
     log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist".format(venv_name))
     return False
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
-    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv.\n\n    Example return string: ``cd /mnt/cm; sh run.sh --daemon``\n    '
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
+    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito('workon {0}; cd {1}; sh run.sh {2}'.format(cm_venv_name, CM_HOME, action))
+        cmd = _with_venvburrito('workon {0}; cd {1}; {3}; sh run.sh {2}'.format(cm_venv_name, CM_HOME, action, ex_cmd))
     else:
-        cmd = 'cd {0}; sh run.sh {1}'.format(CM_HOME, action)
+        cmd = 'cd {0}; {2}; sh run.sh {1}'.format(CM_HOME, action, ex_cmd)
     return cmd
 
 def _start_cm():
     log.debug(("Copying user data file from '%s' to '%s'" % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info(('<< Starting CloudMan in %s >>' % CM_HOME))
-    _run(log, _get_cm_control_command(action='--daemon'))
+    ex_cmd = 'pip install -U boto'
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 def _stop_cm(clean=False):
     log.info(('<< Stopping CloudMan from %s >>' % CM_HOME))
@@ -486,7 +487,7 @@ def main():
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')
-        _run(log, 'easy_install boto==2.6.0')
+        _run(log, 'easy_install boto>=2.6.0')
         _run(log, 'easy_install hoover')
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
