@@ -4,6 +4,7 @@ from libcloud.compute.types import Provider as compute_provider
 from libcloud.compute.providers import get_driver as compute_get_driver
 from libcloud.storage.types import Provider as storage_provider
 from libcloud.storage.providers import get_driver as storage_get_driver
+from libcloud.compute.types import NodeState
 import libcloud.security
 libcloud.security.VERIFY_SSL_CERT = False
 
@@ -13,6 +14,9 @@ from cm.util.decorators import TestFlag
 import logging
 log = logging.getLogger('cloudman')
 
+import socket
+import fcntl
+import struct
 
 class LibCloudInterface(CloudInterface):
 
@@ -88,6 +92,9 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('us-east-1a)
     def get_zone(self):
+        if self.app.cloud_type = "ec2":
+            node = self.get_instance_object()
+            self.zone = node.extra['availability']
         return self.zone
 
     @TestFlag('ami-l0ca1')
@@ -118,11 +125,11 @@ class LibCloudInterface(CloudInterface):
 
     @TestFlag('id-LOCAL')
     def get_instance_id(self):
-        """"
+        """
         Retrieve the instance id for the node.
-        """"
+        """
         if self.instance_id is None:
-            driver = self.get_instance_id()
+            driver = self.get_ec2_connection()
             my_ip = _get_ip_address("eth0")
             for node in driver.list_nodes():
                 for ip in node.public_ips:
@@ -132,7 +139,7 @@ class LibCloudInterface(CloudInterface):
         return self.instance_id
 
     @TestFlag('127.0.0.1')
-    def _getIpAddress(self, ifname):
+    def _get_ip_address(self, ifname):
         """
         Retrieve the ip address bound to an interface.
         """
@@ -159,7 +166,7 @@ class LibCloudInterface(CloudInterface):
             driver = self.get_ec2_connection()
             # Figure out which of the nodes is the cloudman instance.
             for node in driver.list_nodes():
-                if node.state == NodeState.RUNNING && node.id = i_id:
+                if node.state == NodeState.RUNNING and node.id == i_id:
                     self.instance = node
                     break
         return self.instance
