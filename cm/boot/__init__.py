@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 """
+This module is used to generate CloudMan's contextualization script ``cm_boot.py``.
+To make changes to that script, make desired changes in this file and then, from
+CloudMan's root directory, invoke ``python make_boot_script.py`` to update
+``cm_boot.py`` also residing in the root dir.
+
 Requires:
-    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
-    boto http://code.google.com/p/boto/ (easy_install boto)
+    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)
+    boto https://github.com/boto/boto/ (pip install boto)
 """
 import logging
 import os
@@ -20,8 +25,7 @@ from .util import _run, _is_running, _make_dir
 from .conf import _install_authorized_keys, _install_conf_files, _configure_nginx
 from .object_store import _get_file_from_bucket, _key_exists_in_bucket
 
-logging.getLogger(
-    'boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
+logging.getLogger('boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
@@ -495,7 +499,7 @@ def main():
         # ``run.sh``?
         _run(log, 'easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
         _run(log, 'easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run(log, 'easy_install boto>=2.6.0')  # required for older AMIs
+        _run(log, 'easy_install boto==2.30.0')  # required for older AMIs
         _run(log, 'easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
