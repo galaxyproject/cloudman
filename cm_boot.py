@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-'\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)\n    boto http://code.google.com/p/boto/ (easy_install boto)\n'
+"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
 import logging
 import os
 import shutil
@@ -487,7 +487,7 @@ def main():
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')
-        _run(log, 'easy_install boto==2.29.1')
+        _run(log, 'easy_install boto==2.30.0')
         _run(log, 'easy_install hoover')
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
