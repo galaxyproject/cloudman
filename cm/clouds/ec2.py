@@ -470,11 +470,8 @@ class EC2Interface(CloudInterface):
                                                      min_count=min_num,
                                                      max_count=num,
                                                      key_name=self.get_key_pair_name(),
-                                                     # security_group_ids=self.get_security_group_ids(),  # This must get security group ids for vpc -- not names
                                                      user_data=worker_ud_str,
                                                      instance_type=instance_type,
-                                                     # placement=self.get_zone(),
-                                                     # subnet_id=self.get_subnet_id(),
                                                      network_interfaces=interfaces,
                                                      )
             else:
@@ -541,26 +538,24 @@ class EC2Interface(CloudInterface):
                                                        instance_type=instance_type,
                                                        placement=self.get_zone(),
                                                        user_data=worker_ud_str,
-                                                       #security_group_ids=self.get_security_group_ids(),  # This must get security group ids for vpc -- not names
-                                                       #subnet_id=self.get_subnet_id())
                                                        network_interfaces=interfaces,
                                                        )
             else:
                 log.debug("Making a Spot request with the following command: "
-                        "ec2_conn.request_spot_instances(price='{price}', image_id='{iid}', "
-                        "count='{num}', key_name='{key}', security_groups=['{sgs}'], "
-                        "instance_type='{type}', placement='{zone}', user_data='{ud}')"
-                        .format(price=price, iid=self.get_ami(), num=num, key=self.get_key_pair_name(),
-                                sgs=", ".join(self.get_security_groups()), type=instance_type,
-                                zone=self.get_zone(), ud=worker_ud_str))
+                          "ec2_conn.request_spot_instances(price='{price}', image_id='{iid}', "
+                          "count='{num}', key_name='{key}', security_groups=['{sgs}'], "
+                          "instance_type='{type}', placement='{zone}', user_data='{ud}')"
+                          .format(price=price, iid=self.get_ami(), num=num, key=self.get_key_pair_name(),
+                                  sgs=", ".join(self.get_security_groups()), type=instance_type,
+                                  zone=self.get_zone(), ud=worker_ud_str))
                 reqs = ec2_conn.request_spot_instances(price=price,
-                                                    image_id=self.get_ami(),
-                                                    count=num,
-                                                    key_name=self.get_key_pair_name(),
-                                                    security_groups=self.get_security_groups(),
-                                                    instance_type=instance_type,
-                                                    placement=self.get_zone(),
-                                                    user_data=worker_ud_str)
+                                                       image_id=self.get_ami(),
+                                                       count=num,
+                                                       key_name=self.get_key_pair_name(),
+                                                       security_groups=self.get_security_groups(),
+                                                       instance_type=instance_type,
+                                                       placement=self.get_zone(),
+                                                       user_data=worker_ud_str)
 
             if reqs is not None:
                 for req in reqs:
