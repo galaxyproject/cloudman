@@ -215,13 +215,13 @@ def _start_nginx(ud):
         log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
         os.makedirs(upload_store_dir)
     if (not _is_running(log, 'nginx')):
-        if (not _run(log, '/opt/galaxy/sbin/nginx')):
+        if (not _run(log, os.path.join(nginx_dir, 'sbin/nginx'))):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')
-            _run(log, '/opt/galaxy/sbin/nginx')
+            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
     else:
         log.debug('nginx already running; reloading it')
-        _run(log, '/opt/galaxy/sbin/nginx -s reload')
+        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
@@ -239,6 +239,7 @@ def _get_nginx_dir():
                 path = output.strip()
                 if os.path.exists(path):
                     nginx_dir = path
+    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
     return nginx_dir
 
 def _fix_nginx_upload(ud):
