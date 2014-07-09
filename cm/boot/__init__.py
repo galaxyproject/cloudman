@@ -95,22 +95,21 @@ def _start_nginx(ud):
             try:
                 upload_store_dir = ul.strip().split(' ')[1].strip(';')
             except Exception, e:
-                log.error(
-                    "Trouble parsing nginx conf line {0}: {1}".format(ul, e))
+                log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
     if not os.path.exists(upload_store_dir):
         rmdir = True
         log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
         os.makedirs(upload_store_dir)
     # TODO: Use nginx_dir as well vs. this hardcoded path
     if not _is_running(log, 'nginx'):
-        if not _run(log, '/opt/galaxy/sbin/nginx'):
+        if not _run(log, os.path.join(nginx_dir, 'sbin/nginx')):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
-            _run(log, '/opt/galaxy/sbin/nginx')
+            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
     else:
         # nginx already running, so reload
         log.debug("nginx already running; reloading it")
-        _run(log, '/opt/galaxy/sbin/nginx -s reload')
+        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
@@ -132,6 +131,7 @@ def _get_nginx_dir():
                 path = output.strip()
                 if os.path.exists(path):
                     nginx_dir = path
+    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
     return nginx_dir
 
 
