@@ -28,6 +28,7 @@ class EC2Interface(CloudInterface):
         self.set_configuration()
         self._vpc_id = None
         self._security_group_ids = []
+        self._security_groups = None
         self._mac_address = None
         self._subnet_id = None
         try:
@@ -169,27 +170,27 @@ class EC2Interface(CloudInterface):
         return self._security_group_ids
 
     def get_security_groups(self):
-        if self.security_groups is None:
+        if self._security_groups is None:
             if self.app.TESTFLAG is True:
                 log.debug("Attempted to get security groups, but TESTFLAG is set. Returning 'cloudman_sg'")
-                self.security_groups = ['cloudman_sg']
-                return self.security_groups
+                self._security_groups = ['cloudman_sg']
+                return self._security_groups
             for i in range(0, 5):
                 try:
                     log.debug(
                         'Gathering instance security group, attempt %s' % i)
                     fp = urllib.urlopen(
                         'http://169.254.169.254/latest/meta-data/security-groups')
-                    self.security_groups = []
+                    self._security_groups = []
                     for line in fp.readlines():
-                        self.security_groups.append(
+                        self._security_groups.append(
                             urllib.unquote_plus(line.strip()))
                     fp.close()
-                    if self.security_groups:
+                    if self._security_groups:
                         break
                 except IOError:
                     pass
-        return self.security_groups
+        return self._security_groups
 
     def get_key_pair_name(self):
         if self.key_pair_name is None:
