@@ -28,7 +28,7 @@ class EC2Interface(CloudInterface):
         self.set_configuration()
         self._vpc_id = None
         self._security_group_ids = []
-        self._security_groups = None
+        self._security_groups = []
         self._mac_address = None
         self._subnet_id = None
         try:
@@ -170,7 +170,7 @@ class EC2Interface(CloudInterface):
         return self._security_group_ids
 
     def get_security_groups(self):
-        if self._security_groups is None:
+        if not self._security_groups:
             if self.app.TESTFLAG is True:
                 log.debug("Attempted to get security groups, but TESTFLAG is set. Returning 'cloudman_sg'")
                 self._security_groups = ['cloudman_sg']
