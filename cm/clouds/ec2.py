@@ -545,7 +545,7 @@ class EC2Interface(CloudInterface):
                                                        user_data=worker_ud_str,
                                                        #security_group_ids=self.get_security_group_ids(),  # This must get security group ids for vpc -- not names
                                                        #subnet_id=self.get_subnet_id())
-                                                       network_interfaces=interface,
+                                                       network_interfaces=interfaces,
                                                        )
             else:
                 log.debug("Making a Spot request with the following command: "
