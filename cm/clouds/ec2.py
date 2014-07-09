@@ -161,12 +161,10 @@ class EC2Interface(CloudInterface):
             self._security_group_ids = []
             fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/security-group-ids' % self.get_mac_address())
             lines = fp.readlines()
-            log.debug("SECURITY GROUP IDS:")
-            log.debug(lines)
             for line in lines:
                 self._security_group_ids.append(urllib.unquote_plus(line.strip()))
             fp.close()
-            log.debug(self._security_group_ids)
+            log.debug("Fetched security group ids for the first time: %s" % self._security_group_ids)
         return self._security_group_ids
 
     def get_security_groups(self):
