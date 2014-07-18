@@ -63,7 +63,7 @@ class ProFTPdService(ApplicationService):
         # TODO just use /usr/proftpd.  Should be a simple update to the init.d
         expected_config_path = os.path.join(self.app.path_resolver.galaxy_data, 'tools', 'proftpd')
         if not os.path.exists(expected_config_path):
-            misc.run('ln -s /usr/profpd %s' % expected_config_path)
+            misc.run('ln -s /usr/proftp %s' % expected_config_path)
         # Setup the data dir for FTP
         ftp_data_dir = '%s/tmp/ftp' % self.app.path_resolver.galaxy_data
         if not os.path.exists(ftp_data_dir):
