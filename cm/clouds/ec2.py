@@ -1,17 +1,16 @@
+import boto
+import socket
 import time
 import urllib
-import socket
 
-import boto
-from boto.exception import BotoServerError
-from boto.exception import EC2ResponseError
-from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
+from boto.exception import BotoServerError, EC2ResponseError
+from boto.s3.connection import S3Connection
 
-from cm.util import misc
 from cm.clouds import CloudInterface
-from cm.util.master import Instance
+from cm.util import misc
 from cm.util.decorators import TestFlag
+from cm.util.master import Instance
 
 import logging
 log = logging.getLogger('cloudman')
@@ -544,7 +543,7 @@ class EC2Interface(CloudInterface):
                 interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
                                                                                     groups=self.get_security_group_ids(),
                                                                                     associate_public_ip_address=True)
-                # interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
+                interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
                 reqs = ec2_conn.request_spot_instances(price=price,
                                                        image_id=self.get_ami(),
                                                        count=num,
