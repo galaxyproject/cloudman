@@ -642,8 +642,7 @@ class CM(BaseController):
                 self.app.manager.start_autoscaling(
                     int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). " +
-                          "Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, max: %s).  Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
 
             return json.dumps({'running': True,
