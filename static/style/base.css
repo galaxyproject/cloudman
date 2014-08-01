@@ -411,52 +411,6 @@ a.boxclose{
     padding:0px 15px 0 10px;
 }
 
-#status_svcs{
-    text-align:center;
-    margin-bottom: 7px;
-}
-
-#status_svcs ul{
-    margin: 0 0 2px 0;
-}
-
-#status_svcs li{
-    display:inline-block;
-    width:100px;
-}
-
-#status_svcs div{
-    display:inline-block;
-    width:16px;
-    height:16px;
-    background-repeat: no-repeat;
-}
-
-#volume_detail{
-    display:none;
-    text-align:center;
-}
-
-#volume_detail ul{
-    margin: 0 0 2px 0;
-}
-
-#volume_detail li{
-    display:inline-block;
-    width:100px;
-}
-
-#volume_detail div{
-    display:inline-block;
-    width:16px;
-    height:16px;
-    background-repeat: no-repeat;
-}
-
-.vol_det_clicker{
-    cursor:pointer;
-}
-
 #cluster_view_tooltip ul{
     margin:0;
     padding:0;
