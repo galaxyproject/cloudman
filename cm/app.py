@@ -94,7 +94,8 @@ class UniverseApplication(object):
         if self.use_object_store and 'bucket_cluster' in self.ud:
             log.debug("Getting pd.yaml")
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(),
-               self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
+                                         self.ud['bucket_cluster'],
+                                         'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
                 self.ud = misc.normalize_user_data(self, self.ud)
