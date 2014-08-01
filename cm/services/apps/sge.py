@@ -31,8 +31,7 @@ def fix_libc():
                     os.symlink(libname, '/lib64/libc.so.6')
                     fixed = True
         if not fixed:
-            log.error("SGE config is likely to fail because '/lib64/libc.so.6' "
-                "lib does not exists...")
+            log.error("SGE config is likely to fail because '/lib64/libc.so.6' does not exist.")
 
 
 class SGEService(ApplicationService):
@@ -103,7 +102,7 @@ class SGEService(ApplicationService):
             r = urllib2.urlopen(ge_url, downloaded_file)
         except urllib2.HTTPError, e:
             log.error("Error downloading Grid Engine binaries from {0}: {1}"
-                .format(ge_url, e))
+                      .format(ge_url, e))
         if r.code == 200:
             return downloaded_file
         else:
