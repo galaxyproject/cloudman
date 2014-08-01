@@ -116,8 +116,7 @@ class UniverseApplication(object):
             self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
         else:
-            log.critical("************ No ROLE in %s - this is a fatal error. ************" %
-                      paths.USER_DATA_FILE)
+            log.critical("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
 
     def shutdown(self, delete_cluster=False):
         if self.manager:

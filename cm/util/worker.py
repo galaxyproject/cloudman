@@ -98,8 +98,9 @@ class ConsoleManager(BaseConsoleManager):
         self.worker_instances = []  # Needed because of UI and number of nodes value
         # Default to the most comprehensive type
         self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
-        self.mount_points = []  # A list of current mount points; each list element must have the
-                                # following structure: (label, local_path, type, server_path)
+        # The following list of current mount points; each list element must
+        # have the following structure: (label, local_path, type, server_path)
+        self.mount_points = []
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -329,8 +330,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Synced /etc/hosts with %s" % sync_path)
             shutil.copyfile(sync_path, "/etc/hosts")
         else:
-            log.warning("Sync path %s not available; cannot sync /etc/hosts"
-                % sync_path)
+            log.warning("Sync path %s not available; cannot sync /etc/hosts" % sync_path)
 
     def _get_extra_nfs_mounts(self):
         return self.app.ud.get('extra_nfs_mounts', [])
@@ -390,10 +390,8 @@ class ConsoleMonitor(object):
         # Compose the ALIVE message
         msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
                                                        self.app.cloud_interface.get_public_ip(),
-                                                       self.app.cloud_interface.get_zone(
-                                                       ),
-                                                       self.app.cloud_interface.get_type(
-                                                       ),
+                                                       self.app.cloud_interface.get_zone(),
+                                                       self.app.cloud_interface.get_type(),
                                                        self.app.cloud_interface.get_ami(),
                                                        self.app.manager.local_hostname)
         self.conn.send(msg)
@@ -482,7 +480,7 @@ class ConsoleMonitor(object):
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
             self.app.manager.mount_nfs(self.app.ud['master_ip'],
-                mount_json=message.split(' | ')[1])
+                                       mount_json=message.split(' | ')[1])
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):

@@ -207,9 +207,9 @@ class SGEService(ApplicationService):
                 "Error modifying all.q", "Successfully modified all.q")
             log.debug("Configuring users' SGE profiles")
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
-                "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
+                                "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
-                "\n. $SGE_ROOT/default/common/settings.sh\n")
+                                "\n. $SGE_ROOT/default/common/settings.sh\n")
             # Write out the .sge_request file for individual users
             sge_request_template = Template(templates.SGE_REQUEST_TEMPLATE)
             sge_request_params = {
@@ -406,8 +406,8 @@ class SGEService(ApplicationService):
         for inst in self.app.manager.worker_instances:
             self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km'
-            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-            "Problems stopping SGE master", "Successfully stopped SGE master.")
+                 % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
+                 "Problems stopping SGE master", "Successfully stopped SGE master.")
 
     def write_allhosts_file(self, filename='/tmp/ah', to_add=None, to_remove=None):
         ahl = []

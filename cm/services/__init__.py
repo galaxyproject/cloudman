@@ -267,7 +267,7 @@ class Service(object):
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
             failed_prereqs = self.dependencies[:]
-                # List of service prerequisites that have not been satisfied
+            # List of service prerequisites that have not been satisfied
             for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))

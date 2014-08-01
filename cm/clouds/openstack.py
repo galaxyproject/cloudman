@@ -28,7 +28,7 @@ class OSInterface(EC2Interface):
         if type(resource) == boto.ec2.instance.Instance:
             return True
         log.debug("Not adding tag to resource %s because that resource "
-            "in OpenStack does not support tags." % resource)
+                  "in OpenStack does not support tags." % resource)
         return False
 
     def set_configuration(self):
@@ -60,8 +60,7 @@ class OSInterface(EC2Interface):
                 self.ec2_conn = self._get_default_ec2_conn()
                 # Do a simple query to test if provided credentials are valid
                 try:
-                    log.debug("Testing the new boto Nova connection ({0})"
-                        .format(self.ec2_conn))
+                    log.debug("Testing the new boto Nova connection ({0})".format(self.ec2_conn))
                     self.ec2_conn.get_all_key_pairs()
                     log.debug("Got boto Nova connection for region {0}".format(
                         self.ec2_conn.region.name))
@@ -129,7 +128,7 @@ class OSInterface(EC2Interface):
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
-                    #This is not only nectar specific but I left nectar for backward compatibility
+                    # This is not only nectar specific but I left nectar for backward compatibility
                     if self.use_private_ip or self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
@@ -151,8 +150,7 @@ class OSInterface(EC2Interface):
                     key, value, resource.id if resource.id else resource))
                 resource.add_tag(key, value)
             except EC2ResponseError, e:
-                log.error("Exception adding tag '%s:%s' to resource '%s': %s"
-                    % (key, value, resource, e))
+                log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
 
     def get_tag(self, resource, key):
         value = None
@@ -161,6 +159,5 @@ class OSInterface(EC2Interface):
                 log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
                 value = resource.tags.get(key, None)
             except EC2ResponseError, e:
-                log.error("Exception getting tag '%s' on resource '%s': %s" %
-                    (key, resource, e))
+                log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
         return value

@@ -45,8 +45,7 @@ class Migrate1to2:
                 self._as_postgres("mv %s %s" % (old_data_dir, backup_dir))
                 misc.run("mkdir -p %s" % new_data_dir)
                 os.chown(new_data_dir, pwd.getpwnam("postgres")[2], grp.getgrnam("postgres")[2])
-                self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home,
-                    new_data_dir))
+                self._as_postgres("%s/initdb %s" % (self.app.path_resolver.pg_home, new_data_dir))
                 self._as_postgres("sed -i 's|#port = 5432|port = {0}|' {1}"
                                   .format(paths.C_PSQL_PORT, os.path.join(new_data_dir, 'postgresql.conf')))
                 # Seems to require a start and stop before the upgrade can work!
@@ -59,10 +58,10 @@ class Migrate1to2:
                                   cwd=new_data_dir)
                 # Assume that if this step works, all the previous ones worked
                 ok = self._as_postgres("{0}/pg_upgrade -d {1} -D {2} -p 5840 -P {3} -b /usr/lib/postgresql/8.4/bin"
-                                  " -B {0} -l {4}".
-                                  format(self.app.path_resolver.pg_home, backup_dir,
-                                         new_data_dir, paths.C_PSQL_PORT, log_loc),
-                                  cwd=new_data_dir)
+                                       " -B {0} -l {4}".format(self.app.path_resolver.pg_home,
+                                                               backup_dir, new_data_dir,
+                                                               paths.C_PSQL_PORT, log_loc),
+                                       cwd=new_data_dir)
                 misc.run("apt-get -y --force-yes remove postgresql-8.4 postgresql-client-8.4")
         return ok
 
@@ -82,8 +81,7 @@ class Migrate1to2:
         source_path = os.path.join(fs_galaxy_tools.mount_point, "galaxy-central")
         target_path = os.path.join(fs_galaxy_data.mount_point, "galaxy-app")
         if (os.path.exists(target_path)):
-            log.debug("Target path for galaxy-app ({0}) already exists! Skipping..."
-                .format(target_path))
+            log.debug("Target path for galaxy-app ({0}) already exists! Skipping...".format(target_path))
             ok_galaxy = True
         else:
             ok_galaxy = self._as_galaxy("cp -R {0} {1}".format(source_path, target_path))
@@ -115,11 +113,11 @@ class Migrate1to2:
             self._as_galaxy("sed -i 's/central/dist/' %s" % os.path.join(galaxy_loc, '.hg', 'hgrc'))
         # Adjust tools location in galaxy
         galaxy_ini_loc = os.path.join(galaxy_loc, 'universe_wsgi.ini')
-        ok_tools = self._as_galaxy("sed -i 's|tool_dependency_dir = /mnt/galaxyTools/tools|tool_dependency_dir = {0}|' {1}".
-                        format(os.path.join(galaxy_data_loc, 'tools'), galaxy_ini_loc))
+        ok_tools = self._as_galaxy("sed -i 's|tool_dependency_dir = /mnt/galaxyTools/tools|tool_dependency_dir = {0}|' {1}"
+                                   .format(os.path.join(galaxy_data_loc, 'tools'), galaxy_ini_loc))
 
-        ok_db = self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}".
-                        format(paths.C_PSQL_PORT, galaxy_ini_loc))
+        ok_db = self._as_galaxy("sed -i 's|database_connection = postgres://galaxy@localhost:5840/galaxy|database_connection = postgres://galaxy@localhost:{0}/galaxy|' {1}"
+                                .format(paths.C_PSQL_PORT, galaxy_ini_loc))
         # Adjust content of tools' env.sh to reflect the new path
         tools_dir = os.path.join(galaxy_data_loc, 'tools')
         env_files = []
@@ -131,8 +129,9 @@ class Migrate1to2:
             cmd = "sed --in-place=.orig 's/galaxyTools/galaxyData/g' {0}".format(f)
             misc.run(cmd)
         # Update broken symlinks for the tools' `default` dirs
-        default_symlinks = misc.detect_symlinks('/mnt/galaxyData/tools', 'default',
-            symlink_as_file=False)
+        default_symlinks = misc.detect_symlinks('/mnt/galaxyData/tools',
+                                                'default',
+                                                symlink_as_file=False)
         if not default_symlinks:
             log.debug("No 'default' symlinks found to update!")
         for link in default_symlinks:
@@ -165,14 +164,13 @@ class Migrate1to2:
                 else:
                     if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
                         fs['roles'] = ServiceRole.to_string_array([ServiceRole.GALAXY_TOOLS,
-                            ServiceRole.GALAXY_DATA])
+                                                                   ServiceRole.GALAXY_DATA])
                         new_fs_list.append(fs)
                     else:
                         new_fs_list.append(fs)
             self.app.ud['filesystems'] = new_fs_list
         self.app.ud['deployment_version'] = 2
-        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset
-                                              # to default. Discuss implications
+        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
         return True
 
     def _migrate1_prereqs_satisfied(self):

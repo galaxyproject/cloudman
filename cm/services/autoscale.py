@@ -79,8 +79,11 @@ class Autoscale(Service):
                - there are no idle resources, jobs are queued and job turnaround time is slow
         """
         log.debug("Checking if cluster too SMALL: minute:%s,idle:%s,total workers:%s,avail workers:%s,min:%s,max:%s" %
-                 (datetime.datetime.utcnow().strftime("%M"), len(self.app.manager.get_idle_instances()),
-                  len(self.app.manager.worker_instances), self.app.manager.get_num_available_workers(), self.as_min, self.as_max))
+                  (datetime.datetime.utcnow().strftime("%M"),
+                   len(self.app.manager.get_idle_instances()),
+                   len(self.app.manager.worker_instances),
+                   self.app.manager.get_num_available_workers(), self.as_min,
+                   self.as_max))
 
         if len(self.app.manager.worker_instances) < self.as_min:
             return True
@@ -92,7 +95,7 @@ class Autoscale(Service):
             return True
         return False
 
-    ## *************** Helper methods ***************
+    # *************** Helper methods ***************
     def slow_job_turnover(self, threshold=60, num_queued_jobs=2):
         """Decide if the jobs currently in the queue are turning over slowly.
            This is a simple heuristic, best-effort implementation that looks at the

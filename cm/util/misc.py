@@ -120,7 +120,7 @@ def normalize_user_data(app, ud):
             log.debug("Normalizing v1 service user data")
             old_svc_list = ud['services']
             ud['services'] = []
-                # clear 'services' and replace with the new format
+            # clear 'services' and replace with the new format
             for svc in old_svc_list:
                 if 'roles' not in svc:
                     normalized_svc = {'name': svc['service'], 'roles':
@@ -377,7 +377,7 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
             #     print k.name#, k.get_acl().acl.grants[0].type
             if len(key_list) > 0:
                 key = key_list[0]
-                    # Just get one key assuming all keys will have the same ACL
+                # Just get one key assuming all keys will have the same ACL
                 key_acl = key.get_acl()
             if key_acl:
                 power_users = []
@@ -428,8 +428,8 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
                         A valid example would be 'shared/2011-03-31--19-43/'
     """
     users_with_grant = []
-        # List of users with grant on given folder and no other (shared) folder
-        # in bucket
+    # List of users with grant on given folder and no other (shared) folder in
+    # bucket
     other_users = []  # List of users on other (shared) folders in given bucket
     folder_users = get_list_of_bucket_folder_users(
         s3_conn, bucket_name, folder_name)
@@ -753,7 +753,7 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     if ok is None:
         ok = "'%s' command OK" % cmd
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, cwd=None)
+                               stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
@@ -783,7 +783,7 @@ def replace_string(file_name, pattern, subst):
     :param subst: String pattern to replace search pattern with
     """
     log.debug("Replacing string '{0}' with '{1}' in file {2}"
-        .format(pattern, subst, file_name))
+              .format(pattern, subst, file_name))
     try:
         # Create temp file
         fh, abs_path = mkstemp()
@@ -849,7 +849,7 @@ def add_to_etc_hosts(hostname, ip_address):
         etc_hosts = open('/etc/hosts', 'r')
         tmp = NamedTemporaryFile()
         for l in etc_hosts:
-            if not hostname in l:
+            if hostname not in l:
                 tmp.write(l)
         etc_hosts.close()
         # add a line for the new hostname
@@ -874,7 +874,7 @@ def remove_from_etc_hosts(hostname):
         etc_hosts = open('/etc/hosts', 'r')
         tmp = NamedTemporaryFile()
         for l in etc_hosts:
-            if not hostname in l:
+            if hostname not in l:
                 tmp.write(l)
         etc_hosts.close()
 
