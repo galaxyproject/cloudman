@@ -1,0 +1,20 @@
+services:
+- name: SGE
+- name: Postgres
+- name: Galaxy
+  home: /mnt/galaxyTools/galaxy-central
+filesystems:
+- name: galaxyIndices
+  kind: snapshot
+  ids: [snap-6e5aa902]
+  mount_point: /mnt/galaxyTools/
+- name: galaxyData
+  kind: volume
+  ids: [vol-060a7f6e, vol-060a7f6e]
+  mount_point: /mnt/galaxyData/
+- name: 1000genomes
+  kind: bucket
+  mount_point: /mnt/1000genomes/
+  access_key: akey
+  secret_key: skey
+shared_cluster_info: NOT YET IMPLEMENTED!
