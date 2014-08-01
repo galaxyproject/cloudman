@@ -209,7 +209,7 @@ def _start_nginx(ud):
     upload_store_dir = '/mnt/galaxyData/upload_store'
     nginx_dir = _get_nginx_dir()
     if nginx_dir:
-        (ul, us) = (None, None)
+        ul = None
         nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
