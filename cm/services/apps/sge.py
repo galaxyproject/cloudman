@@ -1,24 +1,19 @@
-import shutil
-import tarfile
-import os
-import time
-import subprocess
-import pwd
-import grp
-import datetime
 import commands
+import datetime
+import grp
+import logging
+import os
+import pwd
+import shutil
+import subprocess
+import tarfile
+import time
 import urllib2
 from string import Template
-
-from cm.services import service_states
-from cm.services import ServiceRole
-from cm.services import ServiceDependency
+from cm.services import ServiceDependency, ServiceRole, service_states
 from cm.services.apps import ApplicationService
-from cm.util import misc
-from cm.util import paths
-from cm.util import templates
+from cm.util import misc, paths, templates
 
-import logging
 log = logging.getLogger('cloudman')
 
 
