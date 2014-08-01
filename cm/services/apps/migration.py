@@ -1,15 +1,13 @@
+import fnmatch
+import grp
+import logging
 import os
 import pwd
-import grp
-import fnmatch
-from cm.services import ServiceRole
-from cm.services import service_states
-from cm.services import ServiceDependency
-from cm.services import ServiceType
+
+from cm.services import ServiceDependency, ServiceRole, ServiceType, service_states
 from cm.services.apps import ApplicationService
 from cm.util import misc, paths
 
-import logging
 log = logging.getLogger('cloudman')
 
 

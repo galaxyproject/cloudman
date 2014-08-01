@@ -1,15 +1,14 @@
-import os
-import logging
-import subprocess
 import json
+import logging
+import os
+import subprocess
 
-from cm.framework import expose
-from cm.base.controller import BaseController
-from cm.services import service_states
-from cm.services import ServiceType
-from cm.services import ServiceRole
-from cm.util.bunch import BunchToo
 import cm.util.paths as paths
+
+from cm.base.controller import BaseController
+from cm.framework import expose
+from cm.services import ServiceRole, ServiceType, service_states
+from cm.util.bunch import BunchToo
 from cm.util.decorators import TestFlag
 
 log = logging.getLogger('cloudman')

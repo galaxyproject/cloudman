@@ -2,9 +2,10 @@
 The base services package; all CloudMan services derive from this class.
 """
 import datetime as dt
+import logging
+
 from cm.util.bunch import Bunch
 
-import logging
 log = logging.getLogger('cloudman')
 
 service_states = Bunch(
