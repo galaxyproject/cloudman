@@ -45,7 +45,7 @@ class GalaxyReportsService(ApplicationService):
             started = self._run("--sync-config start")
             if not started:
                 log.warn("Failed to setup or run galaxy reports server.")
-                self.start = service_states.ERROR
+                self.state = service_states.ERROR
 
     def _setup(self):
         log.debug("Running GalaxyReportsService _setup")
