@@ -504,13 +504,13 @@ class EC2Interface(CloudInterface):
                     i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
-        except BotoServerError, e:
-            log.error(
-                "boto server error when starting an instance: %s" % str(e))
-            return False
         except EC2ResponseError, e:
             err = "EC2 response error when starting worker nodes: %s" % str(e)
             log.error(err)
+            return False
+        except BotoServerError, e:
+            log.error(
+                "boto server error when starting an instance: %s" % str(e))
             return False
         except Exception, ex:
             err = "Error when starting worker nodes: %s" % str(ex)
