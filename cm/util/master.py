@@ -2290,7 +2290,7 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'transient':
                             pass
                         else:
-                            log.error("For filesystem {0}, unknown kind: {0}"
+                            log.error("For filesystem {0}, unknown kind: {1}"
                                       .format(srvc.name, srvc.kind))
                         fss.append(fs)
                 else:
@@ -2710,7 +2710,7 @@ class Instance(object):
                  'instance_type': self.type,
                  'public_ip': self.public_ip}
 
-        if self.load != 0:
+        if self.load:
             lds = self.load.split(' ')
             if len(lds) == 3:
                 toret['ld'] = "%s %s %s" % (float(lds[0]) / self.num_cpus, float(
@@ -2721,7 +2721,7 @@ class Instance(object):
         if self.m_state.lower() == "running":  # For extra states.
             if self.is_alive is not True:
                 ld = "Starting"
-            elif self.load != 0:
+            elif self.load:
                 lds = self.load.split(' ')
                 if len(lds) == 3:
                     try:
