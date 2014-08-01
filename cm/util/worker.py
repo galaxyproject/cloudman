@@ -496,13 +496,13 @@ class ConsoleMonitor(object):
                     log.debug("Problem initiating reboot!?")
         num_cpus = commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l")
         # Compose the ALIVE message
-        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
-                                                       self.app.cloud_interface.get_public_ip(),
-                                                       self.app.cloud_interface.get_zone(),
-                                                       self.app.cloud_interface.get_type(),
-                                                       self.app.cloud_interface.get_ami(),
-                                                       self.app.manager.local_hostname,
-                                                       num_cpus)
+        msg = "ALIVE | %s | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
+                                                            self.app.cloud_interface.get_public_ip(),
+                                                            self.app.cloud_interface.get_zone(),
+                                                            self.app.cloud_interface.get_type(),
+                                                            self.app.cloud_interface.get_ami(),
+                                                            self.app.manager.local_hostname,
+                                                            num_cpus)
         self.conn.send(msg)
         log.debug("Sending message '%s'" % msg)
 
