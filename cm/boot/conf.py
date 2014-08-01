@@ -1,7 +1,8 @@
-import os
-from .util import _run
 import base64
+import os
 import re
+
+from .util import _run
 
 
 class AuthorizedKeysManager(object):
@@ -19,8 +20,8 @@ class AuthorizedKeysManager(object):
         if home_dir:
             ssh_dir = os.path.join(home_dir, ".ssh")
             if not os.path.exists(ssh_dir):
-                if not (_run(log, "%s mkdir -p '%s'" % (sudo_cmd, ssh_dir)) and \
-                        _run(log, "%s chown %s '%s'" % (sudo_cmd, user, ssh_dir)) and \
+                if not (_run(log, "%s mkdir -p '%s'" % (sudo_cmd, ssh_dir)) and
+                        _run(log, "%s chown %s '%s'" % (sudo_cmd, user, ssh_dir)) and
                         _run(log, "%s chmod 700 '%s'" % (sudo_cmd, ssh_dir))):
                     return False
             authorized_keys_file = os.path.join(ssh_dir, "authorized_keys2")
@@ -29,9 +30,9 @@ class AuthorizedKeysManager(object):
 
             cmd = "KEY=%s; %s grep $KEY '%s' || %s echo $KEY >> '%s'" % \
                 (_shellquote(authorized_key), sudo_cmd, authorized_keys_file, sudo_cmd, authorized_keys_file)
-            return _run(log, cmd) and \
-                   _run(log, "%s chown %s '%s'" % (sudo_cmd, user, authorized_keys_file)) and \
-                   _run(log, "%s chmod 600 '%s'" % (sudo_cmd, authorized_keys_file))
+            return (_run(log, cmd) and
+                    _run(log, "%s chown %s '%s'" % (sudo_cmd, user, authorized_keys_file)) and
+                    _run(log, "%s chmod 600 '%s'" % (sudo_cmd, authorized_keys_file)))
         return True
 
 
@@ -91,8 +92,7 @@ def _reconfigure_nginx(ud, nginx_conf_path, log):
         "configure_multiple_galaxy_processes", True)
     web_threads = ud.get("web_thread_count", 3)
     if configure_multiple_galaxy_processes and web_threads > 1:
-        log.debug("Reconfiguring nginx to support Galaxy running %s "
-            "web threads." % web_threads)
+        log.debug("Reconfiguring nginx to support Galaxy running %s web threads." % web_threads)
         ports = [8080 + i for i in range(web_threads)]
         servers = ["server localhost:%d;" % port for port in ports]
         upstream_galaxy_app_conf = "upstream galaxy_app { %s } " % "".join(
@@ -103,6 +103,7 @@ def _reconfigure_nginx(ud, nginx_conf_path, log):
                                 upstream_galaxy_app_conf, nginx_conf)
         with open(nginx_conf_path, 'w') as new_conf:
             new_conf.write(new_nginx_conf)
+
 
 def _shellquote(s):
     """
