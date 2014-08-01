@@ -518,6 +518,7 @@ def migrate_1():
 def main():
     global log
     log = _setup_global_logger()
+    # _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')

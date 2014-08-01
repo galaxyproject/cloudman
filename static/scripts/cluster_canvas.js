@@ -18,137 +18,137 @@ var old_instance_length = 1;
 
 if (TESTING == true){
     instances = [
-                {'id' : 'instance-1', 
+                {'id' : 'instance-1',
                 'ld' : '0 0 0',
-                'time_in_state' : 2, 
-                'nfs_data' : 0, 
-                'nfs_tools' : 0, 
-                'nfs_indices' : 0, 
-                'nfs_sge' : 0, 
-                'get_cert' : 0, 
-                'sge_started' : 0, 
+                'time_in_state' : 2,
+                'nfs_data' : 0,
+                'nfs_tools' : 0,
+                'nfs_indices' : 0,
+                'nfs_sge' : 0,
+                'get_cert' : 0,
+                'slurmd_running' : 0,
                 'worker_status' : 'Starting',
                 'instance_state' : 'running'},
-                {'id' : 'instance-2', 
+                {'id' : 'instance-2',
                 'ld' : '0.38 0.20 0.50',
-                'time_in_state' : 2, 
-                'nfs_data' : 0, 
-                'nfs_tools' : 0, 
-                'nfs_indices' : 0, 
-                'nfs_sge' : 0, 
-                'get_cert' : 0, 
-                'sge_started' : 0, 
+                'time_in_state' : 2,
+                'nfs_data' : 0,
+                'nfs_tools' : 0,
+                'nfs_indices' : 0,
+                'nfs_sge' : 0,
+                'get_cert' : 0,
+                'slurmd_running' : 0,
                 'worker_status' : 'Starting',
                 'instance_state' : 'running'},
-                {'id' : 'instance-3', 
+                {'id' : 'instance-3',
                 'ld' : '0',
-                'time_in_state' : '2123s', 
-                'nfs_data' : 1, 
-                'nfs_tools' : 1, 
-                'nfs_indices' : 1, 
-                'nfs_sge' : 1, 
-                'get_cert' : -1, 
-                'sge_started' : 1, 
+                'time_in_state' : '2123s',
+                'nfs_data' : 1,
+                'nfs_tools' : 1,
+                'nfs_indices' : 1,
+                'nfs_sge' : 1,
+                'get_cert' : -1,
+                'slurmd_running' : 1,
                 'worker_status' : 'Error',
                 'instance_state' : 'running'},
-                {'id' : 'instance-4', 
+                {'id' : 'instance-4',
                 'ld' : 0,
-                'time_in_state' : 0, 
-                'nfs_data' : 0, 
-                'nfs_tools' : 0, 
-                'nfs_indices' : 0, 
-                'nfs_sge' : 0, 
-                'get_cert' : 0, 
-                'sge_started' : 0, 
+                'time_in_state' : 0,
+                'nfs_data' : 0,
+                'nfs_tools' : 0,
+                'nfs_indices' : 0,
+                'nfs_sge' : 0,
+                'get_cert' : 0,
+                'slurmd_running' : 0,
                 'worker_status' : 'Pending',
                 'instance_state' : 'pending'},
-                {'id' : 'instance-5', 
+                {'id' : 'instance-5',
                  'ld' : '0.38 0.20 0.50',
-                 'time_in_state' : 2, 
-                 'nfs_data' : 0, 
-                 'nfs_tools' : 0, 
-                 'nfs_indices' : 0, 
-                 'nfs_sge' : 0, 
-                 'get_cert' : 0, 
-                 'sge_started' : 0, 
+                 'time_in_state' : 2,
+                 'nfs_data' : 0,
+                 'nfs_tools' : 0,
+                 'nfs_indices' : 0,
+                 'nfs_sge' : 0,
+                 'get_cert' : 0,
+                 'slurmd_running' : 0,
                  'worker_status' : 'Starting',
                  'instance_state' : 'running'},
-                 {'id' : 'instance-5', 
+                 {'id' : 'instance-5',
                   'ld' : 0,
-                  'time_in_state' : 2, 
-                  'nfs_data' : 0, 
-                  'nfs_tools' : 0, 
-                  'nfs_indices' : 0, 
-                  'nfs_sge' : 0, 
-                  'get_cert' : 0, 
-                  'sge_started' : 0, 
+                  'time_in_state' : 2,
+                  'nfs_data' : 0,
+                  'nfs_tools' : 0,
+                  'nfs_indices' : 0,
+                  'nfs_sge' : 0,
+                  'get_cert' : 0,
+                  'slurmd_running' : 0,
                   'worker_status' : 'Pending',
                   'instance_state' : 'pending'},
-                  {'id' : 'instance-1', 
+                  {'id' : 'instance-1',
                   'ld' : '0.38 0.20 0.50',
-                  'time_in_state' : 2, 
-                  'nfs_data' : 0, 
-                  'nfs_tools' : 0, 
-                  'nfs_indices' : 0, 
-                  'nfs_sge' : 0, 
-                  'get_cert' : 0, 
-                  'sge_started' : 0, 
+                  'time_in_state' : 2,
+                  'nfs_data' : 0,
+                  'nfs_tools' : 0,
+                  'nfs_indices' : 0,
+                  'nfs_sge' : 0,
+                  'get_cert' : 0,
+                  'slurmd_running' : 0,
                   'worker_status' : 'Starting',
                   'instance_state' : 'running'},
-                  {'id' : 'instance-2', 
+                  {'id' : 'instance-2',
                   'ld' : '0.38 0.20 0.50',
-                  'time_in_state' : 2, 
-                  'nfs_data' : 0, 
-                  'nfs_tools' : 0, 
-                  'nfs_indices' : 0, 
-                  'nfs_sge' : 0, 
-                  'get_cert' : 0, 
-                  'sge_started' : 0, 
+                  'time_in_state' : 2,
+                  'nfs_data' : 0,
+                  'nfs_tools' : 0,
+                  'nfs_indices' : 0,
+                  'nfs_sge' : 0,
+                  'get_cert' : 0,
+                  'slurmd_running' : 0,
                   'worker_status' : 'Starting',
                   'instance_state' : 'running'},
-                  {'id' : 'i-d2a984b5', 
+                  {'id' : 'i-d2a984b5',
                   'ld' : '0',
                   'time_in_state' : '7m 36s',
-                  'nfs_data' : 0, 
-                  'nfs_tools' : 0, 
-                  'nfs_indices' : 0, 
-                  'nfs_sge' : 0, 
-                  'get_cert' : 0, 
-                  'sge_started' : 0, 
+                  'nfs_data' : 0,
+                  'nfs_tools' : 0,
+                  'nfs_indices' : 0,
+                  'nfs_sge' : 0,
+                  'get_cert' : 0,
+                  'slurmd_running' : 0,
                   'worker_status' : 'active',
                   'instance_state' : 'running'},
-                  {'id' : null, 
+                  {'id' : null,
                   'ld' : 0,
-                  'time_in_state' : 0, 
-                  'nfs_data' : 0, 
-                  'nfs_tools' : 0, 
-                  'nfs_indices' : 0, 
-                  'nfs_sge' : 0, 
-                  'get_cert' : 0, 
-                  'sge_started' : 0, 
+                  'time_in_state' : 0,
+                  'nfs_data' : 0,
+                  'nfs_tools' : 0,
+                  'nfs_indices' : 0,
+                  'nfs_sge' : 0,
+                  'get_cert' : 0,
+                  'slurmd_running' : 0,
                   'worker_status' : 'open',
                   'instance_state' : null},
 
-                   {'id' : 'instance-6', 
+                   {'id' : 'instance-6',
                      'ld' : '0.38 0.20 0.50',
-                     'time_in_state' : 2, 
-                     'nfs_data' : 0, 
-                     'nfs_tools' : 0, 
-                     'nfs_indices' : 0, 
-                     'nfs_sge' : 0, 
-                     'get_cert' : 0, 
-                     'sge_started' : 0, 
+                     'time_in_state' : 2,
+                     'nfs_data' : 0,
+                     'nfs_tools' : 0,
+                     'nfs_indices' : 0,
+                     'nfs_sge' : 0,
+                     'get_cert' : 0,
+                     'slurmd_running' : 0,
                      'worker_status' : 'Error',
                      'instance_state' : 'running'},
-                  {'id' : 'instance-6', 
+                  {'id' : 'instance-6',
                     'ld' : '0.38 0.20 0.50',
-                    'time_in_state' : 2, 
-                    'nfs_data' : 0, 
-                    'nfs_tools' : 0, 
-                    'nfs_indices' : 0, 
-                    'nfs_sge' : 0, 
-                    'get_cert' : 0, 
-                    'sge_started' : 0, 
+                    'time_in_state' : 2,
+                    'nfs_data' : 0,
+                    'nfs_tools' : 0,
+                    'nfs_indices' : 0,
+                    'nfs_sge' : 0,
+                    'get_cert' : 0,
+                    'slurmd_running' : 0,
                     'worker_status' : 'Error',
                     'instance_state' : 'running'}
                 ];
@@ -347,8 +347,8 @@ function get_vol_ind(inst){
 // Build the HTML for the instance details panel/canvas
 function buildWorkerInstanceDetails() {
         // Instance ID
-        worker_details = "<li><b>" + instances[selected_instance].id + "</b></li>";
-        if ((instances[selected_instance].worker_status == "Creating") || 
+        worker_details = "<li>" + instances[selected_instance].id + " (" + instances[selected_instance].slurm_name + ")</li>";
+        if ((instances[selected_instance].worker_status == "Creating") ||
                         (instances[selected_instance].public_ip == null) ||
                         (instances[selected_instance].public_ip == "")) {
                 // There's no IP address available (yet)
@@ -387,7 +387,7 @@ function buildWorkerInstanceDetails() {
                 // Permissions status
     	        worker_details += "<div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>";
                 // Scheduler status
-    	        worker_details += "<div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].sge_started)] + "'>&nbsp;</div>";
+    	        worker_details += "<div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].slurmd_running)] + "'>&nbsp;</div>";
         }
         // Reboot button
         worker_details += "<img src=\"/cloud/static/images/reboot.png\" id=\"instance_reboot_icon\" title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance('" + instances[selected_instance].id + "')\">&nbsp;";
@@ -468,7 +468,7 @@ function refreshTip(){
     	$('#cluster_view_tooltip').html(i_str);
 
         start_instance_timer();
-    	
+
         $('#toggle_autoscaling_link').click(function(){
     		$('#overlay').show();
     		if (use_autoscaling == true) {
@@ -538,9 +538,9 @@ $('#cluster_canvas').click(function(eventObj){
 
         // Check whether an instance has been hit
 	for (i = 0; i < instances.length; i++){
-		if (c_x >= x_offset + instances[i].b_x && 
-			c_x <= x_offset + instances[i].b_xdx && 
-			c_y >= y_offset + instances[i].b_y && 
+		if (c_x >= x_offset + instances[i].b_x &&
+			c_x <= x_offset + instances[i].b_xdx &&
+			c_y >= y_offset + instances[i].b_y &&
 			c_y <= y_offset + instances[i].b_ydy){
 			    if (i == selected_instance){
                     selected_instance = -1;
@@ -583,7 +583,7 @@ function update_cluster_canvas(){
 				instances[i].b_xdx = 0;
 				instances[i].b_ydy = 0;
     		}
-                
+
 	    }
 	    else {
     		instances = [];
@@ -601,7 +601,7 @@ function update_cluster_canvas(){
                                     pending_instance = false;
                             }
 
-                    } 
+                    }
             }
             // Set the old length equal to the new length
             old_instance_length = instances.length;
@@ -628,7 +628,7 @@ function update_cluster_canvas(){
                         instances.push(new_instance);
                     }
             }
-            
+
 	    renderGraph();
 	    refreshTip();
             start_instance_timer();

@@ -334,11 +334,15 @@ class MigrationService(ApplicationService, Migrate1to2):
         """
         Remove the migration service
         """
-        log.info("Removing Migration service")
-        super(MigrationService, self).remove(synchronous)
-        self.state = service_states.SHUTTING_DOWN
-        self._clean()
-        self.state = service_states.SHUT_DOWN
+        if self.state == service_states.COMPLETED:
+            # We do not remove the service if in state COMPLETED
+            pass
+        else:
+            log.info("Removing Migration service")
+            super(MigrationService, self).remove(synchronous)
+            self.state = service_states.SHUTTING_DOWN
+            self._clean()
+            self.state = service_states.SHUT_DOWN
 
     def _clean(self):
         """

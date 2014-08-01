@@ -1,11 +1,14 @@
+import time
 import urllib
 
+from cm.util.master import Instance
 from cm.clouds.ec2 import EC2Interface
 
 import boto
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.ec2.regioninfo import RegionInfo
 from boto.exception import EC2ResponseError
+from boto.exception import BotoServerError
 
 import logging
 log = logging.getLogger('cloudman')
@@ -161,3 +164,62 @@ class OSInterface(EC2Interface):
             except EC2ResponseError, e:
                 log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
         return value
+
+    def run_instances(self, num, instance_type, **kwargs):
+        """
+        Launch `num` new worker instance(s) oy type `instance_type`.
+        """
+        log.info("Adding {0} instance(s) of type {1}".format(num, instance_type))
+        worker_ud = self._compose_worker_user_data()
+        return self._launch_instances(num, instance_type, worker_ud)
+
+    def _launch_instances(self, num, instance_type, worker_ud, min_num=1):
+        """
+        Actually launch the `num` instance(s) of type `instance_type` and using
+        the provided `worker_ud` dict that contains the instance user data.
+        """
+        worker_ud_str = "\n".join(
+            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+        try:
+            reservation = None
+            ec2_conn = self.get_ec2_connection()
+            log.debug("Starting instance(s) with the following command: ec2_conn.run_instances("
+                      "image_id='{iid}', min_count='{min_num}', max_count='{num}', "
+                      "key_name='{key}', security_groups=['{sgs}'], "
+                      "user_data(with password/secret_key filtered out)=[{ud}], "
+                      "instance_type='{type}', placement='{zone}')"
+                      .format(iid=self.get_ami(), min_num=min_num, num=num,
+                              key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
+                              ud="\n".join(['%s: %s' % (key, value) for key, value
+                                in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                              type=instance_type, zone=self.get_zone()))
+            reservation = ec2_conn.run_instances(image_id=self.get_ami(),
+                                                 min_count=min_num,
+                                                 max_count=num,
+                                                 key_name=self.get_key_pair_name(),
+                                                 security_groups=self.get_security_groups(),
+                                                 user_data=worker_ud_str,
+                                                 instance_type=instance_type,
+                                                 placement=self.get_zone())
+            # Occasionally, instances take a bit to register, so wait a few seconds
+            time.sleep(3)
+            if reservation:
+                for instance in reservation.instances:
+                    i = Instance(app=self.app, inst=instance, m_state=instance.state)
+                    log.debug("Adding Instance %s to the list of workers" % instance)
+                    self.app.manager.worker_instances.append(i)
+                log.debug("Started %s instance(s)" % num)
+                return True
+        except BotoServerError, e:
+            log.error("boto server error when starting an instance: %s" % str(e))
+            return False
+        except EC2ResponseError, e:
+            err = "EC2 response error when starting worker nodes: %s" % str(e)
+            log.error(err)
+            return False
+        except Exception, ex:
+            err = "Error when starting worker nodes: %s" % str(ex)
+            log.error(err)
+            return False
+        log.warn("Had trouble starting instance(s). Check the complete log.")
+        return False

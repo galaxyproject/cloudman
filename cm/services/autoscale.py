@@ -119,7 +119,7 @@ class Autoscale(Service):
         return False
 
     def get_queue_jobs(self):
-        """Query SGE queue and filter running and queued jobs. Then, calculate total
+        """Query job manager queue and filter running and queued jobs. Then, calculate total
            time in the queue (running or queued) for each of the jobs. Return a dict
            with two keys 'running' and 'queued' where each key corresponds to a list
            of queued times (in seconds) for running and queued jobs, respectively.
@@ -127,7 +127,8 @@ class Autoscale(Service):
         """
         running_jobs = []
         queued_jobs = []
-        cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
+        #cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
+        cmd = "squeue -h -o'%t %S' --states=PD,R"  # Slurm
         qstat_out = commands.getoutput(cmd)
         # log.debug('Plain qstat_out for cmd "%s":\n"%s"' % (cmd, qstat_out))
         if qstat_out != '':  # else, the job queue is empty so just return
@@ -138,17 +139,17 @@ class Autoscale(Service):
                 try:
                     # log.debug('Autoscaling qstat_out: %s' % qstat_out)
                     job_state = job.split()[0]
-                    job_time_entered_state = datetime.datetime(*time.strptime(
-                        job.split()[1] + ' ' + job.split()[2], "%m/%d/%Y %H:%M:%S")[0:6])
-                    if job_state == 'r':
-                        running_jobs.append(
-                            self.total_seconds(now - job_time_entered_state))
-                    elif job_state == 'qw':
-                        queued_jobs.append(
-                            self.total_seconds(now - job_time_entered_state))
+                    if job.split()[1] == 'N/A':
+                        continue
+                    time_job_entered_state = datetime.datetime(*time.strptime(
+                        job.split()[1], "%Y-%m-%dT%H:%M:%S")[0:6])
+                    if job_state == 'R':
+                        running_jobs.append(self.total_seconds(now - time_job_entered_state))
+                    elif job_state == 'PD':
+                        queued_jobs.append(self.total_seconds(now - time_job_entered_state))
                 except Exception, e:
-                    log.debug(
-                        "Trouble parsing qstat output (%s) as part of autoscaling: %s" % (qstat_out, e))
+                    log.debug("Trouble parsing qstat output (%s) as part of autoscaling: %s"
+                        % (qstat_out, e))
         return {'running': running_jobs, 'queued': queued_jobs}
 
     def get_num_instances_to_remove(self):

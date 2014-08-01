@@ -53,7 +53,7 @@ class CM(BaseController):
         initialize it. This method should be called only once.
 
         For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
-        ``SGE``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
+        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
         an integer value for the ``pss`` argument, which will set the initial size
         of the persistent storage associated with this cluster. If ``Shared_cluster``
         ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
@@ -61,7 +61,7 @@ class CM(BaseController):
         the shared one.
         """
         if self.app.manager.initial_cluster_type is None:
-            if startup_opt == "SGE":
+            if startup_opt == "Test":
                 self.app.manager.init_cluster(startup_opt)
                 return self.instance_state_json(trans)
             if startup_opt == "Galaxy" or startup_opt == "Data":
@@ -387,6 +387,21 @@ class CM(BaseController):
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
+        elif service_name == "slurmctld":
+            # For slurmctld, we can get queue status (ie, sinfo)
+            q = kwargs.get('q', None)
+            if q == 'sinfo':
+                log_file = os.path.join('/tmp', 'sinfo.out')
+                # Save sinfo output into a file so it can be read as a log file
+                try:
+                    cmd = ('/usr/bin/sinfo -l > {0}'.format(log_file))
+                    subprocess.call(cmd, shell=True)
+                except OSError:
+                    pass
+            else:
+                log_file = "/var/log/slurm-llnl/slurmctld.log"
+        elif service_name == "slurmd":
+            log_file = "/var/log/slurm-llnl/slurmd.log"
         elif service_name == 'SGE':
             # For SGE, we can get either the service log file or the queue conf file
             q = kwargs.get('q', None)
@@ -503,8 +518,7 @@ class CM(BaseController):
 
     @expose
     def restart_service(self, trans, service_name, service_role=None):
-        svcs = self.app.manager.get_services(
-            svc_role=service_role, svc_name=service_name)
+        svcs = self.app.manager.get_services(svc_role=service_role, svc_name=service_name)
         if svcs:
             for service in svcs:
                 service.remove()
