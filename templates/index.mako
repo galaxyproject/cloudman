@@ -455,7 +455,6 @@ vertical-align: top;
     </div>
 </div>
 <div id="log_container">
-    <div id="volume_detail"></div>
     <div id="log_container_header">
         <h3>Cluster status log</h3>
         <div id="log_container_header_img"></div>
