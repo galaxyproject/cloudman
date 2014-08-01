@@ -570,34 +570,6 @@ class ConsoleManager(BaseConsoleManager):
 
         return svcs
 
-    def all_fs_status_text(self):
-        return []
-        # FIXME: unreachable code
-        tr = []
-        for key, vol in self.volumes.iteritems():
-            if vol[3] is None:
-                tr.append("%s+nodata" % key)
-            else:
-                if vol[3] is True:
-                    tr.append("%s+green" % key)
-                else:
-                    tr.append("%s+red" % key)
-        return tr
-
-    def all_fs_status_array(self):
-        return []
-        # FIXME: unreachable code
-        tr = []
-        for key, vol in self.volumes.iteritems():
-            if vol[3] is None:
-                tr.append([key, "nodata"])
-            else:
-                if vol[3] is True:
-                    tr.append([key, "green"])
-                else:
-                    tr.append([key, "red"])
-        return tr
-
     def fs_status_text(self):
         """fs_status"""
         good_count = 0
