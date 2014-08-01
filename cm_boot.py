@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 "\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
+
 import base64
 import logging
 import os

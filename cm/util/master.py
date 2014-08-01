@@ -1,14 +1,14 @@
 """Galaxy CM master manager"""
 import commands
+import datetime as dt
+import json
 import logging
 import logging.config
 import os
+import shutil
 import subprocess
 import threading
 import time
-import datetime as dt
-import json
-import shutil
 
 
 from cm.services import ServiceRole

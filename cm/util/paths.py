@@ -1,5 +1,5 @@
-import os
 import commands
+import os
 from cm.util import misc
 from cm.services import ServiceRole
 

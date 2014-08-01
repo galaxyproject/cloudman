@@ -3,6 +3,7 @@
 import contextlib
 import datetime as dt
 import errno
+import hashlib
 import logging
 import os
 import re
@@ -11,13 +12,12 @@ import subprocess
 import threading
 import time
 import yaml
-import hashlib
 
-from boto.exception import S3ResponseError, S3CreateError
+from boto.exception import S3CreateError, S3ResponseError
 from boto.s3.acl import ACL
 from boto.s3.key import Key
-
 from tempfile import mkstemp, NamedTemporaryFile
+
 from cm.services import ServiceRole
 
 
@@ -30,7 +30,6 @@ def load_yaml_file(filename):
     """
     with open(filename) as ud_file:
         ud = yaml.load(ud_file)
-    # log.debug("Loaded user data: %s" % ud)
     return ud
 
 

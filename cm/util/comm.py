@@ -29,7 +29,7 @@ class CMMasterComm(object):
         try:
             log.debug("Setting up a new AMQP connection")
             self.conn = amqp.Connection(host=self.host, userid=self.user,
-                password=self.password)
+                                        password=self.password)
             log.debug("Established a new AMQP connection")
             self.channel = self.conn.channel()
             self.channel.access_request('/data', active=True, write=True)
@@ -41,10 +41,10 @@ class CMMasterComm(object):
                                     queue='master', routing_key='master')
             if self.channel.is_open:
                 log.debug("Successfully established AMQP connection channel with ID {0}"
-                    .format(self.channel.channel_id))
+                          .format(self.channel.channel_id))
             else:
                 log.error("Tried to establishe an AMQP connection channel but "
-                    "the channel did not open?!")
+                          "the channel did not open.")
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
@@ -56,14 +56,14 @@ class CMMasterComm(object):
                 self.channel.close()
             except Exception, e:
                 log.error("Tried to close self.channel but got an exception: {0}"
-                    .format(e))
+                          .format(e))
                 self.channel = None
         if self.conn:
             try:
                 self.conn.close()
             except Exception, e:
                 log.error("Tried to close self.conn but got an exception: {0}"
-                    .format(e))
+                          .format(e))
                 self.conn = None
 
     def send(self, message, to):
@@ -129,7 +129,7 @@ class CMWorkerComm(object):
                 exchange=self.exchange, queue=self.queue, routing_key=self.iid)
             self.got_conn = True
             log.debug("Successfully established AMQP connection with channel ID {0}"
-                .format(self.channel.channel_id))
+                      .format(self.channel.channel_id))
         except Exception, e:
             log.debug("AMQP Connection Failure:  %s", e)
             self.conn = None
