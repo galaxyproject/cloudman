@@ -2,10 +2,9 @@ import config
 import logging
 import logging.config
 import sys
-from cm.util import misc
-from cm.util import paths
-from cm.framework import messages
 from cm.clouds.cloud_config import CloudConfig
+from cm.framework import messages
+from cm.util import misc, paths
 
 log = logging.getLogger('cloudman')
 logging.getLogger('boto').setLevel(logging.INFO)
