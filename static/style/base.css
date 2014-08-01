@@ -453,35 +453,9 @@ a.boxclose{
     background-repeat: no-repeat;
 }
 
-#fs_detail{
-    display:none;
-    text-align:center;
-}
-
-#fs_detail ul{
-    margin: 0 0 2px 0;
-}
-
-#fs_detail li{
-    display:inline-block;
-    width:100px;
-}
-
 .vol_det_clicker{
     cursor:pointer;
 }
-
-.fs_det_clicker{
-    cursor:pointer;
-}
-
-#fs_detail div{
-    display:inline-block;
-    width:16px;
-    height:16px;
-    background-repeat: no-repeat;
-}
-
 
 #cluster_view_tooltip ul{
     margin:0;

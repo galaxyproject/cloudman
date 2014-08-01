@@ -455,12 +455,6 @@ vertical-align: top;
     </div>
 </div>
 <div id="log_container">
-    <div id="status_svcs" style="display:none;">
-        <ul><li class='fs_det_clicker'><div class='status_nodata'>&nbsp;</div>Filesystems</li>
-        <li><div class='status_nodata'>&nbsp;</div>Scheduler</li>
-        <li><div class='status_nodata'>&nbsp;</div>Database</li>
-        <li><div class='status_nodata'>&nbsp;</div>Galaxy</li></ul>
-    </div>
     <div id="volume_detail"></div>
     <div id="log_container_header">
         <h3>Cluster status log</h3>
@@ -479,7 +473,6 @@ vertical-align: top;
 <script type="text/javascript">
 var instances = Array();
 var cluster_status = "OFF";
-var fs_det_vis = false;
 var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
@@ -569,12 +562,6 @@ function update_ui(data){
             $('#share_a_cluster').show();
         }
         $('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
-        // $('#status_svcs').html(
-        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
-        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
-        //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
-        //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
-        //     );
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUTTING_DOWN"){
             shutting_down();
