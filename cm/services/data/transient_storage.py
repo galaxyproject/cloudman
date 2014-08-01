@@ -6,17 +6,16 @@ storage over NFS to the rest of the cluster.
     The file system behind this device is transient, meaning that it will
     dissapear at instance termination and it cannot be recovered.
 """
-import os
-import grp
-import pwd
 import commands
+import grp
+import logging
+import os
+import pwd
 
-from cm.services import ServiceRole
-from cm.services import service_states
+from cm.services import ServiceRole, service_states
 from cm.services.data import BlockStorage
 from cm.util import misc
 
-import logging
 log = logging.getLogger('cloudman')
 
 
@@ -60,9 +59,9 @@ class TransientStorage(BlockStorage):
             if not os.path.exists(self.fs.mount_point):
                 os.mkdir(self.fs.mount_point)
             os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2],
-                grp.getgrnam("ubuntu")[2])
-            self.device = commands.getoutput("df -h %s | grep -v Filesystem | "
-                "awk '{print $1}'" % self.fs.mount_point)
+                     grp.getgrnam("ubuntu")[2])
+            self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
+                                             % self.fs.mount_point)
 
             # If based on bucket, extract bucket contents onto new volume
             try:

@@ -1,14 +1,15 @@
-import commands
-import os
-from socket import socket, AF_INET, SOCK_STREAM
-
-
-import logging
-log = logging.getLogger('cloudman')
-
 """
 Placeholder for ApplicationService methods.
 """
+
+import commands
+import logging
+import os
+
+from socket import AF_INET, socket, SOCK_STREAM
+
+log = logging.getLogger('cloudman')
+
 
 from cm.services import Service
 from cm.services import ServiceType

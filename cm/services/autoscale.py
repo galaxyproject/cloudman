@@ -1,14 +1,11 @@
 import commands
 import datetime
-import time
-
-from cm.services import Service
-from cm.services import service_states
-from cm.services import ServiceRole
-from cm.services import ServiceType
-from cm.services import ServiceDependency
-
 import logging
+import time
+from cm.services import (Service, ServiceDependency, ServiceRole, ServiceType,
+                         service_states)
+
+
 log = logging.getLogger('cloudman')
 
 
@@ -127,7 +124,7 @@ class Autoscale(Service):
         """
         running_jobs = []
         queued_jobs = []
-        #cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
+        # cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
         cmd = "squeue -h -o'%t %S' --states=PD,R"  # Slurm
         qstat_out = commands.getoutput(cmd)
         # log.debug('Plain qstat_out for cmd "%s":\n"%s"' % (cmd, qstat_out))
@@ -149,7 +146,7 @@ class Autoscale(Service):
                         queued_jobs.append(self.total_seconds(now - time_job_entered_state))
                 except Exception, e:
                     log.debug("Trouble parsing qstat output (%s) as part of autoscaling: %s"
-                        % (qstat_out, e))
+                              % (qstat_out, e))
         return {'running': running_jobs, 'queued': queued_jobs}
 
     def get_num_instances_to_remove(self):
