@@ -148,7 +148,7 @@ class Volume(BlockStorage):
                     if run('ls {0}'.format(attach_device), quiet=True):
                         self.device = attach_device
                     else:
-                        log.error("Problems discovering volume {0} attach device {0} vs. system device ?"
+                        log.error("Problems discovering volume {0} attach device {1} vs. system device ?"
                                   .format(vol.id, attach_device))
                         self.device = None
                 else:
