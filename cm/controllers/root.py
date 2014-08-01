@@ -815,7 +815,6 @@ class CM(BaseController):
                                    'pct': str(self.app.manager.disk_pct)},
                     'data_status': self.app.manager.get_data_status(),
                     'app_status': self.app.manager.get_app_status(),
-                    'all_fs': self.app.manager.all_fs_status_array(),
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),

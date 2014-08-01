@@ -462,7 +462,6 @@ vertical-align: top;
         <li><div class='status_nodata'>&nbsp;</div>Galaxy</li></ul>
     </div>
     <div id="volume_detail"></div>
-    <div id="fs_detail"></div>
     <div id="log_container_header">
         <h3>Cluster status log</h3>
         <div id="log_container_header_img"></div>
@@ -576,12 +575,6 @@ function update_ui(data){
         //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
         //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
         //     );
-        fsdet = "<ul>";
-        for (i = 0; i < data.all_fs.length; i++){
-            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
-        }
-        fsdet += "</ul>";
-        $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUTTING_DOWN"){
             shutting_down();
