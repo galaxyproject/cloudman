@@ -68,10 +68,10 @@ class MountableFS(object):
         _, _ = process.communicate()
         if process.returncode != 0:
             log.error("Trouble mounting file system at {0} from server {1} of type {2} with mount options: {3}"
-                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
+                      .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
         else:
             log.info("Successfully mounted file system at: {0} from: {1} of type: {2} with mount options: {3}"
-                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
+                     .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
 
     def unmount(self):
         """
@@ -79,8 +79,7 @@ class MountableFS(object):
         """
         log.debug("Unmounting FS of type {0} from {1}".format(self.fs_type, self.fs.mount_point))
         for counter in range(10):
-            if (self.fs.state == service_states.RUNNING and
-                run('/bin/umount %s' % self.fs.mount_point)):
+            if (self.fs.state == service_states.RUNNING and run('/bin/umount %s' % self.fs.mount_point)):
                 break
             if counter == 9:
                 log.warning("Could not unmount file system of type %s at '%s'" % (self.fs_type, self.fs.mount_point))
