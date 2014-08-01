@@ -8,7 +8,7 @@ from boto.exception import EC2ResponseError
 from boto.s3.connection import S3Connection
 from boto.ec2.connection import EC2Connection
 
-
+from cm.util import misc
 from cm.clouds import CloudInterface
 from cm.util.master import Instance
 from cm.util.decorators import TestFlag
@@ -140,11 +140,23 @@ class EC2Interface(CloudInterface):
             fp.close()
         return self._mac_address
 
+    @property
+    def running_in_vpc(self):
+        """
+        Try to determine if running in a VPC. Return ``True`` if so, ``False``
+        otherwise.
+        """
+        if self.get_vpc_id():
+            return True
+        return False
+
     def get_vpc_id(self):
         if not self._vpc_id:
             fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/vpc-id' % self.get_mac_address())
             self._vpc_id = fp.read().strip()
             fp.close()
+            if "404 - Not Found" in self._vpc_id:
+                self._vpc_id = None
         return self._vpc_id
 
     def get_subnet_id(self):
@@ -444,7 +456,8 @@ class EC2Interface(CloudInterface):
 
     def _run_ondemand_instances(self, num, instance_type, spot_price, worker_ud, min_num=1):
 
-        logging.getLogger('boto').setLevel(logging.DEBUG)
+        # log.debug("Setting boto's logger to DEBUG mode")
+        # logging.getLogger('boto').setLevel(logging.DEBUG)
 
         worker_ud_str = "\n".join(
             ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
@@ -452,8 +465,8 @@ class EC2Interface(CloudInterface):
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
             ec2_conn = self.get_ec2_connection()
-            if self.get_subnet_id():
-                log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
+            if self.running_in_vpc:
+                log.debug("Starting instance(s) in VPC with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
                           "security_group_ids={sgs}, user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
@@ -518,6 +531,7 @@ class EC2Interface(CloudInterface):
             return False
         log.debug("Started %s instance(s)" % num)
         logging.getLogger('boto').setLevel(logging.INFO)
+        log.debug("Setting boto's logger to INFO mode")
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
         worker_ud_str = "\n".join(
@@ -530,7 +544,7 @@ class EC2Interface(CloudInterface):
                 interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
                                                                                     groups=self.get_security_group_ids(),
                                                                                     associate_public_ip_address=True)
-                interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
+                # interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
                 reqs = ec2_conn.request_spot_instances(price=price,
                                                        image_id=self.get_ami(),
                                                        count=num,
@@ -616,13 +630,14 @@ class EC2Interface(CloudInterface):
 
     def _compose_worker_user_data(self):
         """
-        Compose worker instance user data.
+        Compose worker instance user data, returning a dictionary.
         """
         worker_ud = {}
         worker_ud['role'] = 'worker'
         worker_ud['master_public_ip'] = self.get_public_ip()
         worker_ud['master_ip'] = self.get_private_ip()
         worker_ud['master_hostname'] = self.get_local_hostname()
+        worker_ud['master_hostname_alt'] = misc.get_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
         # Merge the worker's user data with the master's user data
         worker_ud = dict(self.app.ud.items() + worker_ud.items())

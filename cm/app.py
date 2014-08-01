@@ -83,6 +83,10 @@ class UniverseApplication(object):
         # but that's hopefully still forthcoming.
         self.msgs = messages.Messages()
 
+        # App-wide consecutive number generator. Starting at 1, each time `next`
+        # is called, get the next integer.
+        self.number_generator = misc.get_a_number()
+
         # Check that we actually got user creds in user data and inform user
         if not ('access_key' in self.ud or 'secret_key' in self.ud):
             self.msgs.error("No access credentials provided in user data. "

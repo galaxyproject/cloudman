@@ -374,7 +374,7 @@ vertical-align: top;
                 <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
                     <label for="galaxy-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
+                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, a job manager, and a data volume.
             % if 'galaxy' not in image_config_support.apps:
                         <u>NOTE</u>: The current machine image
                         does not support this cluster type option; click on 'Show more startup options'
@@ -429,7 +429,7 @@ vertical-align: top;
                 <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
                     <label for="data-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Data Cluster</b>: a persistent data volume and SGE.
+                        <b>Data Cluster</b>: a persistent data volume and a job manager.
                         Specify the initial storage size (in Gigabytes):
                     </span>
                     </label>
@@ -438,10 +438,10 @@ vertical-align: top;
             </div>
 
             <div class="form-row">
-                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left" id="sge-cluster">
-                <label for="sge-cluster">
+                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="Test" style="float:left" id="test-cluster">
+                <label for="test-cluster">
                 <span style="display: block;margin-left: 20px;">
-                    <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
+                    <b>Test Cluster</b>: A job manager only. No persistent storage is created.</p>
                 </span>
                 </label>
             </div>

@@ -7,7 +7,7 @@ import pwd
 import grp
 import datetime
 import commands
-
+import urllib2
 from string import Template
 
 from cm.services import service_states
@@ -36,8 +36,8 @@ def fix_libc():
                     os.symlink(libname, '/lib64/libc.so.6')
                     fixed = True
         if not fixed:
-            log.error(
-                "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+            log.error("SGE config is likely to fail because '/lib64/libc.so.6' "
+                "lib does not exists...")
 
 
 class SGEService(ApplicationService):
@@ -73,7 +73,10 @@ class SGEService(ApplicationService):
         self.state = service_states.SHUT_DOWN
 
     def clean(self):
-        """ Stop SGE and clean up the system as if SGE was never installed. Useful for CloudMan restarts."""
+        """
+        Stop SGE and clean up the system as if SGE was never installed.
+        Useful for CloudMan restarts.
+        """
         self.remove()
         if self.state == service_states.SHUT_DOWN:
             misc.run('rm -rf %s/*' % self.app.path_resolver.sge_root, "Error cleaning SGE_ROOT (%s)" %
@@ -94,9 +97,26 @@ class SGEService(ApplicationService):
                 with open(paths.LOGIN_SHELL_SCRIPT, 'w') as f:
                     f.writelines(lines)
 
+    def _download_sge(self):
+        """
+        Download a Grid Engine binaries tar ball. Return the path to the downloaded
+        file.
+        """
+        ge_url = 'http://dl.dropbox.com/u/47200624/respin/ge2011.11.tar.gz'
+        downloaded_file = 'ge.tar.gz'
+        try:
+            r = urllib2.urlopen(ge_url, downloaded_file)
+        except urllib2.HTTPError, e:
+            log.error("Error downloading Grid Engine binaries from {0}: {1}"
+                .format(ge_url, e))
+        if r.code == 200:
+            return downloaded_file
+        else:
+            return ""
+
     def unpack_sge(self):
         if self.app.TESTFLAG is True:
-            log.debug("Attempted to get volumes, but TESTFLAG is set.")
+            log.debug("Attempted to unpack SGE, but TESTFLAG is set.")
             return False
         log.debug("Unpacking SGE from '%s'" % self.app.path_resolver.sge_tars)
         os.putenv('SGE_ROOT', self.app.path_resolver.sge_root)
@@ -239,10 +259,10 @@ class SGEService(ApplicationService):
         # come online
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "   2.[46].*)",
-            "   [23].[24567890].*)")
+            "   [23].[24567890]?.*)")
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "      2.6.*)",
-            "      [23].[24567890].*)")
+            "      [23].[24567890]?.*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % self.app.path_resolver.sge_root, "Error modifying %s/util/arch" %
                  self.app.path_resolver.sge_root, "Modified %s/util/arch" % self.app.path_resolver.sge_root)
         misc.run("chmod +rx %s/util/arch" % self.app.path_resolver.sge_root, "Error chmod %s/util/arch" %
@@ -251,8 +271,7 @@ class SGEService(ApplicationService):
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init
         # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
-        misc.run(
-            "sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
+        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
 
     def add_sge_host(self, inst_id, inst_private_ip):
         """

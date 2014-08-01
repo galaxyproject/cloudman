@@ -13,7 +13,7 @@ import time
 import yaml
 import hashlib
 
-from boto.exception import S3ResponseError
+from boto.exception import S3ResponseError, S3CreateError
 from boto.s3.acl import ACL
 from boto.s3.key import Key
 
@@ -198,8 +198,7 @@ def formatDelta(delta):
 
 def bucket_exists(s3_conn, bucket_name, validate=True):
     if s3_conn is None:
-        log.debug(
-            "Checking if s3 bucket exists, but no s3 connection specified.")
+        log.debug("Checking if S3 bucket exists, but no S3 connection provided!?")
         return False
     if bucket_name:
         try:
@@ -209,8 +208,7 @@ def bucket_exists(s3_conn, bucket_name, validate=True):
                 # bucket_name)
                 return True
             else:
-                log.debug(
-                    "Checking if bucket '%s' exists... it does not." % bucket_name)
+                log.debug("Checking if bucket '%s' exists... it does not." % bucket_name)
                 return False
         except S3ResponseError as e:
             log.error("Failed to lookup bucket '%s': %s" % (bucket_name, e))
@@ -221,9 +219,10 @@ def bucket_exists(s3_conn, bucket_name, validate=True):
 
 def create_bucket(s3_conn, bucket_name):
     try:
+        log.debug("Creating bucket '%s'." % bucket_name)
         s3_conn.create_bucket(bucket_name)
         log.debug("Created bucket '%s'." % bucket_name)
-    except S3ResponseError as e:
+    except (S3ResponseError, S3CreateError) as e:
         log.error("Failed to create bucket '%s': %s" % (bucket_name, e))
         return False
     return True
@@ -744,8 +743,10 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
 
     In case of an error, include ``err`` in the log output;
-    include ``ok`` output if command ran fine. If ``quite`` is set to ``True``,
+    include ``ok`` output if command ran fine. If ``quiet`` is set to ``True``,
     do not log any messages.
+
+    `cwd` argument is not used.
     """
     # Predefine err and ok mesages to include the command being run
     if err is None:
@@ -841,40 +842,88 @@ def _if_not_installed(prog_name):
     return argcatcher
 
 
-def add_to_etc_hosts(hostname, ip_address):
+def get_hostname():
     """
-    Add ``hostname`` and its ``ip_address`` to ``/etc/hosts``
+    Return the output from ``hostname -s`` command
+    """
+    try:
+        return subprocess.check_output(["hostname", "-s"]).strip()
+    except Exception:
+        return ""
+
+
+def make_dir(path):
+    """
+    Check if a directory under ``path`` exists and create it if it does not.
+    """
+    log.debug("Checking existence of directory '%s'" % path)
+    if not os.path.exists(path):
+        try:
+            log.debug("Creating directory '%s'" % path)
+            os.makedirs(path, 0755)
+            log.debug("Directory '%s' successfully created." % path)
+        except OSError, e:
+            log.error("Making directory '%s' failed: %s" % (path, e))
+    else:
+        log.debug("Directory '%s' exists." % path)
+
+
+def add_to_etc_hosts(ip_address, hosts=[]):
+    """
+    Add a line with the list of ``hosts`` for the given ``ip_address`` to
+    ``/etc/hosts``.
+    If a line with the provided ``ip_address`` already exist in the file, append
+    the new ``hosts`` to the given line.
     """
     try:
         etc_hosts = open('/etc/hosts', 'r')
+        # Pull out all the lines from /etc/hosts that do not have an entry
+        # matching a value in `hosts` argument
         tmp = NamedTemporaryFile()
+        existing_line = None
         for l in etc_hosts:
-            if hostname not in l:
+            contained = False
+            for hostname in hosts:
+                if hostname in l.split():
+                    contained = True
+            if ip_address in l:
+                contained = True
+            if not contained:
                 tmp.write(l)
+            else:
+                existing_line = l.strip()
         etc_hosts.close()
-        # add a line for the new hostname
-        tmp.write('{0} {1}\n'.format(ip_address, hostname))
-
-        # make sure changes are written to disk
+        if existing_line:
+            # Append new hosts to the exisiting line
+            line = "{0} {1}\n".format(existing_line, ' '.join(hosts))
+        else:
+            # Compose a new line with the hosts for the specified IP address
+            line = '{0} {1}\n'.format(ip_address, ' '.join(hosts))
+        tmp.write(line)
+        # Make sure the changes are written to disk
         tmp.flush()
         os.fsync(tmp.fileno())
-        # swap out /etc/hosts
+        # Swap out /etc/hosts
         run('cp /etc/hosts /etc/hosts.orig')
         run('cp {0} /etc/hosts'.format(tmp.name))
         run('chmod 644 /etc/hosts')
     except (IOError, OSError) as e:
-        log.error('could not update /etc/hosts. {0}'.format(e))
+        log.error('Could not update /etc/hosts. {0}'.format(e))
 
 
-def remove_from_etc_hosts(hostname):
+def remove_from_etc_hosts(host):
     """
-    Remove ``hostname`` from ``/etc/hosts``
+    Remove ``host`` (hostname or IP) from ``/etc/hosts``
     """
+    if not host:
+        log.debug("Cannot remove empty host from /etc/hosts")
+        return
     try:
+        log.debug("Removing host {0} from /etc/hosts".format(host))
         etc_hosts = open('/etc/hosts', 'r')
         tmp = NamedTemporaryFile()
         for l in etc_hosts:
-            if hostname not in l:
+            if host not in l:
                 tmp.write(l)
         etc_hosts.close()
 
@@ -1019,6 +1068,16 @@ def _extract_archive_content_to_path(archive_url, path):
     archive.extractall(path=path)
     archive.close()
     return stream.hexdigest()
+
+
+def get_a_number():
+    """
+    This generator will yield a new integer each time it is called, starting at 1.
+    """
+    number = 1
+    while True:
+        yield number
+        number += 1
 
 
 class MD5TransparentFilter:

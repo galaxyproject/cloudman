@@ -1,6 +1,5 @@
 """Galaxy CM master manager"""
 import commands
-import fileinput
 import logging
 import logging.config
 import os
@@ -23,7 +22,9 @@ from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
-from cm.services.apps.sge import SGEService
+# from cm.services.apps.sge import SGEService
+from cm.services.apps.slurmctld import SlurmctldService
+from cm.services.apps.slurmd import SlurmdService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
 from cm.util import (cluster_status, comm, instance_lifecycle, instance_states,
@@ -87,6 +88,14 @@ class ConsoleManager(BaseConsoleManager):
         self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 0
 
+    @property
+    def num_cpus(self):
+        """
+        The number of CPUs on the master instance (as ``int``), as returned by
+        ``/usr/bin/nproc`` command.
+        """
+        return int(commands.getoutput("/usr/bin/nproc"))
+
     def add_master_service(self, new_service):
         if not self.get_services(svc_name=new_service.name):
             log.debug("Adding service %s into the master service registry" % new_service.name)
@@ -96,8 +105,12 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Would add master service %s but one already exists" % new_service.name)
 
     def remove_master_service(self, service_to_remove):
-        self.services.remove(service_to_remove)
-        self._update_dependencies(service_to_remove, "REMOVE")
+        if service_to_remove in self.services:
+            self.services.remove(service_to_remove)
+            self._update_dependencies(service_to_remove, "REMOVE")
+        else:
+            log.warning("Tried to remove service {0} but service not found in {1}"
+                        .format(service_to_remove, self.services))
 
     def _update_dependencies(self, new_service, action):
         """
@@ -287,8 +300,13 @@ class ConsoleManager(BaseConsoleManager):
         # Always add migration service
         self.add_master_service(MigrationService(self.app))
 
+        # Always add Slurm services
+        self.add_master_service(SlurmctldService(self.app))
+        self.add_master_service(SlurmdService(self.app))
+
         # Always add SGE service
-        self.add_master_service(SGEService(self.app))
+        # self.add_master_service(SGEService(self.app))
+
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
@@ -312,6 +330,11 @@ class ConsoleManager(BaseConsoleManager):
         # and add appropriate services
         elif not self.add_preconfigured_services():
             return False
+        # If we have any workers (might be the case following a cluster reboot),
+        # reboot the workers so they get embedded into the cluster again
+        if self.worker_instances:
+            for wi in self.worker_instances:
+                wi.reboot(count_reboot=False)
         self.manager_started = True
 
         # Check if a previously existing cluster is being recreated or if it is a new one
@@ -796,51 +819,61 @@ class ConsoleManager(BaseConsoleManager):
             :return: True if the master instance is set to be an execution host.
                      False otherwise.
         """
-        sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
-        if sge_svc.state == service_states.RUNNING:
-            if self.master_exec_host is True or force_removal:
+        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+        if slurmctld_svc:
+            if self.master_exec_host or force_removal:
+                slurmctld_svc.disable_node('master')
                 self.master_exec_host = False
-                if not sge_svc._remove_instance_from_exec_list(
-                    self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_private_ip()):
-                    # If the removal was unseccessful, reset the flag
-                    self.master_exec_host = True
             else:
+                slurmctld_svc.enable_node('master')
                 self.master_exec_host = True
-                if not sge_svc._add_instance_as_exec_host(
-                    self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_private_ip()):
-                    # If the removal was unseccessful, reset the flag
-                    self.master_exec_host = False
-        else:
-            log.warning(
-                "SGE not running thus cannot toggle master as exec host")
-        if self.master_exec_host:
-            log.info("The master instance has been set to execute jobs.  To manually change this, use the cloudman admin panel.")
-        else:
-            log.info("The master instance has been set to *not* execute jobs.  To manually change this, use the cloudman admin panel.")
         return self.master_exec_host
 
+        # sge_svc = self.get_services(svc_role=ServiceRole.SGE)
+        # if len(sge_svc) > 0:
+        #     sge_svc = sge_svc[0]
+        #     if sge_svc.state == service_states.RUNNING:
+        #         if self.master_exec_host is True or force_removal:
+        #             self.master_exec_host = False
+        #             if not sge_svc._remove_instance_from_exec_list(
+        #                 self.app.cloud_interface.get_instance_id(),
+        #                     self.app.cloud_interface.get_private_ip()):
+        #                 # If the removal was unseccessful, reset the flag
+        #                 self.master_exec_host = True
+        #         else:
+        #             self.master_exec_host = True
+        #             if not sge_svc._add_instance_as_exec_host(
+        #                 self.app.cloud_interface.get_instance_id(),
+        #                     self.app.cloud_interface.get_private_ip()):
+        #                 # If the removal was unseccessful, reset the flag
+        #                 self.master_exec_host = False
+        #     else:
+        #         log.warning(
+        #             "SGE not running thus cannot toggle master as exec host")
+        #     if self.master_exec_host:
+        #         log.info("The master instance has been set to execute jobs. "
+        #             "To manually change this, use the cloudman admin panel.")
+        #     else:
+        #         log.info("The master instance has been set to *not* execute jobs. "
+        #             "To manually change this, use the cloudman admin panel.")
+        # return self.master_exec_host
+
+    @TestFlag([])
     def get_worker_instances(self):
         instances = []
-        if self.app.TESTFLAG is True:
-            # for i in range(5):
-            #     instance = Instance( self.app, inst=None, m_state="Pending" )
-            #     instance.id = "WorkerInstance"
-            #     instances.append(instance)
-            return instances
-        log.debug(
-            "Trying to discover any worker instances associated with this cluster...")
+        log.debug("Trying to discover any worker instances associated with this cluster...")
         filters = {'tag:clusterName': self.app.ud['cluster_name'],
                    'tag:role': 'worker'}
         try:
             reservations = self.app.cloud_interface.get_all_instances(filters=filters)
             for reservation in reservations:
-                if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
-                    i = Instance(self.app, inst=reservation.instances[0],
-                                 m_state=reservation.instances[0].state, reboot_required=True)
-                    instances.append(i)
-                    log.info("Instance '%s' found alive (will configure it later)." % reservation.instances[0].id)
+                for inst in reservation.instances:
+                    if inst.state != 'terminated' and inst.state != 'shutting-down':
+                        i = Instance(self.app, inst=inst, m_state=inst.state, reboot_required=True)
+                        instances.append(i)
+                        log.info("Existing worker instance '%s' found alive "
+                                 "(will configure it later)." % inst.id)
         except EC2ResponseError, e:
             log.debug("Error checking for live instances: %s" % e)
         return instances
@@ -917,7 +950,7 @@ class ConsoleManager(BaseConsoleManager):
             num_off = 0
             for srvc in self.services:
                 if srvc.state == service_states.SHUT_DOWN or srvc.state == service_states.ERROR or \
-                        srvc.state == service_states.UNSTARTED:
+                   srvc.state == service_states.UNSTARTED or srvc.state == service_states.COMPLETED:
                     num_off += 1
             if num_off == len(self.services):
                 log.debug("All services shut down")
@@ -1047,7 +1080,7 @@ class ConsoleManager(BaseConsoleManager):
         Get a list of instances that are currently not executing any job manager
         jobs. Return a list of ``Instance`` objects.
         """
-        # log.debug( "Looking for idle instances" )
+        # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
             proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
@@ -1081,6 +1114,18 @@ class ConsoleManager(BaseConsoleManager):
                             # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
                             #     % (w_instance.id, idle_instance_dn))
                             idle_instances.append(w_instance)
+        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+        if slurmctld_svc and slurmctld_svc.status() == service_states.RUNNING:
+            idle_nodes = slurmctld_svc.get_idle_nodes()
+            # Note that master is not part of worker_instances and will thus not
+            # get included in the idle_instances list, which is the intended
+            # behavior (because idle instances may get terminated and we don't
+            # want the master to get terminated).
+            for w in self.worker_instances:
+                if w.slurm_name in idle_nodes:
+                    idle_instances.append(w)
+        # log.debug("Idle instaces: %s" % idle_instances)
         return idle_instances
 
     def remove_instances(self, num_nodes, force=False):
@@ -1115,16 +1160,15 @@ class ConsoleManager(BaseConsoleManager):
         # whether they are idle
         if force is True and num_terminated < num_nodes:
             force_kill_instances = num_nodes - num_terminated
-            log.info(
-                "Forcefully terminating %s instances." % force_kill_instances)
+            log.info("Forcefully terminating %s instances." % force_kill_instances)
             for i in range(force_kill_instances):
                 for inst in self.worker_instances:
                     if not inst.is_spot() or inst.spot_was_filled():
                         self.remove_instance(inst.id)
                         num_terminated += 1
         if num_terminated > 0:
-            log.info("Initiated requested termination of instances. Terminating '%s' instances."
-                     % num_terminated)
+            log.info("Initiated requested termination of instances. Terminating "
+                     "'%s' instances." % num_terminated)
         else:
             log.info("Did not terminate any instances.")
 
@@ -1132,7 +1176,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         Remove an instance with ID ``instance_id`` from the cluster. This means
         that the instance is first removed from the job manager as a worker and
-        then it is terminated via cloud middleware API.
+        then it is terminated via the cloud middleware API.
         """
         if instance_id == '':
             log.warning(
@@ -1141,28 +1185,27 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-                sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
-                # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
-                # if sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip()) is True:
-                # Best-effort PATCH until above issue is handled
+                inst.worker_status = 'Stopping'
+                log.debug("Set instance {0} state to {1}".format(inst.get_desc(),
+                                                                 inst.worker_status))
+                sge_svc = self.get_services(svc_role=ServiceRole.SGE)
+                sge_svc = sge_svc[0] if len(sge_svc) > 0 else None
                 if inst.get_id() is not None:
-                    sge_svc.remove_sge_host(
-                        inst.get_id(), inst.get_private_ip())
+                    if sge_svc:
+                        sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
+                    slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+                    slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+                    if slurmctld_svc:
+                        slurmctld_svc.reconfigure_cluster()
                     # Remove the given instance from /etc/hosts files
-                    log.debug("Removing instance {0} from /etc/hosts".format(
-                        inst.get_id()))
-                    for line in fileinput.input('/etc/hosts', inplace=1):
-                        line = line.strip()
-                        # (print all lines except the one w/ instance IP back to the file)
-                        if inst.private_ip not in line:
-                            print line
+                    misc.remove_from_etc_hosts(inst.private_ip)
                 try:
                     inst.terminate()
+                    log.info("Initiated requested termination of instance. "
+                             "Terminating '%s'." % instance_id)
                 except EC2ResponseError, e:
                     log.error("Trouble terminating instance '{0}': {1}".format(
                         instance_id, e))
-        log.info("Initiated requested termination of instance. Terminating '%s'." %
-                 instance_id)
 
     def reboot_instance(self, instance_id='', count_reboot=True):
         """
@@ -1328,7 +1371,7 @@ class ConsoleManager(BaseConsoleManager):
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs()
-        elif cluster_type == 'SGE':
+        elif cluster_type == 'Test':
             # SGE service is automatically added at cluster start (see
             # ``start`` method)
             pass
@@ -1817,7 +1860,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         Add a new file system service for a Gluster-based file system.
         """
-        log.info("Adding a Gluster-based file system {0} from Gluster server {1}".format(fs_name, gluster_server))
+        log.info("Adding a Gluster-based file system {0} from Gluster server {1}"
+                 .format(fs_name, gluster_server))
         fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_glusterfs(gluster_server)
         self.add_master_service(fs)
@@ -1836,7 +1880,8 @@ class ConsoleManager(BaseConsoleManager):
         provide password-based credentials (``username`` and ``pwd``) for
         accessing the NFS server.
         """
-        log.info("Adding a NFS-based file system {0} from NFS server {1}".format(fs_name, nfs_server))
+        log.info("Adding a NFS-based file system {0} from NFS server {1}"
+                 .format(fs_name, nfs_server))
         fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_nfs(nfs_server, username, pwd)
         self.add_master_service(fs)
@@ -1851,28 +1896,30 @@ class ConsoleManager(BaseConsoleManager):
         """
         Initiate termination of all worker instances.
         """
-        log.info("Stopping all '%s' worker instance(s)" % len(
-            self.worker_instances))
-        to_terminate = []
-        for i in self.worker_instances:
-            to_terminate.append(i)
-        for inst in to_terminate:
-            log.debug(
-                "Initiating termination of instance %s" % inst.get_desc())
-            inst.terminate()
-            # log.debug("Initiated termination of instance '%s'" % inst.id )
+        log.info("Stopping all '%s' worker instance(s)" % len(self.worker_instances))
+        self.remove_instances(len(self.worker_instances), force=True)
+        # to_terminate = []
+        # for i in self.worker_instances:
+        #     to_terminate.append(i)
+        # for inst in to_terminate:
+        #     log.debug(
+        #         "Initiating termination of instance %s" % inst.get_desc())
+        #     inst.terminate()
+        # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({})  # {'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
     @synchronized(s3_rlock)
     def check_for_new_version_of_CM(self):
         """
-        Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
+        Check revision metadata for CloudMan (CM) in user's bucket and the
+        default CM bucket.
 
         :rtype: dict
-        :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where each key
-                 maps to an string representation of an int that corresponds to the version of
-                 CloudMan in the default repository vs. the currently running user's version.
-                 If CloudMan is unable to determine the versions, an empty dict is returned.
+        :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where
+                 each key maps to an string representation of an int that
+                 corresponds to the version of CloudMan in the default repository
+                 vs. the currently running user's version. If CloudMan is unable
+                 to determine the versions, an empty dict is returned.
         """
         log.debug("Checking for new version of CloudMan")
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -2045,7 +2092,7 @@ class ConsoleManager(BaseConsoleManager):
         # log.debug("Gathering number of available workers" )
         num_available_nodes = 0
         for inst in self.worker_instances:
-            if inst.node_ready is True:
+            if inst.worker_status == "Ready":
                 num_available_nodes += 1
         return num_available_nodes
 
@@ -2107,9 +2154,13 @@ class ConsoleManager(BaseConsoleManager):
         It will copy the master etc hosts into a shared folder and send a message
         to the workers to inform them of the change.
         """
-        shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
-        for wrk in self.worker_instances:
-            wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+        try:
+            shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
+            for wrk in self.worker_instances:
+                wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+        except IOError, e:
+            log.error("Trouble copying /etc/hosts to shared NFS {0}: {1}"
+                      .format(paths.P_ETC_TRANSIENT_PATH, e))
 
     def update_condor_host(self, new_worker_ip):
         """
@@ -2224,16 +2275,6 @@ class ConsoleMonitor(object):
             self.update_frequency = 30  # If no system changes for 5 mins, run update every 30 secs
         else:
             self.update_frequency = 10  # If last system change within past 5 mins, run update every 10 secs
-
-    def update_instance_sw_state(self, inst_id, state):
-        """
-        :type inst_id: string
-        :type state: string
-        """
-        log.debug("Updating local ref to instance '%s' state to '%s'" % (inst_id, state))
-        for inst in self.app.manager.worker_instances:
-            if inst.id == inst_id:
-                inst.sw_state = state
 
     def expand_user_data_volume(self):
         # TODO: recover services if process fails midway
@@ -2518,7 +2559,7 @@ class ConsoleMonitor(object):
                             # treating the instance as a regular Instance
                             continue
                     # Send current mount points to ensure master and workers FSs are in sync
-                    if w_instance.node_ready:
+                    if w_instance.worker_status == "Ready":
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (Time.now() - w_instance.last_comm).seconds < 22:
@@ -2568,7 +2609,6 @@ class Instance(object):
         self.last_state_update = Time.now()
         self.sw_state = sw_state  # Software state
         self.is_alive = False
-        self.node_ready = False
         self.num_cpus = 1
         self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
@@ -2581,11 +2621,17 @@ class Instance(object):
         self.nfs_tfs = 0  # Transient file system, NFS-mounted from the master
         self.get_cert = 0
         self.sge_started = 0
+        self.slurmd_running = 0
+        # NodeName by which this instance is tracked in Slurm
+        self.slurm_name = 'w{0}'.format(self.app.number_generator.next())
         self.worker_status = 'Pending'  # Pending, Wake, Startup, Ready, Stopping, Error
         self.load = 0
         self.type = 'Unknown'
         self.reboot_required = reboot_required
         self.update_spot()
+
+    def __repr__(self):
+        return self.get_desc()
 
     def maintain(self):
         """ Based on the state and status of this instance, try to do the right thing
@@ -2696,6 +2742,7 @@ class Instance(object):
 
     def get_status_dict(self):
         toret = {'id': self.id,
+                 'slurm_name': self.slurm_name,
                  'ld': self.load,
                  'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
                  'nfs_data': self.nfs_data,
@@ -2704,7 +2751,7 @@ class Instance(object):
                  'nfs_sge': self.nfs_sge,
                  'nfs_tfs': self.nfs_tfs,
                  'get_cert': self.get_cert,
-                 'sge_started': self.sge_started,
+                 'slurmd_running': self.slurmd_running,
                  'worker_status': self.worker_status,
                  'instance_state': self.m_state,
                  'instance_type': self.type,
@@ -2734,7 +2781,7 @@ class Instance(object):
                         ld = self.load
                 else:
                     ld = self.load
-            elif self.node_ready:
+            elif self.worker_status == "Ready":
                 ld = "Running"
             return [self.id, ld, misc.formatSeconds(
                 Time.now() - self.last_m_state_change),
@@ -2767,7 +2814,9 @@ class Instance(object):
         """
         if self.is_spot() and not self.spot_was_filled():
             return "'{sid}'".format(sid=self.spot_request_id)
-        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
+        # TODO : DO NOT redefine id, etc.
+        return "'{id}; {ip}; {sn}'".format(id=self.get_id(), ip=self.get_public_ip(),
+                                           sn=self.slurm_name)
 
     def reboot(self, count_reboot=True):
         """
@@ -2885,11 +2934,12 @@ class Instance(object):
     def send_sync_etc_host(self, msg):
         # Because the hosts file is synced over the transientFS, give the FS
         # some time to become available before sending the msg
-        for i in range(5):
+        for i in range(3):
             if int(self.nfs_tfs):
                 self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
                 break
-            log.debug("Transient FS on instance not available; waiting a bit...")
+            log.debug("Transient FS on instance {0} not available (code {1}); "
+                      "waiting a bit...".format(self.get_desc(), self.nfs_tfs))
             time.sleep(7)
 
     def send_status_check(self):
@@ -3037,6 +3087,12 @@ class Instance(object):
         log.debug("Sent master public key to worker instance '%s'." % self.id)
         log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'" % (self.app.manager.get_root_public_key(), self.id))
 
+    def send_start_slurmd(self):
+        log.debug("\tMT: Sending START_SLURMD message to instance {0}, named {1}"
+                  .format(self.get_desc(), self.slurm_name))
+        self.app.manager.console_monitor.conn.send('START_SLURMD | {0}'.format(
+            self.slurm_name), self.id)
+
     def send_start_sge(self):
         log.debug("\tMT: Sending START_SGE message to instance '%s'" % self.id)
         self.app.manager.console_monitor.conn.send('START_SGE', self.id)
@@ -3082,20 +3138,30 @@ class Instance(object):
                 self.ami = msp[5]
                 try:
                     self.local_hostname = msp[6]
+                    self.num_cpus = int(msp[7])
                 except:
                     # Older versions of CloudMan did not pass this value so if the master
                     # and the worker are running 2 diff versions (can happen after an
                     # automatic update), don't crash here.
                     self.local_hostname = self.public_ip
-                log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s"
+                log.debug("INSTANCE_ALIVE private_ip: %s public_ip: %s zone: %s type: %s AMI: %s hostname: %s, CPUs: %s"
                           % (self.private_ip, self.public_ip, self.zone,
-                             self.type, self.ami, self.local_hostname))
-                # Instance is alive and functional. Send master pubkey.
+                             self.type, self.ami, self.local_hostname,
+                             self.num_cpus))
+                # Instance is alive and responding.
                 self.send_mount_points()
             elif msg_type == "GET_MOUNTPOINTS":
                 self.send_mount_points()
             elif msg_type == "MOUNT_DONE":
-                self.send_master_pubkey()
+                log.debug("Got MOUNT_DONE message; setting up job manager(s)")
+                slurmctld_svc = self.app.manager.get_services(svc_role=ServiceRole.SLURMCTLD)
+                slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+                if slurmctld_svc:
+                    slurmctld_svc.reconfigure_cluster()
+                else:
+                    log.warning('Could not get a handle on slurmctld service to '
+                                'add node {0}'.format(self.get_desc()))
+                # EA-Slurm self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type in ('openstack', 'eucalyptus'):
                     hn2 = ''
@@ -3116,6 +3182,9 @@ class Instance(object):
                     f = open("/etc/hosts", 'a')
                     f.write("%s\tworker-%s\n" % (self.private_ip, self.id))
                     f.close()
+                # log.debug("Update /etc/hosts through master")
+                # self.app.manager.update_etc_host()
+                self.send_start_slurmd()
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
@@ -3142,39 +3211,43 @@ class Instance(object):
                     log.error(
                         "Could not get a handle on SGE service to add a host; host not added")
             elif msg_type == "NODE_READY":
-                self.node_ready = True
                 self.worker_status = "Ready"
                 log.info("Instance %s ready" % self.get_desc())
-                msplit = msg.split(' | ')
-                try:
-                    self.num_cpus = int(msplit[2])
-                except:
-                    log.debug(
-                        "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
-                log.debug("Instance '%s' reported as having '%s' CPUs." %
-                          (self.id, self.num_cpus))
+                # msplit = msg.split(' | ')
+                # try:
+                #     self.num_cpus = int(msplit[2])
+                # except:
+                #     log.debug(
+                #         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
+                # log.debug("Instance '%s' reported as having '%s' CPUs." %
+                #           (self.id, self.num_cpus))
                 # Make sure the instace is tagged (this is also necessary to do
                 # here for OpenStack because it does not allow tags to be added
                 # until an instance is 'running')
                 self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
+                self.app.cloud_interface.add_tag(self.inst, 'slurm_name', self.slurm_name)
                 self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
 
                 log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
-                log.debug("update etc host through master")
-                self.app.manager.update_etc_host()
             elif msg_type == "NODE_STATUS":
-                msplit = msg.split(' | ')
-                self.nfs_data = msplit[1]
-                self.nfs_tools = msplit[2]  # Workers currently do not update this field
-                self.nfs_indices = msplit[3]
-                self.nfs_sge = msplit[4]
-                self.get_cert = msplit[5]
-                self.sge_started = msplit[6]
-                self.load = msplit[7]
-                self.worker_status = msplit[8]
-                self.nfs_tfs = msplit[9]
+                # log.debug("Node {0} status message: {1}".format(self.get_desc(), msg))
+                if not self.worker_status == 'Stopping':
+                    msplit = msg.split(' | ')
+                    self.nfs_data = msplit[1]
+                    self.nfs_tools = msplit[2]  # Workers currently do not update this field
+                    self.nfs_indices = msplit[3]
+                    self.nfs_sge = msplit[4]
+                    self.get_cert = msplit[5]
+                    self.sge_started = msplit[6]
+                    self.load = msplit[7]
+                    self.worker_status = msplit[8]
+                    self.nfs_tfs = msplit[9]
+                    self.slurmd_running = msplit[10]
+                else:
+                    log.debug("Worker {0} in state Stopping so not updating status"
+                              .format(self.get_desc()))
             elif msg_type == 'NODE_SHUTTING_DOWN':
                 msplit = msg.split(' | ')
                 self.worker_status = msplit[1]

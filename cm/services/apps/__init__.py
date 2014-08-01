@@ -17,8 +17,12 @@ from cm.services import ServiceType
 class ApplicationService(Service):
 
     def __init__(self, app):
+        self.name = ""
         self.svc_type = ServiceType.APPLICATION
         super(ApplicationService, self).__init__(app)
+
+    def __repr__(self):
+        return self.get_full_name()
 
     def _check_daemon(self, service):
         """Check if 'service' daemon process is running.
@@ -57,7 +61,11 @@ class ApplicationService(Service):
         :rtype: int
         :return: PID, -1 if the file does not exist
         """
-        if service == 'postgres':
+        if service == 'slurmctld':
+            pid_file = self.app.path_resolver.slurmctld_pid
+        elif service == 'slurmd':
+            pid_file = self.app.path_resolver.slurmd_pid
+        elif service == 'postgres':
             pid_file = '%s/postmaster.pid' % self.app.path_resolver.psql_dir
         elif service == 'sge':
             pid_file = '%s/qmaster.pid' % self.app.path_resolver.sge_cell

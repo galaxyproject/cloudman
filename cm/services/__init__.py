@@ -27,6 +27,8 @@ class ServiceType(object):
 
 class ServiceRole(object):
     SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
+    SLURMCTLD = {'type': ServiceType.APPLICATION, 'name': "Slurmctld"}
+    SLURMD = {'type': ServiceType.APPLICATION, 'name': "Slurmd"}
     GALAXY = {'type': ServiceType.APPLICATION, 'name': "Galaxy"}
     GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name':
                        "Postgres DB for Galaxy"}
@@ -84,6 +86,10 @@ class ServiceRole(object):
     def _role_from_string(val):
         if val == "SGE":
             return ServiceRole.SGE
+        elif val == "SLURMCTLD":
+            return ServiceRole.SLURMCTLD
+        elif val == "SLURMD":
+            return ServiceRole.SLURMD
         elif val == "Galaxy":
             return ServiceRole.GALAXY
         elif val == "Postgres":
@@ -137,6 +143,10 @@ class ServiceRole(object):
     def _role_to_string(svc_role):
         if svc_role == ServiceRole.SGE:
             return "SGE"
+        elif svc_role == ServiceRole.SLURMCTLD:
+            return "Slurmctld"
+        elif svc_role == ServiceRole.SLURMD:
+            return "Slurmd"
         elif svc_role == ServiceRole.GALAXY:
             return "Galaxy"
         elif svc_role == ServiceRole.GALAXY_POSTGRES:
