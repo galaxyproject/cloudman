@@ -253,6 +253,9 @@ class Service(object):
         self.svc_roles = []
         self.dependencies = []
 
+    def start(self):
+        raise NotImplementedError("Subclasses of Service must implement this.")
+
     def add(self):
         """
         Add a given service to the pool of services managed by CloudMan, giving
