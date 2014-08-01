@@ -21,7 +21,7 @@ from cm.util import paths
 from cm.app import UniverseApplication
 
 
-class CMAuthentication( object ):
+class CMAuthentication(object):
     def __init__(self):
         self._pass = ''
 
