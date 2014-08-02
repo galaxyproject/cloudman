@@ -1,8 +1,8 @@
 import time
 import urllib
 
-from cm.util.master import Instance
 from cm.clouds.ec2 import EC2Interface
+from cm.instance import Instance
 
 import boto
 from boto.s3.connection import OrdinaryCallingFormat
