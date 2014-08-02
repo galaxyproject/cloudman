@@ -365,21 +365,11 @@ vertical-align: top;
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
-            ## Allow Galaxy-cluster only if the underlying image/system supports it
-            % if 'galaxy' in image_config_support.apps:
                 <p style="text-align:justify;">
-            % else:
-                <p style="text-align:justify;" class='disabled'>
-            % endif
                 <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
                     <label for="galaxy-cluster">
                     <span style="display: block;margin-left: 20px;">
                         <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, a job manager, and a data volume.
-            % if 'galaxy' not in image_config_support.apps:
-                        <u>NOTE</u>: The current machine image
-                        does not support this cluster type option; click on 'Show more startup options'
-                        so see the available cluster configuration options.
-            % endif
                         Specify the initial storage type:
                     </span>
                     </label>
