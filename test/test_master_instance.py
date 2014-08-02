@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from cm.util.master import Instance
-from cm.util.master import TIME_IN_PAST
+from cm.instance import Instance
+from cm.instance import TIME_IN_PAST
 from cm.util import instance_states
 
 from test_utils import TestApp

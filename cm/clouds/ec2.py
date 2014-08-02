@@ -8,9 +8,9 @@ from boto.exception import BotoServerError, EC2ResponseError
 from boto.s3.connection import S3Connection
 
 from cm.clouds import CloudInterface
+from cm.instance import Instance
 from cm.util import misc
 from cm.util.decorators import TestFlag
-from cm.util.master import Instance
 
 import logging
 log = logging.getLogger('cloudman')
