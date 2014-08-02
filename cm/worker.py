@@ -640,8 +640,6 @@ class ConsoleMonitor(object):
                     "Trying to setup AMQP connection; conn = '%s'" % self.conn)
                 self.conn.setup()
                 continue
-            # Make this more robust, trying to reconnect to a lost queue, etc.
-            # self.app.manager.introspect.check_all_worker_services()
             if self.conn:
                 if self.app.manager.worker_status == worker_states.WAKE:
                     self.send_alive_message()
