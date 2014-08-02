@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 "\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
-
-import base64
 import logging
 import os
-import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import time
@@ -15,22 +11,8 @@ import urlparse
 import yaml
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
-from boto.s3.key import Key
-
-logging.getLogger('boto').setLevel(logging.INFO)
-LOCAL_PATH = os.getcwd()
-CM_HOME = '/mnt/cm'
-CM_BOOT_PATH = '/tmp/cm'
-USER_DATA_FILE = 'userData.yaml'
-SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
-CM_REMOTE_FILENAME = 'cm.tar.gz'
-CM_LOCAL_FILENAME = 'cm.tar.gz'
-CM_REV_FILENAME = 'cm_revision.txt'
-PRS_FILENAME = 'post_start_script'
-AMAZON_S3_URL = 'http://s3.amazonaws.com/'
-DEFAULT_BUCKET_NAME = 'cloudman'
-log = None
-
+import os
+import subprocess
 
 def _run(log, cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -45,12 +27,10 @@ def _run(log, cmd):
         log.error(("Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd, process.returncode, stderr)))
         return False
 
-
 def _is_running(log, process_name):
     '\n    Check if a process with ``process_name`` is running. Return ``True`` is so,\n    ``False`` otherwise.\n    '
     p = _run(log, 'ps xa | grep {0} | grep -v grep'.format(process_name))
     return (p and (process_name in p))
-
 
 def _make_dir(log, path):
     log.debug(("Checking existence of directory '%s'" % path))
@@ -63,6 +43,9 @@ def _make_dir(log, path):
             log.error(("Making directory '%s' failed: %s" % (path, e)))
     else:
         log.debug(("Directory '%s' exists." % path))
+import base64
+import os
+import re
 
 
 class AuthorizedKeysManager(object):
@@ -89,7 +72,6 @@ class AuthorizedKeysManager(object):
             return (_run(log, cmd) and _run(log, ("%s chown %s '%s'" % (sudo_cmd, user, authorized_keys_file))) and _run(log, ("%s chmod 600 '%s'" % (sudo_cmd, authorized_keys_file))))
         return True
 
-
 def _install_authorized_keys(log, ud, manager=AuthorizedKeysManager()):
     authorized_keys = (ud.get('authorized_keys', None) or [])
     authorized_key_users = ud.get('authorized_key_users', ['ubuntu', 'galaxy'])
@@ -97,7 +79,6 @@ def _install_authorized_keys(log, ud, manager=AuthorizedKeysManager()):
         for user in authorized_key_users:
             if (not manager.add_authorized_key(log, user, authorized_key)):
                 log.warn(('Failed to add authorized_key for user %s' % user))
-
 
 def _write_conf_file(log, contents_descriptor, path):
     destination_directory = os.path.dirname(path)
@@ -110,7 +91,6 @@ def _write_conf_file(log, contents_descriptor, path):
         log.info('Writing out configuration file encoded in user-data:')
         with open(path, 'w') as output:
             output.write(base64.b64decode(contents_descriptor))
-
 
 def _install_conf_files(log, ud):
     conf_files = ud.get('conf_files', [])
@@ -125,7 +105,6 @@ def _install_conf_files(log, ud):
             continue
         _write_conf_file(log, content, path)
 
-
 def _configure_nginx(log, ud):
     nginx_conf = ud.get('nginx_conf_contents', None)
     nginx_conf_path = ud.get('nginx_conf_path', '/usr/nginx/conf/nginx.conf')
@@ -134,7 +113,6 @@ def _configure_nginx(log, ud):
     reconfigure_nginx = ud.get('reconfigure_nginx', True)
     if reconfigure_nginx:
         _reconfigure_nginx(ud, nginx_conf_path, log)
-
 
 def _reconfigure_nginx(ud, nginx_conf_path, log):
     log.debug('Reconfiguring nginx conf')
@@ -151,11 +129,11 @@ def _reconfigure_nginx(ud, nginx_conf_path, log):
         with open(nginx_conf_path, 'w') as new_conf:
             new_conf.write(new_nginx_conf)
 
-
 def _shellquote(s):
     '\n    http://stackoverflow.com/questions/35817/how-to-escape-os-system-calls-in-python\n    '
     return (("'" + s.replace("'", "'\\''")) + "'")
-
+from boto.exception import S3ResponseError
+from boto.s3.key import Key
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
     log.debug(('Getting file %s from bucket %s' % (remote_filename, bucket_name)))
@@ -174,14 +152,25 @@ def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_file
         log.error(("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e)))
         return False
 
-
 def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
     '\n    Check if an object (ie, key) of name ``key_name`` exists in bucket\n    ``bucket_name``. Return ``True`` if so, ``False`` otherwise.\n    '
     b = s3_conn.get_bucket(bucket_name, validate=False)
     k = Key(b, key_name)
     log.debug(("Checking if key '%s' exists in bucket '%s'" % (key_name, bucket_name)))
     return k.exists()
-
+logging.getLogger('boto').setLevel(logging.INFO)
+LOCAL_PATH = os.getcwd()
+CM_HOME = '/mnt/cm'
+CM_BOOT_PATH = '/tmp/cm'
+USER_DATA_FILE = 'userData.yaml'
+SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
+CM_REMOTE_FILENAME = 'cm.tar.gz'
+CM_LOCAL_FILENAME = 'cm.tar.gz'
+CM_REV_FILENAME = 'cm_revision.txt'
+PRS_FILENAME = 'post_start_script'
+AMAZON_S3_URL = 'http://s3.amazonaws.com/'
+DEFAULT_BUCKET_NAME = 'cloudman'
+log = None
 
 def _setup_global_logger():
     formatter = logging.Formatter('%(asctime)s %(levelname)-5s %(module)8s:%(lineno)-3d - %(message)s')
@@ -196,11 +185,9 @@ def _setup_global_logger():
     new_logger.setLevel(logging.DEBUG)
     return new_logger
 
-
 def usage():
     print 'Usage: python {0} [restart]'.format(sys.argv[0])
     sys.exit(1)
-
 
 def _start_nginx(ud):
     log.info('<< Starting nginx >>')
@@ -239,7 +226,6 @@ def _start_nginx(ud):
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
 
-
 def _get_nginx_dir():
     '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
     nginx_dir = None
@@ -255,7 +241,6 @@ def _get_nginx_dir():
                     nginx_dir = path
     log.debug("Located nginx dir as '{0}'".format(nginx_dir))
     return nginx_dir
-
 
 def _fix_nginx_upload(ud):
     '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
@@ -282,7 +267,6 @@ def _fix_nginx_upload(ud):
             'client_max_body_size is already defined in {0}'.format(nginx_conf_path)
     else:
         log.error('{0} not found to update'.format(nginx_conf_path))
-
 
 def _get_s3connection(ud):
     access_key = ud['access_key']
@@ -321,7 +305,6 @@ def _get_s3connection(ud):
         log.error('Exception getting S3 connection; {0}'.format(e))
     return s3_conn
 
-
 def _get_cm(ud):
     log.info('<< Downloading CloudMan >>')
     _make_dir(log, CM_HOME)
@@ -358,7 +341,6 @@ def _get_cm(ud):
     log.info(('Attempting to retrieve from from %s' % url))
     return _run(log, ("wget --output-document='%s' '%s'" % (local_cm_file, url)))
 
-
 def _write_cm_revision_to_file(s3_conn, bucket_name):
     ' Get the revision number associated with the CM_REMOTE_FILENAME and save\n    it locally to CM_REV_FILENAME '
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
@@ -368,7 +350,6 @@ def _write_cm_revision_to_file(s3_conn, bucket_name):
             rev_file.write(rev)
         else:
             rev_file.write('9999999')
-
 
 def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
     '\n    Get ``metadata_key`` value for the given key. If ``bucket_name`` or\n    ``remote_filename`` is not found, the method returns ``None``.\n    '
@@ -387,7 +368,6 @@ def _get_file_metadata(conn, bucket_name, remote_filename, metadata_key):
             return k.get_metadata(metadata_key)
     return None
 
-
 def _unpack_cm():
     local_path = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
     log.info(('<< Unpacking CloudMan from %s >>' % local_path))
@@ -399,23 +379,18 @@ def _unpack_cm():
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
             shutil.move(os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
 
-
 def _venvburrito_home_dir():
     return os.getenv('HOME', '/home/ubuntu')
-
 
 def _venvburrito_path():
     home_dir = _venvburrito_home_dir()
     vb_path = os.path.join(home_dir, '.venvburrito/startup.sh')
     return vb_path
 
-
 def _with_venvburrito(cmd):
-    ''
     home_dir = _venvburrito_home_dir()
     vb_path = _venvburrito_path()
     return "/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'".format(home_dir, vb_path, cmd)
-
 
 def _virtualenv_exists(venv_name='CM'):
     '\n    Check if virtual-burrito is installed and if a virtualenv named ``venv_name``\n    exists. If so, return ``True``; ``False`` otherwise.\n    '
@@ -428,7 +403,6 @@ def _virtualenv_exists(venv_name='CM'):
     log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist".format(venv_name))
     return False
 
-
 def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
     '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
     if _virtualenv_exists(cm_venv_name):
@@ -437,7 +411,6 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
         cmd = 'cd {0}; {2}; sh run.sh {1}'.format(CM_HOME, action, ex_cmd)
     return cmd
 
-
 def _start_cm():
     log.debug(("Copying user data file from '%s' to '%s'" % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
@@ -445,25 +418,21 @@ def _start_cm():
     ex_cmd = 'pip install -U boto'
     _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
-
 def _stop_cm(clean=False):
     log.info(('<< Stopping CloudMan from %s >>' % CM_HOME))
     _run(log, _get_cm_control_command(action='--stop-daemon'))
     if clean:
         _run(log, 'rm -rf {0}'.format(CM_HOME))
 
-
 def _start(ud):
     if _get_cm(ud):
         _unpack_cm()
         _start_cm()
 
-
 def _restart_cm(ud, clean=False):
     log.info('<< Restarting CloudMan >>')
     _stop_cm(clean=clean)
     _start(ud)
-
 
 def _post_start_hook(ud):
     log.info('<<Checking for post start script>>')
@@ -486,7 +455,6 @@ def _post_start_hook(ud):
         log.debug('Post start script does not exist; continuing.')
         return True
 
-
 def _fix_etc_hosts():
     ' Without editing /etc/hosts, there are issues with hostname command\n        on NeCTAR (and consequently with setting up SGE).\n    '
     try:
@@ -504,17 +472,14 @@ def _fix_etc_hosts():
     except Exception as e:
         log.error('Trouble fixing /etc/hosts on NeCTAR: {0}'.format(e))
 
-
 def _system_message(message_contents):
     ' Create SYSTEM_MESSAGES_FILE file w/contents as specified.\n    This file is displayed in the UI, and can be embedded in nginx 502 (/opt/galaxy/pkg/nginx/html/errdoc/gc2_502.html)\n    '
     if os.path.exists(SYSTEM_MESSAGES_FILE):
-        with open(SYSTEM_MESSAGES_FILE, 'a+t') as f:
+        with open(SYSTEM_MESSAGES_FILE, 'a+') as f:
             f.write(message_contents)
-
 
 def migrate_1():
     pass
-
 
 def main():
     global log
