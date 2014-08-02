@@ -8,7 +8,6 @@ import cm.util.paths as paths
 from cm.base.controller import BaseController
 from cm.framework import expose
 from cm.services import ServiceRole, ServiceType, service_states
-from cm.util.bunch import BunchToo
 from cm.util.decorators import TestFlag
 
 log = logging.getLogger('cloudman')
@@ -37,7 +36,6 @@ class CM(BaseController):
                                        master_instance_type=self.app.cloud_interface.get_type(),
                                        use_autoscaling=bool(self.app.manager.get_services(
                                                             svc_role=ServiceRole.AUTOSCALE)),
-                                       image_config_support=BunchToo(self.app.config.ic),
                                        CM_url=CM_url,
                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'),
                                        instance_types=instance_types,
