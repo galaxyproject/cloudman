@@ -111,11 +111,11 @@ class UniverseApplication(object):
         if 'role' in self.ud:
             if self.ud['role'] == 'master':
                 log.info("Master starting")
-                from cm.util import master
+                from cm import master
                 self.manager = master.ConsoleManager(self)
             elif self.ud['role'] == 'worker':
                 log.info("Worker starting")
-                from cm.util import worker
+                from cm import worker
                 self.manager = worker.ConsoleManager(self)
             self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
