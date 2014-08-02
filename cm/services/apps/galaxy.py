@@ -6,13 +6,13 @@ import subprocess
 from datetime import datetime
 from string import Template
 
+from cm.conftemplates import nginx
 from cm.services.apps import ApplicationService
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
-from cm.util import templates
 from cm.util.galaxy_conf import attempt_chown_galaxy, attempt_chown_galaxy_if_exists
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
@@ -325,9 +325,9 @@ class GalaxyService(ApplicationService):
             # Customize the appropriate nginx template
             if "1.4" in commands.getoutput("/usr/nginx/sbin/nginx -v"):
                 log.debug("Using nginx v1.4+ template")
-                nginx_tmplt = templates.NGINX_14_CONF_TEMPLATE
+                nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
             else:
-                nginx_tmplt = templates.NGINX_CONF_TEMPLATE
+                nginx_tmplt = nginx.NGINX_CONF_TEMPLATE
             nginx_conf_template = Template(nginx_tmplt)
             params = {
                 'galaxy_home': self.galaxy_home,

@@ -6,12 +6,12 @@ import shutil
 import commands
 from string import Template
 
+from cm.conftemplates import slurm
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.services.apps import ApplicationService
 from cm.util import misc
-from cm.util import templates
 from cm.util.misc import flock
 
 import logging
@@ -116,7 +116,7 @@ class SlurmctldService(ApplicationService):
             os.chown(self.app.path_resolver.slurm_root_tmp,
                 pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
             worker_nodes, worker_names = _worker_nodes_conf()
-            slurm_conf_template = Template(templates.SLURM_CONF_TEMPLATE)
+            slurm_conf_template = Template(slurm.SLURM_CONF_TEMPLATE)
             slurm_conf_params = {
                 "master_hostname": misc.get_hostname(),
                 "num_cpus": max(self.app.manager.num_cpus - 1, 1),  # Reserve 1 CPU

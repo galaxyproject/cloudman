@@ -519,7 +519,6 @@ def migrate_1():
 def main():
     global log
     log = _setup_global_logger()
-    # _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')
@@ -533,6 +532,8 @@ def main():
             sys.exit(0)
         else:
             usage()
+    if ('nectar' in ud.get('cloud_name', '').lower()):
+        _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     _install_conf_files(log, ud)
     _install_authorized_keys(log, ud)
     if ('no_start' not in ud):

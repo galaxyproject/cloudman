@@ -10,9 +10,11 @@ import tarfile
 import time
 import urllib2
 from string import Template
+
+from cm.conftemplates import sge
 from cm.services import ServiceDependency, ServiceRole, service_states
 from cm.services.apps import ApplicationService
-from cm.util import misc, paths, templates
+from cm.util import misc, paths
 
 log = logging.getLogger('cloudman')
 
@@ -151,7 +153,7 @@ class SGEService(ApplicationService):
         # Add master as an execution host
         # Additional execution hosts will be added later, as they start
         exec_nodes = self.app.cloud_interface.get_private_ip()
-        sge_install_template = Template(templates.SGE_INSTALL_TEMPLATE)
+        sge_install_template = Template(sge.SGE_INSTALL_TEMPLATE)
         sge_params = {
             "cluster_name": "GalaxyEC2",
             "admin_host_list": self.app.cloud_interface.get_private_ip(),
@@ -188,13 +190,13 @@ class SGEService(ApplicationService):
             for pe in pes:
                 pe_file_path = os.path.join('/tmp', pe)
                 with open(pe_file_path, 'w') as f:
-                    print >> f, getattr(templates, pe)
+                    print >> f, getattr(sge, pe)
                 misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (
                     self.app.path_resolver.sge_root, pe_file_path))
             log.debug("Creating queue 'all.q'")
 
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
-            all_q_template = Template(templates.ALL_Q_TEMPLATE)
+            all_q_template = Template(sge.ALL_Q_TEMPLATE)
             if self.app.config.hadoop_enabled:
                 all_q_params = {
                     "slots": int(commands.getoutput("nproc")),
@@ -210,7 +212,7 @@ class SGEService(ApplicationService):
 
             with open(SGE_allq_file, 'w') as f:
                 print >> f, all_q_template.substitute(
-                    all_q_params)  # templates.ALL_Q_TEMPLATE
+                    all_q_params)
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
             log.debug(
@@ -225,7 +227,7 @@ class SGEService(ApplicationService):
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
                                 "\n. $SGE_ROOT/default/common/settings.sh\n")
             # Write out the .sge_request file for individual users
-            sge_request_template = Template(templates.SGE_REQUEST_TEMPLATE)
+            sge_request_template = Template(sge.SGE_REQUEST_TEMPLATE)
             sge_request_params = {
                 'psql_home': self.app.path_resolver.pg_home,
                 'galaxy_tools_dir': self.app.path_resolver.galaxy_tools,
@@ -350,7 +352,7 @@ class SGEService(ApplicationService):
                     "sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             host_conf_file = os.path.join(host_conf_dir, str(inst_id))
             with open(host_conf_file, 'w') as f:
-                print >> f, templates.SGE_HOST_CONF_TEMPLATE % (
+                print >> f, sge.SGE_HOST_CONF_TEMPLATE % (
                     inst_private_ip)
             os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
