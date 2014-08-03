@@ -21,6 +21,7 @@ from cm.services.apps.pss import PSSService
 from cm.services.data.filesystem import Filesystem
 from cm.util import comm, misc, paths
 from cm.util.bunch import Bunch
+from cm.util.decorators import TestFlag
 from cm.util.manager import BaseConsoleManager
 from cm.util.misc import flock
 
@@ -168,10 +169,8 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
 
+    @TestFlag(None)
     def mount_nfs(self, master_ip, mount_json):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to mount NFS, but TESTFLAG is set.")
-            return
         mount_points = []
         try:
             # Try to load mount points from json dispatch
@@ -243,10 +242,8 @@ class ConsoleManager(BaseConsoleManager):
         ret_code = subprocess.call("umount -lf '%s'" % path, shell=True)
         log.debug("Process unmounting '%s' returned code '%s'" % (path, ret_code))
 
+    @TestFlag("TEST_WORKERHOSTCERT")
     def get_host_cert(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get host cert, but TESTFLAG is set.")
-            return "TEST_WORKERHOSTCERT"
         w_cert_file = '/tmp/wCert.txt'
         cmd = '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (
             paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
@@ -266,10 +263,8 @@ class ConsoleManager(BaseConsoleManager):
             self.console_monitor.send_node_status()
             return None
 
+    @TestFlag(None)
     def save_authorized_key(self, m_key):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to save authorized key, but TESTFLAG is set.")
-            return
         log.info(
             "Saving master's (i.e., root) authorized key to ~/.ssh/authorized_keys...")
         with open("/root/.ssh/authorized_keys", 'a') as f:
@@ -370,11 +365,8 @@ class ConsoleManager(BaseConsoleManager):
                 return -1
         return 0
 
+    @TestFlag(0)
     def start_sge(self):
-        if self.app.TESTFLAG is True:
-            fakeretcode = 0
-            log.debug("Attempted to start SGE, but TESTFLAG is set. Returning retcode %s" % fakeretcode)
-            return fakeretcode
         log.info("Configuring SGE...")
         sge.fix_libc()
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts

@@ -118,6 +118,7 @@ class Instance(object):
                (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
                 reboot_terminate_logic()
 
+    @TestFlag(None)
     def get_cloud_instance_object(self, deep=False):
         """ Get the instance object for this instance from the library used to
             communicate with the cloud middleware. In the case of boto, this
@@ -131,10 +132,6 @@ class Instance(object):
                     but we'll wait for OCCI or something)
             :return: cloud instance object for this instance
         """
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance cloud object, but TESTFLAG is set. Returning None")
-            return None
         if deep is True:  # reset the current local instance field
             self.inst = None
         if self.inst is None and self.id is not None:
@@ -232,11 +229,8 @@ class Instance(object):
                     self.nfs_sge, self.get_cert, self.sge_started,
                     self.worker_status]
 
+    @TestFlag("TestInstanceID")
     def get_id(self):
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID")
-            return "TestInstanceID"
         if self.inst is not None and self.id is None:
             try:
                 self.inst.update()
@@ -329,6 +323,7 @@ class Instance(object):
         # TODO (qstat -qs {a|c|d|o|s|u|A|C|D|E|S})
         return False
 
+    @TestFlag("running")
     def get_m_state(self):
         """ Update the machine state of the current instance by querying the
             cloud middleware for the instance object itself (via the instance
@@ -340,10 +335,6 @@ class Instance(object):
             :return: the current state of the instance as obtained from the
                      cloud middleware
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Getting m_state for instance {0} but TESTFLAG is set; returning 'running'"
-                      .format(self.get_id()))
-            return "running"
         self.last_state_update = Time.now()
         self.get_cloud_instance_object(deep=True)
         if self.inst:
@@ -380,17 +371,15 @@ class Instance(object):
                       "waiting a bit...".format(self.get_desc(), self.nfs_tfs))
             time.sleep(7)
 
+    @TestFlag(None)
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
-        if self.app.TESTFLAG is True:
-            return
         self.app.manager.console_monitor.conn.send('STATUS_CHECK', self.id)
         # log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
 
+    @TestFlag(None)
     def send_worker_restart(self):
         # log.info("\tMT: Sending restart message to worker %s" % self.id)
-        if self.app.TESTFLAG is True:
-            return
         self.app.manager.console_monitor.conn.send('RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
         log.info("\tMT: Sent RESTART message to worker '%s'" % self.id)
 
@@ -445,12 +434,9 @@ class Instance(object):
                     self.spot_request_id, e))
         return self.spot_state
 
+    @TestFlag("127.0.0.1")
     def get_private_ip(self):
         # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance private IP, but TESTFLAG is set. Returning 127.0.0.1")
-            self.private_ip = '127.0.0.1'
         if self.private_ip is None:
             inst = self.get_cloud_instance_object()
             if inst is not None:

@@ -13,6 +13,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
+from cm.util.decorators import TestFlag
 from cm.util.galaxy_conf import attempt_chown_galaxy, attempt_chown_galaxy_if_exists
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
@@ -79,10 +80,8 @@ class GalaxyService(ApplicationService):
         self.status()
         self.start()
 
+    @TestFlag(None)
     def manage_galaxy(self, to_be_started=True):
-        if self.app.TESTFLAG is True and self.app.LOCALFLAG is False:
-            log.debug("Attempted to manage Galaxy, but TESTFLAG is set.")
-            return
         log.debug("Using Galaxy from '{0}'".format(self.galaxy_home))
         os.putenv("GALAXY_HOME", self.galaxy_home)
         os.putenv("TEMP", self.app.path_resolver.galaxy_temp)
