@@ -35,13 +35,9 @@ class EC2Interface(CloudInterface):
         except:
             pass
 
+    @TestFlag('ami-l0cal1')
     def get_ami(self):
         if self.ami is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get key pair name, but TESTFLAG is set. Returning 'ami-l0cal1'")
-                self.ami = 'ami-l0cal1'
-                return self.ami
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance ami, attempt %s' % i)
@@ -71,13 +67,9 @@ class EC2Interface(CloudInterface):
                     pass
         return self.instance_type
 
+    @TestFlag('id-LOCAL')
     def get_instance_id(self):
         if self.instance_id is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get instance ID, but TESTFLAG is set. Returning 'id-LOCAL'")
-                self.instance_id = 'id-LOCAL'
-                return self.instance_id
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance id, attempt %s' % i)
@@ -92,13 +84,10 @@ class EC2Interface(CloudInterface):
                     pass
         return self.instance_id
 
+    @TestFlag(None)
     def get_instance_object(self):
         log.debug("Getting instance object: %s" % self.instance)
         if self.instance is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get instance object, but TESTFLAG is set. Returning 'None'")
-                return self.instance
             log.debug("Getting instance boto object")
             i_id = self.get_instance_id()
             ec2_conn = self.get_ec2_connection()
@@ -111,13 +100,9 @@ class EC2Interface(CloudInterface):
                 log.debug("Error retrieving instance object: {0}".format(e))
         return self.instance
 
+    @TestFlag('us-local-1a')
     def get_zone(self):
         if self.zone is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get instance zone, but TESTFLAG is set. Returning 'us-east-1a'")
-                self.zone = 'us-east-1a'
-                return self.zone
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance zone, attempt %s' % i)
@@ -132,6 +117,7 @@ class EC2Interface(CloudInterface):
                     pass
         return self.zone
 
+    @TestFlag('b8:8d:12:0e:60:5a')
     def get_mac_address(self):
         if not self._mac_address:
             fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/mac')
@@ -178,12 +164,9 @@ class EC2Interface(CloudInterface):
             log.debug("Fetched security group ids for the first time: %s" % self._security_group_ids)
         return self._security_group_ids
 
+    @TestFlag(['cloudman_sg'])
     def get_security_groups(self):
         if not self._security_groups:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get security groups, but TESTFLAG is set. Returning 'cloudman_sg'")
-                self._security_groups = ['cloudman_sg']
-                return self._security_groups
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -201,13 +184,9 @@ class EC2Interface(CloudInterface):
                     pass
         return self._security_groups
 
+    @TestFlag('local_keypair')
     def get_key_pair_name(self):
         if self.key_pair_name is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get key pair name, but TESTFLAG is set. Returning 'local_keypair'")
-                self.key_pair_name = 'local_keypair'
-                return self.key_pair_name
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -224,13 +203,9 @@ class EC2Interface(CloudInterface):
                     pass
         return self.key_pair_name
 
+    @TestFlag('127.0.0.1')
     def get_private_ip(self):
         if self.self_private_ip is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get private ip, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_private_ip = '127.0.0.1'
-                return self.self_private_ip
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance private IP, attempt %s' % i)
@@ -246,13 +221,9 @@ class EC2Interface(CloudInterface):
                     pass
         return self.self_private_ip
 
+    @TestFlag('localhost')
     def get_local_hostname(self):
         if self.local_hostname is None:
-            if self.app.TESTFLAG is True:
-                log.debug(
-                    "Attempted to get local hostname, but TESTFLAG is set. Returning 'localhost'")
-                self.local_hostname = 'localhost'
-                return self.local_hostname
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -267,17 +238,12 @@ class EC2Interface(CloudInterface):
                     pass
         return self.local_hostname
 
+    @TestFlag('localhost')
     def get_public_hostname(self):
         """
         Return the current public hostname reported by Amazon.
         Public hostname can be changed -- check it every self.update_frequency.
         """
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get public hostname, but TESTFLAG is set. Returning '127.0.0.1'")
-            self.self_public_hostname = 'localhost'
-            self.public_hostname_updated = time.time()
-            return self.public_hostname
         if self.public_hostname is None or (time.time() - self.public_hostname_updated > self.update_frequency):
             for i in range(0, 5):
                 try:
@@ -294,12 +260,9 @@ class EC2Interface(CloudInterface):
                     log.error("Error retrieving FQDN: %s" % e)
         return self.public_hostname
 
+    @TestFlag('127.0.0.1')
     def get_public_ip(self):
         if self.self_public_ip is None:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_public_ip = '127.0.0.1'
-                return self.self_public_ip
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -312,7 +275,6 @@ class EC2Interface(CloudInterface):
                         break
                 except Exception, e:
                     log.error("Error retrieving FQDN: %s" % e)
-
         return self.self_public_ip
 
     def get_fqdn(self):
@@ -354,14 +316,10 @@ class EC2Interface(CloudInterface):
                     break
         return self.region
 
+    @TestFlag(None)
     def get_ec2_connection(self):
         if not self.ec2_conn:
             try:
-                if self.app.TESTFLAG is True:
-                    log.debug("Attempted to establish EC2 connection, but TESTFLAG is set. "
-                              "Returning default EC2 connection.")
-                    self.ec2_conn = EC2Connection(self.aws_access_key, self.aws_secret_key)
-                    return self.ec2_conn
                 log.debug('Establishing boto EC2 connection')
                 # Make sure we get a connection for the correct region
                 region = self.get_region()
@@ -398,6 +356,7 @@ class EC2Interface(CloudInterface):
                 log.error(e)
         return self.s3_conn
 
+    @TestFlag(None)
     def add_tag(self, resource, key, value):
         """ Add tag as key value pair to the `resource` object. The `resource`
         object must be an instance of a cloud object and support tagging.
@@ -416,6 +375,7 @@ class EC2Interface(CloudInterface):
         resource_tags[key] = value
         self.tags[resource.id] = resource_tags
 
+    @TestFlag(None)
     def get_tag(self, resource, key):
         """ Get tag on `resource` cloud object. Return None if tag does not exist.
         """
@@ -434,15 +394,13 @@ class EC2Interface(CloudInterface):
             value = resource_tags.get(key)
         return value
 
+    @TestFlag(None)
     def run_instances(self, num, instance_type, spot_price=None, **kwargs):
         use_spot = False
         if spot_price is not None:
             use_spot = True
         log.info("Adding {0} {1} instance(s)".format(
             num, 'spot' if use_spot else 'on-demand'))
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to start instance(s), but TESTFLAG is set.")
-            return
         worker_ud = self._compose_worker_user_data()
         # log.debug( "Worker user data: %s " % worker_ud )
         if instance_type == '':
@@ -582,6 +540,7 @@ class EC2Interface(CloudInterface):
             log.error("An error when making a spot request: {0}".format(e))
             return False
 
+    @TestFlag(True)
     def terminate_instance(self, instance_id, spot_request_id=None):
         inst_terminated = request_canceled = True
         if instance_id is not None:

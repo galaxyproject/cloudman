@@ -1,9 +1,11 @@
 import socket
 import time
+from urlparse import urlparse
+
 from cm.clouds.ec2 import EC2Interface
 from cm.util import misc
 from cm.util import paths
-from urlparse import urlparse
+from cm.util.decorators import TestFlag
 
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat, SubdomainCallingFormat
 from boto.ec2.connection import EC2Connection
@@ -115,7 +117,7 @@ class EucaInterface(EC2Interface):
 
     def get_s3_connection(self):
         log.debug('Getting boto S3 connection')
-        if self.s3_conn == None:
+        if self.s3_conn is None:
             log.debug("No S3 Connection, creating a new one.")
             if self.s3_url:
                 url = urlparse(self.s3_url)
@@ -191,14 +193,12 @@ class EucaInterface(EC2Interface):
                 self.public_hostname = 'ip-%s' % '-'.join(toks)
         return self.public_hostname
 
+    @TestFlag(None)
     def run_instances(self, num, instance_type, spot_price=None, **kwargs):
         if spot_price is not None:
             log.warning(
                 'Eucalyptus does not support spot instances -- submitting normal request')
         log.info("Adding {0} instance(s)".format(num))
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to start instance(s), but TESTFLAG is set.")
-            return
         worker_ud = self._compose_worker_user_data()
         # log.debug( "Worker user data: %s " % worker_ud )
         if instance_type == '':
