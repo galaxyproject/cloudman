@@ -3,6 +3,7 @@ import urllib
 
 from cm.clouds.ec2 import EC2Interface
 from cm.instance import Instance
+from cm.util.decorators import TestFlag
 
 import boto
 from boto.s3.connection import OrdinaryCallingFormat
@@ -51,14 +52,10 @@ class OSInterface(EC2Interface):
     def get_region_name(self):
         return self.region_name
 
+    @TestFlag(None)
     def get_ec2_connection(self):
         if not self.ec2_conn:
             try:
-                if self.app.TESTFLAG is True:
-                    log.debug("Attempted to establish Nova connection, but TESTFLAG is set. "
-                              "Returning a default connection.")
-                    self.ec2_conn = self._get_default_ec2_conn()
-                    return self.ec2_conn
                 log.debug('Establishing a boto Nova connection')
                 self.ec2_conn = self._get_default_ec2_conn()
                 # Do a simple query to test if provided credentials are valid
@@ -119,15 +116,12 @@ class OSInterface(EC2Interface):
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
 
+    @TestFlag("127.0.0.1")
     def get_public_ip(self):
         """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
             returns empty so do some monkey patching.
         """
         if self.self_public_ip is None:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_public_ip = '127.0.0.1'
-                return self.self_public_ip
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)

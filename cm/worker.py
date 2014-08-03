@@ -447,9 +447,7 @@ class ConsoleMonitor(object):
         self.sleeper = misc.Sleeper()
         self.conn = comm.CMWorkerComm(self.app.cloud_interface.get_instance_id(
         ), self.app.ud['master_ip'])
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get host cert, but TESTFLAG is set.")
-        else:
+        if not self.app.TESTFLAG:
             self.conn.setup()
         self.monitor_thread = threading.Thread(target=self.__monitor)
 
