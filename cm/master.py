@@ -726,7 +726,7 @@ class ConsoleManager(BaseConsoleManager):
                           "7%", "error_msg": ""})
         return dummy
 
-    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+    @TestFlag({"Slurm": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
                "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
@@ -968,13 +968,11 @@ class ConsoleManager(BaseConsoleManager):
                  % (self.app.ud['cluster_name'], Time.now(), (Time.now() - self.startup_time),
                     self.app.ud.get('cloud_name', '')))
 
+    @TestFlag(False)
     def reboot(self, soft=False):
         """
         Reboot the entire cluster, first shutting down appropriate services.
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Restart the cluster but the TESTFLAG is set")
-            return False
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
         log.debug("Initiating cluster reboot.")
@@ -1642,6 +1640,10 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
+    @TestFlag([{"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap":
+                'snap-743ddw12', "visibility": 'Shared'},
+               {"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap":
+                'snap-gf69348h', "visibility": 'Public'}])
     @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
@@ -1650,12 +1652,6 @@ class ConsoleManager(BaseConsoleManager):
         dictionary with ``bucket``, ``snap``, and ``visibility`` keys.
         """
         lst = []
-        if self.app.TESTFLAG is True:
-            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap":
-                       'snap-743ddw12', "visibility": 'Shared'})
-            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap":
-                       'snap-gf69348h', "visibility": 'Public'})
-            return lst
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
@@ -1700,6 +1696,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem retrieving references to shared instances: %s" % e)
         return lst
 
+    @TestFlag(True)
     @synchronized(s3_rlock)
     def delete_shared_instance(self, shared_instance_folder, snap_id):
         """
@@ -1714,10 +1711,6 @@ class ConsoleManager(BaseConsoleManager):
         :type snap_id: str
         :param snap_id: Snapshot ID to be deleted (e.g., ``snap-04c01768``)
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Tried deleting shared instance for folder '%s' and snap '%s' but TESTFLAG is set." % (
-                shared_instance_folder, snap_id))
-            return True
         log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
         ok = True  # Mark if encountered error but try to delete as much as possible
         try:
@@ -1753,6 +1746,7 @@ class ConsoleManager(BaseConsoleManager):
             ok = False
         return ok
 
+    @TestFlag(None)
     def update_file_system(self, file_system_name):
         """ This method is used to update the underlying EBS volume/snapshot
         that is used to hold the provided file system. This is useful when
@@ -1770,9 +1764,6 @@ class ConsoleManager(BaseConsoleManager):
            by the monitor and a new volume is created and file system mounted
         6. Unsuspend services
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to update file system '%s', but TESTFLAG is set." % file_system_name)
-            return None
         log.info("Initiating file system '%s' update." % file_system_name)
         self.cluster_manipulation_in_progress = True
         self._stop_app_level_services()
@@ -1932,6 +1923,7 @@ class ConsoleManager(BaseConsoleManager):
                 pass
         return {}
 
+    @TestFlag(None)
     @synchronized(s3_rlock)
     def update_users_CM(self):
         """
@@ -1943,9 +1935,6 @@ class ConsoleManager(BaseConsoleManager):
         :return: If update was successful, return True.
                  Else, return False
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to update CM, but TESTFLAG is set.")
-            return None
         if self.check_for_new_version_of_CM():
             log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
                      "It will be automatically available the next time this cluster is instantiated."
@@ -2054,15 +2043,13 @@ class ConsoleManager(BaseConsoleManager):
         f.close()
         return True
 
+    @TestFlag({})
     def get_workers_status(self, worker_id=None):
         """
         Retrieves current status of all worker instances or of only worker
         instance whose ID was passed as the parameter. Returns a dict
         where instance ID's are the keys.
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get worker status, but TESTFLAG is set.")
-            return {}
         workers_status = {}
         if worker_id:
             log.info("Checking status of instance '%s'" % worker_id)
@@ -2165,6 +2152,9 @@ class ConsoleManager(BaseConsoleManager):
         if srvs:
             srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
+    @TestFlag({'id': 'localtest', 'ld': "0.00 0.02 0.39",
+               'time_in_state': 4321,
+               'instance_type': 'tester', 'public_ip': "127.0.0.1"})
     def get_status_dict(self):
         """
         Return a status dictionary for the current instance.
@@ -2177,15 +2167,8 @@ class ConsoleManager(BaseConsoleManager):
         public IP address of the instance.
         """
         public_ip = self.app.cloud_interface.get_public_ip()
-        if self.app.TESTFLAG:
-            num_cpus = 1
-            load = "0.00 0.02 0.39"
-            return {'id': 'localtest', 'ld': load,
-                    'time_in_state': misc.formatSeconds(Time.now() - self.startup_time),
-                    'instance_type': 'tester', 'public_ip': public_ip}
-        else:
-            num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
+        num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
+        load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2217,26 +2200,26 @@ class ConsoleMonitor(object):
         # Start the monitor thread
         self.monitor_thread = threading.Thread(target=self.__monitor)
 
+    @TestFlag(None)
     def start(self):
         """
         Start the monitor thread, which monitors and manages all the services
         visible to CloudMan.
         """
         self.last_state_change_time = Time.now()
-        if not self.app.TESTFLAG:
-            # Set 'role' and 'clusterName' tags for the master instance
-            try:
-                i_id = self.app.cloud_interface.get_instance_id()
-                ir = self.app.cloud_interface.get_all_instances(i_id)
-                self.app.cloud_interface.add_tag(
-                    ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
-                self.app.cloud_interface.add_tag(
-                    ir[0].instances[0], 'role', self.app.ud['role'])
-                self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
-                                                 "{0}: {1}".format(self.app.ud['role'],
-                                                                   self.app.ud['cluster_name']))
-            except Exception, e:
-                log.debug("Error setting tags on the master instance: %s" % e)
+        # Assign tags for the master instance
+        try:
+            i_id = self.app.cloud_interface.get_instance_id()
+            ir = self.app.cloud_interface.get_all_instances(i_id)
+            self.app.cloud_interface.add_tag(
+                ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(
+                ir[0].instances[0], 'role', self.app.ud['role'])
+            self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
+                                             "{0}: {1}".format(self.app.ud['role'],
+                                                               self.app.ud['cluster_name']))
+        except Exception, e:
+            log.debug("Error setting tags on the master instance: %s" % e)
         self.monitor_thread.start()
 
     def shutdown(self):
