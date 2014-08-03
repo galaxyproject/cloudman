@@ -15,6 +15,7 @@ from cm.conftemplates import sge
 from cm.services import ServiceDependency, ServiceRole, service_states
 from cm.services.apps import ApplicationService
 from cm.util import misc, paths
+from cm.util.decorators import TestFlag
 
 log = logging.getLogger('cloudman')
 
@@ -110,10 +111,8 @@ class SGEService(ApplicationService):
         else:
             return ""
 
+    @TestFlag(False)
     def unpack_sge(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to unpack SGE, but TESTFLAG is set.")
-            return False
         log.debug("Unpacking SGE from '%s'" % self.app.path_resolver.sge_tars)
         os.putenv('SGE_ROOT', self.app.path_resolver.sge_root)
         # Ensure needed directory exists
@@ -168,10 +167,8 @@ class SGEService(ApplicationService):
 
         return sge_install_template.substitute(sge_params)
 
+    @TestFlag(None)
     def configure_sge(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get volumes, but TESTFLAG is set.")
-            return None
         log.info("Setting up SGE...")
         SGE_config_file = '%s/galaxyEC2.conf' % self.app.path_resolver.sge_root
         with open(SGE_config_file, 'w') as f:
