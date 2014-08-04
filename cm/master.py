@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 import logging.config
 import os
+import pyclbr
 import shutil
 import subprocess
 import threading
@@ -21,9 +22,9 @@ from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
-# from cm.services.apps.sge import SGEService
-from cm.services.apps.slurmctld import SlurmctldService
-from cm.services.apps.slurmd import SlurmdService
+# from cm.services.apps.jobmanagers.sge import SGEService
+from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
+from cm.services.apps.jobmanagers.slurmd import SlurmdService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
@@ -369,7 +370,7 @@ class ConsoleManager(BaseConsoleManager):
         previously defined cluster services.
         """
         log.debug("Checking for and adding any previously defined cluster services")
-        return self.add_preconfigured_filesystems() and self.add_preconfigured_applications()
+        return self.add_preconfigured_filesystems() and self.add_preloaded_services()
 
     def add_preconfigured_filesystems(self):
         try:
@@ -436,11 +437,11 @@ class ConsoleManager(BaseConsoleManager):
             self.manager_started = False
             return False
 
-    def add_preconfigured_applications(self):
+    def add_preloaded_services(self):
         """
-        Dynamically add any previously available applications to the service
-        registry, which will in turn start those apps. The service list is
-        extracted from the user data.
+        Dynamically add any previously available services to the master's service
+        registry, which will in turn start those services. The list of preloaded
+        services is extracted from the user data entry ``services``.
 
         Note that this method is automatically called when an existing cluster
         is being recreated.
@@ -448,48 +449,69 @@ class ConsoleManager(BaseConsoleManager):
         In order for the dynamic service loading to work, there are some requirements
         on the structure of user data and services themselves. Namely, user data
         must contain a name for the service. The service implementation must be in
-        a module inside ``cm.services.apps`` and it must match the service name
-        (e.g., ``cm.services.apps.proftpd``). The provided service/file name must
-        match the service class without the "Service" string. For example, if service
-        name is ``ProFTPd``, file name must be proftpd.py and the service class
-        name must be ``ProFTPdService``, properly capitilized.
+        a (sub)module inside ``cm.services.apps`` and it must implement a class
+        that matches the specified the user data service name (e.g., if the
+        service name in user data is ``ProFTPd``, a module inside ``cm.services.apps``
+        must exist that implements a class whose name contains ``ProFTPd``,
+        properly capitalized).
         """
-        try:
-            ok = True  # Flag keeping up with progress
-            # Process the current cluster config
-            log.debug("Processing previously-available application services in "
-                      "an existing cluster config")
-            # TODO: Should we inspect a provided path for service availability vs. UD only?
-            if "services" in self.app.ud:
-                log.debug("Previously-available applications: {0}"
-                          .format(self.app.ud['services']))
-                for srvc in self.app.ud['services']:
-                    service_class = None
-                    svc_name = srvc.get('name', None)
-                    if svc_name:
-                        # Import service module and get a reference to the service object
-                        try:
-                            module_name = svc_name.lower()
-                            svc_name += "Service"  # Service class name must match this str!
-                            module = __import__('cm.services.apps.' +
-                                                module_name,
-                                                fromlist=[svc_name])
-                            service_class = getattr(module, svc_name)
-                        except Exception, e:
-                            log.warning("Trouble importing service class {0}: {1}"
-                                        .format(svc_name, e))
-                    if service_class:
-                        # Add the service into the service registry
-                        self.add_master_service(service_class(self.app))
-                    else:
-                        ok = False
-                        log.warning("Could not find service class matching "
-                                    "userData service entry: %s" % svc_name)
-            return ok
-        except Exception, e:
-            log.error("Error processing applications in existing cluster configuration: %s" % e)
-            self.manager_started = False
-            return False
+        def _do_imports(base_dir, services_to_create):
+            """
+            Recursively search for python modules inside the ``base_dir`` path
+            and create objects for each of the discovered classes, given the
+            service name is provided in the ``services_to_create`` list, appending
+            the created objects to the master service registry list.
+            For example, if ``services_to_create`` contains a list like so
+            ``['Galaxy', 'Slurmctld'] and the ``base_dir`` contains a module
+            that defines a class ``Galaxy`` and ``Slurmctld``, instantiate those
+            two objects.
+            """
+            log.debug("Looking for importable service classes in {0}".format(base_dir))
+            for name in os.listdir(base_dir):
+                if name.endswith(".py") and name != "__init__.py":
+                    module = name[:-3]  # Strip the file extension
+                    package_path = base_dir.replace('/', '.')
+                    module_path = '.'.join([package_path, module])
+                    # Get all the class names defined in the given module
+                    discovered_classes = pyclbr.readmodule(module_path).keys()
+                    # log.debug("In module {0}, discovered classes: {1}"
+                    #           .format(module_path, discovered_classes))
+                    try:
+                        # Import the given module w/ all the discovered classes
+                        module = __import__(module_path, fromlist=discovered_classes)
+                        for discovered_class in discovered_classes:
+                            # Check if the an object of the discovered class should
+                            # be created. The ones that should be rreated are
+                            # provided in the ``services_to_create`` function argument.
+                            # Note that the name comparisson is done based on
+                            # the service name alone, without the `Service` part
+                            # of the class name (eg, compare `Slurm` rather than
+                            # `SlurmService`)
+                            if discovered_class.replace('Service', '') in services_to_create:
+                                try:
+                                    service_object = getattr(module, discovered_class)
+                                    log.debug("Loaded class: {0}.{1}".format(module_path,
+                                              service_object.__name__))
+                                    # Add the object into the master's service registry
+                                    self.add_master_service(service_object(self.app))
+                                except Exception, e:
+                                    log.debug("Trouble instantiating class {0}: {1}"
+                                              .format(discovered_class, e))
+                    except Exception, e:
+                        log.debug("Trouble importing module {0}: {1}" % (module_path, e))
+                elif os.path.isdir(os.path.join(base_dir, name)):
+                    _do_imports(os.path.join(base_dir, name), services_to_create)
+
+        log.debug("Processing previously-available application services in "
+                  "an existing cluster config")
+        preloaded_services = []
+        for service in self.app.ud.get('services', []):
+            if service.get('name', None):
+                preloaded_services.append(service['name'])
+        if preloaded_services:
+            log.debug("Discovered preloaded services: {0}".format(preloaded_services))
+            _do_imports('cm/services/apps', services_to_create=preloaded_services)
+        return True
 
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
         """
@@ -2489,6 +2511,7 @@ class ConsoleMonitor(object):
             m = self.conn.recv()
 
     def __monitor(self):
+        log.debug("Starting __monitor thread")
         if not self.app.manager.manager_started:
             if not self.app.manager.start():
                 log.critical("\n\n***** Manager failed to start *****\n")

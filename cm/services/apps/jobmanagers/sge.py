@@ -13,7 +13,7 @@ from string import Template
 
 from cm.conftemplates import sge
 from cm.services import ServiceDependency, ServiceRole, service_states
-from cm.services.apps import ApplicationService
+from cm.services.apps.jobmanagers import BaseJobManager
 from cm.util import misc, paths
 from cm.util.decorators import TestFlag
 
@@ -37,7 +37,7 @@ def fix_libc():
             log.error("SGE config is likely to fail because '/lib64/libc.so.6' does not exist.")
 
 
-class SGEService(ApplicationService):
+class SGEService(BaseJobManager):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
         self.svc_roles = [ServiceRole.SGE]
