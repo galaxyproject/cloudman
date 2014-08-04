@@ -10,7 +10,7 @@ from cm.conftemplates import slurm
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
-from cm.services.apps import ApplicationService
+from cm.services.apps.jobmanagers import BaseJobManager
 from cm.util import misc
 from cm.util.misc import flock
 
@@ -18,7 +18,7 @@ import logging
 log = logging.getLogger('cloudman')
 
 
-class SlurmctldService(ApplicationService):
+class SlurmctldService(BaseJobManager):
     def __init__(self, app):
         super(SlurmctldService, self).__init__(app)
         self.svc_roles = [ServiceRole.SLURMCTLD]
@@ -56,6 +56,7 @@ class SlurmctldService(ApplicationService):
             time.sleep(3)
             misc.run("/sbin/start-stop-daemon --retry TERM/5/KILL/10 --stop "
                      "--exec /usr/sbin/slurmctld")
+            misc.run("service munge stop")
             self.state = service_states.SHUT_DOWN
         else:
             log.debug("Tried to remove {0} service but no deamon running?"

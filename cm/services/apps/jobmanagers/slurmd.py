@@ -1,14 +1,14 @@
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
-from cm.services.apps import ApplicationService
+from cm.services.apps.jobmanagers import BaseJobManager
 from cm.util import misc
 
 import logging
 log = logging.getLogger('cloudman')
 
 
-class SlurmdService(ApplicationService):
+class SlurmdService(BaseJobManager):
     def __init__(self, app):
         super(SlurmdService, self).__init__(app)
         self.svc_roles = [ServiceRole.SLURMD]
