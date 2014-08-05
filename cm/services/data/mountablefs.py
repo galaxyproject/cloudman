@@ -15,11 +15,12 @@ log = logging.getLogger('cloudman')
 
 class MountableFS(object):
 
-    def __init__(self, filesystem, fs_type, device):
+    def __init__(self, filesystem, fs_type, device, mount_options=None):
         self.fs = filesystem  # File system encapsulating this implementation
         self.fs_type = fs_type
         self.app = self.fs.app  # A local reference to app (used by @TestFlag)
         self.device = device
+        self.mount_options = mount_options
 
     def __str__(self):
         return str(self.device)
@@ -31,6 +32,7 @@ class MountableFS(object):
         details['device'] = self.device
         details['DoT'] = "No"
         details['kind'] = self.fs_type
+        details['options'] = self.mount_options
         return details
 
     def start(self):
@@ -60,15 +62,16 @@ class MountableFS(object):
         Do the actual mounting of the device locally.
         """
         log.debug("Mounting device of type {0} from location {0} to mount pount {1}".format(self.fs_type, self.device, self.fs.mount_point))
-        cmd = '/bin/mount -t {0} {1} {2}'.format(self.fs_type, self.device, self.fs.mount_point)
+        options = "-o {0}".format(self.mount_options) if self.mount_options else ""
+        cmd = '/bin/mount -t {0} {1} {2} {3}'.format(self.fs_type, options, self.device, self.fs.mount_point)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         _, _ = process.communicate()
         if process.returncode != 0:
-            log.error("Trouble mounting file system at {0} from server {1} of type {2}"
-                .format(self.fs.mount_point, self.device, self.fs_type))
+            log.error("Trouble mounting file system at {0} from server {1} of type {2} with mount options: {3}"
+                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
         else:
-            log.info("Successfully mounted file system at {0} from {1} of type {2}"
-                .format(self.fs.mount_point, self.device, self.fs_type))
+            log.info("Successfully mounted file system at: {0} from: {1} of type: {2} with mount options: {3}"
+                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
 
     def unmount(self):
         """

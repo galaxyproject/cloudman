@@ -29,6 +29,9 @@ class GalaxyReportsService(ApplicationService):
         self.conf_dir = os.path.join(
             self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
+    def __repr__(self):
+        return "Galaxy Reports service on port {0}".format(DEFAULT_REPORTS_PORT)
+
     def _check_galaxy_reports_running(self):
         return self._port_bound(self.reports_port)
 
@@ -64,24 +67,29 @@ class GalaxyReportsService(ApplicationService):
             description='proxy_prefix_props')
 
     def remove(self, synchronous=False):
-        log.info("Removing '%s' service" % self.name)
-        super(GalaxyReportsService, self).remove(synchronous)
-        self.state = service_states.SHUTTING_DOWN
-        log.info("Shutting down Galaxy Reports...")
-        if self._run("stop"):
+        if self.state == service_states.RUNNING:
+            log.info("Removing '%s' service" % self.name)
+            super(GalaxyReportsService, self).remove(synchronous)
+            self.state = service_states.SHUTTING_DOWN
+            log.info("Shutting down Galaxy Reports...")
+            if self._run("stop"):
+                self.state = service_states.SHUT_DOWN
+                # Move all log files
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/reports_webapp.log; do mv \"$f\" \"$f.%s\"; done'" %
+                                datetime.utcnow().strftime('%H_%M'), shell=True)
+            else:
+                log.info("Failed to shutdown down Galaxy Reports...")
+                self.state = service_states.ERROR
+        elif self.state == service_states.UNSTARTED:
             self.state = service_states.SHUT_DOWN
-            # Move all log files
-            subprocess.call("bash -c 'for f in $GALAXY_HOME/reports_webapp.log; do mv \"$f\" \"$f.%s\"; done'" %
-                            datetime.utcnow().strftime('%H_%M'), shell=True)
         else:
-            log.info("Failed to shutdown down Galaxy Reports...")
-            self.state = service_states.ERROR
+            log.debug("{0} service not running (state: {1}) so not removing it."
+                      .format(self.name, self.state))
 
     def _run(self, args):
         command = '%s - galaxy -c "export GALAXY_REPORTS_CONFIG_DIR=\'%s\'; sh $GALAXY_HOME/run_reports.sh %s"' % (
             paths.P_SU, self.conf_dir, args)
-        return misc.run(command, "Error invoking Galaxy Reports",
-            "Successfully invoked Galaxy Reports.")
+        return misc.run(command)
 
     def status(self):
         if self.state == service_states.SHUTTING_DOWN or \
@@ -89,7 +97,7 @@ class GalaxyReportsService(ApplicationService):
            self.state == service_states.UNSTARTED or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif self._check_daemon('galaxy_reports'):
+        elif self._check_daemon('galaxyreports'):
             if self._check_galaxy_reports_running():
                 self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:

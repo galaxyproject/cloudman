@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-'\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)\n    boto http://code.google.com/p/boto/ (easy_install boto)\n'
+"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
 import logging
 import os
 import shutil
@@ -136,8 +136,9 @@ from boto.s3.key import Key
 from boto.exception import S3ResponseError
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
+    log.debug(('Getting file %s from bucket %s' % (remote_filename, bucket_name)))
     try:
-        b = s3_conn.get_bucket(bucket_name)
+        b = s3_conn.get_bucket(bucket_name, validate=False)
         k = Key(b, remote_filename)
         log.debug(("Attempting to retrieve file '%s' from bucket '%s'" % (remote_filename, bucket_name)))
         if k.exists():
@@ -150,6 +151,13 @@ def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_file
     except S3ResponseError as e:
         log.error(("Failed to get file '%s' from bucket '%s': %s" % (remote_filename, bucket_name, e)))
         return False
+
+def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
+    '\n    Check if an object (ie, key) of name ``key_name`` exists in bucket\n    ``bucket_name``. Return ``True`` if so, ``False`` otherwise.\n    '
+    b = s3_conn.get_bucket(bucket_name, validate=False)
+    k = Key(b, key_name)
+    log.debug(("Checking if key '%s' exists in bucket '%s'" % (key_name, bucket_name)))
+    return k.exists()
 logging.getLogger('boto').setLevel(logging.INFO)
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
@@ -207,13 +215,13 @@ def _start_nginx(ud):
         log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
         os.makedirs(upload_store_dir)
     if (not _is_running(log, 'nginx')):
-        if (not _run(log, '/opt/galaxy/sbin/nginx')):
+        if (not _run(log, os.path.join(nginx_dir, 'sbin/nginx'))):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')
-            _run(log, '/opt/galaxy/sbin/nginx')
+            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
     else:
         log.debug('nginx already running; reloading it')
-        _run(log, '/opt/galaxy/sbin/nginx -s reload')
+        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
@@ -231,6 +239,7 @@ def _get_nginx_dir():
                 path = output.strip()
                 if os.path.exists(path):
                     nginx_dir = path
+    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
     return nginx_dir
 
 def _fix_nginx_upload(ud):
@@ -291,7 +300,7 @@ def _get_s3connection(ud):
     s3_conn = None
     try:
         s3_conn = S3Connection(aws_access_key_id=access_key, aws_secret_access_key=secret_key, is_secure=is_secure, port=port, host=host, path=path, calling_format=calling_format)
-        log.debug('Got boto S3 connection')
+        log.debug(('Got boto S3 connection: %s' % s3_conn))
     except BotoServerError as e:
         log.error('Exception getting S3 connection; {0}'.format(e))
     return s3_conn
@@ -311,16 +320,14 @@ def _get_cm(ud):
     if (use_object_store and ('access_key' in ud) and ('secret_key' in ud)):
         if ((ud['access_key'] is not None) and (ud['secret_key'] is not None)):
             s3_conn = _get_s3connection(ud)
-    b = None
     if s3_conn:
         if ('bucket_cluster' in ud):
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if b:
-            log.info(("Cluster bucket '%s' found." % b.name))
-            if _get_file_from_bucket(log, s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, b.name)
-                log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
-                return True
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+                log.info(("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster']))
+                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME, local_cm_file):
+                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
+                    log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
+                    return True
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name)))
             _write_cm_revision_to_file(s3_conn, default_bucket_name)
@@ -397,19 +404,20 @@ def _virtualenv_exists(venv_name='CM'):
     log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist".format(venv_name))
     return False
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
-    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv.\n\n    Example return string: ``cd /mnt/cm; sh run.sh --daemon``\n    '
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
+    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito('workon {0}; cd {1}; sh run.sh {2}'.format(cm_venv_name, CM_HOME, action))
+        cmd = _with_venvburrito('workon {0}; cd {1}; {3}; sh run.sh {2}'.format(cm_venv_name, CM_HOME, action, ex_cmd))
     else:
-        cmd = 'cd {0}; sh run.sh {1}'.format(CM_HOME, action)
+        cmd = 'cd {0}; {2}; sh run.sh {1}'.format(CM_HOME, action, ex_cmd)
     return cmd
 
 def _start_cm():
     log.debug(("Copying user data file from '%s' to '%s'" % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info(('<< Starting CloudMan in %s >>' % CM_HOME))
-    _run(log, _get_cm_control_command(action='--daemon'))
+    ex_cmd = 'pip install -U boto'
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 def _stop_cm(clean=False):
     log.info(('<< Stopping CloudMan from %s >>' % CM_HOME))
@@ -456,8 +464,12 @@ def _fix_etc_hosts():
         ip = fp.read()
         fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
         hn = fp.read()
-        _run(log, 'echo "# Added by CloudMan for NeCTAR" >> /etc/hosts')
-        _run(log, 'echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(ip=ip, hn1=hn, hn2=hn.split('.')[0]))
+        line = '{ip} {hn1} {hn2}'.format(ip=ip, hn1=hn, hn2=hn.split('.')[0])
+        with open('/etc/hosts', 'a+') as f:
+            if (not any(((line.strip() == x.rstrip('\r\n')) for x in f))):
+                log.debug(('Appending line %s to /etc/hosts' % line))
+                f.write('# Added by CloudMan for NeCTAR\n')
+                f.write((line + '\n'))
     except Exception as e:
         log.error('Trouble fixing /etc/hosts on NeCTAR: {0}'.format(e))
 
@@ -476,7 +488,7 @@ def main():
     if (not _virtualenv_exists()):
         _run(log, 'easy_install oca')
         _run(log, 'easy_install Mako==0.7.0')
-        _run(log, 'easy_install boto==2.6.0')
+        _run(log, 'easy_install boto==2.30.0')
         _run(log, 'easy_install hoover')
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)

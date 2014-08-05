@@ -1,6 +1,7 @@
 import os
 import shutil
 import urllib2
+import commands
 import subprocess
 from datetime import datetime
 from string import Template
@@ -321,18 +322,27 @@ class GalaxyService(ApplicationService):
                     web_thread_count = 9
                 for i in range(web_thread_count):
                     galaxy_server += "server localhost:808%s;" % i
-            # Customize the template
-            nginx_conf_template = Template(templates.NGINX_CONF_TEMPLATE)
+            # Customize the appropriate nginx template
+            if "1.4" in commands.getoutput("/usr/nginx/sbin/nginx -v"):
+                log.debug("Using nginx v1.4+ template")
+                nginx_tmplt = templates.NGINX_14_CONF_TEMPLATE
+            else:
+                nginx_tmplt = templates.NGINX_CONF_TEMPLATE
+            nginx_conf_template = Template(nginx_tmplt)
             params = {
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server
             }
-            templ = nginx_conf_template.substitute(params)
-            # Write out the file
+            template = nginx_conf_template.substitute(params)
+
+            # Write out the files
             nginx_config_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
             with open(nginx_config_file, 'w') as f:
-                print >> f, templ
+                print >> f, template
+
+            nginx_cmdline_config_file = os.path.join(nginx_dir, 'conf', 'commandline_utilities_http.conf')
+            misc.run('touch {0}'.format(nginx_cmdline_config_file))
             # Reload nginx process, specifying the newly generated config file
             misc.run('{0} -c {1} -s reload'.format(
                 os.path.join(nginx_dir, 'sbin', 'nginx'), nginx_config_file))

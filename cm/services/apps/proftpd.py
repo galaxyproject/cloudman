@@ -25,7 +25,7 @@ class ProFTPdService(ApplicationService):
         self.svc_roles = [ServiceRole.PROFTPD]
         self.name = ServiceRole.to_string(ServiceRole.PROFTPD)
         self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
-            ServiceDependency(self, ServiceRole.GALAXY_DATA)]
+                             ServiceDependency(self, ServiceRole.GALAXY_DATA)]
 
     def start(self):
         """
@@ -53,14 +53,27 @@ class ProFTPdService(ApplicationService):
         # This is a bit dodgy but ports are hardcoded in CBL so shoudl be a pretty
         # safe bet for the time being
         misc.replace_string('/usr/proftpd/etc/proftpd.conf',
-            'galaxy@localhost:5840', 'galaxy@localhost:{0}'.format(paths.C_PSQL_PORT))
+                            'galaxy@localhost:5840',
+                            'galaxy@localhost:{0}'.format(paths.C_PSQL_PORT))
         misc.replace_string('/usr/proftpd/etc/proftpd.conf',
-            '/mnt/galaxyData', self.app.path_resolver.galaxy_data)
+                            '/mnt/galaxyData',
+                            self.app.path_resolver.galaxy_data)
+        # Verify that the expected config path exists.  This is expected to be
+        # /mnt/galaxy/tools/proftpd
+        # TODO just use /usr/proftpd.  Should be a simple update to the init.d
+        expected_config_path = os.path.join(self.app.path_resolver.galaxy_data, 'tools', 'proftpd')
+        if not os.path.exists(expected_config_path):
+            misc.run('ln -s /usr/proftp %s' % expected_config_path)
         # Setup the data dir for FTP
         ftp_data_dir = '%s/tmp/ftp' % self.app.path_resolver.galaxy_data
         if not os.path.exists(ftp_data_dir):
             os.makedirs(ftp_data_dir)
         attempt_chown_galaxy(ftp_data_dir)
+        # Some images have vsFTPd server included so stop it first
+        vsFTPd_exists = misc.run('status vsftpd', quiet=True)
+        if vsFTPd_exists and 'start/running' in vsFTPd_exists:
+            log.debug("Stopping vsFTPd")
+            misc.run('stop vsftpd')
         # Start the server now
         if misc.run('/etc/init.d/proftpd start'):
             self.state = service_states.RUNNING

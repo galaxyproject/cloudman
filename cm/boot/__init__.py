@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 """
+This module is used to generate CloudMan's contextualization script ``cm_boot.py``.
+To make changes to that script, make desired changes in this file and then, from
+CloudMan's root directory, invoke ``python make_boot_script.py`` to update
+``cm_boot.py`` also residing in the root dir.
+
 Requires:
-    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (easy_install pyyaml)
-    boto http://code.google.com/p/boto/ (easy_install boto)
+    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)
+    boto https://github.com/boto/boto/ (pip install boto)
 """
 import logging
 import os
@@ -18,10 +23,9 @@ from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCal
 
 from .util import _run, _is_running, _make_dir
 from .conf import _install_authorized_keys, _install_conf_files, _configure_nginx
-from .object_store import _get_file_from_bucket
+from .object_store import _get_file_from_bucket, _key_exists_in_bucket
 
-logging.getLogger(
-    'boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
+logging.getLogger('boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
 
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
@@ -91,22 +95,21 @@ def _start_nginx(ud):
             try:
                 upload_store_dir = ul.strip().split(' ')[1].strip(';')
             except Exception, e:
-                log.error(
-                    "Trouble parsing nginx conf line {0}: {1}".format(ul, e))
+                log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
     if not os.path.exists(upload_store_dir):
         rmdir = True
         log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
         os.makedirs(upload_store_dir)
     # TODO: Use nginx_dir as well vs. this hardcoded path
     if not _is_running(log, 'nginx'):
-        if not _run(log, '/opt/galaxy/sbin/nginx'):
+        if not _run(log, os.path.join(nginx_dir, 'sbin/nginx')):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
-            _run(log, '/opt/galaxy/sbin/nginx')
+            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
     else:
         # nginx already running, so reload
         log.debug("nginx already running; reloading it")
-        _run(log, '/opt/galaxy/sbin/nginx -s reload')
+        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
@@ -128,6 +131,7 @@ def _get_nginx_dir():
                 path = output.strip()
                 if os.path.exists(path):
                     nginx_dir = path
+    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
     return nginx_dir
 
 
@@ -215,7 +219,7 @@ def _get_s3connection(ud):
             path=path,
             calling_format=calling_format,
         )
-        log.debug('Got boto S3 connection')
+        log.debug('Got boto S3 connection: %s' % s3_conn)
     except BotoServerError as e:
         log.error("Exception getting S3 connection; {0}".format(e))
 
@@ -240,17 +244,17 @@ def _get_cm(ud):
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3connection(ud)
     # Test for existence of user's bucket and download appropriate CM instance
-    b = None
     if s3_conn:  # if not use_object_store, then s3_connection never gets attempted
         if 'bucket_cluster' in ud:
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if b:  # Try to retrieve user's instance of CM
-            log.info("Cluster bucket '%s' found." % b.name)
-            if _get_file_from_bucket(log, s3_conn, b.name, CM_REMOTE_FILENAME, local_cm_file):
-                _write_cm_revision_to_file(s3_conn, b.name)
-                log.info("Restored Cloudman from bucket_cluster %s" %
-                         (ud['bucket_cluster']))
-                return True
+            # Try to retrieve user's instance of CM
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+                log.info("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster'])
+                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'],
+                   CM_REMOTE_FILENAME, local_cm_file):
+                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
+                    log.info("Restored Cloudman from bucket_cluster %s" %
+                             (ud['bucket_cluster']))
+                    return True
         # ELSE: Attempt to retrieve default instance of CM from local s3
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (
@@ -360,21 +364,22 @@ def _virtualenv_exists(venv_name='CM'):
     return False
 
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM'):
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
     """
     Compose a system level command used to control (i.e., start/stop) CloudMan.
     Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``
     or ``--reload``. Note that this method will check if a virtualenv
     ``cm_venv_name`` exists and, if it does, the returned control command
-    will include activation of the virtualenv.
+    will include activation of the virtualenv. If the extra command ``ex_cmd``
+    is provided, insert that command into the returned activation command.
 
-    Example return string: ``cd /mnt/cm; sh run.sh --daemon``
+    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``
     """
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito("workon {0}; cd {1}; sh run.sh {2}"
-            .format(cm_venv_name, CM_HOME, action))
+        cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2}"
+            .format(cm_venv_name, CM_HOME, action, ex_cmd))
     else:
-        cmd = "cd {0}; sh run.sh {1}".format(CM_HOME, action)
+        cmd = "cd {0}; {2}; sh run.sh {1}".format(CM_HOME, action, ex_cmd)
     return cmd
 
 
@@ -384,7 +389,8 @@ def _start_cm():
     shutil.copyfile(os.path.join(
         CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
-    _run(log, _get_cm_control_command(action='--daemon'))
+    ex_cmd = "pip install -U boto"  # Required for VPC for AMI v2.3
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 
 def _stop_cm(clean=False):
@@ -448,9 +454,12 @@ def _fix_etc_hosts():
         fp = urllib.urlopen(
             'http://169.254.169.254/latest/meta-data/public-hostname')
         hn = fp.read()
-        _run(log, 'echo "# Added by CloudMan for NeCTAR" >> /etc/hosts')
-        _run(log, 'echo "{ip} {hn1} {hn2}" >> /etc/hosts'.format(
-            ip=ip, hn1=hn, hn2=hn.split('.')[0]))
+        line = "{ip} {hn1} {hn2}".format(ip=ip, hn1=hn, hn2=hn.split('.')[0])
+        with open('/etc/hosts', 'a+') as f:
+            if not any(line.strip() == x.rstrip('\r\n') for x in f):
+                log.debug("Appending line %s to /etc/hosts" % line)
+                f.write("# Added by CloudMan for NeCTAR\n")
+                f.write(line + '\n')
     except Exception, e:
         log.error("Trouble fixing /etc/hosts on NeCTAR: {0}".format(e))
 
@@ -490,7 +499,7 @@ def main():
         # ``run.sh``?
         _run(log, 'easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
         _run(log, 'easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run(log, 'easy_install boto==2.6.0')  # required for older AMIs
+        _run(log, 'easy_install boto==2.30.0')  # required for older AMIs
         _run(log, 'easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)

@@ -16,7 +16,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
 from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxy_reports import GalaxyReportsService
+from cm.services.apps.galaxyreports import GalaxyReportsService
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.migration import MigrationService
@@ -71,7 +71,7 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances() if self.app.cloud_type == 'ec2' else []
+        self.worker_instances = self.get_worker_instances() if (self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
@@ -81,6 +81,7 @@ class ConsoleManager(BaseConsoleManager):
         # host in SGE and thus not be running any jobs
         self.master_exec_host = True
         self.initial_cluster_type = None
+        self.cluster_storage_type = None
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
@@ -265,7 +266,7 @@ class ConsoleManager(BaseConsoleManager):
                             .get_all_snapshots([snap['snap_id']])[0])
                         self.default_galaxy_data_size = self.snapshot.volume_size
                     log.debug("Got default galaxy FS size as {0}GB".format(
-                            self.default_galaxy_data_size))
+                        self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
     @TestFlag(False)
@@ -384,9 +385,9 @@ class ConsoleManager(BaseConsoleManager):
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
                     elif fs['kind'] == 'nfs':
-                        filesystem.add_nfs(fs['nfs_server'], None, None)
+                        filesystem.add_nfs(fs['nfs_server'], None, None, mount_options=fs.get('mount_options', None))
                     elif fs['kind'] == 'gluster':
-                        filesystem.add_glusterfs(fs['gluster_server'])
+                        filesystem.add_glusterfs(fs['gluster_server'], mount_options=fs.get('mount_options', None))
                     elif fs['kind'] == 'transient':
                         filesystem.add_transient_storage(persistent=True)
                     elif fs['kind'] == 'bucket':
@@ -577,7 +578,7 @@ class ConsoleManager(BaseConsoleManager):
             if vol[3] is None:
                 tr.append("%s+nodata" % key)
             else:
-                if vol[3] == True:
+                if vol[3] is True:
                     tr.append("%s+green" % key)
                 else:
                     tr.append("%s+red" % key)
@@ -591,7 +592,7 @@ class ConsoleManager(BaseConsoleManager):
             if vol[3] is None:
                 tr.append([key, "nodata"])
             else:
-                if vol[3] == True:
+                if vol[3] is True:
                     tr.append([key, "green"])
                 else:
                     tr.append([key, "red"])
@@ -882,8 +883,8 @@ class ConsoleManager(BaseConsoleManager):
                 # filtering w/ boto is supported only with ec2
                 f = {'attachment.instance-id':
                      self.app.cloud_interface.get_instance_id()}
-                attached_volumes = self.app.cloud_interface.get_ec2_connection(
-                    ).get_all_volumes(filters=f)
+                attached_volumes = self.app.cloud_interface.get_ec2_connection()\
+                    .get_all_volumes(filters=f)
             else:
                 volumes = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
                 for vol in volumes:
@@ -899,8 +900,8 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def shutdown(self, sd_apps=True, sd_filesystems=True, sd_instances=True,
-        sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
-        rebooting=False):
+                 sd_autoscaling=True, delete_cluster=False, sd_spot_requests=True,
+                 rebooting=False):
         """
         Shut down this cluster. This means shutting down all the services
         (dependent on method arguments) and, optionally, deleting the cluster.
@@ -945,13 +946,16 @@ class ConsoleManager(BaseConsoleManager):
             if num_off == len(self.services):
                 log.debug("All services shut down")
                 break
-            elif rebooting:
+            elif rebooting and self.app.cloud_type == 'ec2':
+                # For the EC2 cloud it's ok to reboot with volumes attached
                 log.debug("Not waiting for all the services to shut down because we're just rebooting.")
                 break
             sleep_time = 6
             time.sleep(sleep_time)
             time_limit -= sleep_time
-        if delete_cluster:
+        # Automatically delete transient clusters on terminate (because no data
+        # will persist so no point in poluting the list of buckets)
+        if delete_cluster or (self.cluster_storage_type == 'transient' and not rebooting):
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
@@ -961,13 +965,20 @@ class ConsoleManager(BaseConsoleManager):
                 self.app.ud.get('cloud_name', '')))
 
     def reboot(self, soft=False):
+        """
+        Reboot the entire cluster, first shutting down appropriate services.
+        """
         if self.app.TESTFLAG is True:
             log.debug("Restart the cluster but the TESTFLAG is set")
             return False
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
         log.debug("Initiating cluster reboot.")
-        self.shutdown(sd_filesystems=False, sd_instances=False, rebooting=True)
+        # Don't detach volumes only on the EC2 cloud
+        sd_filesystems = True
+        if self.app.cloud_type == 'ec2':
+            sd_filesystems = False
+        self.shutdown(sd_filesystems=sd_filesystems, sd_instances=False, rebooting=True)
         if soft:
             if misc.run("{0} restart".format(os.path.join(self.app.ud['boot_script_path'],
                self.app.ud['boot_script_name']))):
@@ -1177,20 +1188,21 @@ class ConsoleManager(BaseConsoleManager):
         log.info("Initiated requested termination of instance. Terminating '%s'." %
                  instance_id)
 
-    def reboot_instance(self, instance_id=''):
+    def reboot_instance(self, instance_id='', count_reboot=True):
         """
         Using cloud middleware API, reboot instance with ID ``instance_id``.
+        ``count_reboot`` indicates whether this count should be counted toward
+        the instance ``self.config.instance_reboot_attempts`` (see `Instance`
+        `reboot` method).
         """
         if instance_id == '':
-            log.warning(
-                "Tried to reboot an instance but did not receive instance ID")
+            log.warning("Tried to reboot an instance but did not receive instance ID")
             return False
         log.info("Specific reboot of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-                inst.reboot()
-        log.info(
-            "Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
+                inst.reboot(count_reboot=count_reboot)
+        log.info("Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
         # Remove master from execution queue automatically
@@ -1261,7 +1273,8 @@ class ConsoleManager(BaseConsoleManager):
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
-        msg = "Initializing '%s' cluster type. Please wait..." % cluster_type
+        self.cluster_storage_type = storage_type
+        msg = "Initializing '{0}' cluster type with storage type '{1}'. Please wait...".format(cluster_type, storage_type)
         log.info(msg)
         self.app.msgs.info(msg)
         if cluster_type == 'Galaxy':
@@ -1298,29 +1311,33 @@ class ConsoleManager(BaseConsoleManager):
                                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                                             if pss > snap['size']:
                                                 size = pss
-                                        fs.add_volume(size=size, from_archive_url=snap['archive_url'])
+                                        from_archive = {'url': snap['archive_url'],
+                                            'md5_sum': snap.get('archive_md5', None)}
+                                        fs.add_volume(size=size, from_archive=from_archive)
                                     else:
                                         log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
                                                   .format(snap['name']))
                                 elif storage_type == 'transient':
-                                    fs.add_transient_storage(from_archive_url=snap['archive_url'])
+                                    from_archive = {'url': snap['archive_url'],
+                                        'md5_sum': snap.get('archive_md5', None)}
+                                    fs.add_transient_storage(from_archive=from_archive)
                                 else:
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))
                             elif 'gluster' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
                                     .format(snap['name']))
-                                fs.add_glusterfs(snap['server'])
+                                fs.add_glusterfs(snap['server'], mount_options=snap.get('mount_options', None))
                             elif 'nfs' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching an nfs based filesystem named {0}"
                                     .format(snap['name']))
-                                fs.add_nfs(snap['server'], None, None)
+                                fs.add_nfs(snap['server'], None, None, mount_options=snap.get('mount_options', None))
                             elif 's3fs' == snap['type'] and 'bucket_name' in snap and 'bucket_a_key' in snap and 'bucket_s_key' in snap:
                                 fs.add_bucket(snap['bucket_name'], snap['bucket_a_key'], snap['bucket_s_key'])
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
                                     .format(snap['type]'], snap['name']))
-                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"\
+                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                             .format(fs.get_full_name(), fs.volumes))
                         self.add_master_service(fs)
             # Add a file system for user's data
@@ -1785,7 +1802,7 @@ class ConsoleManager(BaseConsoleManager):
             return False
 
     def add_fs_bucket(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS],
-        bucket_a_key=None, bucket_s_key=None, persistent=False):
+                      bucket_a_key=None, bucket_s_key=None, persistent=False):
         """
         Add a new file system service for a bucket-based file system.
         """
@@ -1803,7 +1820,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_volume(self, fs_name, fs_kind, vol_id=None, snap_id=None, vol_size=0,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
+                      fs_roles=[ServiceRole.GENERIC_FS], persistent=False, dot=False):
         """
         Add a new file system based on an existing volume, a snapshot, or a new
         volume. Provide ``fs_kind`` to distinguish between these (accepted values
@@ -1819,7 +1836,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_gluster(self, gluster_server, fs_name,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+                       fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
         Add a new file system service for a Gluster-based file system.
         """
@@ -1836,7 +1853,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
-        fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
+                   fs_roles=[ServiceRole.GENERIC_FS], persistent=False):
         """
         Add a new file system service for a NFS-based file system. Optionally,
         provide password-based credentials (``username`` and ``pwd``) for
@@ -1912,7 +1929,7 @@ class ConsoleManager(BaseConsoleManager):
             return None
         if self.check_for_new_version_of_CM():
             log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
-                "It will be automatically available the next time this cluster is instantiated." \
+                "It will be automatically available the next time this cluster is instantiated."
                 % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
@@ -2288,8 +2305,10 @@ class ConsoleMonitor(object):
                                 v.from_snapshot_id for v in srvc.volumes]
                         elif srvc.kind == 'nfs':
                             fs['nfs_server'] = srvc.nfs_fs.device
+                            fs['mount_options'] = srvc.nfs_fs.mount_options
                         elif srvc.kind == 'gluster':
                             fs['gluster_server'] = srvc.gluster_fs.device
+                            fs['mount_options'] = srvc.gluster_fs.mount_options
                         elif srvc.kind == 'transient':
                             pass
                         else:
@@ -2399,7 +2418,7 @@ class ConsoleMonitor(object):
                 with open(os.path.join(self.app.ud['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
                     rev = rev_file.read()
                 misc.set_file_metadata(s3_conn, self.app.ud[
-                   'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
+                    'bucket_cluster'], 'cm.tar.gz', 'revision', rev)
         except Exception, e:
             log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.ud[
                       'bucket_cluster'], e))
@@ -2526,18 +2545,19 @@ class ConsoleMonitor(object):
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (Time.now() - w_instance.last_comm).seconds < 22:
-                        log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
-                            w_instance.get_desc(),
-                            (Time.now() - w_instance.last_comm).seconds))
+                        # log.debug("Instance {0} OK (heard from it {1} secs ago)".format(
+                        #     w_instance.get_desc(),
+                        #     (Time.now() - w_instance.last_comm).seconds))
                         continue
                     # Explicitly check the state of a quiet instance (but only
                     # periodically)
                     elif (Time.now() - w_instance.last_state_update).seconds > 30:
-                        log.debug("Have not checked on quiet instance {0} for a while; checking now"
-                                  .format(w_instance.get_desc()))
+                        log.debug("Have not heard from or checked on instance {0} "
+                            "for a while; checking now.".format(w_instance.get_desc()))
                         w_instance.maintain()
                     else:
-                        log.debug("Not checking quiet instance {0} (last check {1} secs ago)"
+                        log.debug("Instance {0} has been quiet for a while (last check "
+                            "{1} secs ago); will wait a bit longer before a check..."
                             .format(w_instance.get_desc(),
                             (Time.now() - w_instance.last_state_update).seconds))
             self.__add_services()
@@ -2633,10 +2653,10 @@ class Instance(object):
         elif state == instance_states.RUNNING:
             log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
                 "last m_state change before {3} | time_rebooted before {4}".format(
-                self.get_desc(), instance_states.RUNNING,
-                dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
-                dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
-                dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
+                    self.get_desc(), instance_states.RUNNING,
+                    dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
+                    dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
+                    dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
             if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
                (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
                (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
@@ -2748,12 +2768,12 @@ class Instance(object):
                 ld = "Running"
             return [self.id, ld, misc.formatSeconds(
                 Time.now() - self.last_m_state_change),
-                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
-                    self.sge_started, self.worker_status]
+                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
+                self.sge_started, self.worker_status]
         else:
-            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change), \
-                    self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert, \
-                    self.sge_started, self.worker_status]
+            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change),
+                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
+                self.sge_started, self.worker_status]
 
     def get_id(self):
         if self.app.TESTFLAG is True:
@@ -2777,21 +2797,30 @@ class Instance(object):
             return "'{sid}'".format(sid=self.spot_request_id)
         return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
 
-    def reboot(self):
-        """ Reboot this instance.
+    def reboot(self, count_reboot=True):
+        """
+        Reboot this instance. If ``count_reboot`` is set, increment the number
+        of reboots for this instance (a treshold in this count leads to eventual
+        instance termination, see ``self.config.instance_reboot_attempts``).
         """
         if self.inst is not None:
-            log.info("Rebooting instance {0} (reboot #{1}).".format(self.id, self.reboot_count + 1))
+            # Show reboot count only if this reboot counts toward the reboot quota
+            s = " (reboot #{0})".format(self.reboot_count + 1)
+            log.info("Rebooting instance {0}{1}.".format(self.get_desc(),
+                s if count_reboot else ''))
             try:
                 self.inst.reboot()
                 self.time_rebooted = Time.now()
             except EC2ResponseError, e:
-                log.error(
-                    "Trouble rebooting instance {0}: {1}".format(self.id, e))
+                log.error("Trouble rebooting instance {0}: {1}".format(self.get_desc(), e))
         else:
-            log.debug("Attampted to reboot instance {0} but no instance object? (doing nothing)"
-                .format(self.get_id()))
-        self.reboot_count += 1  # Increment irespective of success to allow for eventual termination
+            log.debug("Attampted to reboot instance {0} but no instance object? "
+                "(doing nothing)".format(self.get_desc()))
+        if count_reboot:
+            # Increment irespective of success to allow for eventual termination
+            self.reboot_count += 1
+            log.debug("Incremented instance reboot count to {0} (out of {1})"
+                .format(self.reboot_count, self.config.instance_reboot_attempts))
 
     def terminate(self):
         self.worker_status = "Stopping"
@@ -2882,7 +2911,14 @@ class Instance(object):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
 
     def send_sync_etc_host(self, msg):
-        self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
+        # Because the hosts file is synced over the transientFS, give the FS
+        # some time to become available before sending the msg
+        for i in range(5):
+            if int(self.nfs_tfs):
+                self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
+                break
+            log.debug("Transient FS on instance not available; waiting a bit...")
+            time.sleep(7)
 
     def send_status_check(self):
         # log.debug("\tMT: Sending STATUS_CHECK message" )
@@ -3006,27 +3042,31 @@ class Instance(object):
             if fs.nfs_fs:
                 fs_type = "nfs"
                 server = fs.nfs_fs.device
+                options = fs.nfs_fs.mount_options
             elif fs.gluster_fs:
                 fs_type = "glusterfs"
                 server = fs.gluster_fs.device
+                options = fs.gluster_fs.mount_options
             else:
                 fs_type = "nfs"
                 server = self.app.cloud_interface.get_private_ip()
+                options = None
             mount_points.append(
                 {'fs_type': fs_type,
                  'server': server,
+                 'mount_options': options,
                  'shared_mount_path': fs.get_details()['mount_point'],
                  'fs_name': fs.get_details()['name']})
         jmp = json.dumps({'mount_points': mount_points})
         self.app.manager.console_monitor.conn.send('MOUNT | %s' % jmp, self.id)
-        log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
+        # log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
 
     def send_master_pubkey(self):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s' \
+        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s'
             % self.app.manager.get_root_public_key(), self.id)
         log.debug("Sent master public key to worker instance '%s'." % self.id)
-        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'" \
+        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'"
             % (self.app.manager.get_root_public_key(), self.id))
 
     def send_start_sge(self):
@@ -3115,7 +3155,7 @@ class Instance(object):
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
-                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" \
+                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts"
                     % self.id)
                 try:
                     sge_svc = self.app.manager.get_services(
@@ -3130,7 +3170,7 @@ class Instance(object):
                         for fs in fss:
                             if len(fs.buckets) > 0:
                                 for b in fs.buckets:
-                                    self.send_add_s3fs(b.bucket_name)
+                                    self.send_add_s3fs(b.bucket_name, fs.svc_roles)
                         log.info("Waiting on worker instance %s to configure itself..."
                             % self.get_desc())
                     else:
@@ -3166,7 +3206,7 @@ class Instance(object):
             elif msg_type == "NODE_STATUS":
                 msplit = msg.split(' | ')
                 self.nfs_data = msplit[1]
-                self.nfs_tools = msplit[2]
+                self.nfs_tools = msplit[2]  # Workers currently do not update this field
                 self.nfs_indices = msplit[3]
                 self.nfs_sge = msplit[4]
                 self.get_cert = msplit[5]
