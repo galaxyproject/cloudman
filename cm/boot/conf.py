@@ -88,7 +88,7 @@ def _configure_nginx(log, ud):
 def _reconfigure_nginx(ud, nginx_conf_path, log):
     log.debug("Reconfiguring nginx conf")
     configure_multiple_galaxy_processes = ud.get(
-        "configure_multiple_galaxy_processes", True)
+        "configure_multiple_galaxy_processes", False)
     web_threads = ud.get("web_thread_count", 3)
     if configure_multiple_galaxy_processes and web_threads > 1:
         log.debug("Reconfiguring nginx to support Galaxy running %s "
