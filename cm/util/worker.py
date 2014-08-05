@@ -137,7 +137,7 @@ class ConsoleManager(BaseConsoleManager):
     def get_cluster_status(self):
         return "This is a worker node, cluster status not available."
 
-    def mount_disk(self, fs_type, server, path):
+    def mount_disk(self, fs_type, server, path, mount_options):
         # If a path is not specific for an nfs server, and only its ip is provided, assume that the target path to mount at is
         # the path on the server as well
         if fs_type == 'nfs' and ':' not in server:
@@ -152,10 +152,10 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Mounting fs of type: %s from: %s to: %s..." % (fs_type, server, path))
             if not os.path.exists(path):
                 os.mkdir(path)
+            options = "-o {0}".format(mount_options) if mount_options else ""
             ret_code = subprocess.call(
-                "mount -t %s %s %s" % (fs_type, server, path), shell=True)
-            log.debug(
-                "Process mounting '%s' returned code '%s'" % (path, ret_code))
+                "mount -t %s %s %s %s" % (fs_type, options, server, path), shell=True)
+            log.debug("Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
 
     def mount_nfs(self, master_ip, mount_json):
@@ -175,50 +175,37 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server']))
+                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server'], mp.get('mount_options', None)))
             else:
                 raise Exception("Mount point parsing failure.")
-        except:
-            # malformed json, revert to old behavior.
-            log.info("Mounting NFS directories from master with IP address: %s..." %
-                     master_ip)
-            # Build list of mounts based on cluster type
-            if self.cluster_type == 'Galaxy':
-                mount_points.append(
-                    ('nfs_tools', self.app.path_resolver.galaxy_tools, 'nfs', master_ip))
-                mount_points.append(
-                    ('nfs_indices', self.app.path_resolver.galaxy_indices, 'nfs', master_ip))
-            if self.cluster_type == 'Galaxy' or self.cluster_type == 'Data':
-                mount_points.append(
-                    ('nfs_data', self.app.path_resolver.galaxy_data, 'nfs', master_ip))
-            # Mount master's transient storage regardless of cluster type
-            mount_points.append(('nfs_tfs', '/mnt/transient_nfs', 'nfs', master_ip))
+        except Exception, e:
+            log.error("Error mounting devices: {0}\n Attempting to continue, but failure likely...".format(e))
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
-        # <KWS>Mount Hadoop regardless of cluster type
-        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip))
-
-        # Mount master's transient storage regardless of cluster type
-        # mount_points.append(('nfs_tfs', '/mnt/transient_nfs'))
+        # Mount Hadoop regardless of cluster type
+        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
-            mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip))
+            mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip, ''))
         # For each main mount point, mount it and set status based on label
-        for (label, path, fs_type, server) in mount_points:
-            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3}".format(
-                label, path, server, fs_type))
+        for (label, path, fs_type, server, mount_options) in mount_points:
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3} with mount_options: {4}".format(
+                label, path, server, fs_type, mount_options))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
                 continue
-            source_path = None
-            # See if a specific path on the nfs_server is used
-#             if ':' in nfs_server:
-#                 source_path = nfs_server.split(':')[1]  # Must do [1] first bc. of var reassignment
-#                 nfs_server = nfs_server.split(':')[0]
-            ret_code = self.mount_disk(fs_type, server, path)
+            ret_code = self.mount_disk(fs_type, server, path, mount_options)
             status = 1 if ret_code == 0 else -1
-            setattr(self, label, status)
+            # Provide a mapping between the mount point labels and the local fields
+            # Given tools & data file systems have been merged, this mapping does
+            # not distinguish bewteen those but simply chooses the data field.
+            labels_to_fields = {
+                'galaxy': 'nfs_data',
+                'galaxyIndices': 'nfs_indices',
+                'transient_nfs': 'nfs_tfs'
+            }
+            setattr(self, labels_to_fields.get(label, label), status)
         # Filter out any differences between new and old mount points and unmount
         # the extra ones
         umount_points = [ump for ump in self.mount_points if ump not in mount_points]
@@ -338,8 +325,12 @@ class ConsoleManager(BaseConsoleManager):
     # Updating etc host by fetching the master's etc/hosts file
     # # this is necessary for hadoop ssh component
     def sync_etc_host(self, sync_path=paths.P_ETC_TRANSIENT_PATH):
-
-        shutil.copyfile(sync_path, "/etc/hosts")
+        if os.path.exists(sync_path):
+            log.debug("Synced /etc/hosts with %s" % sync_path)
+            shutil.copyfile(sync_path, "/etc/hosts")
+        else:
+            log.warning("Sync path %s not available; cannot sync /etc/hosts"
+                % sync_path)
 
     def _get_extra_nfs_mounts(self):
         return self.app.ud.get('extra_nfs_mounts', [])
@@ -410,7 +401,7 @@ class ConsoleMonitor(object):
 
     def send_worker_hostcert(self):
         host_cert = self.app.manager.get_host_cert()
-        if host_cert != None:
+        if host_cert is not None:
             m_response = "WORKER_H_CERT | %s " % host_cert
             log.debug("Composing worker host cert message: '%s'" % m_response)
             self.conn.send(m_response)
@@ -448,7 +439,7 @@ class ConsoleMonitor(object):
                self.app.manager.load,
                self.app.manager.worker_status,
                self.app.manager.nfs_tfs)
-        log.debug("Sending message '%s'" % msg_body)
+        # log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
 
     def handle_message(self, message):
@@ -517,9 +508,7 @@ class ConsoleMonitor(object):
             self.send_alive_message()
         elif message.startswith('SYNC_ETC_HOSTS'):
             # <KWS> syncing etc host using the master one
-            sync_path = message.split(' | ')[1]
             self.app.manager.sync_etc_host()
-
         else:
             log.debug("Unknown message '%s'" % message)
 

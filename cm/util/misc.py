@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 import yaml
+import hashlib
 
 from boto.exception import S3ResponseError
 from boto.s3.acl import ACL
@@ -751,8 +752,8 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
         err = "---> PROBLEM"
     if ok is None:
         ok = "'%s' command OK" % cmd
-    process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=None)
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
         if not quiet:
@@ -992,7 +993,20 @@ def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
     return links
 
 
-def extract_archive_content_to_path(archive_url, path):
+def extract_archive_content_to_path(archive_url, path, md5_sum=None):
+    try:
+        digest = _extract_archive_content_to_path(archive_url, path)
+        if md5_sum and not digest == md5_sum:
+            raise Exception("Invalid md5 sum for archive. Expected: {0} but found {1}".format(md5_sum, digest))
+        log.info("Successfully downloaded archive with md5_sum: {0}".format(digest))
+    except Exception, e:
+        log.warn("Error while downloading archive: {0}\nRetrying archive download...".format(e))
+        digest = _extract_archive_content_to_path(archive_url, path)
+        if md5_sum and not digest == md5_sum:
+            raise Exception("Archive download failed. Still getting invalid md5 sum. Expected: {0} but found {1}".format(md5_sum, digest))
+
+
+def _extract_archive_content_to_path(archive_url, path):
     """
     Extracts an archive from a given url to a specified path.
     Currently supports only tar files
@@ -1000,6 +1014,56 @@ def extract_archive_content_to_path(archive_url, path):
     import requests
     import tarfile
     r = requests.get(archive_url, stream=True)
-    archive = tarfile.open(fileobj=r.raw, mode='r|*')
+    stream = MD5TransparentFilter(r.raw)
+    archive = tarfile.open(fileobj=stream, mode='r|*')
     archive.extractall(path=path)
     archive.close()
+    return stream.hexdigest()
+
+
+class MD5TransparentFilter:
+    def __init__(self, fp):
+        self._md5 = hashlib.md5()
+        self._fp = fp
+
+    def read(self, size):
+        buf = self._fp.read(size)
+        self._md5.update(buf)
+        return buf
+
+    def hexdigest(self):
+        return self._md5.hexdigest()
+
+
+class RingBuffer(object):
+    """
+    A class that implements a buffer with a fixed size, so that, when it fills
+    up, adding another element overwrites the first (oldest) one.
+    http://www.onlamp.com/lpt/a/5828
+    """
+    def __init__(self, size_max):
+        self.max = size_max
+        self.data = []
+
+    class __Full(object):
+        """ class that implements a full buffer """
+        def append(self, x):
+            """ Append an element overwriting the oldest one. """
+            self.data[self.cur] = x
+            self.cur = (self.cur + 1) % self.max
+
+        def tolist(self):
+            """ return list of elements in correct order. """
+            return self.data[self.cur:] + self.data[:self.cur]
+
+    def append(self, x):
+        """ append an element at the end of the buffer. """
+        self.data.append(x)
+        if len(self.data) == self.max:
+            self.cur = 0
+            # Permanently change self's class from non-full to full
+            self.__class__ = self.__Full
+
+    def tolist(self):
+        """ Return a list of elements from the oldest to the newest. """
+        return self.data

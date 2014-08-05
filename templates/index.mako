@@ -355,7 +355,7 @@ vertical-align: top;
     <span class="action-button" id="del_scf_cancel">Do not delete</span></p>
 </div>
 <div id="voloverlay" class="overlay" style="display:none"></div>
-<!-- <div id="popupoverlay" class="overlay" style="display:none"></div> -->
+<div id="popupoverlay" class="overlay" style="display:none"></div>
 <div class="box" id="volume_config">
     <h2 style="text-align:center;">Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
@@ -384,14 +384,22 @@ vertical-align: top;
                     </span>
                     </label>
                     <div style="text-align:left;margin-left: 18px">
+                    %if cloud_type == 'ec2':
                     <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
+                    %else:
+                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size">
+                    %endif
                     <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
                     <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
                     <label for="galaxy-custom-size">Volume - Custom:</label>
                     <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
                     </div>
                     <div style="text-align:left;margin-left: 18px">
+                    %if cloud_type == 'ec2':
                     <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient">
+                    %else:
+                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
+                    %endif
                     <label for="galaxy-transient">Transient Storage</label>
                     </div>
                     <div style="height: 5px;">
@@ -473,7 +481,6 @@ vertical-align: top;
 var instances = Array();
 var cluster_status = "OFF";
 var fs_det_vis = false;
-var last_log = 0;
 var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
@@ -631,18 +638,11 @@ function update_ui(data){
 function update_log(data){
     if (data){
         if(data.log_messages.length > 0){
-            // Check to make sure the log isn't huge (1000? 5000?) and truncate it first if it is.
-            var loglen = $('#log_container_body>ul>li').size();
-            if (loglen > 200){
-                $('#log_container_body>ul>li:lt(' +(loglen - 100)+')').remove();
-                $('#log_container_body>ul').prepend('<li>The log has been truncated to keep up performance.  The <a href="/cloud/log/">full log is available here</a>. </li>');
-            }
-            last_log = data.log_cursor;
-            var to_add = "";
+            var logMsgs = "";
             for (i = 0; i < data.log_messages.length; i++){
-                to_add += "<li>"+data.log_messages[i]+"</li>";
+                logMsgs += "<li>"+data.log_messages[i]+"</li>";
             }
-            $('#log_container_body>ul').append(to_add);
+            $('#log_container_body>ul').html(logMsgs);
             scrollLog();
         }
     }
@@ -650,7 +650,7 @@ function update_log(data){
 
 function update(repeat_update){
     $.getJSON("${h.url_for(controller='root',action='full_update')}",
-        {l_log : last_log},
+        {},
         function(data){
             if (data){
                 update_ui(data.ui_update_data);
@@ -971,9 +971,16 @@ $(document).ready(function() {
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
         var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
         var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
-        d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+
+        ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
+        %if cloud_type == 'ec2':
+        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
+        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        %else:
+        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, onlyInteger: true } );
+        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
+        %endif
     }
     if ($('#spot_price').length != 0) {
         // Add LiveValidation only if the field is actually present on the page

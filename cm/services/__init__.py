@@ -212,9 +212,9 @@ class ServiceDependency(object):
 
     def __repr__(self):
         return "<ServiceRole:{0},Owning:{1},Assigned:{2}>".format(
-                ServiceRole.to_string(self.service_role),
-                "None" if self.owning_service is None else self.owning_service.name,
-                "None" if self.assigned_service is None else self.assigned_service.name)
+            ServiceRole.to_string(self.service_role),
+            "None" if self.owning_service is None else self.owning_service.name,
+            "None" if self.assigned_service is None else self.assigned_service.name)
 
     @property
     def owning_service(self):

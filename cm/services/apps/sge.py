@@ -181,13 +181,15 @@ class SGEService(ApplicationService):
 
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
             all_q_template = Template(templates.ALL_Q_TEMPLATE)
-            if self.app.ud.get('hadoop_enabled', True):
+            if self.app.config.hadoop_enabled:
                 all_q_params = {
+                    "slots": int(commands.getoutput("nproc")),
                     "prolog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstart.sh"),
                     "epilog_path": os.path.join(paths.P_HADOOP_HOME, paths.P_HADOOP_INTEGRATION_FOLDER + "/hdfsstop.sh")
                 }
             else:
                 all_q_params = {
+                    "slots": int(commands.getoutput("nproc")),
                     "prolog_path": 'NONE',
                     "epilog_path": 'NONE'
                 }

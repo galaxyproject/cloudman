@@ -11,7 +11,7 @@ import hoover
 
 log = logging.getLogger('cloudman')
 
-DEFAULT_INSTANCE_REBOOT_TIMEOUT = 300
+DEFAULT_INSTANCE_REBOOT_TIMEOUT = 500
 DEFAULT_INSTANCE_COMM_TIMEOUT = 180
 DEFAULT_INSTANCE_STATE_CHANGE_WAIT = 400
 DEFAULT_INSTANCE_REBOOT_ATTEMPTS = 4
@@ -107,8 +107,8 @@ class Configuration(object):
     def init_with_user_data(self, user_data):
         self.__configure_instance_management(user_data)
         self.__configure_instance_types(user_data)
-        self.condor_enabled = user_data.get("condor_enabled", True)
-        self.hadoop_enabled = user_data.get("hadoop_enabled", True)
+        self.condor_enabled = user_data.get("condor_enabled", False)
+        self.hadoop_enabled = user_data.get("hadoop_enabled", False)
 
     def __configure_instance_management(self, user_data):
         """Configure attributes used control reboot/terminate behavior

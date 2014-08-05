@@ -19,10 +19,16 @@ class CMLogHandler(logging.Handler):
         # self.formatter = logging.Formatter("[%(levelname)s]
         # %(module)s:%(lineno)d %(asctime)s: %(message)s")
         self.setFormatter(self.formatter)
-        self.logmessages = []
+        # Limit the size of the log message buffer to 1000 lines. This log is
+        # used on the UI and causes responsivness issues once the log grows
+        self.log_buffer = misc.RingBuffer(1000)
+
+    @property
+    def logmessages(self):
+        return self.log_buffer.tolist()
 
     def emit(self, record):
-        self.logmessages.append(self.formatter.format(record))
+        self.log_buffer.append(self.formatter.format(record))
 
 
 class UniverseApplication(object):

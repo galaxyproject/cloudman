@@ -289,8 +289,11 @@ class CM(BaseController):
 
     @expose
     def kill_all(self, trans, terminate_master_instance=False, delete_cluster=False):
-        if delete_cluster:
+        print "delete_cluster='%s'" % delete_cluster
+        if delete_cluster in ['True', 'true', 'on']:
             delete_cluster = True
+        else:
+            delete_cluster = False
         if terminate_master_instance:
             self.app.manager.terminate_master_instance(delete_cluster=delete_cluster)
             return self.instance_state_json(trans)
@@ -335,7 +338,9 @@ class CM(BaseController):
     def reboot_instance(self, trans, instance_id=''):
         if instance_id == '':
             return
-        self.app.manager.reboot_instance(instance_id)
+        # Set `count_reboot` to False by default because we don't want to count
+        # manually-invoked reboots.
+        self.app.manager.reboot_instance(instance_id, count_reboot=False)
         return self.instance_state_json(trans)
 
     @expose
@@ -343,7 +348,7 @@ class CM(BaseController):
         try:
             number_nodes = int(number_nodes)
             force_termination = True if force_termination == 'True' else False
-            log.debug("Num nodes requested to terminate: %s, force termination: %s" \
+            log.debug("Num nodes requested to terminate: %s, force termination: %s"
                 % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
@@ -459,21 +464,18 @@ class CM(BaseController):
         return json.dumps(self.app.manager.get_all_filesystems_status())
 
     @expose
-    def full_update(self, trans, l_log=0):
+    def full_update(self, trans):
         return json.dumps(
             {'ui_update_data': self.instance_state_json(trans, no_json=True),
-             'log_update_data': self.log_json(trans, l_log, no_json=True),
+             'log_update_data': self.log_json(trans, no_json=True),
              'messages': self.messages_string(self.app.msgs.get_messages())})
 
     @expose
-    def log_json(self, trans, l_log=0, no_json=False):
+    def log_json(self, trans, no_json=False):
         if no_json:
-            return {'log_messages': self.app.logger.logmessages[int(l_log):],
-                    'log_cursor': len(self.app.logger.logmessages)}
+            return {'log_messages': self.app.logger.logmessages}
         else:
-            return json.dumps(
-                {'log_messages': self.app.logger.logmessages[int(l_log):],
-                             'log_cursor': len(self.app.logger.logmessages)})
+            return json.dumps({'log_messages': self.app.logger.logmessages})
 
     def messages_string(self, messages):
         """
