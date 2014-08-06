@@ -1,17 +1,16 @@
 """Galaxy CM master manager"""
 import commands
-import fileinput
+import datetime as dt
 import logging
 import logging.config
 import os
+import pyclbr
+import shutil
 import subprocess
 import threading
 import time
-import datetime as dt
-import json
-import shutil
 
-
+from cm.instance import Instance
 from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
@@ -23,21 +22,19 @@ from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
-from cm.services.apps.sge import SGEService
+# from cm.services.apps.jobmanagers.sge import SGEService
+from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
+from cm.services.apps.jobmanagers.slurmd import SlurmdService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
-from cm.util import (cluster_status, comm, instance_lifecycle, instance_states,
-        misc, spot_states, Time)
+from cm.util import cluster_status, comm, misc, Time
 from cm.util.decorators import TestFlag
 from cm.util.manager import BaseConsoleManager
-
 import cm.util.paths as paths
+
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
-
-# Time well in past to seend reboot, last comm times with.
-TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
 
 s3_rlock = threading.RLock()
 
@@ -87,6 +84,14 @@ class ConsoleManager(BaseConsoleManager):
         self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 0
 
+    @property
+    def num_cpus(self):
+        """
+        The number of CPUs on the master instance (as ``int``), as returned by
+        ``/usr/bin/nproc`` command.
+        """
+        return int(commands.getoutput("/usr/bin/nproc"))
+
     def add_master_service(self, new_service):
         if not self.get_services(svc_name=new_service.name):
             log.debug("Adding service %s into the master service registry" % new_service.name)
@@ -96,8 +101,12 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Would add master service %s but one already exists" % new_service.name)
 
     def remove_master_service(self, service_to_remove):
-        self.services.remove(service_to_remove)
-        self._update_dependencies(service_to_remove, "REMOVE")
+        if service_to_remove in self.services:
+            self.services.remove(service_to_remove)
+            self._update_dependencies(service_to_remove, "REMOVE")
+        else:
+            log.warning("Tried to remove service {0} but service not found in {1}"
+                        .format(service_to_remove, self.services))
 
     def _update_dependencies(self, new_service, action):
         """
@@ -249,8 +258,7 @@ class ConsoleManager(BaseConsoleManager):
                                 if d['name'] == 'GalaxyCloud':
                                     snaps = d['filesystems']
 
-        log.debug("Loaded default snapshot data for cloud {1}: {0}".format(snaps,
-            cloud_name))
+        log.debug("Loaded default snapshot data for cloud {1}: {0}".format(snaps, cloud_name))
         return snaps
 
     @TestFlag(10)
@@ -262,8 +270,7 @@ class ConsoleManager(BaseConsoleManager):
                     if 'size' in snap:
                         self.default_galaxy_data_size = snap['size']
                     elif 'snap_id' in snap:
-                        self.snapshot = (self.app.cloud_interface.get_ec2_connection()
-                            .get_all_snapshots([snap['snap_id']])[0])
+                        self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0])
                         self.default_galaxy_data_size = self.snapshot.volume_size
                     log.debug("Got default galaxy FS size as {0}GB".format(
                         self.default_galaxy_data_size))
@@ -276,8 +283,8 @@ class ConsoleManager(BaseConsoleManager):
         and start available cluster services (as provided in the cluster's
         configuration and persistent data).
         """
-        log.debug("User Data at manager start, with secret_key and password filtered out: %s" %
-                dict((k, self.app.ud[k]) for k in self.app.ud.keys() if k not in ['password', 'secret_key']))
+        log.debug("User Data at manager start, with secret_key and password filtered out: %s"
+                  % dict((k, self.app.ud[k]) for k in self.app.ud.keys() if k not in ['password', 'secret_key']))
 
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
@@ -286,11 +293,16 @@ class ConsoleManager(BaseConsoleManager):
         # this should happen before SGE is added
         self.get_root_public_key()
 
-       # Always add migration service
+        # Always add migration service
         self.add_master_service(MigrationService(self.app))
 
-       # Always add SGE service
-        self.add_master_service(SGEService(self.app))
+        # Always add Slurm services
+        self.add_master_service(SlurmctldService(self.app))
+        self.add_master_service(SlurmdService(self.app))
+
+        # Always add SGE service
+        # self.add_master_service(SGEService(self.app))
+
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
@@ -314,6 +326,11 @@ class ConsoleManager(BaseConsoleManager):
         # and add appropriate services
         elif not self.add_preconfigured_services():
             return False
+        # If we have any workers (might be the case following a cluster reboot),
+        # reboot the workers so they get embedded into the cluster again
+        if self.worker_instances:
+            for wi in self.worker_instances:
+                wi.reboot(count_reboot=False)
         self.manager_started = True
 
         # Check if a previously existing cluster is being recreated or if it is a new one
@@ -353,7 +370,7 @@ class ConsoleManager(BaseConsoleManager):
         previously defined cluster services.
         """
         log.debug("Checking for and adding any previously defined cluster services")
-        return self.add_preconfigured_filesystems() and self.add_preconfigured_applications()
+        return self.add_preconfigured_filesystems() and self.add_preloaded_services()
 
     def add_preconfigured_filesystems(self):
         try:
@@ -380,8 +397,9 @@ class ConsoleManager(BaseConsoleManager):
                             # Check if an already attached volume maps to this snapshot
                             att_vol = self.get_vol_if_fs(attached_volumes, fs['name'])
                             if att_vol:
-                                filesystem.add_volume(vol_id=att_vol.id, size=att_vol.size,
-                                    from_snapshot_id=att_vol.snapshot_id)
+                                filesystem.add_volume(vol_id=att_vol.id,
+                                                      size=att_vol.size,
+                                                      from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
                     elif fs['kind'] == 'nfs':
@@ -419,11 +437,11 @@ class ConsoleManager(BaseConsoleManager):
             self.manager_started = False
             return False
 
-    def add_preconfigured_applications(self):
+    def add_preloaded_services(self):
         """
-        Dynamically add any previously available applications to the service
-        registry, which will in turn start those apps. The service list is
-        extracted from the user data.
+        Dynamically add any previously available services to the master's service
+        registry, which will in turn start those services. The list of preloaded
+        services is extracted from the user data entry ``services``.
 
         Note that this method is automatically called when an existing cluster
         is being recreated.
@@ -431,47 +449,69 @@ class ConsoleManager(BaseConsoleManager):
         In order for the dynamic service loading to work, there are some requirements
         on the structure of user data and services themselves. Namely, user data
         must contain a name for the service. The service implementation must be in
-        a module inside ``cm.services.apps`` and it must match the service name
-        (e.g., ``cm.services.apps.proftpd``). The provided service/file name must
-        match the service class without the "Service" string. For example, if service
-        name is ``ProFTPd``, file name must be proftpd.py and the service class
-        name must be ``ProFTPdService``, properly capitilized.
+        a (sub)module inside ``cm.services.apps`` and it must implement a class
+        that matches the specified the user data service name (e.g., if the
+        service name in user data is ``ProFTPd``, a module inside ``cm.services.apps``
+        must exist that implements a class whose name contains ``ProFTPd``,
+        properly capitalized).
         """
-        try:
-            ok = True  # Flag keeping up with progress
-            # Process the current cluster config
-            log.debug("Processing previously-available application services in "
-                "an existing cluster config")
-            # TODO: Should we inspect a provided path for service availability vs. UD only?
-            if "services" in self.app.ud:
-                log.debug("Previously-available applications: {0}"
-                    .format(self.app.ud['services']))
-                for srvc in self.app.ud['services']:
-                    service_class = None
-                    svc_name = srvc.get('name', None)
-                    if svc_name:
-                        # Import service module and get a reference to the service object
-                        try:
-                            module_name = svc_name.lower()
-                            svc_name += "Service"  # Service class name must match this str!
-                            module = __import__('cm.services.apps.' + module_name,
-                                fromlist=[svc_name])
-                            service_class = getattr(module, svc_name)
-                        except Exception, e:
-                            log.warning("Trouble importing service class {0}: {1}"
-                                .format(svc_name, e))
-                    if service_class:
-                        # Add the service into the service registry
-                        self.add_master_service(service_class(self.app))
-                    else:
-                        ok = False
-                        log.warning("Could not find service class matching "
-                            "userData service entry: %s" % svc_name)
-            return ok
-        except Exception, e:
-            log.error("Error processing applications in existing cluster configuration: %s" % e)
-            self.manager_started = False
-            return False
+        def _do_imports(base_dir, services_to_create):
+            """
+            Recursively search for python modules inside the ``base_dir`` path
+            and create objects for each of the discovered classes, given the
+            service name is provided in the ``services_to_create`` list, appending
+            the created objects to the master service registry list.
+            For example, if ``services_to_create`` contains a list like so
+            ``['Galaxy', 'Slurmctld'] and the ``base_dir`` contains a module
+            that defines a class ``Galaxy`` and ``Slurmctld``, instantiate those
+            two objects.
+            """
+            log.debug("Looking for importable service classes in {0}".format(base_dir))
+            for name in os.listdir(base_dir):
+                if name.endswith(".py") and name != "__init__.py":
+                    module = name[:-3]  # Strip the file extension
+                    package_path = base_dir.replace('/', '.')
+                    module_path = '.'.join([package_path, module])
+                    # Get all the class names defined in the given module
+                    discovered_classes = pyclbr.readmodule(module_path).keys()
+                    # log.debug("In module {0}, discovered classes: {1}"
+                    #           .format(module_path, discovered_classes))
+                    try:
+                        # Import the given module w/ all the discovered classes
+                        module = __import__(module_path, fromlist=discovered_classes)
+                        for discovered_class in discovered_classes:
+                            # Check if the an object of the discovered class should
+                            # be created. The ones that should be rreated are
+                            # provided in the ``services_to_create`` function argument.
+                            # Note that the name comparisson is done based on
+                            # the service name alone, without the `Service` part
+                            # of the class name (eg, compare `Slurm` rather than
+                            # `SlurmService`)
+                            if discovered_class.replace('Service', '') in services_to_create:
+                                try:
+                                    service_object = getattr(module, discovered_class)
+                                    log.debug("Loaded class: {0}.{1}".format(module_path,
+                                              service_object.__name__))
+                                    # Add the object into the master's service registry
+                                    self.add_master_service(service_object(self.app))
+                                except Exception, e:
+                                    log.debug("Trouble instantiating class {0}: {1}"
+                                              .format(discovered_class, e))
+                    except Exception, e:
+                        log.debug("Trouble importing module {0}: {1}" % (module_path, e))
+                elif os.path.isdir(os.path.join(base_dir, name)):
+                    _do_imports(os.path.join(base_dir, name), services_to_create)
+
+        log.debug("Processing previously-available application services in "
+                  "an existing cluster config")
+        preloaded_services = []
+        for service in self.app.ud.get('services', []):
+            if service.get('name', None):
+                preloaded_services.append(service['name'])
+        if preloaded_services:
+            log.debug("Discovered preloaded services: {0}".format(preloaded_services))
+            _do_imports('cm/services/apps', services_to_create=preloaded_services)
+        return True
 
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
         """
@@ -569,34 +609,6 @@ class ConsoleManager(BaseConsoleManager):
                 svcs.append(s)
 
         return svcs
-
-    def all_fs_status_text(self):
-        return []
-        # FIXME: unreachable code
-        tr = []
-        for key, vol in self.volumes.iteritems():
-            if vol[3] is None:
-                tr.append("%s+nodata" % key)
-            else:
-                if vol[3] is True:
-                    tr.append("%s+green" % key)
-                else:
-                    tr.append("%s+red" % key)
-        return tr
-
-    def all_fs_status_array(self):
-        return []
-        # FIXME: unreachable code
-        tr = []
-        for key, vol in self.volumes.iteritems():
-            if vol[3] is None:
-                tr.append([key, "nodata"])
-            else:
-                if vol[3] is True:
-                    tr.append([key, "green"])
-                else:
-                    tr.append([key, "red"])
-        return tr
 
     def fs_status_text(self):
         """fs_status"""
@@ -718,21 +730,25 @@ class ConsoleManager(BaseConsoleManager):
         if r == 3:
             dummy[0]['status'] = "Adding"
         if r == 4:  # NGTODO: Hardcoded links below to tools and indices?
-            dummy.append({"name": "galaxyTools", "status": "Available", "device": "/dev/sdg3",
-            "kind": "snapshot", "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
-            "size": "10G", "size_used": "1.9G", "size_pct": "19%",
-            "error_msg": None, "from_snap": "snap-bdr2whd"})
-            dummy.append({"name": "galaxyIndices", "status": "Error", "device": "/dev/sdg2",
-            "kind": "snapshot", "mount_point": "/mnt/galaxyIndices", "DoT": "Yes",
-            "size": "700G", "NFS_shared": True, "size_used": "675G", "size_pct": "96%",
-            "error_msg": "Process returned 2", "from_snap": "snap-89r23hd"})
-            dummy.append({"name": "custom", "status": "Available", "device": "/dev/sdg4",
-            "kind": "Volume", "mount_point": "/mnt/custom", "DoT": "No",
-            "size": "70G", "NFS_shared": True, "size_used": "53G", "size_pct": "7%",
-            "error_msg": ""})
+            dummy.append({"name": "galaxyTools", "status": "Available",
+                          "device": "/dev/sdg3", "kind": "snapshot",
+                          "mount_point": "/mnt/galaxyTools", "DoT": "Yes",
+                          "size": "10G", "size_used": "1.9G", "size_pct": "19%",
+                          "error_msg": None, "from_snap": "snap-bdr2whd"})
+            dummy.append({"name": "galaxyIndices", "status": "Error", "device":
+                          "/dev/sdg2", "kind": "snapshot", "mount_point":
+                          "/mnt/galaxyIndices", "DoT": "Yes", "size": "700G",
+                          "NFS_shared": True, "size_used": "675G", "size_pct":
+                          "96%", "error_msg": "Process returned 2", "from_snap":
+                          "snap-89r23hd"})
+            dummy.append({"name": "custom", "status": "Available", "device":
+                          "/dev/sdg4", "kind": "Volume", "mount_point":
+                          "/mnt/custom", "DoT": "No", "size": "70G",
+                          "NFS_shared": True, "size_used": "53G", "size_pct":
+                          "7%", "error_msg": ""})
         return dummy
 
-    @TestFlag({"SGE": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+    @TestFlag({"Slurm": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
                "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
@@ -820,51 +836,61 @@ class ConsoleManager(BaseConsoleManager):
             :return: True if the master instance is set to be an execution host.
                      False otherwise.
         """
-        sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
-        if sge_svc.state == service_states.RUNNING:
-            if self.master_exec_host is True or force_removal:
+        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+        if slurmctld_svc:
+            if self.master_exec_host or force_removal:
+                slurmctld_svc.disable_node('master')
                 self.master_exec_host = False
-                if not sge_svc._remove_instance_from_exec_list(
-                    self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_private_ip()):
-                    # If the removal was unseccessful, reset the flag
-                    self.master_exec_host = True
             else:
+                slurmctld_svc.enable_node('master')
                 self.master_exec_host = True
-                if not sge_svc._add_instance_as_exec_host(
-                    self.app.cloud_interface.get_instance_id(),
-                        self.app.cloud_interface.get_private_ip()):
-                    # If the removal was unseccessful, reset the flag
-                    self.master_exec_host = False
-        else:
-            log.warning(
-                "SGE not running thus cannot toggle master as exec host")
-        if self.master_exec_host:
-            log.info("The master instance has been set to execute jobs.  To manually change this, use the cloudman admin panel.")
-        else:
-            log.info("The master instance has been set to *not* execute jobs.  To manually change this, use the cloudman admin panel.")
         return self.master_exec_host
 
+        # sge_svc = self.get_services(svc_role=ServiceRole.SGE)
+        # if len(sge_svc) > 0:
+        #     sge_svc = sge_svc[0]
+        #     if sge_svc.state == service_states.RUNNING:
+        #         if self.master_exec_host is True or force_removal:
+        #             self.master_exec_host = False
+        #             if not sge_svc._remove_instance_from_exec_list(
+        #                 self.app.cloud_interface.get_instance_id(),
+        #                     self.app.cloud_interface.get_private_ip()):
+        #                 # If the removal was unseccessful, reset the flag
+        #                 self.master_exec_host = True
+        #         else:
+        #             self.master_exec_host = True
+        #             if not sge_svc._add_instance_as_exec_host(
+        #                 self.app.cloud_interface.get_instance_id(),
+        #                     self.app.cloud_interface.get_private_ip()):
+        #                 # If the removal was unseccessful, reset the flag
+        #                 self.master_exec_host = False
+        #     else:
+        #         log.warning(
+        #             "SGE not running thus cannot toggle master as exec host")
+        #     if self.master_exec_host:
+        #         log.info("The master instance has been set to execute jobs. "
+        #             "To manually change this, use the cloudman admin panel.")
+        #     else:
+        #         log.info("The master instance has been set to *not* execute jobs. "
+        #             "To manually change this, use the cloudman admin panel.")
+        # return self.master_exec_host
+
+    @TestFlag([])
     def get_worker_instances(self):
         instances = []
-        if self.app.TESTFLAG is True:
-            # for i in range(5):
-            #     instance = Instance( self.app, inst=None, m_state="Pending" )
-            #     instance.id = "WorkerInstance"
-            #     instances.append(instance)
-            return instances
-        log.debug(
-            "Trying to discover any worker instances associated with this cluster...")
+        log.debug("Trying to discover any worker instances associated with this cluster...")
         filters = {'tag:clusterName': self.app.ud['cluster_name'],
                    'tag:role': 'worker'}
         try:
             reservations = self.app.cloud_interface.get_all_instances(filters=filters)
             for reservation in reservations:
-                if reservation.instances[0].state != 'terminated' and reservation.instances[0].state != 'shutting-down':
-                    i = Instance(self.app, inst=reservation.instances[0],
-                                 m_state=reservation.instances[0].state, reboot_required=True)
-                    instances.append(i)
-                    log.info("Instance '%s' found alive (will configure it later)." % reservation.instances[0].id)
+                for inst in reservation.instances:
+                    if inst.state != 'terminated' and inst.state != 'shutting-down':
+                        i = Instance(self.app, inst=inst, m_state=inst.state, reboot_required=True)
+                        instances.append(i)
+                        log.info("Existing worker instance '%s' found alive "
+                                 "(will configure it later)." % inst.id)
         except EC2ResponseError, e:
             log.debug("Error checking for live instances: %s" % e)
         return instances
@@ -941,7 +967,7 @@ class ConsoleManager(BaseConsoleManager):
             num_off = 0
             for srvc in self.services:
                 if srvc.state == service_states.SHUT_DOWN or srvc.state == service_states.ERROR or \
-                        srvc.state == service_states.UNSTARTED:
+                   srvc.state == service_states.UNSTARTED or srvc.state == service_states.COMPLETED:
                     num_off += 1
             if num_off == len(self.services):
                 log.debug("All services shut down")
@@ -959,18 +985,16 @@ class ConsoleManager(BaseConsoleManager):
             self.delete_cluster()
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
-            "manually terminate the master instance (and any remaining instances "
-            "associated with this cluster) from the %s cloud console."
-            % (self.app.ud['cluster_name'], Time.now(), (Time.now() - self.startup_time),
-                self.app.ud.get('cloud_name', '')))
+                 "manually terminate the master instance (and any remaining instances "
+                 "associated with this cluster) from the %s cloud console."
+                 % (self.app.ud['cluster_name'], Time.now(), (Time.now() - self.startup_time),
+                    self.app.ud.get('cloud_name', '')))
 
+    @TestFlag(False)
     def reboot(self, soft=False):
         """
         Reboot the entire cluster, first shutting down appropriate services.
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Restart the cluster but the TESTFLAG is set")
-            return False
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
         log.debug("Initiating cluster reboot.")
@@ -1035,7 +1059,7 @@ class ConsoleManager(BaseConsoleManager):
                         vol.delete()
                     else:
                         log.debug("Not deleting volume {0} because it is in state {1}"
-                            .format(vol.id, vol.status))
+                                  .format(vol.id, vol.status))
         except EC2ResponseError, e:
             log.error("Error deleting a volume: %s" % e)
         # Delete cluster bucket on S3
@@ -1071,7 +1095,7 @@ class ConsoleManager(BaseConsoleManager):
         Get a list of instances that are currently not executing any job manager
         jobs. Return a list of ``Instance`` objects.
         """
-        # log.debug( "Looking for idle instances" )
+        # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
         if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
             proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
@@ -1105,6 +1129,18 @@ class ConsoleManager(BaseConsoleManager):
                             # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
                             #     % (w_instance.id, idle_instance_dn))
                             idle_instances.append(w_instance)
+        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+        if slurmctld_svc and slurmctld_svc.status() == service_states.RUNNING:
+            idle_nodes = slurmctld_svc.get_idle_nodes()
+            # Note that master is not part of worker_instances and will thus not
+            # get included in the idle_instances list, which is the intended
+            # behavior (because idle instances may get terminated and we don't
+            # want the master to get terminated).
+            for w in self.worker_instances:
+                if w.slurm_name in idle_nodes:
+                    idle_instances.append(w)
+        # log.debug("Idle instaces: %s" % idle_instances)
         return idle_instances
 
     def remove_instances(self, num_nodes, force=False):
@@ -1139,16 +1175,15 @@ class ConsoleManager(BaseConsoleManager):
         # whether they are idle
         if force is True and num_terminated < num_nodes:
             force_kill_instances = num_nodes - num_terminated
-            log.info(
-                "Forcefully terminating %s instances." % force_kill_instances)
+            log.info("Forcefully terminating %s instances." % force_kill_instances)
             for i in range(force_kill_instances):
                 for inst in self.worker_instances:
                     if not inst.is_spot() or inst.spot_was_filled():
                         self.remove_instance(inst.id)
                         num_terminated += 1
         if num_terminated > 0:
-            log.info("Initiated requested termination of instances. Terminating '%s' instances."
-                     % num_terminated)
+            log.info("Initiated requested termination of instances. Terminating "
+                     "'%s' instances." % num_terminated)
         else:
             log.info("Did not terminate any instances.")
 
@@ -1156,7 +1191,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         Remove an instance with ID ``instance_id`` from the cluster. This means
         that the instance is first removed from the job manager as a worker and
-        then it is terminated via cloud middleware API.
+        then it is terminated via the cloud middleware API.
         """
         if instance_id == '':
             log.warning(
@@ -1165,28 +1200,27 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
-                sge_svc = self.get_services(svc_role=ServiceRole.SGE)[0]
-                # DBTODO Big problem here if there's a failure removing from allhosts.  Need to handle it.
-                # if sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip()) is True:
-                # Best-effort PATCH until above issue is handled
+                inst.worker_status = 'Stopping'
+                log.debug("Set instance {0} state to {1}".format(inst.get_desc(),
+                                                                 inst.worker_status))
+                sge_svc = self.get_services(svc_role=ServiceRole.SGE)
+                sge_svc = sge_svc[0] if len(sge_svc) > 0 else None
                 if inst.get_id() is not None:
-                    sge_svc.remove_sge_host(
-                        inst.get_id(), inst.get_private_ip())
+                    if sge_svc:
+                        sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
+                    slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
+                    slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
+                    if slurmctld_svc:
+                        slurmctld_svc.reconfigure_cluster()
                     # Remove the given instance from /etc/hosts files
-                    log.debug("Removing instance {0} from /etc/hosts".format(
-                        inst.get_id()))
-                    for line in fileinput.input('/etc/hosts', inplace=1):
-                        line = line.strip()
-                        # (print all lines except the one w/ instance IP back to the file)
-                        if not inst.private_ip in line:
-                            print line
+                    misc.remove_from_etc_hosts(inst.private_ip)
                 try:
                     inst.terminate()
+                    log.info("Initiated requested termination of instance. "
+                             "Terminating '%s'." % instance_id)
                 except EC2ResponseError, e:
                     log.error("Trouble terminating instance '{0}': {1}".format(
                         instance_id, e))
-        log.info("Initiated requested termination of instance. Terminating '%s'." %
-                 instance_id)
 
     def reboot_instance(self, instance_id='', count_reboot=True):
         """
@@ -1225,11 +1259,10 @@ class ConsoleManager(BaseConsoleManager):
                 if instance.state != 'terminated' and instance.state != 'shutting-down':
                     i = Instance(self.app, inst=instance, m_state=instance.state)
                     self.app.cloud_interface.add_tag(instance, 'clusterName',
-                        self.app.ud['cluster_name'])
+                                                     self.app.ud['cluster_name'])
                     # Default to 'worker' role tag
                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
-                    self.app.cloud_interface.add_tag(instance, 'Name',
-                        "Worker: {0}".format(self.app.ud['cluster_name']))
+                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
                     self.worker_instances.append(i)
                     i.send_alive_request()  # to make sure info like ip-address and hostname are updated
                     log.debug('Added instance {0}....'.format(instance_id))
@@ -1284,7 +1317,7 @@ class ConsoleManager(BaseConsoleManager):
                 for snap in [s for s in self.snaps if 'name' in s]:
                     if 'roles' in snap:
                         fs = Filesystem(self.app, snap['name'],
-                             svc_roles=ServiceRole.from_string_array(snap['roles']))
+                                        svc_roles=ServiceRole.from_string_array(snap['roles']))
                         # Check if an already attached volume maps to the current filesystem
                         att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
                         if att_vol:
@@ -1295,7 +1328,7 @@ class ConsoleManager(BaseConsoleManager):
                             # snap_size = att_vol.size
                         elif 'snap_id' in snap:
                             log.debug("There are no volumes already attached for file system {0}"
-                                .format(snap['name']))
+                                      .format(snap['name']))
                             size = 0
                             if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
                                 size = pss
@@ -1303,8 +1336,7 @@ class ConsoleManager(BaseConsoleManager):
                             # snap_size = snap.get('size', 0)
                         elif 'type' in snap:
                             if 'archive' == snap['type'] and 'archive_url' in snap:
-                                log.debug("Attaching a volume based on an archive named {0}"
-                                    .format(snap['name']))
+                                log.debug("Attaching a volume based on an archive named {0}".format(snap['name']))
                                 if storage_type == 'volume':
                                     if 'size' in snap:
                                         size = snap['size']
@@ -1312,33 +1344,33 @@ class ConsoleManager(BaseConsoleManager):
                                             if pss > snap['size']:
                                                 size = pss
                                         from_archive = {'url': snap['archive_url'],
-                                            'md5_sum': snap.get('archive_md5', None)}
+                                                        'md5_sum': snap.get('archive_md5', None)}
                                         fs.add_volume(size=size, from_archive=from_archive)
                                     else:
                                         log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
                                                   .format(snap['name']))
                                 elif storage_type == 'transient':
                                     from_archive = {'url': snap['archive_url'],
-                                        'md5_sum': snap.get('archive_md5', None)}
+                                                    'md5_sum': snap.get('archive_md5', None)}
                                     fs.add_transient_storage(from_archive=from_archive)
                                 else:
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))
                             elif 'gluster' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
-                                    .format(snap['name']))
+                                          .format(snap['name']))
                                 fs.add_glusterfs(snap['server'], mount_options=snap.get('mount_options', None))
                             elif 'nfs' == snap['type'] and 'server' in snap:
                                 log.debug("Attaching an nfs based filesystem named {0}"
-                                    .format(snap['name']))
+                                          .format(snap['name']))
                                 fs.add_nfs(snap['server'], None, None, mount_options=snap.get('mount_options', None))
                             elif 's3fs' == snap['type'] and 'bucket_name' in snap and 'bucket_a_key' in snap and 'bucket_s_key' in snap:
                                 fs.add_bucket(snap['bucket_name'], snap['bucket_a_key'], snap['bucket_s_key'])
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
-                                    .format(snap['type]'], snap['name']))
+                                          .format(snap['type]'], snap['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"
-                            .format(fs.get_full_name(), fs.volumes))
+                                  .format(fs.get_full_name(), fs.volumes))
                         self.add_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
@@ -1354,13 +1386,12 @@ class ConsoleManager(BaseConsoleManager):
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs()
-        elif cluster_type == 'SGE':
+        elif cluster_type == 'Test':
             # SGE service is automatically added at cluster start (see
             # ``start`` method)
             pass
         else:
-            log.error("Tried to initialize a cluster but received an unknown type: '%s'"
-                % cluster_type)
+            log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
     @TestFlag(True)
     @synchronized(s3_rlock)
@@ -1397,7 +1428,8 @@ class ConsoleManager(BaseConsoleManager):
         # bucket
         fl = "shared_instance_file_list.txt"
         if misc.get_file_from_bucket(s3_conn, bucket_name,
-                os.path.join(cluster_config_prefix, fl), fl, validate=False):
+                                     os.path.join(cluster_config_prefix, fl),
+                                     fl, validate=False):
             key_list = misc.load_yaml_file(fl)
             for key in key_list:
                 misc.copy_file_in_bucket(
@@ -1511,7 +1543,8 @@ class ConsoleManager(BaseConsoleManager):
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles:
                 snap_ids = svc.create_snapshot(snap_description="CloudMan share-a-cluster %s; %s"
-                                        % (self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
+                                               % (self.app.ud['cluster_name'],
+                                                  self.app.ud['bucket_cluster']))
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1629,6 +1662,10 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
+    @TestFlag([{"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap":
+                'snap-743ddw12', "visibility": 'Shared'},
+               {"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap":
+                'snap-gf69348h', "visibility": 'Public'}])
     @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
@@ -1637,12 +1674,6 @@ class ConsoleManager(BaseConsoleManager):
         dictionary with ``bucket``, ``snap``, and ``visibility`` keys.
         """
         lst = []
-        if self.app.TESTFLAG is True:
-            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap":
-                       'snap-743ddw12', "visibility": 'Shared'})
-            lst.append({"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap":
-                       'snap-gf69348h', "visibility": 'Public'})
-            return lst
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
@@ -1687,6 +1718,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Problem retrieving references to shared instances: %s" % e)
         return lst
 
+    @TestFlag(True)
     @synchronized(s3_rlock)
     def delete_shared_instance(self, shared_instance_folder, snap_id):
         """
@@ -1701,10 +1733,6 @@ class ConsoleManager(BaseConsoleManager):
         :type snap_id: str
         :param snap_id: Snapshot ID to be deleted (e.g., ``snap-04c01768``)
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Tried deleting shared instance for folder '%s' and snap '%s' but TESTFLAG is set." % (
-                shared_instance_folder, snap_id))
-            return True
         log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
         ok = True  # Mark if encountered error but try to delete as much as possible
         try:
@@ -1740,6 +1768,7 @@ class ConsoleManager(BaseConsoleManager):
             ok = False
         return ok
 
+    @TestFlag(None)
     def update_file_system(self, file_system_name):
         """ This method is used to update the underlying EBS volume/snapshot
         that is used to hold the provided file system. This is useful when
@@ -1757,9 +1786,6 @@ class ConsoleManager(BaseConsoleManager):
            by the monitor and a new volume is created and file system mounted
         6. Unsuspend services
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to update file system '%s', but TESTFLAG is set." % file_system_name)
-            return None
         log.info("Initiating file system '%s' update." % file_system_name)
         self.cluster_manipulation_in_progress = True
         self._stop_app_level_services()
@@ -1773,7 +1799,9 @@ class ConsoleManager(BaseConsoleManager):
                 found_fs_name = True
                 # Create a snapshot of the given volume/file system
                 snap_ids = svc.create_snapshot(snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s"
-                                        % (file_system_name, self.app.ud['cluster_name'], self.app.ud['bucket_cluster']))
+                                               % (file_system_name,
+                                                  self.app.ud['cluster_name'],
+                                                  self.app.ud['bucket_cluster']))
                 # Remove the old volume by removing the entire service
                 if len(snap_ids) > 0:
                     log.debug("Removing file system '%s' service as part of the file system update"
@@ -1840,7 +1868,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         Add a new file system service for a Gluster-based file system.
         """
-        log.info("Adding a Gluster-based file system {0} from Gluster server {1}".format(fs_name, gluster_server))
+        log.info("Adding a Gluster-based file system {0} from Gluster server {1}"
+                 .format(fs_name, gluster_server))
         fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_glusterfs(gluster_server)
         self.add_master_service(fs)
@@ -1859,7 +1888,8 @@ class ConsoleManager(BaseConsoleManager):
         provide password-based credentials (``username`` and ``pwd``) for
         accessing the NFS server.
         """
-        log.info("Adding a NFS-based file system {0} from NFS server {1}".format(fs_name, nfs_server))
+        log.info("Adding a NFS-based file system {0} from NFS server {1}"
+                 .format(fs_name, nfs_server))
         fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
         fs.add_nfs(nfs_server, username, pwd)
         self.add_master_service(fs)
@@ -1874,28 +1904,30 @@ class ConsoleManager(BaseConsoleManager):
         """
         Initiate termination of all worker instances.
         """
-        log.info("Stopping all '%s' worker instance(s)" % len(
-            self.worker_instances))
-        to_terminate = []
-        for i in self.worker_instances:
-            to_terminate.append(i)
-        for inst in to_terminate:
-            log.debug(
-                "Initiating termination of instance %s" % inst.get_desc())
-            inst.terminate()
-            # log.debug("Initiated termination of instance '%s'" % inst.id )
+        log.info("Stopping all '%s' worker instance(s)" % len(self.worker_instances))
+        self.remove_instances(len(self.worker_instances), force=True)
+        # to_terminate = []
+        # for i in self.worker_instances:
+        #     to_terminate.append(i)
+        # for inst in to_terminate:
+        #     log.debug(
+        #         "Initiating termination of instance %s" % inst.get_desc())
+        #     inst.terminate()
+        # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({})  # {'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
     @synchronized(s3_rlock)
     def check_for_new_version_of_CM(self):
         """
-        Check revision metadata for CloudMan (CM) in user's bucket and the default CM bucket.
+        Check revision metadata for CloudMan (CM) in user's bucket and the
+        default CM bucket.
 
         :rtype: dict
-        :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where each key
-                 maps to an string representation of an int that corresponds to the version of
-                 CloudMan in the default repository vs. the currently running user's version.
-                 If CloudMan is unable to determine the versions, an empty dict is returned.
+        :return: A dictionary with 'default_CM_rev' and 'user_CM_rev' keys where
+                 each key maps to an string representation of an int that
+                 corresponds to the version of CloudMan in the default repository
+                 vs. the currently running user's version. If CloudMan is unable
+                 to determine the versions, an empty dict is returned.
         """
         log.debug("Checking for new version of CloudMan")
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1913,6 +1945,7 @@ class ConsoleManager(BaseConsoleManager):
                 pass
         return {}
 
+    @TestFlag(None)
     @synchronized(s3_rlock)
     def update_users_CM(self):
         """
@@ -1924,13 +1957,10 @@ class ConsoleManager(BaseConsoleManager):
         :return: If update was successful, return True.
                  Else, return False
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to update CM, but TESTFLAG is set.")
-            return None
         if self.check_for_new_version_of_CM():
             log.info("Updating CloudMan application source file in the cluster's bucket '%s'. "
-                "It will be automatically available the next time this cluster is instantiated."
-                % self.app.ud['bucket_cluster'])
+                     "It will be automatically available the next time this cluster is instantiated."
+                     % self.app.ud['bucket_cluster'])
             s3_conn = self.app.cloud_interface.get_s3_connection()
             # Make a copy of the old/original CM source and boot script in the cluster's bucket
             # called 'copy_name' and 'copy_boot_name', respectively
@@ -1976,7 +2006,7 @@ class ConsoleManager(BaseConsoleManager):
                 svc = svcs[0]
             else:
                 log.error("Could not initiate expansion of {0} file system because "
-                    "the file system was not found?".format(fs_name))
+                          "the file system was not found?".format(fs_name))
                 return
         else:
             svc = self.app.manager.get_services(
@@ -2035,15 +2065,13 @@ class ConsoleManager(BaseConsoleManager):
         f.close()
         return True
 
+    @TestFlag({})
     def get_workers_status(self, worker_id=None):
         """
         Retrieves current status of all worker instances or of only worker
         instance whose ID was passed as the parameter. Returns a dict
         where instance ID's are the keys.
         """
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get worker status, but TESTFLAG is set.")
-            return {}
         workers_status = {}
         if worker_id:
             log.info("Checking status of instance '%s'" % worker_id)
@@ -2068,7 +2096,7 @@ class ConsoleManager(BaseConsoleManager):
         # log.debug("Gathering number of available workers" )
         num_available_nodes = 0
         for inst in self.worker_instances:
-            if inst.node_ready is True:
+            if inst.worker_status == "Ready":
                 num_available_nodes += 1
         return num_available_nodes
 
@@ -2130,9 +2158,13 @@ class ConsoleManager(BaseConsoleManager):
         It will copy the master etc hosts into a shared folder and send a message
         to the workers to inform them of the change.
         """
-        shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
-        for wrk in self.worker_instances:
-            wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+        try:
+            shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
+            for wrk in self.worker_instances:
+                wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)
+        except IOError, e:
+            log.error("Trouble copying /etc/hosts to shared NFS {0}: {1}"
+                      .format(paths.P_ETC_TRANSIENT_PATH, e))
 
     def update_condor_host(self, new_worker_ip):
         """
@@ -2142,6 +2174,9 @@ class ConsoleManager(BaseConsoleManager):
         if srvs:
             srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
+    @TestFlag({'id': 'localtest', 'ld': "0.00 0.02 0.39",
+               'time_in_state': 4321,
+               'instance_type': 'tester', 'public_ip': "127.0.0.1"})
     def get_status_dict(self):
         """
         Return a status dictionary for the current instance.
@@ -2154,15 +2189,8 @@ class ConsoleManager(BaseConsoleManager):
         public IP address of the instance.
         """
         public_ip = self.app.cloud_interface.get_public_ip()
-        if self.app.TESTFLAG:
-            num_cpus = 1
-            load = "0.00 0.02 0.39"
-            return {'id': 'localtest', 'ld': load,
-                    'time_in_state': misc.formatSeconds(Time.now() - self.startup_time),
-                    'instance_type': 'tester', 'public_ip': public_ip}
-        else:
-            num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-            load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
+        num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
+        load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2194,25 +2222,26 @@ class ConsoleMonitor(object):
         # Start the monitor thread
         self.monitor_thread = threading.Thread(target=self.__monitor)
 
+    @TestFlag(None)
     def start(self):
         """
         Start the monitor thread, which monitors and manages all the services
         visible to CloudMan.
         """
         self.last_state_change_time = Time.now()
-        if not self.app.TESTFLAG:
-            # Set 'role' and 'clusterName' tags for the master instance
-            try:
-                i_id = self.app.cloud_interface.get_instance_id()
-                ir = self.app.cloud_interface.get_all_instances(i_id)
-                self.app.cloud_interface.add_tag(
-                    ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
-                self.app.cloud_interface.add_tag(
-                    ir[0].instances[0], 'role', self.app.ud['role'])
-                self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
-                    "{0}: {1}".format(self.app.ud['role'], self.app.ud['cluster_name']))
-            except Exception, e:
-                log.debug("Error setting tags on the master instance: %s" % e)
+        # Assign tags for the master instance
+        try:
+            i_id = self.app.cloud_interface.get_instance_id()
+            ir = self.app.cloud_interface.get_all_instances(i_id)
+            self.app.cloud_interface.add_tag(
+                ir[0].instances[0], 'clusterName', self.app.ud['cluster_name'])
+            self.app.cloud_interface.add_tag(
+                ir[0].instances[0], 'role', self.app.ud['role'])
+            self.app.cloud_interface.add_tag(ir[0].instances[0], 'Name',
+                                             "{0}: {1}".format(self.app.ud['role'],
+                                                               self.app.ud['cluster_name']))
+        except Exception, e:
+            log.debug("Error setting tags on the master instance: %s" % e)
         self.monitor_thread.start()
 
     def shutdown(self):
@@ -2246,16 +2275,6 @@ class ConsoleMonitor(object):
             self.update_frequency = 30  # If no system changes for 5 mins, run update every 30 secs
         else:
             self.update_frequency = 10  # If last system change within past 5 mins, run update every 10 secs
-
-    def update_instance_sw_state(self, inst_id, state):
-        """
-        :type inst_id: string
-        :type state: string
-        """
-        log.debug("Updating local ref to instance '%s' state to '%s'" % (inst_id, state))
-        for inst in self.app.manager.worker_instances:
-            if inst.id == inst_id:
-                inst.sw_state = state
 
     def expand_user_data_volume(self):
         # TODO: recover services if process fails midway
@@ -2312,8 +2331,8 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'transient':
                             pass
                         else:
-                            log.error("For filesystem {0}, unknown kind: {0}"
-                                .format(srvc.name, srvc.kind))
+                            log.error("For filesystem {0}, unknown kind: {1}"
+                                      .format(srvc.name, srvc.kind))
                         fss.append(fs)
                 else:
                     s = {}
@@ -2482,7 +2501,7 @@ class ConsoleMonitor(object):
 
             if not do_match():
                 log.debug("No instance (%s) match found for message %s; will add instance now!"
-                    % (m.properties['reply_to'], m.body))
+                          % (m.properties['reply_to'], m.body))
                 if self.app.manager.add_live_instance(m.properties['reply_to']):
                     do_match()
                 else:
@@ -2492,6 +2511,7 @@ class ConsoleMonitor(object):
             m = self.conn.recv()
 
     def __monitor(self):
+        log.debug("Starting __monitor thread")
         if not self.app.manager.manager_started:
             if not self.app.manager.start():
                 log.critical("\n\n***** Manager failed to start *****\n")
@@ -2529,8 +2549,7 @@ class ConsoleMonitor(object):
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
                 for s in self.app.manager.services:
-                    svcs_state += "%s..%s; " % (s.get_full_name(),
-                        'OK' if s.state == 'Running' else s.state)
+                    svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances
                 for w_instance in self.app.manager.worker_instances:
@@ -2541,7 +2560,7 @@ class ConsoleMonitor(object):
                             # treating the instance as a regular Instance
                             continue
                     # Send current mount points to ensure master and workers FSs are in sync
-                    if w_instance.node_ready:
+                    if w_instance.worker_status == "Ready":
                         w_instance.send_mount_points()
                     # As long we we're hearing from an instance, assume all OK.
                     if (Time.now() - w_instance.last_comm).seconds < 22:
@@ -2553,671 +2572,11 @@ class ConsoleMonitor(object):
                     # periodically)
                     elif (Time.now() - w_instance.last_state_update).seconds > 30:
                         log.debug("Have not heard from or checked on instance {0} "
-                            "for a while; checking now.".format(w_instance.get_desc()))
+                                  "for a while; checking now.".format(w_instance.get_desc()))
                         w_instance.maintain()
                     else:
                         log.debug("Instance {0} has been quiet for a while (last check "
-                            "{1} secs ago); will wait a bit longer before a check..."
-                            .format(w_instance.get_desc(),
-                            (Time.now() - w_instance.last_state_update).seconds))
+                                  "{1} secs ago); will wait a bit longer before a check..."
+                                  .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
             self.__add_services()
             self.__check_amqp_messages()
-
-
-class Instance(object):
-    def __init__(self, app, inst=None, m_state=None, last_m_state_change=None,
-                 sw_state=None, reboot_required=False, spot_request_id=None):
-        self.app = app
-        self.config = app.config
-        self.spot_request_id = spot_request_id
-        self.lifecycle = instance_lifecycle.SPOT if self.spot_request_id else instance_lifecycle.ONDEMAND
-        self.inst = inst  # boto object of the instance
-        self.spot_state = None
-        self.private_ip = None
-        self.public_ip = None
-        self.local_hostname = None
-        if inst:
-            try:
-                self.id = str(inst.id)
-            except EC2ResponseError, e:
-                log.error("Error retrieving instance id: %s" % e)
-        else:
-            self.id = None
-        # Machine state as obtained from the cloud middleware (see
-        # instance_states Bunch)
-        self.m_state = m_state
-        self.last_m_state_change = Time.now()
-        # A time stamp when the most recent update of the instance state
-        # (m_state) took place
-        self.last_state_update = Time.now()
-        self.sw_state = sw_state  # Software state
-        self.is_alive = False
-        self.node_ready = False
-        self.num_cpus = 1
-        self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
-        self.reboot_count = 0
-        self.terminate_attempt_count = 0
-        self.last_comm = TIME_IN_PAST  # Initialize to a date in the past
-        self.nfs_data = 0
-        self.nfs_tools = 0
-        self.nfs_indices = 0
-        self.nfs_sge = 0
-        self.nfs_tfs = 0  # Transient file system, NFS-mounted from the master
-        self.get_cert = 0
-        self.sge_started = 0
-        self.worker_status = 'Pending'  # Pending, Wake, Startup, Ready, Stopping, Error
-        self.load = 0
-        self.type = 'Unknown'
-        self.reboot_required = reboot_required
-        self.update_spot()
-
-    def maintain(self):
-        """ Based on the state and status of this instance, try to do the right thing
-            to keep the instance functional. Note that this may lead to terminating
-            the instance.
-        """
-        def reboot_terminate_logic():
-            """ Make a decision whether to terminate or reboot an instance.
-                CALL THIS METHOD CAREFULLY because it defaults to terminating the
-                instance!
-            """
-            if self.reboot_count < self.config.instance_reboot_attempts:
-                self.reboot()
-            elif self.terminate_attempt_count >= self.config.instance_terminate_attempts:
-                log.info("Tried terminating instance {0} {1} times but was unsuccessful. Giving up."
-                    .format(self.inst.id, self.config.instance_terminate_attempts))
-                self._remove_instance()
-            else:
-                log.info("Instance {0} not responding after {1} reboots. Terminating instance."
-                    .format(self.id, self.reboot_count))
-                self.terminate()
-
-        # Update state then do resolution
-        state = self.get_m_state()
-        if state == instance_states.PENDING or state == instance_states.SHUTTING_DOWN:
-            if (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
-               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
-                log.debug("'Maintaining' instance {0} stuck in '{1}' state.".format(
-                    self.get_desc(), state))
-                reboot_terminate_logic()
-        elif state == instance_states.ERROR:
-            log.debug(
-                "'Maintaining' instance {0} in '{1}' state.".format(self.get_desc(),
-                instance_states.ERROR))
-            reboot_terminate_logic()
-        elif state == instance_states.TERMINATED:
-            log.debug(
-                "'Maintaining' instance {0} in '{1}' state.".format(self.get_desc(),
-                instance_states.TERMINATED))
-            self._remove_instance()
-        elif state == instance_states.RUNNING:
-            log.debug("'Maintaining' instance {0} in '{1}' state (last comm before {2} | "
-                "last m_state change before {3} | time_rebooted before {4}".format(
-                    self.get_desc(), instance_states.RUNNING,
-                    dt.timedelta(seconds=(Time.now() - self.last_comm).seconds),
-                    dt.timedelta(seconds=(Time.now() - self.last_m_state_change).seconds),
-                    dt.timedelta(seconds=(Time.now() - self.time_rebooted).seconds)))
-            if (Time.now() - self.last_comm).seconds > self.config.instance_comm_timeout and \
-               (Time.now() - self.last_m_state_change).seconds > self.config.instance_state_change_wait and \
-               (Time.now() - self.time_rebooted).seconds > self.config.instance_reboot_timeout:
-                reboot_terminate_logic()
-
-    def get_cloud_instance_object(self, deep=False):
-        """ Get the instance object for this instance from the library used to
-            communicate with the cloud middleware. In the case of boto, this
-            is the boto EC2 Instance object.
-
-            :type deep: bool
-            :param deep: If True, force the check with the cloud middleware; else
-                         use local field by default
-
-            :rtype: boto.ec2.instance.Instance (should really be a more generic repr
-                    but we'll wait for OCCI or something)
-            :return: cloud instance object for this instance
-        """
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance cloud object, but TESTFLAG is set. Returning None")
-            return None
-        if deep is True:  # reset the current local instance field
-            self.inst = None
-        if self.inst is None and self.id is not None:
-            try:
-                rs = self.app.cloud_interface.get_all_instances(self.id)
-                if len(rs) == 0:
-                    log.warning("Instance {0} not found on the cloud?".format(
-                        self.id))
-                for r in rs:
-                    # Update local fields
-                    self.inst = r.instances[0]
-                    self.id = r.instances[0].id
-                    self.m_state = r.instances[0].state
-            except EC2ResponseError, e:
-                log.error("Trouble getting the cloud instance ({0}) object: {1}"
-                    .format(self.id, e))
-            except Exception, e:
-                log.error("Error getting the cloud instance ({0}) object: {1}"
-                    .format(self.id, e))
-        elif not self.is_spot():
-            log.debug(
-                "Cannot get cloud instance object without an instance ID?")
-        return self.inst
-
-    def is_spot(self):
-        """ Test is this Instance is a Spot instance.
-
-            :rtype: bool
-            :return: True if the current Instance is Spot instance, False otherwise.
-        """
-        return self.lifecycle == instance_lifecycle.SPOT
-
-    def spot_was_filled(self):
-        """ For Spot-based instances, test if the spot request has been
-            filled (ie, an instance was started)
-
-            :rtype: bool
-            :return: True if this is a Spot instance and the Spot request
-                     is in state spot_states.ACTIVE. False otherwise.
-        """
-        self.update_spot()
-        if self.is_spot() and self.spot_state == spot_states.ACTIVE:
-            return True
-        return False
-
-    def get_status_dict(self):
-        toret = {'id': self.id,
-                 'ld': self.load,
-                 'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
-                 'nfs_data': self.nfs_data,
-                 'nfs_tools': self.nfs_tools,
-                 'nfs_indices': self.nfs_indices,
-                 'nfs_sge': self.nfs_sge,
-                 'nfs_tfs': self.nfs_tfs,
-                 'get_cert': self.get_cert,
-                 'sge_started': self.sge_started,
-                 'worker_status': self.worker_status,
-                 'instance_state': self.m_state,
-                 'instance_type': self.type,
-                 'public_ip': self.public_ip}
-
-        if self.load != 0:
-            lds = self.load.split(' ')
-            if len(lds) == 3:
-                toret['ld'] = "%s %s %s" % (float(lds[0]) / self.num_cpus, float(
-                    lds[1]) / self.num_cpus, float(lds[2]) / self.num_cpus)
-        return toret
-
-    def get_status_array(self):
-        if self.m_state.lower() == "running":  # For extra states.
-            if self.is_alive is not True:
-                ld = "Starting"
-            elif self.load != 0:
-                lds = self.load.split(' ')
-                if len(lds) == 3:
-                    try:
-                        load1 = float(lds[0]) / self.num_cpus
-                        load2 = float(lds[1]) / self.num_cpus
-                        load3 = float(lds[2]) / self.num_cpus
-                        ld = "%s %s %s" % (load1, load2, load3)
-                    except Exception, e:
-                        log.debug("Problems normalizing load: %s" % e)
-                        ld = self.load
-                else:
-                    ld = self.load
-            elif self.node_ready:
-                ld = "Running"
-            return [self.id, ld, misc.formatSeconds(
-                Time.now() - self.last_m_state_change),
-                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
-                self.sge_started, self.worker_status]
-        else:
-            return [self.id, self.m_state, misc.formatSeconds(Time.now() - self.last_m_state_change),
-                self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
-                self.sge_started, self.worker_status]
-
-    def get_id(self):
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance id, but TESTFLAG is set. Returning TestInstanceID")
-            return "TestInstanceID"
-        if self.inst is not None and self.id is None:
-            try:
-                self.inst.update()
-                self.id = self.inst.id
-            except EC2ResponseError, e:
-                log.error("Error retrieving instance id: %s" % e)
-            except Exception, e:
-                log.error("Exception retreiving instance object: %s" % e)
-        return self.id
-
-    def get_desc(self):
-        """ Get basic but descriptive info about this instance. Useful for logging.
-        """
-        if self.is_spot() and not self.spot_was_filled():
-            return "'{sid}'".format(sid=self.spot_request_id)
-        return "'{id}' (IP: {ip})".format(id=self.get_id(), ip=self.get_public_ip())
-
-    def reboot(self, count_reboot=True):
-        """
-        Reboot this instance. If ``count_reboot`` is set, increment the number
-        of reboots for this instance (a treshold in this count leads to eventual
-        instance termination, see ``self.config.instance_reboot_attempts``).
-        """
-        if self.inst is not None:
-            # Show reboot count only if this reboot counts toward the reboot quota
-            s = " (reboot #{0})".format(self.reboot_count + 1)
-            log.info("Rebooting instance {0}{1}.".format(self.get_desc(),
-                s if count_reboot else ''))
-            try:
-                self.inst.reboot()
-                self.time_rebooted = Time.now()
-            except EC2ResponseError, e:
-                log.error("Trouble rebooting instance {0}: {1}".format(self.get_desc(), e))
-        else:
-            log.debug("Attampted to reboot instance {0} but no instance object? "
-                "(doing nothing)".format(self.get_desc()))
-        if count_reboot:
-            # Increment irespective of success to allow for eventual termination
-            self.reboot_count += 1
-            log.debug("Incremented instance reboot count to {0} (out of {1})"
-                .format(self.reboot_count, self.config.instance_reboot_attempts))
-
-    def terminate(self):
-        self.worker_status = "Stopping"
-        t_thread = threading.Thread(target=self.__terminate)
-        t_thread.start()
-        return t_thread
-
-    def __terminate(self):
-        inst_terminated = self.app.cloud_interface.terminate_instance(
-            instance_id=self.id,
-            spot_request_id=self.spot_request_id if self.is_spot() else None)
-        self.terminate_attempt_count += 1
-        if inst_terminated is False:
-            log.error("Terminating instance %s did not go smoothly; instance state: '%s'"
-                % (self.get_desc(), self.get_m_state()))
-        else:
-            # Remove the reference to the instance object because with OpenStack &
-            # boto the instance.update() method returns the instance as being
-            # in 'running' state even though the instance does not even exist
-            # any more.
-            self.inst = None
-            self._remove_instance()
-
-    def _remove_instance(self, force=False):
-        """ A convenience method to remove the current instance from the list
-            of worker instances tracked by the master object.
-
-            :type force: bool
-            :param force: Indicate if the instance should be forcefully (ie, irrespective)
-                          of other logic) removed from the list of instances maintained
-                          by the master object.
-        """
-        try:
-            if self in self.app.manager.worker_instances:
-                self.app.manager.worker_instances.remove(self)
-                log.info(
-                    "Instance '%s' removed from the internal instance list." % self.id)
-                # If this was the last worker removed, add master back as execution host.
-                if len(self.app.manager.worker_instances) == 0 and not self.app.manager.master_exec_host:
-                    self.app.manager.toggle_master_as_exec_host()
-        except ValueError, e:
-            log.warning("Instance '%s' no longer in instance list, the global monitor probably "
-                "picked it up and deleted it already: %s" % (self.id, e))
-
-    def instance_can_be_terminated(self):
-        log.debug("Checking if instance '%s' can be terminated" % self.id)
-        # TODO (qstat -qs {a|c|d|o|s|u|A|C|D|E|S})
-        return False
-
-    def get_m_state(self):
-        """ Update the machine state of the current instance by querying the
-            cloud middleware for the instance object itself (via the instance
-            id) and updating self.m_state field to match the state returned by
-            the cloud middleware.
-            Also, update local last_state_update timestamp.
-
-            :rtype: String
-            :return: the current state of the instance as obtained from the
-                     cloud middleware
-        """
-        if self.app.TESTFLAG is True:
-            log.debug("Getting m_state for instance {0} but TESTFLAG is set; returning 'running'"
-                .format(self.get_id()))
-            return "running"
-        self.last_state_update = Time.now()
-        self.get_cloud_instance_object(deep=True)
-        if self.inst:
-            try:
-                state = self.inst.state
-                log.debug("Requested instance {0} update: old state: {1}; new state: {2}"
-                    .format(self.get_desc(), self.m_state, state))
-                if state != self.m_state:
-                    self.m_state = state
-                    self.last_m_state_change = Time.now()
-            except EC2ResponseError, e:
-                log.debug("Error updating instance {0} state: {1}".format(
-                    self.get_id(), e))
-                self.m_state = instance_states.ERROR
-        else:
-            if not self.is_spot() or self.spot_was_filled():
-                log.debug("Instance object {0} not found during m_state update; "
-                    "setting instance state to {1}".format(self.get_id(), instance_states.TERMINATED))
-                self.m_state = instance_states.TERMINATED
-        return self.m_state
-
-    @TestFlag(None)
-    def send_alive_request(self):
-        self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
-
-    def send_sync_etc_host(self, msg):
-        # Because the hosts file is synced over the transientFS, give the FS
-        # some time to become available before sending the msg
-        for i in range(5):
-            if int(self.nfs_tfs):
-                self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
-                break
-            log.debug("Transient FS on instance not available; waiting a bit...")
-            time.sleep(7)
-
-    def send_status_check(self):
-        # log.debug("\tMT: Sending STATUS_CHECK message" )
-        if self.app.TESTFLAG is True:
-            return
-        self.app.manager.console_monitor.conn.send('STATUS_CHECK', self.id)
-        # log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
-
-    def send_worker_restart(self):
-        # log.info("\tMT: Sending restart message to worker %s" % self.id)
-        if self.app.TESTFLAG is True:
-            return
-        self.app.manager.console_monitor.conn.send('RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
-        log.info("\tMT: Sent RESTART message to worker '%s'" % self.id)
-
-    def update_spot(self, force=False):
-        """ Get an update on the state of a Spot request. If the request has entered
-            spot_states.ACTIVE or spot_states.CANCELLED states, update the Instance
-            object itself otherwise just update state. The method will continue to poll
-            for an update until the spot request has been filled (ie, enters state
-            spot_states.ACTIVE). After that, simply return the spot state (see
-            force parameter).
-
-            :type force: bool
-            :param force: If True, poll for an update on the spot request,
-                          irrespective of the stored spot request state.
-        """
-        if self.is_spot() and (force or self.spot_state != spot_states.ACTIVE):
-            old_state = self.spot_state
-            try:
-                ec2_conn = self.app.cloud_interface.get_ec2_connection()
-                reqs = ec2_conn.get_all_spot_instance_requests(
-                    request_ids=[self.spot_request_id])
-                for req in reqs:
-                    self.spot_state = req.state
-                    # Also update the worker_status because otherwise there's no
-                    # single source to distinguish between simply an instance
-                    # in Pending state and a Spot request
-                    self.worker_status = self.spot_state
-                    # If the state has changed, do a deeper update
-                    if self.spot_state != old_state:
-                        if self.spot_state == spot_states.CANCELLED:
-                            # The request was canceled so remove this Instance
-                            # object
-                            log.info("Spot request {0} was canceled; removing Instance object {1}"
-                                .format(self.spot_request_id, self.id))
-                            self._remove_instance()
-                        elif self.spot_state == spot_states.ACTIVE:
-                            # We should have an instance now
-                            self.id = req.instance_id
-                            log.info("Spot request {0} filled with instance {1}"
-                                .format(self.spot_request_id, self.id))
-                            # Potentially give it a few seconds so everything gets registered
-                            for i in range(3):
-                                instance = self.get_cloud_instance_object()
-                                if instance:
-                                    self.app.cloud_interface.add_tag(instance,
-                                        'clusterName', self.app.ud['cluster_name'])
-                                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')
-                                    self.app.cloud_interface.add_tag(instance,
-                                        'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
-                                    break
-                                time.sleep(5)
-            except EC2ResponseError, e:
-                log.error("Trouble retrieving spot request {0}: {1}".format(
-                    self.spot_request_id, e))
-        return self.spot_state
-
-    def get_private_ip(self):
-        # log.debug("Getting instance '%s' private IP: '%s'" % ( self.id, self.private_ip ) )
-        if self.app.TESTFLAG is True:
-            log.debug(
-                "Attempted to get instance private IP, but TESTFLAG is set. Returning 127.0.0.1")
-            self.private_ip = '127.0.0.1'
-        if self.private_ip is None:
-            inst = self.get_cloud_instance_object()
-            if inst is not None:
-                try:
-                    inst.update()
-                    self.private_ip = inst.private_ip_address
-                except EC2ResponseError:
-                    log.debug("private_ip_address for instance {0} not (yet?) available."
-                        .format(self.get_id()))
-            else:
-                log.debug("private_ip_address for instance {0} with no instance object not available."
-                    .format(self.get_id()))
-        return self.private_ip
-
-    @TestFlag('127.0.0.1')
-    def get_public_ip(self):
-        """
-        Get the public IP address of this worker instance.
-        """
-        if not self.public_ip:
-            inst = self.get_cloud_instance_object(deep=True)
-            # log.debug('Getting public IP for instance {0}'.format(inst.id))
-            if inst:
-                try:
-                    inst.update()
-                    self.public_ip = inst.ip_address
-                    if self.public_ip:
-                        log.debug("Got public IP for instance {0}: {1}".format(
-                            self.get_id(), self.public_ip))
-                    else:
-                        log.debug("Still no public IP for instance {0}".format(
-                            self.get_id()))
-                except EC2ResponseError:
-                    log.debug("ip_address for instance {0} not (yet?) available.".format(
-                        self.get_id()))
-            else:
-                log.debug("ip_address for instance {0} with no instance object not available."
-                    .format(self.get_id()))
-        return self.public_ip
-
-    def get_local_hostname(self):
-        return self.local_hostname
-
-    def send_mount_points(self):
-        mount_points = []
-        for fs in self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM):
-            if fs.nfs_fs:
-                fs_type = "nfs"
-                server = fs.nfs_fs.device
-                options = fs.nfs_fs.mount_options
-            elif fs.gluster_fs:
-                fs_type = "glusterfs"
-                server = fs.gluster_fs.device
-                options = fs.gluster_fs.mount_options
-            else:
-                fs_type = "nfs"
-                server = self.app.cloud_interface.get_private_ip()
-                options = None
-            mount_points.append(
-                {'fs_type': fs_type,
-                 'server': server,
-                 'mount_options': options,
-                 'shared_mount_path': fs.get_details()['mount_point'],
-                 'fs_name': fs.get_details()['name']})
-        jmp = json.dumps({'mount_points': mount_points})
-        self.app.manager.console_monitor.conn.send('MOUNT | %s' % jmp, self.id)
-        # log.debug("Sent mount points %s to worker %s" % (mount_points, self.id))
-
-    def send_master_pubkey(self):
-        # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s'
-            % self.app.manager.get_root_public_key(), self.id)
-        log.debug("Sent master public key to worker instance '%s'." % self.id)
-        log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'"
-            % (self.app.manager.get_root_public_key(), self.id))
-
-    def send_start_sge(self):
-        log.debug("\tMT: Sending START_SGE message to instance '%s'" % self.id)
-        self.app.manager.console_monitor.conn.send('START_SGE', self.id)
-
-    def send_add_s3fs(self, bucket_name, svc_roles):
-        msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
-        self._send_msg(msg)
-
-    # def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
-    #     """
-    #     Send a message to the worker node requesting it to mount a new file system
-    #     form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
-    #     """
-    #     nfs_server_info = {
-    #         'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
-    #         'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
-    #     }
-    #     msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
-    #     self._send_msg(msg)
-
-    def _send_msg(self, msg):
-        """
-        An internal convenience method to log and send a message to the current instance.
-        """
-        log.debug("\tMT: Sending message '{msg}' to instance {inst}".format(msg=msg, inst=self.id))
-        self.app.manager.console_monitor.conn.send(msg, self.id)
-
-    def handle_message(self, msg):
-        # log.debug( "Handling message: %s from %s" % ( msg, self.id ) )
-        self.is_alive = True
-        self.last_comm = Time.now()
-        # Transition from states to a particular response.
-        if self.app.manager.console_monitor.conn:
-            msg_type = msg.split(' | ')[0]
-            if msg_type == "ALIVE":
-                self.worker_status = "Starting"
-                log.info("Instance %s reported alive" % self.get_desc())
-                msp = msg.split(' | ')
-                self.private_ip = msp[1]
-                self.public_ip = msp[2]
-                self.zone = msp[3]
-                self.type = msp[4]
-                self.ami = msp[5]
-                try:
-                    self.local_hostname = msp[6]
-                except:
-                    # Older versions of CloudMan did not pass this value so if the master
-                    # and the worker are running 2 diff versions (can happen after an
-                    # automatic update), don't crash here.
-                    self.local_hostname = self.public_ip
-                log.debug("INSTANCE_ALIVE private_dns:%s public_dns:%s pone:%s type:%s ami:%s hostname: %s"
-                    % (self.private_ip,
-                       self.public_ip,
-                       self.zone,
-                       self.type,
-                       self.ami,
-                       self.local_hostname))
-                # Instance is alive and functional. Send master pubkey.
-                self.send_mount_points()
-            elif msg_type == "GET_MOUNTPOINTS":
-                self.send_mount_points()
-            elif msg_type == "MOUNT_DONE":
-                self.send_master_pubkey()
-                # Add hostname to /etc/hosts (for SGE config)
-                if self.app.cloud_type in ('openstack', 'eucalyptus'):
-                    hn2 = ''
-                    if '.' in self.local_hostname:
-                        hn2 = (self.local_hostname).split('.')[0]
-                    worker_host_line = '{ip} {hn1} {hn2}\n'.format(ip=self.private_ip,
-                        hn1=self.local_hostname, hn2=hn2)
-
-                    log.debug("worker_host_line: {0}".format(worker_host_line))
-                    with open('/etc/hosts', 'r+') as f:
-                        hosts = f.readlines()
-                        if worker_host_line not in hosts:
-                            log.debug("Adding worker {0} to /etc/hosts".format(
-                                self.local_hostname))
-                            f.write(worker_host_line)
-
-                if self.app.cloud_type == 'opennebula':
-                    f = open("/etc/hosts", 'a')
-                    f.write("%s\tworker-%s\n" % (self.private_ip, self.id))
-                    f.close()
-            elif msg_type == "WORKER_H_CERT":
-                self.is_alive = True  # This is for the case that an existing worker is added to a new master.
-                self.app.manager.save_host_cert(msg.split(" | ")[1])
-                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts"
-                    % self.id)
-                try:
-                    sge_svc = self.app.manager.get_services(
-                        svc_role=ServiceRole.SGE)[0]
-                    if sge_svc.add_sge_host(self.get_id(), self.local_hostname):
-                        # Send a message to worker to start SGE
-                        self.send_start_sge()
-                        # If there are any bucket-based FSs, tell the worker to
-                        # add those
-                        fss = self.app.manager.get_services(
-                            svc_type=ServiceType.FILE_SYSTEM)
-                        for fs in fss:
-                            if len(fs.buckets) > 0:
-                                for b in fs.buckets:
-                                    self.send_add_s3fs(b.bucket_name, fs.svc_roles)
-                        log.info("Waiting on worker instance %s to configure itself..."
-                            % self.get_desc())
-                    else:
-                        log.error("Adding host to SGE did not go smoothly, "
-                            "not instructing worker to configure SGE daemon.")
-                except IndexError:
-                    log.error(
-                        "Could not get a handle on SGE service to add a host; host not added")
-            elif msg_type == "NODE_READY":
-                self.node_ready = True
-                self.worker_status = "Ready"
-                log.info("Instance %s ready" % self.get_desc())
-                msplit = msg.split(' | ')
-                try:
-                    self.num_cpus = int(msplit[2])
-                except:
-                    log.debug(
-                        "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
-                log.debug("Instance '%s' reported as having '%s' CPUs." %
-                          (self.id, self.num_cpus))
-                # Make sure the instace is tagged (this is also necessary to do
-                # here for OpenStack because it does not allow tags to be added
-                # until an instance is 'running')
-                self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
-                self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
-                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}"
-                    .format(self.app.ud['cluster_name']))
-
-                log.debug("update condor host through master")
-                self.app.manager.update_condor_host(self.public_ip)
-                log.debug("update etc host through master")
-                self.app.manager.update_etc_host()
-            elif msg_type == "NODE_STATUS":
-                msplit = msg.split(' | ')
-                self.nfs_data = msplit[1]
-                self.nfs_tools = msplit[2]  # Workers currently do not update this field
-                self.nfs_indices = msplit[3]
-                self.nfs_sge = msplit[4]
-                self.get_cert = msplit[5]
-                self.sge_started = msplit[6]
-                self.load = msplit[7]
-                self.worker_status = msplit[8]
-                self.nfs_tfs = msplit[9]
-            elif msg_type == 'NODE_SHUTTING_DOWN':
-                msplit = msg.split(' | ')
-                self.worker_status = msplit[1]
-            else:  # Catch-all condition
-                log.debug("Unknown Message: %s" % msg)
-        else:
-            log.error("Epic Failure, squeue not available?")

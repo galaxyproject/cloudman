@@ -24,10 +24,9 @@ class GalaxyReportsService(ApplicationService):
         self.reports_port = DEFAULT_REPORTS_PORT
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
-        self.dependencies = [ServiceDependency(
-            self, ServiceRole.GALAXY)]  # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
-        self.conf_dir = os.path.join(
-            self.app.path_resolver.galaxy_home, 'reports.conf.d')
+        # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
+        self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY)]
+        self.conf_dir = os.path.join(self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
     def __repr__(self):
         return "Galaxy Reports service on port {0}".format(DEFAULT_REPORTS_PORT)
@@ -45,12 +44,13 @@ class GalaxyReportsService(ApplicationService):
             started = self._run("--sync-config start")
             if not started:
                 log.warn("Failed to setup or run galaxy reports server.")
-                self.start = service_states.ERROR
+                self.state = service_states.ERROR
 
     def _setup(self):
         log.debug("Running GalaxyReportsService _setup")
         reports_option_manager = DirectoryGalaxyOptionManager(self.app,
-            conf_dir=self.conf_dir, conf_file_name='reports_wsgi.ini')
+                                                              conf_dir=self.conf_dir,
+                                                              conf_file_name='reports_wsgi.ini')
         reports_option_manager.setup()
         main_props = {
             # Place dummy database_connection for run_reports.sh's --sync-config option to replace
@@ -62,9 +62,10 @@ class GalaxyReportsService(ApplicationService):
             'prefix': '/reports',
         }
         reports_option_manager.set_properties(main_props, section='app:main',
-            description='app_main_props')
-        reports_option_manager.set_properties(proxy_props, section='filter:proxy-prefix',
-            description='proxy_prefix_props')
+                                              description='app_main_props')
+        reports_option_manager.set_properties(proxy_props,
+                                              section='filter:proxy-prefix',
+                                              description='proxy_prefix_props')
 
     def remove(self, synchronous=False):
         if self.state == service_states.RUNNING:

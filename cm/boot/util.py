@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 
 
 def _run(log, cmd):
@@ -12,8 +12,8 @@ def _run(log, cmd):
         else:
             return True
     else:
-        log.error("Error running '%s'. Process returned code '%s' and following stderr: %s" %
-            (cmd, process.returncode, stderr))
+        log.error("Error running '%s'. Process returned code '%s' and following stderr: %s"
+                  % (cmd, process.returncode, stderr))
         return False
 
 

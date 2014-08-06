@@ -2,10 +2,9 @@ import config
 import logging
 import logging.config
 import sys
-from cm.util import misc
-from cm.util import paths
-from cm.framework import messages
 from cm.clouds.cloud_config import CloudConfig
+from cm.framework import messages
+from cm.util import misc, paths
 
 log = logging.getLogger('cloudman')
 logging.getLogger('boto').setLevel(logging.INFO)
@@ -83,6 +82,10 @@ class UniverseApplication(object):
         # but that's hopefully still forthcoming.
         self.msgs = messages.Messages()
 
+        # App-wide consecutive number generator. Starting at 1, each time `next`
+        # is called, get the next integer.
+        self.number_generator = misc.get_a_number()
+
         # Check that we actually got user creds in user data and inform user
         if not ('access_key' in self.ud or 'secret_key' in self.ud):
             self.msgs.error("No access credentials provided in user data. "
@@ -94,7 +97,8 @@ class UniverseApplication(object):
         if self.use_object_store and 'bucket_cluster' in self.ud:
             log.debug("Getting pd.yaml")
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(),
-               self.ud['bucket_cluster'], 'persistent_data.yaml', 'pd.yaml'):
+                                         self.ud['bucket_cluster'],
+                                         'persistent_data.yaml', 'pd.yaml'):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
                 self.ud = misc.normalize_user_data(self, self.ud)
@@ -107,17 +111,16 @@ class UniverseApplication(object):
         if 'role' in self.ud:
             if self.ud['role'] == 'master':
                 log.info("Master starting")
-                from cm.util import master
+                from cm import master
                 self.manager = master.ConsoleManager(self)
             elif self.ud['role'] == 'worker':
                 log.info("Worker starting")
-                from cm.util import worker
+                from cm import worker
                 self.manager = worker.ConsoleManager(self)
             self.path_resolver = paths.PathResolver(self.manager)
             self.manager.console_monitor.start()
         else:
-            log.critical("************ No ROLE in %s - this is a fatal error. ************" %
-                      paths.USER_DATA_FILE)
+            log.critical("************ No ROLE in %s - this is a fatal error. ************" % paths.USER_DATA_FILE)
 
     def shutdown(self, delete_cluster=False):
         if self.manager:

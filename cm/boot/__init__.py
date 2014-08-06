@@ -18,6 +18,7 @@ import time
 import urllib
 import urlparse
 import yaml
+
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
 
@@ -83,7 +84,7 @@ def _start_nginx(ud):
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
     if nginx_dir:
-        ul, us = None, None
+        ul = None
         nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
@@ -250,7 +251,7 @@ def _get_cm(ud):
             if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
                 log.info("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster'])
                 if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'],
-                   CM_REMOTE_FILENAME, local_cm_file):
+                                         CM_REMOTE_FILENAME, local_cm_file):
                     _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
                     log.info("Restored Cloudman from bucket_cluster %s" %
                              (ud['bucket_cluster']))
@@ -341,11 +342,10 @@ def _with_venvburrito(cmd):
     # Need to override LOG dir so when running as root
     # it doesn't create files that cannot be modified by
     # user (e.g. ubuntu).
-    ""
     home_dir = _venvburrito_home_dir()
     vb_path = _venvburrito_path()
     return ("/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'"
-        .format(home_dir, vb_path, cmd))
+            .format(home_dir, vb_path, cmd))
 
 
 def _virtualenv_exists(venv_name='CM'):
@@ -360,7 +360,7 @@ def _virtualenv_exists(venv_name='CM'):
             log.debug("'{0}' virtualenv found".format(venv_name))
             return True
     log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist"
-        .format(venv_name))
+              .format(venv_name))
     return False
 
 
@@ -377,15 +377,15 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
     """
     if _virtualenv_exists(cm_venv_name):
         cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2}"
-            .format(cm_venv_name, CM_HOME, action, ex_cmd))
+                                .format(cm_venv_name, CM_HOME, action, ex_cmd))
     else:
         cmd = "cd {0}; {2}; sh run.sh {1}".format(CM_HOME, action, ex_cmd)
     return cmd
 
 
 def _start_cm():
-    log.debug("Copying user data file from '%s' to '%s'" %
-             (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE)))
+    log.debug("Copying user data file from '%s' to '%s'"
+              % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE)))
     shutil.copyfile(os.path.join(
         CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
@@ -421,8 +421,8 @@ def _post_start_hook(ud):
     if 'post_start_script_url' in ud:
         # This assumes the provided URL is readable to anyone w/o
         # authentication
-        _run(log, 'wget --output-document=%s %s' % (local_prs_file, ud[
-             'post_start_script_url']))
+        _run(log, 'wget --output-document=%s %s' % (local_prs_file,
+                                                    ud['post_start_script_url']))
     elif use_object_store:
         s3_conn = _get_s3connection(ud)
         b = None
@@ -448,11 +448,9 @@ def _fix_etc_hosts():
     # TODO decide if this should be done in ec2autorun instead
     try:
         log.debug("Fixing /etc/hosts on NeCTAR")
-        fp = urllib.urlopen(
-            'http://169.254.169.254/latest/meta-data/local-ipv4')
+        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4')
         ip = fp.read()
-        fp = urllib.urlopen(
-            'http://169.254.169.254/latest/meta-data/public-hostname')
+        fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/public-hostname')
         hn = fp.read()
         line = "{ip} {hn1} {hn2}".format(ip=ip, hn1=hn, hn2=hn.split('.')[0])
         with open('/etc/hosts', 'a+') as f:
@@ -470,11 +468,11 @@ def _system_message(message_contents):
     """
     # First write contents to file.
     if os.path.exists(SYSTEM_MESSAGES_FILE):
-        with open(SYSTEM_MESSAGES_FILE, 'a+t') as f:
+        with open(SYSTEM_MESSAGES_FILE, 'a+') as f:
             f.write(message_contents)
     # Copy message to appropriate places in nginx err_502.html pages.
     # possible_nginx_paths = ['/opt/galaxy/pkg/nginx/html/errdoc/gc2_502.html',
-                            # '/usr/nginx/html/errdoc/gc2_502.html']
+    #                         '/usr/nginx/html/errdoc/gc2_502.html']
 
 
 def migrate_1():

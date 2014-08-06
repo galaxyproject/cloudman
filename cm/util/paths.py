@@ -1,5 +1,5 @@
-import os
 import commands
+import os
 from cm.util import misc
 from cm.services import ServiceRole
 
@@ -26,6 +26,12 @@ P_SGE_ROOT = "/opt/sge"
 P_SGE_TARS = "/opt/galaxy/pkg/ge6.2u5"
 P_SGE_CELL = "/opt/sge/default/spool/qmaster"
 P_DRMAA_LIBRARY_PATH = "/opt/sge/lib/lx24-amd64/libdrmaa.so.1.0"
+
+# Slurm paths
+SLURM_CONF_FILE = "slurm.conf"
+P_SLURM_ROOT_LOCAL = "/etc/slurm-llnl/"
+P_SLURM_ROOT_NFS = "/mnt/transient_nfs/slurm/"
+P_SLURM_ROOT_TMP = "/tmp/slurm"
 
 # the value for P_HADOOP_HOME must be equal to the directory
 # in the file hdfs-start.sh from sge_integration
@@ -189,6 +195,15 @@ class PathResolver(object):
         return P_MOUNT_ROOT
 
     @property
+    def transient_nfs(self):
+        transient_fs = self.manager.get_services(svc_role=ServiceRole.TRANSIENT_NFS)
+        if transient_fs:
+            return transient_fs[0].mount_point
+        else:  # For backward compatibility
+            log.debug("Warning: Returning default transient file system path")
+            return "/mnt/transient_nfs"
+
+    @property
     def sge_root(self):
         return P_SGE_ROOT
 
@@ -203,6 +218,30 @@ class PathResolver(object):
     @property
     def drmaa_library_path(self):
         return P_DRMAA_LIBRARY_PATH
+
+    @property
+    def slurm_conf_local(self):
+        return os.path.join(P_SLURM_ROOT_LOCAL, SLURM_CONF_FILE)
+
+    @property
+    def slurm_conf_nfs(self):
+        return os.path.join(self.slurm_root_nfs, SLURM_CONF_FILE)
+
+    @property
+    def slurm_root_nfs(self):
+        return os.path.join(self.transient_nfs, "slurm")
+
+    @property
+    def slurm_root_tmp(self):
+        return P_SLURM_ROOT_TMP
+
+    @property
+    def slurmctld_pid(self):
+        return '/var/run/slurmctld.pid'
+
+    @property
+    def slurmd_pid(self):
+        return '/var/run/slurmd.pid'
 
     @property
     def nginx_dir(self):

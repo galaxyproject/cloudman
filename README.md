@@ -15,7 +15,7 @@ CloudMan is currently available on the [AWS EC2 cloud][6].
 
 ### Use
 
-To instantiate a CloudMan cluster, simply visit [biocloudcentral.org][7].
+To instantiate a CloudMan cluster, simply visit [usegalaxy.org/cloudlaunch][7].
 
 ### Local deployment
 For basic testing and some development, [CloudMan][1] can be run locally.
@@ -41,7 +41,7 @@ way to do so.
 [4]: http://www.nature.com/nbt/journal/v29/n11/full/nbt.2028.html
 [5]: http://cloudbiolinux.org/
 [6]: http://aws.amazon.com/ec2/
-[7]: http://biocloudcentral.org/
+[7]: http://usegalaxy.org/cloudlaunch/
 [8]: https://bitbucket.org/afgane/mi-deployment/
 [9]: http://en.wikipedia.org/wiki/Computer_cluster
 [10]: http://en.wikipedia.org/wiki/DNA_sequencing

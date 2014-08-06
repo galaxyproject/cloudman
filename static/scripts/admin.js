@@ -13,7 +13,11 @@ function hidebox(){
 }
 
 function update_application_status(id, content) {
-    $(id).html(content);
+    if (typeof content === 'undefined') {
+        $(id).html("N/A");
+    } else {
+        $(id).html(content);
+    }
     // Set color for services - `Running`: green, 'Error': red; anything else is tan
     if (content === 'Running') {
         $(id).css("color", "#037f26");
@@ -54,6 +58,8 @@ function update(repeat_update){
                 $('#galaxy_rev').html(rev_html);
                 update_application_status("#galaxy_status", data.Galaxy);
                 update_application_status("#postgres_status", data.Postgres);
+                update_application_status("#slurmctld_status", data.Slurmctld);
+                update_application_status("#slurmd_status", data.Slurmd);
                 update_application_status("#sge_status", data.SGE);
                 update_application_status("#galaxy_reports_status", data.GalaxyReports);
                 update_application_status("#lwr_status", data.LWR);

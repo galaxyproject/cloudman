@@ -103,6 +103,24 @@
                 <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
             </tr>
             <tr>
+                <td>Slurmctld</td>
+                <td><span id="slurmctld_status">&nbsp;</span></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmctld">Log</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmctld&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmctld" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Slurmctld" target="_blank">Restart</a></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmctld&q=sinfo">sinfo</a></td>
+            </tr>
+            <tr>
+                <td>Slurmd</td>
+                <td><span id="slurmd_status">&nbsp;</span></td>
+                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmd">Log</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmd&to_be_started=False" target="_blank">Stop</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmd" target="_blank">Start</a></td>
+                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Slurmd" target="_blank">Restart</a></td>
+            </tr>
+            <%doc>
+            <tr>
                 <td>SGE</td>
                 <td><span id="sge_status">&nbsp;</span></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE">Log</a></td>
@@ -112,6 +130,7 @@
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
                 <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
             </tr>
+            </%doc>
             <%doc>
             ## Given LWR is not quite ready within CloudMan, hide the service
             ## actions for the time being

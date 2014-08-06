@@ -3,12 +3,13 @@ import os
 import pwd
 import grp
 
-from cm.services.apps import ApplicationService
-from cm.util import paths
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
+from cm.services.apps import ApplicationService
 from cm.util import misc
+from cm.util import paths
+from cm.util.decorators import TestFlag
 
 import logging
 log = logging.getLogger('cloudman')
@@ -42,10 +43,8 @@ class PostgresService(ApplicationService):
                       .format(self.name, self.state))
         # TODO: Should we completely remove self?
 
+    @TestFlag(None)
     def manage_postgres(self, to_be_started=True):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to manage Postgres, but TESTFLAG is set.")
-            return
         psql_data_dir = self.app.path_resolver.psql_dir
         # Make sure postgres is owner of its directory before any operations
         if os.path.exists(self.app.path_resolver.psql_dir):

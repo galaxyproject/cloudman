@@ -1,14 +1,14 @@
 import os
 import re
 import fileinput
-from cm.util import templates
+from string import Template
 
+from cm.conftemplates import htcondor
 from cm.util import misc
 from cm.util import paths
 from cm.services import ServiceRole
 from cm.services import service_states
 from cm.services.apps import ApplicationService
-from string import Template
 
 import logging
 log = logging.getLogger('cloudman')
@@ -56,11 +56,11 @@ class HTCondorService(ApplicationService):
         try:
             htcondor_params = {}
             if self.srv_type == "master":
-                condor_template = Template(templates.HTCONDOR_MASTER_CONF_TEMPLATE)
+                condor_template = Template(htcondor.HTCONDOR_MASTER_CONF_TEMPLATE)
                 # log.debug("Condor template: {0}".format(condor_template))
                 htcondor_params["flock_host"] = self.flock_to
             else:
-                condor_template = Template(templates.HTCONDOR_WOORKER_CONF_TEMPLATE)
+                condor_template = Template(htcondor.HTCONDOR_WOORKER_CONF_TEMPLATE)
                 htcondor_params = {
                     "host": self.host
                 }

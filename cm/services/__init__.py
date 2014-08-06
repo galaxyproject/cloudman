@@ -2,9 +2,10 @@
 The base services package; all CloudMan services derive from this class.
 """
 import datetime as dt
+import logging
+
 from cm.util.bunch import Bunch
 
-import logging
 log = logging.getLogger('cloudman')
 
 service_states = Bunch(
@@ -27,6 +28,8 @@ class ServiceType(object):
 
 class ServiceRole(object):
     SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
+    SLURMCTLD = {'type': ServiceType.APPLICATION, 'name': "Slurmctld"}
+    SLURMD = {'type': ServiceType.APPLICATION, 'name': "Slurmd"}
     GALAXY = {'type': ServiceType.APPLICATION, 'name': "Galaxy"}
     GALAXY_POSTGRES = {'type': ServiceType.APPLICATION, 'name':
                        "Postgres DB for Galaxy"}
@@ -84,6 +87,10 @@ class ServiceRole(object):
     def _role_from_string(val):
         if val == "SGE":
             return ServiceRole.SGE
+        elif val == "SLURMCTLD":
+            return ServiceRole.SLURMCTLD
+        elif val == "SLURMD":
+            return ServiceRole.SLURMD
         elif val == "Galaxy":
             return ServiceRole.GALAXY
         elif val == "Postgres":
@@ -137,6 +144,10 @@ class ServiceRole(object):
     def _role_to_string(svc_role):
         if svc_role == ServiceRole.SGE:
             return "SGE"
+        elif svc_role == ServiceRole.SLURMCTLD:
+            return "Slurmctld"
+        elif svc_role == ServiceRole.SLURMD:
+            return "Slurmd"
         elif svc_role == ServiceRole.GALAXY:
             return "Galaxy"
         elif svc_role == ServiceRole.GALAXY_POSTGRES:
@@ -253,6 +264,9 @@ class Service(object):
         self.svc_roles = []
         self.dependencies = []
 
+    def start(self):
+        raise NotImplementedError("Subclasses of Service must implement this.")
+
     def add(self):
         """
         Add a given service to the pool of services managed by CloudMan, giving
@@ -267,7 +281,7 @@ class Service(object):
             self.state = service_states.STARTING
             self.last_state_change_time = dt.datetime.utcnow()
             failed_prereqs = self.dependencies[:]
-                # List of service prerequisites that have not been satisfied
+            # List of service prerequisites that have not been satisfied
             for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'" \
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
