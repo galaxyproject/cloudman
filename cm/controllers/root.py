@@ -111,9 +111,9 @@ class CM(BaseController):
         if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
             try:
                 CM_url = trans.app.config.get("CM_url",
-                    "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
+                    "https://bitbucket.org/galaxy/cloudman/commits/all?search=")
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
-                CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
+                CM_url += changesets['user_CM_rev'] + '%3A' + changesets['default_CM_rev']
                 return CM_url
             except Exception, e:
                 log.debug("Error calculating changeset range for CM 'What's new' link: %s" % e)
