@@ -46,7 +46,7 @@ class LwrService(ApplicationService):
             started = self._run("--daemon")
             if not started:
                 log.warn("Failed to setup or run LWR server.")
-                self.start = service_states.ERROR
+                self.state = service_states.ERROR
 
     def _setup(self):
         ini_path = self.__ini_path()

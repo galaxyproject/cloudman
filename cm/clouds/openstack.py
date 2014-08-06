@@ -1,11 +1,15 @@
+import time
 import urllib
 
 from cm.clouds.ec2 import EC2Interface
+from cm.instance import Instance
+from cm.util.decorators import TestFlag
 
 import boto
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.ec2.regioninfo import RegionInfo
 from boto.exception import EC2ResponseError
+from boto.exception import BotoServerError
 
 import logging
 log = logging.getLogger('cloudman')
@@ -28,7 +32,7 @@ class OSInterface(EC2Interface):
         if type(resource) == boto.ec2.instance.Instance:
             return True
         log.debug("Not adding tag to resource %s because that resource "
-            "in OpenStack does not support tags." % resource)
+                  "in OpenStack does not support tags." % resource)
         return False
 
     def set_configuration(self):
@@ -48,20 +52,15 @@ class OSInterface(EC2Interface):
     def get_region_name(self):
         return self.region_name
 
+    @TestFlag(None)
     def get_ec2_connection(self):
         if not self.ec2_conn:
             try:
-                if self.app.TESTFLAG is True:
-                    log.debug("Attempted to establish Nova connection, but TESTFLAG is set. "
-                              "Returning a default connection.")
-                    self.ec2_conn = self._get_default_ec2_conn()
-                    return self.ec2_conn
                 log.debug('Establishing a boto Nova connection')
                 self.ec2_conn = self._get_default_ec2_conn()
                 # Do a simple query to test if provided credentials are valid
                 try:
-                    log.debug("Testing the new boto Nova connection ({0})"
-                        .format(self.ec2_conn))
+                    log.debug("Testing the new boto Nova connection ({0})".format(self.ec2_conn))
                     self.ec2_conn.get_all_key_pairs()
                     log.debug("Got boto Nova connection for region {0}".format(
                         self.ec2_conn.region.name))
@@ -117,19 +116,16 @@ class OSInterface(EC2Interface):
                 log.error("Trouble creating a Swift connection: {0}".format(e))
         return self.s3_conn
 
+    @TestFlag("127.0.0.1")
     def get_public_ip(self):
         """ NeCTAR's public & private IPs are the same and also local-ipv4 metadata filed
             returns empty so do some monkey patching.
         """
         if self.self_public_ip is None:
-            if self.app.TESTFLAG is True:
-                log.debug("Attempted to get public IP, but TESTFLAG is set. Returning '127.0.0.1'")
-                self.self_public_ip = '127.0.0.1'
-                return self.self_public_ip
             for i in range(0, 5):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
-                    #This is not only nectar specific but I left nectar for backward compatibility
+                    # This is not only nectar specific but I left nectar for backward compatibility
                     if self.use_private_ip or self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
@@ -151,8 +147,7 @@ class OSInterface(EC2Interface):
                     key, value, resource.id if resource.id else resource))
                 resource.add_tag(key, value)
             except EC2ResponseError, e:
-                log.error("Exception adding tag '%s:%s' to resource '%s': %s"
-                    % (key, value, resource, e))
+                log.error("Exception adding tag '%s:%s' to resource '%s': %s" % (key, value, resource, e))
 
     def get_tag(self, resource, key):
         value = None
@@ -161,6 +156,64 @@ class OSInterface(EC2Interface):
                 log.debug("Getting tag '%s' on resource '%s'" % (key, resource.id))
                 value = resource.tags.get(key, None)
             except EC2ResponseError, e:
-                log.error("Exception getting tag '%s' on resource '%s': %s" %
-                    (key, resource, e))
+                log.error("Exception getting tag '%s' on resource '%s': %s" % (key, resource, e))
         return value
+
+    def run_instances(self, num, instance_type, **kwargs):
+        """
+        Launch `num` new worker instance(s) oy type `instance_type`.
+        """
+        log.info("Adding {0} instance(s) of type {1}".format(num, instance_type))
+        worker_ud = self._compose_worker_user_data()
+        return self._launch_instances(num, instance_type, worker_ud)
+
+    def _launch_instances(self, num, instance_type, worker_ud, min_num=1):
+        """
+        Actually launch the `num` instance(s) of type `instance_type` and using
+        the provided `worker_ud` dict that contains the instance user data.
+        """
+        worker_ud_str = "\n".join(
+            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+        try:
+            reservation = None
+            ec2_conn = self.get_ec2_connection()
+            log.debug("Starting instance(s) with the following command: ec2_conn.run_instances("
+                      "image_id='{iid}', min_count='{min_num}', max_count='{num}', "
+                      "key_name='{key}', security_groups=['{sgs}'], "
+                      "user_data(with password/secret_key filtered out)=[{ud}], "
+                      "instance_type='{type}', placement='{zone}')"
+                      .format(iid=self.get_ami(), min_num=min_num, num=num,
+                              key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
+                              ud="\n".join(['%s: %s' % (key, value) for key, value
+                                in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                              type=instance_type, zone=self.get_zone()))
+            reservation = ec2_conn.run_instances(image_id=self.get_ami(),
+                                                 min_count=min_num,
+                                                 max_count=num,
+                                                 key_name=self.get_key_pair_name(),
+                                                 security_groups=self.get_security_groups(),
+                                                 user_data=worker_ud_str,
+                                                 instance_type=instance_type,
+                                                 placement=self.get_zone())
+            # Occasionally, instances take a bit to register, so wait a few seconds
+            time.sleep(3)
+            if reservation:
+                for instance in reservation.instances:
+                    i = Instance(app=self.app, inst=instance, m_state=instance.state)
+                    log.debug("Adding Instance %s to the list of workers" % instance)
+                    self.app.manager.worker_instances.append(i)
+                log.debug("Started %s instance(s)" % num)
+                return True
+        except BotoServerError, e:
+            log.error("boto server error when starting an instance: %s" % str(e))
+            return False
+        except EC2ResponseError, e:
+            err = "EC2 response error when starting worker nodes: %s" % str(e)
+            log.error(err)
+            return False
+        except Exception, ex:
+            err = "Error when starting worker nodes: %s" % str(ex)
+            log.error(err)
+            return False
+        log.warn("Had trouble starting instance(s). Check the complete log.")
+        return False

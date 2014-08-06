@@ -61,17 +61,17 @@ class MountableFS(object):
         """
         Do the actual mounting of the device locally.
         """
-        log.debug("Mounting device of type {0} from location {0} to mount pount {1}".format(self.fs_type, self.device, self.fs.mount_point))
+        log.debug("Mounting device of type {0} from location {1} to mount pount {2}".format(self.fs_type, self.device, self.fs.mount_point))
         options = "-o {0}".format(self.mount_options) if self.mount_options else ""
         cmd = '/bin/mount -t {0} {1} {2} {3}'.format(self.fs_type, options, self.device, self.fs.mount_point)
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         _, _ = process.communicate()
         if process.returncode != 0:
             log.error("Trouble mounting file system at {0} from server {1} of type {2} with mount options: {3}"
-                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
+                      .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
         else:
             log.info("Successfully mounted file system at: {0} from: {1} of type: {2} with mount options: {3}"
-                .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
+                     .format(self.fs.mount_point, self.device, self.fs_type, self.mount_options if self.mount_options else "None"))
 
     def unmount(self):
         """
@@ -79,8 +79,7 @@ class MountableFS(object):
         """
         log.debug("Unmounting FS of type {0} from {1}".format(self.fs_type, self.fs.mount_point))
         for counter in range(10):
-            if (self.fs.state == service_states.RUNNING and
-                run('/bin/umount %s' % self.fs.mount_point)):
+            if (self.fs.state == service_states.RUNNING and run('/bin/umount %s' % self.fs.mount_point)):
                 break
             if counter == 9:
                 log.warning("Could not unmount file system of type %s at '%s'" % (self.fs_type, self.fs.mount_point))

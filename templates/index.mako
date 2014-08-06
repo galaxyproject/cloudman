@@ -365,21 +365,11 @@ vertical-align: top;
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
-            ## Allow Galaxy-cluster only if the underlying image/system supports it
-            % if 'galaxy' in image_config_support.apps:
                 <p style="text-align:justify;">
-            % else:
-                <p style="text-align:justify;" class='disabled'>
-            % endif
                 <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
                     <label for="galaxy-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, SGE job manager, and a data volume.
-            % if 'galaxy' not in image_config_support.apps:
-                        <u>NOTE</u>: The current machine image
-                        does not support this cluster type option; click on 'Show more startup options'
-                        so see the available cluster configuration options.
-            % endif
+                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, a job manager, and a data volume.
                         Specify the initial storage type:
                     </span>
                     </label>
@@ -429,7 +419,7 @@ vertical-align: top;
                 <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
                     <label for="data-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Data Cluster</b>: a persistent data volume and SGE.
+                        <b>Data Cluster</b>: a persistent data volume and a job manager.
                         Specify the initial storage size (in Gigabytes):
                     </span>
                     </label>
@@ -438,10 +428,10 @@ vertical-align: top;
             </div>
 
             <div class="form-row">
-                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="SGE" style="float:left" id="sge-cluster">
-                <label for="sge-cluster">
+                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="Test" style="float:left" id="test-cluster">
+                <label for="test-cluster">
                 <span style="display: block;margin-left: 20px;">
-                    <b>Test Cluster</b>: SGE only. No persistent storage is created.</p>
+                    <b>Test Cluster</b>: A job manager only. No persistent storage is created.</p>
                 </span>
                 </label>
             </div>
@@ -455,14 +445,6 @@ vertical-align: top;
     </div>
 </div>
 <div id="log_container">
-    <div id="status_svcs" style="display:none;">
-        <ul><li class='fs_det_clicker'><div class='status_nodata'>&nbsp;</div>Filesystems</li>
-        <li><div class='status_nodata'>&nbsp;</div>Scheduler</li>
-        <li><div class='status_nodata'>&nbsp;</div>Database</li>
-        <li><div class='status_nodata'>&nbsp;</div>Galaxy</li></ul>
-    </div>
-    <div id="volume_detail"></div>
-    <div id="fs_detail"></div>
     <div id="log_container_header">
         <h3>Cluster status log</h3>
         <div id="log_container_header_img"></div>
@@ -480,7 +462,6 @@ vertical-align: top;
 <script type="text/javascript">
 var instances = Array();
 var cluster_status = "OFF";
-var fs_det_vis = false;
 var click_timeout = null;
 var use_autoscaling = null;
 var as_min = 0; //min number of instances autoscaling should maintain
@@ -497,7 +478,6 @@ $(function() {
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.tipsy.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.form.js')}"></script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/cluster_canvas.js')}"> </script>
-## <script type='text/javascript' src="${h.url_for('/static/scripts/inline_edit.js')}"> </script>
 <script type='text/javascript' src="${h.url_for('/static/scripts/jquery.stopwatch.js')}"> </script>
 <script type="text/javascript">
 
@@ -570,18 +550,6 @@ function update_ui(data){
             $('#share_a_cluster').show();
         }
         $('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
-        // $('#status_svcs').html(
-        //     "<ul><li class='fs_det_clicker'><div class='status_" + data.services.fs + "'>&nbsp;</div>Filesystems</li>\
-        //     <li><div class='status_" + data.services.pg + "'>&nbsp;</div>Database</li>\
-        //     <li><div class='status_" + data.services.sge + "'>&nbsp;</div>Scheduler</li>\
-        //     <li><div class='status_" + data.services.galaxy + "'>&nbsp;</div>Galaxy</li></ul>"
-        //     );
-        fsdet = "<ul>";
-        for (i = 0; i < data.all_fs.length; i++){
-            fsdet += "<li><div class='status_" + data.all_fs[i][1] + "'>&nbsp;</div>" + data.all_fs[i][0] + "</li>";
-        }
-        fsdet += "</ul>";
-        $('#fs_detail').html(fsdet);
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUTTING_DOWN"){
             shutting_down();

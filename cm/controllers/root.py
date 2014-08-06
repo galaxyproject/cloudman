@@ -1,15 +1,13 @@
-import os
-import logging
-import subprocess
 import json
+import logging
+import os
+import subprocess
 
-from cm.framework import expose
-from cm.base.controller import BaseController
-from cm.services import service_states
-from cm.services import ServiceType
-from cm.services import ServiceRole
-from cm.util.bunch import BunchToo
 import cm.util.paths as paths
+
+from cm.base.controller import BaseController
+from cm.framework import expose
+from cm.services import ServiceRole, ServiceType, service_states
 from cm.util.decorators import TestFlag
 
 log = logging.getLogger('cloudman')
@@ -32,18 +30,17 @@ class CM(BaseController):
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
                     system_message = f.read()
             return trans.fill_template('index.mako',
-                                        permanent_storage_size=permanent_storage_size,
-                                        initial_cluster_type=initial_cluster_type,
-                                        cluster_name=cluster_name,
-                                        master_instance_type=self.app.cloud_interface.get_type(),
-                                        use_autoscaling=bool(self.app.manager.get_services(
-                                                             svc_role=ServiceRole.AUTOSCALE)),
-                                        image_config_support=BunchToo(self.app.config.ic),
-                                        CM_url=CM_url,
-                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'),
-                                        instance_types=instance_types,
-                                        system_message=system_message,
-                                        default_data_size=self.app.manager.get_default_data_size())
+                                       permanent_storage_size=permanent_storage_size,
+                                       initial_cluster_type=initial_cluster_type,
+                                       cluster_name=cluster_name,
+                                       master_instance_type=self.app.cloud_interface.get_type(),
+                                       use_autoscaling=bool(self.app.manager.get_services(
+                                                            svc_role=ServiceRole.AUTOSCALE)),
+                                       CM_url=CM_url,
+                                       cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                       instance_types=instance_types,
+                                       system_message=system_message,
+                                       default_data_size=self.app.manager.get_default_data_size())
 
     @expose
     @TestFlag({})
@@ -53,7 +50,7 @@ class CM(BaseController):
         initialize it. This method should be called only once.
 
         For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
-        ``SGE``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
+        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
         an integer value for the ``pss`` argument, which will set the initial size
         of the persistent storage associated with this cluster. If ``Shared_cluster``
         ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
@@ -61,7 +58,7 @@ class CM(BaseController):
         the shared one.
         """
         if self.app.manager.initial_cluster_type is None:
-            if startup_opt == "SGE":
+            if startup_opt == "Test":
                 self.app.manager.init_cluster(startup_opt)
                 return self.instance_state_json(trans)
             if startup_opt == "Galaxy" or startup_opt == "Data":
@@ -110,8 +107,7 @@ class CM(BaseController):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
             try:
-                CM_url = trans.app.config.get("CM_url",
-                    "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
+                CM_url = trans.app.config.get("CM_url", "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
                 CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
@@ -159,17 +155,19 @@ class CM(BaseController):
         if delete_snap:
             delete_snap = True
         log.debug("Initiating expansion of {0} file system to size {1} w/ "
-            "snap desc '{2}', which {3} be deleted after the expansion process "
-            "completes.".format(fs_name, new_vol_size, vol_expand_desc,
-            "will" if delete_snap else "will not"))
+                  "snap desc '{2}', which {3} be deleted after the expansion process "
+                  "completes.".format(fs_name, new_vol_size, vol_expand_desc,
+                                      "will" if delete_snap else "will not"))
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
                 # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
                 if (new_vol_size > self.app.manager.get_permanent_storage_size()
                    and new_vol_size < 1000):
-                    self.app.manager.expand_user_data_volume(new_vol_size, fs_name=fs_name,
-                        snap_description=vol_expand_desc, delete_snap=delete_snap)
+                    self.app.manager.expand_user_data_volume(new_vol_size,
+                                                             fs_name=fs_name,
+                                                             snap_description=vol_expand_desc,
+                                                             delete_snap=delete_snap)
         except ValueError, e:
             log.error("You must provide valid values: %s" % e)
             return "ValueError exception. Check the log."
@@ -188,11 +186,11 @@ class CM(BaseController):
 
     @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
-            new_disk_size='', new_vol_fs_name='',
-            vol_id=None, vol_fs_name='',
-            snap_id=None, snap_fs_name='',
-            bucket_name='', bucket_fs_name='', bucket_a_key='', bucket_s_key='',
-            nfs_server=None, nfs_fs_name='', nfs_username='', nfs_pwd='', **kwargs):
+                        new_disk_size='', new_vol_fs_name='', vol_id=None,
+                        vol_fs_name='', snap_id=None, snap_fs_name='',
+                        bucket_name='', bucket_fs_name='', bucket_a_key='',
+                        bucket_s_key='', nfs_server=None, nfs_fs_name='',
+                        nfs_username='', nfs_pwd='', **kwargs):
         """
         Decide on the new file system kind and call the appropriate manager method.
 
@@ -217,8 +215,7 @@ class CM(BaseController):
         """
         dot = True if dot == 'on' else False
         persist = True if persist == 'on' else False
-        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind,
-            "persistent" if persist else "temporary"))
+        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind, "persistent" if persist else "temporary"))
         if fs_kind == 'bucket':
             if bucket_name != '':
                 # log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
@@ -231,33 +228,41 @@ class CM(BaseController):
                     bucket_s_key = None
                 else:
                     bucket_s_key = bucket_s_key.strip()
-                self.app.manager.add_fs_bucket(bucket_name.strip(), bucket_fs_name.strip(),
-                    bucket_a_key=bucket_a_key, bucket_s_key=bucket_s_key, persistent=persist)
+                self.app.manager.add_fs_bucket(bucket_name.strip(),
+                                               bucket_fs_name.strip(),
+                                               bucket_a_key=bucket_a_key,
+                                               bucket_s_key=bucket_s_key,
+                                               persistent=persist)
             else:
                 log.error("Wanted to add a new file system from a bucket but no "
-                    "bucket name was provided.")
+                          "bucket name was provided.")
         elif fs_kind == 'volume' or fs_kind == 'snapshot':
             log.debug("Adding '{2}' file system based on an existing {0}, {1}"
-                .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
-                vol_fs_name if fs_kind == 'volume' else snap_fs_name))
+                      .format(fs_kind, vol_id if fs_kind == 'volume' else snap_id,
+                              vol_fs_name if fs_kind == 'volume' else snap_fs_name))
             if fs_kind == 'volume':
                 self.app.manager.add_fs_volume(vol_id=vol_id, fs_kind='volume',
-                    fs_name=vol_fs_name, persistent=persist, dot=dot)
+                                               fs_name=vol_fs_name,
+                                               persistent=persist, dot=dot)
             else:
-                self.app.manager.add_fs_volume(snap_id=snap_id, fs_kind='snapshot',
-                    fs_name=snap_fs_name, persistent=persist, dot=dot)
+                self.app.manager.add_fs_volume(snap_id=snap_id,
+                                               fs_kind='snapshot',
+                                               fs_name=snap_fs_name,
+                                               persistent=persist, dot=dot)
         elif fs_kind == 'new_volume':
             log.debug("Adding a new '{0}' file system: volume-based,{2} persistent,{3} to "
-                "be deleted, of size {1}"
-                .format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'),
-                ('' if dot else ' not')))
-            self.app.manager.add_fs_volume(fs_name=new_vol_fs_name, fs_kind='new_volume',
-                vol_size=new_disk_size, persistent=persist, dot=dot)
+                      "be deleted, of size {1}".format(new_vol_fs_name, new_disk_size, ('' if persist else ' not'),
+                                                       ('' if dot else ' not')))
+            self.app.manager.add_fs_volume(fs_name=new_vol_fs_name,
+                                           fs_kind='new_volume',
+                                           vol_size=new_disk_size,
+                                           persistent=persist, dot=dot)
         elif fs_kind == 'nfs':
             log.debug("Adding a new '{0}' file system: nfs-based,{1} persistent."
-                .format(nfs_fs_name, ('' if persist else ' not')))
-            self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name, username=nfs_username,
-                pwd=nfs_pwd, persistent=persist)
+                      .format(nfs_fs_name, ('' if persist else ' not')))
+            self.app.manager.add_fs_nfs(nfs_server, nfs_fs_name,
+                                        username=nfs_username, pwd=nfs_pwd,
+                                        persistent=persist)
         else:
             log.error("Wanted to add a file system but did not recognize kind {0}".format(fs_kind))
         return "Initiated file system addition"
@@ -349,7 +354,7 @@ class CM(BaseController):
             number_nodes = int(number_nodes)
             force_termination = True if force_termination == 'True' else False
             log.debug("Num nodes requested to terminate: %s, force termination: %s"
-                % (number_nodes, force_termination))
+                      % (number_nodes, force_termination))
             self.app.manager.remove_instances(number_nodes, force_termination)
         except ValueError, e:
             log.error("You must provide valid value.  %s" % e)
@@ -379,6 +384,21 @@ class CM(BaseController):
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'main.log')
         elif service_name == 'Postgres':
             log_file = '/tmp/pgSQL.log'
+        elif service_name == "slurmctld":
+            # For slurmctld, we can get queue status (ie, sinfo)
+            q = kwargs.get('q', None)
+            if q == 'sinfo':
+                log_file = os.path.join('/tmp', 'sinfo.out')
+                # Save sinfo output into a file so it can be read as a log file
+                try:
+                    cmd = ('/usr/bin/sinfo -l > {0}'.format(log_file))
+                    subprocess.call(cmd, shell=True)
+                except OSError:
+                    pass
+            else:
+                log_file = "/var/log/slurm-llnl/slurmctld.log"
+        elif service_name == "slurmd":
+            log_file = "/var/log/slurm-llnl/slurmd.log"
         elif service_name == 'SGE':
             # For SGE, we can get either the service log file or the queue conf file
             q = kwargs.get('q', None)
@@ -391,7 +411,9 @@ class CM(BaseController):
                     cmd = ('%s - galaxy -c "export SGE_ROOT=%s;\
                         . %s/default/common/settings.sh; \
                         %s/bin/lx24-amd64/qstat -f > %s"'
-                        % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, log_file))
+                           % (paths.P_SU, self.app.path_resolver.sge_root,
+                              self.app.path_resolver.sge_root,
+                              self.app.path_resolver.sge_root, log_file))
                     subprocess.call(cmd, shell=True)
                 except OSError:
                     pass
@@ -452,8 +474,8 @@ class CM(BaseController):
         status_dict['galaxy_rev'] = self.app.manager.get_galaxy_rev()
         status_dict['galaxy_admins'] = self.app.manager.get_galaxy_admins()
         snap_status = self.app.manager.snapshot_status()
-        status_dict['snapshot'] = {'status' : str(snap_status[0]),
-                                   'progress' : str(snap_status[1])}
+        status_dict['snapshot'] = {'status': str(snap_status[0]),
+                                   'progress': str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
@@ -493,8 +515,7 @@ class CM(BaseController):
 
     @expose
     def restart_service(self, trans, service_name, service_role=None):
-        svcs = self.app.manager.get_services(
-            svc_role=service_role, svc_name=service_name)
+        svcs = self.app.manager.get_services(svc_role=service_role, svc_name=service_name)
         if svcs:
             for service in svcs:
                 service.remove()
@@ -607,7 +628,7 @@ class CM(BaseController):
             svc_type=svc_type, svc_name=service_name)
         if svcs:
             log.debug("Managing services: %s" % svcs)
-            if to_be_started == False:
+            if to_be_started is False:
                 for s in svcs:
                     s.remove()
                 return "%s stopped" % service_name
@@ -632,8 +653,7 @@ class CM(BaseController):
                 self.app.manager.start_autoscaling(
                     int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s). " +
-                          "Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, max: %s).  Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
 
             return json.dumps({'running': True,
@@ -694,14 +714,12 @@ class CM(BaseController):
                             "User IDs must be integers only, not '%s'" % u_ids[i])
                         return self.instance_state_json(trans)
             except Exception:
-                log.error("Error processing values - user IDs: '%s', canonnical IDs: '%s'" %
-                         (user_ids, canonical_ids))
+                log.error("Error processing values - user IDs: '%s', canonnical IDs: '%s'" % (user_ids, canonical_ids))
                 return self.instance_state_json(trans)
         elif visibility == 'public':
             u_ids = c_ids = None
         else:
-            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', canonnical IDs: '%s'" %
-                     (visibility, u_ids, c_ids))
+            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
             return self.instance_state_json(trans)
         self.app.manager.share_a_cluster(u_ids, c_ids)
         return self.instance_state_json(trans, no_json=True)
@@ -807,7 +825,6 @@ class CM(BaseController):
                                    'pct': str(self.app.manager.disk_pct)},
                     'data_status': self.app.manager.get_data_status(),
                     'app_status': self.app.manager.get_app_status(),
-                    'all_fs': self.app.manager.all_fs_status_array(),
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),

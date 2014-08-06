@@ -1,26 +1,29 @@
 """Galaxy CM worker manager"""
+
 import commands
+import datetime as dt
 import grp
+import json
 import logging
 import os
 import os.path
 import pwd
+import shutil
 import subprocess
 import threading
-import datetime as dt
-import shutil
-import json
+import time
 
-
-from cm.util.bunch import Bunch
-from cm.util import misc, comm, paths
-from cm.util.manager import BaseConsoleManager
 from cm.services import ServiceRole
-from cm.services.apps.pss import PSSService
-from cm.services.data.filesystem import Filesystem
+from cm.services.apps import sge
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
-from cm.services.apps import sge
+from cm.services.apps.pss import PSSService
+from cm.services.data.filesystem import Filesystem
+from cm.util import comm, misc, paths
+from cm.util.bunch import Bunch
+from cm.util.decorators import TestFlag
+from cm.util.manager import BaseConsoleManager
+from cm.util.misc import flock
 
 log = logging.getLogger('cloudman')
 
@@ -98,8 +101,9 @@ class ConsoleManager(BaseConsoleManager):
         self.worker_instances = []  # Needed because of UI and number of nodes value
         # Default to the most comprehensive type
         self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
-        self.mount_points = []  # A list of current mount points; each list element must have the
-                                # following structure: (label, local_path, type, server_path)
+        # The following list of current mount points; each list element must
+        # have the following structure: (label, local_path, type, server_path)
+        self.mount_points = []
         self.nfs_data = 0
         self.nfs_tools = 0
         self.nfs_indices = 0
@@ -110,6 +114,12 @@ class ConsoleManager(BaseConsoleManager):
         self.custom_hostname = None
 
         self.load = 0
+        # Slurm lock file must be the same on the master
+        self.slurm_lock_file = '/mnt/transient_nfs/slurm/slurm.lockfile'
+        self.slurmd_added = False  # Indicated if an attempt has been made to start slurmd
+        self.slurm_name = None
+        self.num_slurmd_restarts = 0
+        self.max_slurmd_restarts = 3
 
     @property
     def local_hostname(self):
@@ -118,16 +128,17 @@ class ConsoleManager(BaseConsoleManager):
         """
         return self.app.cloud_interface.get_local_hostname()
         # Not working (SGE cannot resolve master host)
-        if not self.custom_hostname:
-            self.custom_hostname = "{0}-{1}".format(self.app.cloud_interface.get_instance_id(),
-                                                    self.app.cloud_interface.get_private_ip())
-        return self.custom_hostname
+        # if not self.custom_hostname:
+        #     self.custom_hostname = "{0}-{1}".format(self.app.cloud_interface.get_instance_id(),
+        #                                             self.app.cloud_interface.get_private_ip())
+        # return self.custom_hostname
 
     def start(self):
         self._handle_prestart_commands()
         # self.mount_nfs( self.app.ud['master_ip'] )
-        misc.add_to_etc_hosts(
-            self.app.ud['master_hostname'], self.app.ud['master_ip'])
+        misc.add_to_etc_hosts(self.app.ud['master_ip'],
+                              [self.app.ud['master_hostname'],
+                               self.app.ud['master_hostname_alt']])
 
     def shutdown(self, delete_cluster=None):
         self.worker_status = worker_states.SHUTTING_DOWN
@@ -138,15 +149,15 @@ class ConsoleManager(BaseConsoleManager):
         return "This is a worker node, cluster status not available."
 
     def mount_disk(self, fs_type, server, path, mount_options):
-        # If a path is not specific for an nfs server, and only its ip is provided, assume that the target path to mount at is
-        # the path on the server as well
+        # If a path is not specific for an nfs server, and only its ip is provided,
+        # assume that the target path to mount at is the path on the server as well
         if fs_type == 'nfs' and ':' not in server:
             server = server + ":" + path
         # Before mounting, check if the file system is already mounted
-        mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2"
-                                                % path)
+        mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2" % path)
         if mnt_location[0] == 0 and mnt_location[1] != '':
-            log.debug("{0} is already mounted".format(path))
+            log.debug("{0} is already mounted; returning code {1}".format(path,
+                                                                          mnt_location[0]))
             return mnt_location[0]
         else:
             log.debug("Mounting fs of type: %s from: %s to: %s..." % (fs_type, server, path))
@@ -158,10 +169,8 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Process mounting '%s' returned code '%s'" % (path, ret_code))
             return ret_code
 
+    @TestFlag(None)
     def mount_nfs(self, master_ip, mount_json):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to mount NFS, but TESTFLAG is set.")
-            return
         mount_points = []
         try:
             # Try to load mount points from json dispatch
@@ -181,7 +190,7 @@ class ConsoleManager(BaseConsoleManager):
         except Exception, e:
             log.error("Error mounting devices: {0}\n Attempting to continue, but failure likely...".format(e))
         # Mount SGE regardless of cluster type
-        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
+        # mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
         # Mount Hadoop regardless of cluster type
         mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
@@ -190,13 +199,17 @@ class ConsoleManager(BaseConsoleManager):
             mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip, ''))
         # For each main mount point, mount it and set status based on label
         for (label, path, fs_type, server, mount_options) in mount_points:
-            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} of type: {3} with mount_options: {4}".format(
-                label, path, server, fs_type, mount_options))
             do_mount = self.app.ud.get('mount_%s' % label, True)
             if not do_mount:
+                log.debug("Skipping FS mount for {0}".format(label))
                 continue
+            log.debug("Mounting FS w/ label '{0}' to path: {1} from server: {2} "
+                      "of type: {3} with mount_options: {4}".format(label, path,
+                                                                    server,
+                                                                    fs_type,
+                                                                    mount_options))
             ret_code = self.mount_disk(fs_type, server, path, mount_options)
-            status = 1 if ret_code == 0 else -1
+            status = 1 if int(ret_code) == 0 else -1
             # Provide a mapping between the mount point labels and the local fields
             # Given tools & data file systems have been merged, this mapping does
             # not distinguish bewteen those but simply chooses the data field.
@@ -206,6 +219,8 @@ class ConsoleManager(BaseConsoleManager):
                 'transient_nfs': 'nfs_tfs'
             }
             setattr(self, labels_to_fields.get(label, label), status)
+            log.debug("Set FS status {0} to {1}".format(labels_to_fields.get(
+                label, label), status))
         # Filter out any differences between new and old mount points and unmount
         # the extra ones
         umount_points = [ump for ump in self.mount_points if ump not in mount_points]
@@ -227,10 +242,8 @@ class ConsoleManager(BaseConsoleManager):
         ret_code = subprocess.call("umount -lf '%s'" % path, shell=True)
         log.debug("Process unmounting '%s' returned code '%s'" % (path, ret_code))
 
+    @TestFlag("TEST_WORKERHOSTCERT")
     def get_host_cert(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get host cert, but TESTFLAG is set.")
-            return "TEST_WORKERHOSTCERT"
         w_cert_file = '/tmp/wCert.txt'
         cmd = '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (
             paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
@@ -250,21 +263,110 @@ class ConsoleManager(BaseConsoleManager):
             self.console_monitor.send_node_status()
             return None
 
+    @TestFlag(None)
     def save_authorized_key(self, m_key):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to save authorized key, but TESTFLAG is set.")
-            return
         log.info(
             "Saving master's (i.e., root) authorized key to ~/.ssh/authorized_keys...")
         with open("/root/.ssh/authorized_keys", 'a') as f:
             f.write(m_key)
 
+    def _setup_munge(self):
+        """
+        Copy `munge.key` from the cluster NFS to `/etc/munge/munge.key` and
+        start the service. If `munge` is not installed on the instance, install
+        it using `apt-get`.
+        """
+        # nfs_munge_key = os.path.join(self.app.path_resolver.slurm_root_nfs, 'munge.key')
+        nfs_munge_key = '/mnt/transient_nfs/slurm/munge.key'
+        local_munge_key = '/etc/munge/munge.key'
+        if not os.path.exists('/etc/munge'):
+            # Munge not installed so grab it
+            misc.run("apt-get update; apt-get install munge -y")
+        if os.path.exists(nfs_munge_key):
+            shutil.copyfile(nfs_munge_key, local_munge_key)
+            os.chmod(local_munge_key, 0400)
+            os.chown(local_munge_key, pwd.getpwnam("munge")[2], grp.getgrnam("munge")[2])
+            log.debug("Copied {0} to {1}".format(nfs_munge_key, local_munge_key))
+            misc.append_to_file('/etc/default/munge', 'OPTIONS="--force"')
+            misc.run("service munge start")
+            log.debug("Done setting up Munge")
+        else:
+            log.error("Required {0} not found!".format(nfs_munge_key))
+
+    def _setup_slurmd(self):
+        """
+        Create a symlinke for `slurm.conf` on the cluster NFS to
+        `/etc/slurm-llnl/slurm.conf`.
+        This is required because `slurm-llnl` package does not respect the `-f`
+        flag for a custom file location.
+        """
+        # Does not work because worker class has no notion of services, which
+        # are used as part the path resolver property so must hard code the path
+        # nfs_slurm_conf = self.app.path_resolver.slurm_conf_nfs
+        nfs_slurm_conf = '/mnt/transient_nfs/slurm/slurm.conf'
+        local_slurm_conf = self.app.path_resolver.slurm_conf_local
+        if not os.path.exists(local_slurm_conf) and not os.path.islink(local_slurm_conf):
+            log.debug("Symlinking {0} to {1}".format(nfs_slurm_conf, local_slurm_conf))
+            os.symlink(nfs_slurm_conf, local_slurm_conf)
+        # Make sure the slurm tmp root dir exists and is owned by slurm user
+        misc.make_dir(self.app.path_resolver.slurm_root_tmp)
+        os.chown(self.app.path_resolver.slurm_root_tmp,
+                 pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
+        log.debug("Starting slurmd as worker named {0}...".format(self.slurm_name))
+        # Add Slurm instance name to /etc/hosts
+        misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(), [self.slurm_name])
+        # If adding many nodes at once, slurm.conf may be edited by the master
+        # and thus the worker cannot access it so do a quick check here. Far from
+        # an ideal solution but seems to work
+        for i in range(10):
+            if not os.path.exists(local_slurm_conf) or os.path.getsize(local_slurm_conf) == 0:
+                log.debug("{0} does not exist or is empty; waiting a bit..."
+                          .format(local_slurm_conf))
+                time.sleep(2)
+            else:
+                break
+        with flock(self.slurm_lock_file):
+            if misc.run("/usr/sbin/slurmd -c -N {0} -L /var/log/slurm-llnl/slurmd.log"
+               .format(self.slurm_name)):
+                log.debug("Started slurmd as worker named {0}".format(self.slurm_name))
+            self.slurmd_added = True
+
+    def start_slurmd(self, slurm_name):
+        self.slurm_name = slurm_name
+        log.info("Configuring slurmd as worker named {0}...".format(self.slurm_name))
+        self._setup_munge()
+        self._setup_slurmd()
+
+    @property
+    def slurmd_status(self):
+        """
+        Look for PID for ``slurmd`` process and if the identified process exists
+        on the system, return ``1`` else ``-1``.
+        """
+        if self.slurmd_added:
+            daemon_pid = -1
+            pid_file = self.app.path_resolver.slurmd_pid
+            if os.path.isfile(pid_file):
+                daemon_pid = commands.getoutput("head -n 1 %s" % pid_file)
+            alive_daemon_pid = commands.getoutput("ps -o pid -p {0} --no-headers"
+                                                  .format(daemon_pid)).strip()
+            if alive_daemon_pid == daemon_pid:
+                # log.debug("'%s' daemon is running with PID: %s" % (service,
+                # daemon_pid))
+                self.num_slurmd_restarts = 0
+                return 1
+            else:
+                log.debug("'slurmd' daemon is NOT running any more (expected pid: '{0}')"
+                          .format(daemon_pid))
+                if self.max_slurmd_restarts > self.num_slurmd_restarts:
+                    log.debug("Automatically trying to restart slurmd (attempt {0}/{1}"
+                              .format(self.num_slurmd_restarts, self.max_slurmd_restarts))
+                    self._setup_slurmd()
+                return -1
+        return 0
+
+    @TestFlag(0)
     def start_sge(self):
-        if self.app.TESTFLAG is True:
-            fakeretcode = 0
-            log.debug("Attempted to start SGE, but TESTFLAG is set.  Returning retcode %s" %
-                      fakeretcode)
-            return fakeretcode
         log.info("Configuring SGE...")
         sge.fix_libc()
         # Ensure lines starting with 127.0.1. are not included in /etc/hosts
@@ -329,8 +431,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Synced /etc/hosts with %s" % sync_path)
             shutil.copyfile(sync_path, "/etc/hosts")
         else:
-            log.warning("Sync path %s not available; cannot sync /etc/hosts"
-                % sync_path)
+            log.warning("Sync path %s not available; cannot sync /etc/hosts" % sync_path)
 
     def _get_extra_nfs_mounts(self):
         return self.app.ud.get('extra_nfs_mounts', [])
@@ -346,9 +447,7 @@ class ConsoleMonitor(object):
         self.sleeper = misc.Sleeper()
         self.conn = comm.CMWorkerComm(self.app.cloud_interface.get_instance_id(
         ), self.app.ud['master_ip'])
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get host cert, but TESTFLAG is set.")
-        else:
+        if not self.app.TESTFLAG:
             self.conn.setup()
         self.monitor_thread = threading.Thread(target=self.__monitor)
 
@@ -373,12 +472,11 @@ class ConsoleMonitor(object):
                 with open("/etc/hostname", 'w') as f:
                     f.write(self.app.manager.local_hostname)
                 # Augment /etc/hosts w/ the custom local hostname
-                misc.add_to_etc_hosts(
-                    self.app.ud['master_hostname'], self.app.ud['master_ip'])
-                misc.add_to_etc_hosts(self.app.manager.local_hostname,
-                                      self.app.cloud_interface.get_private_ip())
-                misc.add_to_etc_hosts(
-                    self.app.ud['master_ip'], 'ubuntu')  # For opennebula
+                misc.add_to_etc_hosts(self.app.ud['master_ip'],
+                                      [self.app.ud['master_hostname']])
+                misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
+                                      [self.app.manager.local_hostname])
+                misc.add_to_etc_hosts(self.app.ud['master_ip'], ['ubuntu'])  # For opennebula
                 # Restart hostname process or the node process?
                 # ret_code = subprocess.call( "/etc/init.d/hostname restart",
                 # shell=True )
@@ -387,15 +485,15 @@ class ConsoleMonitor(object):
                     log.debug("Initiated reboot...")
                 else:
                     log.debug("Problem initiating reboot!?")
+        num_cpus = commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l")
         # Compose the ALIVE message
-        msg = "ALIVE | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
-                                                       self.app.cloud_interface.get_public_ip(),
-                                                       self.app.cloud_interface.get_zone(
-                                                       ),
-                                                       self.app.cloud_interface.get_type(
-                                                       ),
-                                                       self.app.cloud_interface.get_ami(),
-                                                       self.app.manager.local_hostname)
+        msg = "ALIVE | %s | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
+                                                            self.app.cloud_interface.get_public_ip(),
+                                                            self.app.cloud_interface.get_zone(),
+                                                            self.app.cloud_interface.get_type(),
+                                                            self.app.cloud_interface.get_ami(),
+                                                            self.app.manager.local_hostname,
+                                                            num_cpus)
         self.conn.send(msg)
         log.debug("Sending message '%s'" % msg)
 
@@ -409,8 +507,7 @@ class ConsoleMonitor(object):
             log.error("Sending HostCert failed, HC is None.")
 
     def send_node_ready(self):
-        num_cpus = commands.getoutput(
-            "cat /proc/cpuinfo | grep processor | wc -l")
+        num_cpus = commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l")
         msg_body = "NODE_READY | %s | %s" % (
             self.app.cloud_interface.get_instance_id(), num_cpus)
         log.debug("Sending message '%s'" % msg_body)
@@ -425,11 +522,11 @@ class ConsoleMonitor(object):
         self.conn.send(msg_body)
 
     def send_node_status(self):
-        # Gett the system load in the following format:
+        # Get the system load in the following format:
         # "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectivley
         self.app.manager.load = (
             commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()
-        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s | %s" \
+        msg_body = "NODE_STATUS | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s" \
             % (self.app.manager.nfs_data,
                self.app.manager.nfs_tools,
                self.app.manager.nfs_indices,
@@ -438,7 +535,8 @@ class ConsoleMonitor(object):
                self.app.manager.sge_started,
                self.app.manager.load,
                self.app.manager.worker_status,
-               self.app.manager.nfs_tfs)
+               self.app.manager.nfs_tfs,
+               self.app.manager.slurmd_status)
         # log.debug("Sending message '%s'" % msg_body)
         self.conn.send(msg_body)
 
@@ -473,8 +571,7 @@ class ConsoleMonitor(object):
                 self.app.manager.worker_status = worker_states.READY
                 self.last_state_change_time = dt.datetime.utcnow()
             else:
-                log.error(
-                    "Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
+                log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
             self.app.manager.start_condor(self.app.ud['master_public_ip'])
@@ -482,7 +579,18 @@ class ConsoleMonitor(object):
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
             self.app.manager.mount_nfs(self.app.ud['master_ip'],
-                mount_json=message.split(' | ')[1])
+                                       mount_json=message.split(' | ')[1])
+        elif message.startswith("START_SLURMD"):
+            slurm_name = message.split(' | ')[1]
+            log.info("Got START_SLURMD with worker name {0}".format(slurm_name))
+            self.app.manager.start_slurmd(slurm_name)
+            # Now that the instance is ready, run the PSS service in a
+            # separate thread
+            pss = PSSService(self.app, instance_role='worker')
+            threading.Thread(target=pss.start).start()
+            self.send_node_ready()
+            self.app.manager.worker_status = worker_states.READY
+            self.last_state_change_time = dt.datetime.utcnow()
         elif message.startswith("STATUS_CHECK"):
             self.send_node_status()
         elif message.startswith("REBOOT"):
@@ -522,8 +630,6 @@ class ConsoleMonitor(object):
                     "Trying to setup AMQP connection; conn = '%s'" % self.conn)
                 self.conn.setup()
                 continue
-            # Make this more robust, trying to reconnect to a lost queue, etc.
-            # self.app.manager.introspect.check_all_worker_services()
             if self.conn:
                 if self.app.manager.worker_status == worker_states.WAKE:
                     self.send_alive_message()

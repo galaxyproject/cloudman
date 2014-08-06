@@ -1,24 +1,22 @@
-import shutil
-import tarfile
-import os
-import time
-import subprocess
-import pwd
-import grp
-import datetime
 import commands
-
+import datetime
+import grp
+import logging
+import os
+import pwd
+import shutil
+import subprocess
+import tarfile
+import time
+import urllib2
 from string import Template
 
-from cm.services import service_states
-from cm.services import ServiceRole
-from cm.services import ServiceDependency
-from cm.services.apps import ApplicationService
-from cm.util import misc
-from cm.util import paths
-from cm.util import templates
+from cm.conftemplates import sge
+from cm.services import ServiceDependency, ServiceRole, service_states
+from cm.services.apps.jobmanagers import BaseJobManager
+from cm.util import misc, paths
+from cm.util.decorators import TestFlag
 
-import logging
 log = logging.getLogger('cloudman')
 
 
@@ -36,11 +34,10 @@ def fix_libc():
                     os.symlink(libname, '/lib64/libc.so.6')
                     fixed = True
         if not fixed:
-            log.error(
-                "SGE config is likely to fail because '/lib64/libc.so.6' lib does not exists...")
+            log.error("SGE config is likely to fail because '/lib64/libc.so.6' does not exist.")
 
 
-class SGEService(ApplicationService):
+class SGEService(BaseJobManager):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
         self.svc_roles = [ServiceRole.SGE]
@@ -73,7 +70,10 @@ class SGEService(ApplicationService):
         self.state = service_states.SHUT_DOWN
 
     def clean(self):
-        """ Stop SGE and clean up the system as if SGE was never installed. Useful for CloudMan restarts."""
+        """
+        Stop SGE and clean up the system as if SGE was never installed.
+        Useful for CloudMan restarts.
+        """
         self.remove()
         if self.state == service_states.SHUT_DOWN:
             misc.run('rm -rf %s/*' % self.app.path_resolver.sge_root, "Error cleaning SGE_ROOT (%s)" %
@@ -94,10 +94,25 @@ class SGEService(ApplicationService):
                 with open(paths.LOGIN_SHELL_SCRIPT, 'w') as f:
                     f.writelines(lines)
 
+    def _download_sge(self):
+        """
+        Download a Grid Engine binaries tar ball. Return the path to the downloaded
+        file.
+        """
+        ge_url = 'http://dl.dropbox.com/u/47200624/respin/ge2011.11.tar.gz'
+        downloaded_file = 'ge.tar.gz'
+        try:
+            r = urllib2.urlopen(ge_url, downloaded_file)
+        except urllib2.HTTPError, e:
+            log.error("Error downloading Grid Engine binaries from {0}: {1}"
+                      .format(ge_url, e))
+        if r.code == 200:
+            return downloaded_file
+        else:
+            return ""
+
+    @TestFlag(False)
     def unpack_sge(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get volumes, but TESTFLAG is set.")
-            return False
         log.debug("Unpacking SGE from '%s'" % self.app.path_resolver.sge_tars)
         os.putenv('SGE_ROOT', self.app.path_resolver.sge_root)
         # Ensure needed directory exists
@@ -137,7 +152,7 @@ class SGEService(ApplicationService):
         # Add master as an execution host
         # Additional execution hosts will be added later, as they start
         exec_nodes = self.app.cloud_interface.get_private_ip()
-        sge_install_template = Template(templates.SGE_INSTALL_TEMPLATE)
+        sge_install_template = Template(sge.SGE_INSTALL_TEMPLATE)
         sge_params = {
             "cluster_name": "GalaxyEC2",
             "admin_host_list": self.app.cloud_interface.get_private_ip(),
@@ -152,10 +167,8 @@ class SGEService(ApplicationService):
 
         return sge_install_template.substitute(sge_params)
 
+    @TestFlag(None)
     def configure_sge(self):
-        if self.app.TESTFLAG is True:
-            log.debug("Attempted to get volumes, but TESTFLAG is set.")
-            return None
         log.info("Setting up SGE...")
         SGE_config_file = '%s/galaxyEC2.conf' % self.app.path_resolver.sge_root
         with open(SGE_config_file, 'w') as f:
@@ -174,13 +187,13 @@ class SGEService(ApplicationService):
             for pe in pes:
                 pe_file_path = os.path.join('/tmp', pe)
                 with open(pe_file_path, 'w') as f:
-                    print >> f, getattr(templates, pe)
+                    print >> f, getattr(sge, pe)
                 misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (
                     self.app.path_resolver.sge_root, pe_file_path))
             log.debug("Creating queue 'all.q'")
 
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
-            all_q_template = Template(templates.ALL_Q_TEMPLATE)
+            all_q_template = Template(sge.ALL_Q_TEMPLATE)
             if self.app.config.hadoop_enabled:
                 all_q_params = {
                     "slots": int(commands.getoutput("nproc")),
@@ -196,7 +209,7 @@ class SGEService(ApplicationService):
 
             with open(SGE_allq_file, 'w') as f:
                 print >> f, all_q_template.substitute(
-                    all_q_params)  # templates.ALL_Q_TEMPLATE
+                    all_q_params)
             os.chown(SGE_allq_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
             log.debug(
@@ -207,11 +220,11 @@ class SGEService(ApplicationService):
                 "Error modifying all.q", "Successfully modified all.q")
             log.debug("Configuring users' SGE profiles")
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
-                "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
+                                "\nexport SGE_ROOT=%s" % self.app.path_resolver.sge_root)
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
-                "\n. $SGE_ROOT/default/common/settings.sh\n")
+                                "\n. $SGE_ROOT/default/common/settings.sh\n")
             # Write out the .sge_request file for individual users
-            sge_request_template = Template(templates.SGE_REQUEST_TEMPLATE)
+            sge_request_template = Template(sge.SGE_REQUEST_TEMPLATE)
             sge_request_params = {
                 'psql_home': self.app.path_resolver.pg_home,
                 'galaxy_tools_dir': self.app.path_resolver.galaxy_tools,
@@ -239,10 +252,10 @@ class SGEService(ApplicationService):
         # come online
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "   2.[46].*)",
-            "   [23].[24567890].*)")
+            "   [23].[24567890]?.*)")
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "      2.6.*)",
-            "      [23].[24567890].*)")
+            "      [23].[24567890]?.*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % self.app.path_resolver.sge_root, "Error modifying %s/util/arch" %
                  self.app.path_resolver.sge_root, "Modified %s/util/arch" % self.app.path_resolver.sge_root)
         misc.run("chmod +rx %s/util/arch" % self.app.path_resolver.sge_root, "Error chmod %s/util/arch" %
@@ -251,8 +264,7 @@ class SGEService(ApplicationService):
         # because SGE fails to install if that's the case. This line is added
         # to /etc/hosts by cloud-init
         # (http://www.cs.nott.ac.uk/~aas/Software%2520Installation%2520and%2520Development%2520Problems.html)
-        misc.run(
-            "sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
+        misc.run("sed -i.bak '/^127.0.1./s/^/# (Commented by CloudMan) /' /etc/hosts")
 
     def add_sge_host(self, inst_id, inst_private_ip):
         """
@@ -337,7 +349,7 @@ class SGEService(ApplicationService):
                     "sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             host_conf_file = os.path.join(host_conf_dir, str(inst_id))
             with open(host_conf_file, 'w') as f:
-                print >> f, templates.SGE_HOST_CONF_TEMPLATE % (
+                print >> f, sge.SGE_HOST_CONF_TEMPLATE % (
                     inst_private_ip)
             os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
@@ -406,8 +418,8 @@ class SGEService(ApplicationService):
         for inst in self.app.manager.worker_instances:
             self.remove_sge_host(inst.get_id(), inst.get_private_ip())
         misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qconf -km'
-            % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-            "Problems stopping SGE master", "Successfully stopped SGE master.")
+                 % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
+                 "Problems stopping SGE master", "Successfully stopped SGE master.")
 
     def write_allhosts_file(self, filename='/tmp/ah', to_add=None, to_remove=None):
         ahl = []

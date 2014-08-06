@@ -6,16 +6,16 @@ storage over NFS to the rest of the cluster.
     The file system behind this device is transient, meaning that it will
     dissapear at instance termination and it cannot be recovered.
 """
-import os
-import grp
-import pwd
 import commands
+import grp
+import logging
+import os
+import pwd
 
-from cm.services import service_states
+from cm.services import ServiceRole, service_states
 from cm.services.data import BlockStorage
 from cm.util import misc
 
-import logging
 log = logging.getLogger('cloudman')
 
 
@@ -29,6 +29,8 @@ class TransientStorage(BlockStorage):
         self.app = self.fs.app
         self.device = None
         self.from_archive = from_archive
+        self.svc_roles = [ServiceRole.TRANSIENT_NFS]
+        self.name = ServiceRole.to_string(ServiceRole.TRANSIENT_NFS)
 
     def __repr__(self):
         return self.get_full_name()
@@ -53,12 +55,11 @@ class TransientStorage(BlockStorage):
         and exporting it over NFS. Set the owner of the repo as ``ubuntu`` user.
         """
         try:
-            log.debug("Adding transient file system at {0}".format(
-                self.fs.mount_point))
+            log.debug("Adding transient file system at {0}".format(self.fs.mount_point))
             if not os.path.exists(self.fs.mount_point):
                 os.mkdir(self.fs.mount_point)
-            os.chown(self.fs.mount_point, pwd.getpwnam(
-                "ubuntu")[2], grp.getgrnam("ubuntu")[2])
+            os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2],
+                     grp.getgrnam("ubuntu")[2])
             self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
                                              % self.fs.mount_point)
 
@@ -73,8 +74,7 @@ class TransientStorage(BlockStorage):
                 return False
 
             if self.fs.add_nfs_share(self.fs.mount_point):
-                self.status()
-                return True
+                self.fs.state = service_states.RUNNING
             else:
                 log.warning('Trouble sharing {0} over NFS?'.format(
                     self.fs.mount_point))
@@ -120,7 +120,7 @@ class TransientStorage(BlockStorage):
                 for shared_path in shared_paths:
                     if self.fs.mount_point in shared_path:
                         self.fs.state = service_states.RUNNING
-                        # Transizent storage needs to be special-cased because
+                        # Transient storage needs to be special-cased because
                         # it's not a mounted disk per se but a disk on an
                         # otherwise default device for an instance (i.e., /mnt)
                         update_size_cmd = "df --block-size 1 | grep /mnt$ | awk '{print $2, $3, $5}'"

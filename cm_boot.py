@@ -11,8 +11,8 @@ import urlparse
 import yaml
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
-import subprocess
 import os
+import subprocess
 
 def _run(log, cmd):
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -43,8 +43,8 @@ def _make_dir(log, path):
             log.error(("Making directory '%s' failed: %s" % (path, e)))
     else:
         log.debug(("Directory '%s' exists." % path))
-import os
 import base64
+import os
 import re
 
 
@@ -132,8 +132,8 @@ def _reconfigure_nginx(ud, nginx_conf_path, log):
 def _shellquote(s):
     '\n    http://stackoverflow.com/questions/35817/how-to-escape-os-system-calls-in-python\n    '
     return (("'" + s.replace("'", "'\\''")) + "'")
-from boto.s3.key import Key
 from boto.exception import S3ResponseError
+from boto.s3.key import Key
 
 def _get_file_from_bucket(log, s3_conn, bucket_name, remote_filename, local_filename):
     log.debug(('Getting file %s from bucket %s' % (remote_filename, bucket_name)))
@@ -197,7 +197,7 @@ def _start_nginx(ud):
     upload_store_dir = '/mnt/galaxyData/upload_store'
     nginx_dir = _get_nginx_dir()
     if nginx_dir:
-        (ul, us) = (None, None)
+        ul = None
         nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
@@ -388,7 +388,6 @@ def _venvburrito_path():
     return vb_path
 
 def _with_venvburrito(cmd):
-    ''
     home_dir = _venvburrito_home_dir()
     vb_path = _venvburrito_path()
     return "/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'".format(home_dir, vb_path, cmd)
@@ -476,7 +475,7 @@ def _fix_etc_hosts():
 def _system_message(message_contents):
     ' Create SYSTEM_MESSAGES_FILE file w/contents as specified.\n    This file is displayed in the UI, and can be embedded in nginx 502 (/opt/galaxy/pkg/nginx/html/errdoc/gc2_502.html)\n    '
     if os.path.exists(SYSTEM_MESSAGES_FILE):
-        with open(SYSTEM_MESSAGES_FILE, 'a+t') as f:
+        with open(SYSTEM_MESSAGES_FILE, 'a+') as f:
             f.write(message_contents)
 
 def migrate_1():
@@ -498,6 +497,8 @@ def main():
             sys.exit(0)
         else:
             usage()
+    if ('nectar' in ud.get('cloud_name', '').lower()):
+        _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     _install_conf_files(log, ud)
     _install_authorized_keys(log, ud)
     if ('no_start' not in ud):
