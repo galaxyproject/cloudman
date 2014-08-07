@@ -98,18 +98,20 @@ class SlurmctldService(BaseJobManager):
             lists of strings: a one-per-line node specifications (eg,
             ``NodeName=w1 NodeAddr=<private_IP> Weight=5 State=UNKNOWN``) and
             a list of node names (eg, w1, w2).
+            Note that only nodes in status ``Ready`` or ``Startup`` will be
+            included.
             """
             wnc = ''
             wnn = ''
             for i, w in enumerate(self.app.manager.worker_instances):
-                if w.worker_status == 'Ready' or w.worker_status == 'Startup':
+                if w.worker_status in ['Ready', 'Startup']:
                     wnc += ('NodeName={0} NodeAddr={1} CPUs={2} Weight=5 State=UNKNOWN\n'
                             .format(w.alias, w.private_ip, w.num_cpus))
                     wnn += ',{0}'.format(w.alias)
             log.debug("Worker node names to include in slurm.conf: {0}".format(wnn[1:]))
             return wnc, wnn
 
-        def _get_slurm_conf():
+        def _build_slurm_conf():
             log.debug("Setting slurm.conf parameters")
             # Make sure the slurm root dir exists and is owned by slurm user
             misc.make_dir(self.app.path_resolver.slurm_root_tmp)
@@ -136,7 +138,7 @@ class SlurmctldService(BaseJobManager):
                 log.debug("Setting up {0} (attempt {1}/5)".format(nfs_slurm_conf, i))
                 try:
                     with open(nfs_slurm_conf, 'w') as f:
-                        print >> f, _get_slurm_conf()
+                        print >> f, _build_slurm_conf()
                     log.debug("Created slurm.conf as {0}".format(nfs_slurm_conf))
                     break
                 except IOError, e:
@@ -160,7 +162,7 @@ class SlurmctldService(BaseJobManager):
         else:
             self.state = service_states.ERROR
 
-    def reconfigure_cluster(self):
+    def _reconfigure_cluster(self):
         """
         (Re)configure the cluster (ie, job manager) to match the current set of
         resources. The method will (re)generate ``slurm.conf`` and issue
@@ -169,6 +171,31 @@ class SlurmctldService(BaseJobManager):
         log.debug("Reconfiguring Slurm cluster")
         self._setup_slurm_conf()
         return misc.run("/usr/bin/scontrol reconfigure")
+
+    def add_node(self, instance):
+        """
+        Reconfigure the entire cluster to include all and only the instances in
+        state ``Runnning`` or ``Startup``.
+
+        Note that as a consequence of how Slurm is administered (ie, at the
+        cluster level vs. individual node level), this method does not use the
+        ``BaseJobManager``-requried ``instance`` argument.
+        """
+        log.debug("Adding node {0} into Slurm cluster".format(instance.alias))
+        return self._reconfigure_cluster()
+
+    def remove_node(self, instance):
+        """
+        Reconfigure the entire cluster to include all and only the instances in
+        state ``Runnning`` or ``Startup``.
+
+        Note that as a consequence of how Slurm is administered (ie, at the
+        cluster level vs. individual node level), this method does not use the
+        ``BaseJobManager``-requried ``instance`` argument.
+        """
+        log.debug("Removing node {0} from Slurm cluster".format(instance.alias))
+        self.disable_node(instance.alias, state="DOWN")
+        return self._reconfigure_cluster()
 
     def enable_node(self, alias):
         """

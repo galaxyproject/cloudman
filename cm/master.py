@@ -1211,7 +1211,7 @@ class ConsoleManager(BaseConsoleManager):
                     slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
                     slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
                     if slurmctld_svc:
-                        slurmctld_svc.reconfigure_cluster()
+                        slurmctld_svc.remove_node(inst)
                     # Remove the given instance from /etc/hosts files
                     misc.remove_from_etc_hosts(inst.private_ip)
                 try:
