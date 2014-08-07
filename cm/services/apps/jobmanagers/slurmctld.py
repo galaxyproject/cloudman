@@ -170,21 +170,29 @@ class SlurmctldService(BaseJobManager):
         self._setup_slurm_conf()
         return misc.run("/usr/bin/scontrol reconfigure")
 
-    def disable_node(self, nodename):
+    def enable_node(self, alias):
         """
-        Disable the node identified by ``nodename`` from the cluster by marking it
-        `DOWN`.
-        """
-        return misc.run("/usr/bin/scontrol update NodeName={0} State=DOWN"
-                        .format(nodename))
-
-    def enable_node(self, nodename):
-        """
-        Enable node identified by ``nodename`` from the cluster by marking it
-        `IDLE`.
+        Enable node identified by ``alias`` for running jobs by setting it's
+        state to ``IDLE``. Note that this assumes the node is, on the back end,
+        properly configured and will communicate with the master node to confirm
+        its status.
         """
         return misc.run("/usr/bin/scontrol update NodeName={0} State=IDLE"
-                        .format(nodename))
+                        .format(alias))
+
+    def disable_node(self, alias, state="DRAIN"):
+        """
+        Disable the node identified by ``alias`` from running jobs by setting
+        it's state to ``state`` (eg, ``DOWN``, ``DRAIN``).
+
+        Setting the node state to ``DRAIN`` will allow the currently running
+        job(s) to complete before Slurm will set the node state to ``DOWN``.
+        Setting the node state to ``DOWN`` will cause all running and suspended
+        jobs on that node to be terminated (and automatically rescheduled on a
+        different node).
+        """
+        return misc.run("/usr/bin/scontrol update NodeName={0} State={1}"
+                        .format(alias, state))
 
     def idle_nodes(self):
         """
