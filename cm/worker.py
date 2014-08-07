@@ -117,7 +117,7 @@ class ConsoleManager(BaseConsoleManager):
         # Slurm lock file must be the same on the master
         self.slurm_lock_file = '/mnt/transient_nfs/slurm/slurm.lockfile'
         self.slurmd_added = False  # Indicated if an attempt has been made to start slurmd
-        self.slurm_name = None
+        self.alias = None
         self.num_slurmd_restarts = 0
         self.max_slurmd_restarts = 3
 
@@ -312,9 +312,9 @@ class ConsoleManager(BaseConsoleManager):
         misc.make_dir(self.app.path_resolver.slurm_root_tmp)
         os.chown(self.app.path_resolver.slurm_root_tmp,
                  pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
-        log.debug("Starting slurmd as worker named {0}...".format(self.slurm_name))
+        log.debug("Starting slurmd as worker named {0}...".format(self.alias))
         # Add Slurm instance name to /etc/hosts
-        misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(), [self.slurm_name])
+        misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(), [self.alias])
         # If adding many nodes at once, slurm.conf may be edited by the master
         # and thus the worker cannot access it so do a quick check here. Far from
         # an ideal solution but seems to work
@@ -327,13 +327,13 @@ class ConsoleManager(BaseConsoleManager):
                 break
         with flock(self.slurm_lock_file):
             if misc.run("/usr/sbin/slurmd -c -N {0} -L /var/log/slurm-llnl/slurmd.log"
-               .format(self.slurm_name)):
-                log.debug("Started slurmd as worker named {0}".format(self.slurm_name))
+               .format(self.alias)):
+                log.debug("Started slurmd as worker named {0}".format(self.alias))
             self.slurmd_added = True
 
-    def start_slurmd(self, slurm_name):
-        self.slurm_name = slurm_name
-        log.info("Configuring slurmd as worker named {0}...".format(self.slurm_name))
+    def start_slurmd(self, alias):
+        self.alias = alias
+        log.info("Configuring slurmd as worker named {0}...".format(self.alias))
         self._setup_munge()
         self._setup_slurmd()
 
@@ -581,9 +581,9 @@ class ConsoleMonitor(object):
             self.app.manager.mount_nfs(self.app.ud['master_ip'],
                                        mount_json=message.split(' | ')[1])
         elif message.startswith("START_SLURMD"):
-            slurm_name = message.split(' | ')[1]
-            log.info("Got START_SLURMD with worker name {0}".format(slurm_name))
-            self.app.manager.start_slurmd(slurm_name)
+            alias = message.split(' | ')[1]
+            log.info("Got START_SLURMD with worker name {0}".format(alias))
+            self.app.manager.start_slurmd(alias)
             # Now that the instance is ready, run the PSS service in a
             # separate thread
             pss = PSSService(self.app, instance_role='worker')

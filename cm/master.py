@@ -1132,13 +1132,13 @@ class ConsoleManager(BaseConsoleManager):
         slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
         slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
         if slurmctld_svc and slurmctld_svc.status() == service_states.RUNNING:
-            idle_nodes = slurmctld_svc.get_idle_nodes()
+            idle_nodes = slurmctld_svc.idle_nodes()
             # Note that master is not part of worker_instances and will thus not
             # get included in the idle_instances list, which is the intended
             # behavior (because idle instances may get terminated and we don't
             # want the master to get terminated).
             for w in self.worker_instances:
-                if w.slurm_name in idle_nodes:
+                if w.alias in idle_nodes:
                     idle_instances.append(w)
         # log.debug("Idle instaces: %s" % idle_instances)
         return idle_instances

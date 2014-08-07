@@ -61,7 +61,7 @@ class Instance(object):
         self.sge_started = 0
         self.slurmd_running = 0
         # NodeName by which this instance is tracked in Slurm
-        self.slurm_name = 'w{0}'.format(self.app.number_generator.next())
+        self.alias = 'w{0}'.format(self.app.number_generator.next())
         self.worker_status = 'Pending'  # Pending, Wake, Startup, Ready, Stopping, Error
         self.load = 0
         self.type = 'Unknown'
@@ -177,7 +177,7 @@ class Instance(object):
 
     def get_status_dict(self):
         toret = {'id': self.id,
-                 'slurm_name': self.slurm_name,
+                 'alias': self.alias,
                  'ld': self.load,
                  'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
                  'nfs_data': self.nfs_data,
@@ -248,7 +248,7 @@ class Instance(object):
             return "'{sid}'".format(sid=self.spot_request_id)
         # TODO : DO NOT redefine id, etc.
         return "'{id}; {ip}; {sn}'".format(id=self.get_id(), ip=self.get_public_ip(),
-                                           sn=self.slurm_name)
+                                           sn=self.alias)
 
     def reboot(self, count_reboot=True):
         """
@@ -513,9 +513,9 @@ class Instance(object):
 
     def send_start_slurmd(self):
         log.debug("\tMT: Sending START_SLURMD message to instance {0}, named {1}"
-                  .format(self.get_desc(), self.slurm_name))
+                  .format(self.get_desc(), self.alias))
         self.app.manager.console_monitor.conn.send('START_SLURMD | {0}'.format(
-            self.slurm_name), self.id)
+            self.alias), self.id)
 
     def send_start_sge(self):
         log.debug("\tMT: Sending START_SGE message to instance '%s'" % self.id)
@@ -650,7 +650,7 @@ class Instance(object):
                 # until an instance is 'running')
                 self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
                 self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
-                self.app.cloud_interface.add_tag(self.inst, 'slurm_name', self.slurm_name)
+                self.app.cloud_interface.add_tag(self.inst, 'alias', self.alias)
                 self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
 
                 log.debug("update condor host through master")

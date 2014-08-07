@@ -347,7 +347,7 @@ function get_vol_ind(inst){
 // Build the HTML for the instance details panel/canvas
 function buildWorkerInstanceDetails() {
         // Instance ID
-        worker_details = "<li>" + instances[selected_instance].id + " (" + instances[selected_instance].slurm_name + ")</li>";
+        worker_details = "<li>" + instances[selected_instance].id + " (" + instances[selected_instance].alias + ")</li>";
         if ((instances[selected_instance].worker_status == "Creating") ||
                         (instances[selected_instance].public_ip == null) ||
                         (instances[selected_instance].public_ip == "")) {
