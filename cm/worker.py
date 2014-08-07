@@ -14,7 +14,7 @@ import threading
 import time
 
 from cm.services import ServiceRole
-from cm.services.apps import sge
+from cm.services.apps.jobmanagers import sge
 from cm.services.apps.hadoop import HadoopService
 from cm.services.apps.htcondor import HTCondorService
 from cm.services.apps.pss import PSSService
