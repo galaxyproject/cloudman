@@ -581,7 +581,7 @@ class Instance(object):
                 slurmctld_svc = self.app.manager.get_services(svc_role=ServiceRole.SLURMCTLD)
                 slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
                 if slurmctld_svc:
-                    slurmctld_svc.reconfigure_cluster()
+                    slurmctld_svc.add_node(self)
                 else:
                     log.warning('Could not get a handle on slurmctld service to '
                                 'add node {0}'.format(self.get_desc()))
