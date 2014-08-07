@@ -27,6 +27,7 @@ class ServiceType(object):
 
 
 class ServiceRole(object):
+    JOB_MANAGER = {'type': ServiceType.APPLICATION, 'name': "Job manager"}
     SGE = {'type': ServiceType.APPLICATION, 'name': "Sun Grid Engine"}
     SLURMCTLD = {'type': ServiceType.APPLICATION, 'name': "Slurmctld"}
     SLURMD = {'type': ServiceType.APPLICATION, 'name': "Slurmd"}
@@ -91,6 +92,8 @@ class ServiceRole(object):
             return ServiceRole.SLURMCTLD
         elif val == "SLURMD":
             return ServiceRole.SLURMD
+        elif val == "JOB_MANAGER":
+            return ServiceRole.JOB_MANAGER
         elif val == "Galaxy":
             return ServiceRole.GALAXY
         elif val == "Postgres":
@@ -148,6 +151,8 @@ class ServiceRole(object):
             return "Slurmctld"
         elif svc_role == ServiceRole.SLURMD:
             return "Slurmd"
+        elif svc_role == ServiceRole.JOB_MANAGER:
+            return "Job manager"
         elif svc_role == ServiceRole.GALAXY:
             return "Galaxy"
         elif svc_role == ServiceRole.GALAXY_POSTGRES:
