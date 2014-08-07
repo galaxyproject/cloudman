@@ -21,7 +21,7 @@ log = logging.getLogger('cloudman')
 class SlurmctldService(BaseJobManager):
     def __init__(self, app):
         super(SlurmctldService, self).__init__(app)
-        self.svc_roles = [ServiceRole.SLURMCTLD]
+        self.svc_roles = [ServiceRole.SLURMCTLD, ServiceRole.JOB_MANAGER]
         self.name = ServiceRole.to_string(ServiceRole.SLURMCTLD)
         self.dependencies = [
             ServiceDependency(self, ServiceRole.MIGRATION),
@@ -207,10 +207,11 @@ class SlurmctldService(BaseJobManager):
         return misc.run("/usr/bin/scontrol update NodeName={0} State=IDLE"
                         .format(alias))
 
-    def disable_node(self, alias, state="DRAIN"):
+    def disable_node(self, alias, state="DRAIN", reason="CloudMan-disabled"):
         """
         Disable the node identified by ``alias`` from running jobs by setting
-        it's state to ``state`` (eg, ``DOWN``, ``DRAIN``).
+        it's state to ``state`` (eg, ``DOWN``, ``DRAIN``). If desired, can also
+        specify why the node is being disbled by providing a ``reason``.
 
         Setting the node state to ``DRAIN`` will allow the currently running
         job(s) to complete before Slurm will set the node state to ``DOWN``.
@@ -218,8 +219,8 @@ class SlurmctldService(BaseJobManager):
         jobs on that node to be terminated (and automatically rescheduled on a
         different node).
         """
-        return misc.run("/usr/bin/scontrol update NodeName={0} State={1}"
-                        .format(alias, state))
+        return misc.run('/usr/bin/scontrol update NodeName={0} Reason="{1}" State={2}'
+                        .format(alias, reason, state))
 
     def idle_nodes(self):
         """
