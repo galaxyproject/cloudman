@@ -27,7 +27,6 @@ class SlurmctldService(BaseJobManager):
             ServiceDependency(self, ServiceRole.MIGRATION),
             ServiceDependency(self, ServiceRole.TRANSIENT_NFS),
         ]
-        self.hosts = []
         self.num_restarts = 0
         self.max_restarts = 3
         self.slurm_lock_file = os.path.join(self.app.path_resolver.slurm_root_nfs,
@@ -105,8 +104,8 @@ class SlurmctldService(BaseJobManager):
             for i, w in enumerate(self.app.manager.worker_instances):
                 if w.worker_status == 'Ready' or w.worker_status == 'Startup':
                     wnc += ('NodeName={0} NodeAddr={1} CPUs={2} Weight=5 State=UNKNOWN\n'
-                            .format(w.slurm_name, w.private_ip, w.num_cpus))
-                    wnn += ',{0}'.format(w.slurm_name)
+                            .format(w.alias, w.private_ip, w.num_cpus))
+                    wnn += ',{0}'.format(w.alias)
             log.debug("Worker node names to include in slurm.conf: {0}".format(wnn[1:]))
             return wnc, wnn
 
@@ -187,7 +186,7 @@ class SlurmctldService(BaseJobManager):
         return misc.run("/usr/bin/scontrol update NodeName={0} State=IDLE"
                         .format(nodename))
 
-    def get_idle_nodes(self):
+    def idle_nodes(self):
         """
         Get a listing of nodes that are currently not executing any jobs. Return
         a list of strings containing node names (as registered with Slurm)
