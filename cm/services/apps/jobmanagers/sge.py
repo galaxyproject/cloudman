@@ -47,8 +47,8 @@ class SGEService(BaseJobManager):
 
     def start(self):
         self.state = service_states.STARTING
-        if self.unpack_sge():
-            self.configure_sge()
+        if self._unpack_sge():
+            self._configure_sge()
             # self.app.manager.services.append(HadoopService(self.app))
         else:
             log.error("Error adding service '%s'" % self.name)
@@ -112,7 +112,7 @@ class SGEService(BaseJobManager):
             return ""
 
     @TestFlag(False)
-    def unpack_sge(self):
+    def _unpack_sge(self):
         log.debug("Unpacking SGE from '%s'" % self.app.path_resolver.sge_tars)
         os.putenv('SGE_ROOT', self.app.path_resolver.sge_root)
         # Ensure needed directory exists
@@ -129,7 +129,7 @@ class SGEService(BaseJobManager):
             self.status()
             if self.state == service_states.RUNNING:
                 log.info("Found SGE already running; will reconfigure it.")
-                self.stop_sge()
+                self._stop_sge()
             log.debug("Cleaning '%s' directory." % self.app.path_resolver.sge_root)
             for base, dirs, files in os.walk(self.app.path_resolver.sge_root):
                 for f in files:
@@ -168,7 +168,7 @@ class SGEService(BaseJobManager):
         return sge_install_template.substitute(sge_params)
 
     @TestFlag(None)
-    def configure_sge(self):
+    def _configure_sge(self):
         log.info("Setting up SGE...")
         SGE_config_file = '%s/galaxyEC2.conf' % self.app.path_resolver.sge_root
         with open(SGE_config_file, 'w') as f:
@@ -392,8 +392,7 @@ class SGEService(BaseJobManager):
         if inst_private_ip not in allhosts_out:
             now = datetime.datetime.utcnow()
             ah_file = '/tmp/ah_add_' + now.strftime("%H_%M_%S")
-            self.write_allhosts_file(
-                filename=ah_file, to_add=inst_private_ip)
+            self._write_allhosts_file(filename=ah_file, to_add=inst_private_ip)
             if not misc.run('export SGE_ROOT=%s;. $SGE_ROOT/default/common/settings.sh; '
                             '%s/bin/lx24-amd64/qconf -Mhgrp %s'
                             % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, ah_file),
@@ -410,7 +409,7 @@ class SGEService(BaseJobManager):
             log.debug("Successfully added instance '%s' to SGE" % inst_alias)
         return ok
 
-    def stop_sge(self):
+    def _stop_sge(self):
         log.info("Stopping SGE.")
         for inst in self.app.manager.worker_instances:
             self.remove_node(inst)
@@ -418,7 +417,7 @@ class SGEService(BaseJobManager):
                  % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
                  "Problems stopping SGE master", "Successfully stopped SGE master.")
 
-    def write_allhosts_file(self, filename='/tmp/ah', to_add=None, to_remove=None):
+    def _write_allhosts_file(self, filename='/tmp/ah', to_add=None, to_remove=None):
         ahl = []
         log.debug("to_add: '%s'" % to_add)
         log.debug("to_remove: '%s'" % to_remove)
@@ -506,7 +505,7 @@ class SGEService(BaseJobManager):
                   % (inst_alias, inst_private_ip))
         now = datetime.datetime.utcnow()
         ah_file = '/tmp/ah_remove_' + now.strftime("%H_%M_%S")
-        self.write_allhosts_file(filename=ah_file, to_remove=inst_private_ip)
+        self._write_allhosts_file(filename=ah_file, to_remove=inst_private_ip)
 
         ret_code = subprocess.call('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; '
                                    '%s/bin/lx24-amd64/qconf -Mhgrp %s' % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, ah_file), shell=True)
