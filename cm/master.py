@@ -823,9 +823,11 @@ class ConsoleManager(BaseConsoleManager):
         return self.cluster_status
 
     def toggle_master_as_exec_host(self, force_removal=False):
-        """ By default, the master instance running all the services is also
-            an execution host and is used to run jobs. This method allows one
-            to toggle the master instance from being an execution host.
+        """
+            By default, the master instance running all the services is also
+            an execution host and is used to run job manager jobs. This method
+            allows you to toggle the master instance as being or not being
+            an execution host.
 
             :type force_removal: bool
             :param force_removal: If True, go through the process of removing
@@ -833,17 +835,17 @@ class ConsoleManager(BaseConsoleManager):
                                   irrespective of the instance's current state.
 
             :rtype: bool
-            :return: True if the master instance is set to be an execution host.
-                     False otherwise.
+            :return: ``True`` if the instance is set as an execution host;
+                     ``False`` otherwise.
         """
-        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
-        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
-        if slurmctld_svc:
+        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc:
             if self.master_exec_host or force_removal:
-                slurmctld_svc.disable_node('master')
+                job_manager_svc.disable_node('master')
                 self.master_exec_host = False
             else:
-                slurmctld_svc.enable_node('master')
+                job_manager_svc.enable_node('master')
                 self.master_exec_host = True
         return self.master_exec_host
 
@@ -1129,10 +1131,10 @@ class ConsoleManager(BaseConsoleManager):
                             # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
                             #     % (w_instance.id, idle_instance_dn))
                             idle_instances.append(w_instance)
-        slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
-        slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
-        if slurmctld_svc and slurmctld_svc.status() == service_states.RUNNING:
-            idle_nodes = slurmctld_svc.idle_nodes()
+        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc and job_manager_svc.status() == service_states.RUNNING:
+            idle_nodes = job_manager_svc.idle_nodes()
             # Note that master is not part of worker_instances and will thus not
             # get included in the idle_instances list, which is the intended
             # behavior (because idle instances may get terminated and we don't
@@ -1208,10 +1210,10 @@ class ConsoleManager(BaseConsoleManager):
                 if inst.get_id() is not None:
                     if sge_svc:
                         sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
-                    slurmctld_svc = self.get_services(svc_role=ServiceRole.SLURMCTLD)
-                    slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
-                    if slurmctld_svc:
-                        slurmctld_svc.remove_node(inst)
+                    job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                    job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                    if job_manager_svc:
+                        job_manager_svc.remove_node(inst)
                     # Remove the given instance from /etc/hosts files
                     misc.remove_from_etc_hosts(inst.private_ip)
                 try:
