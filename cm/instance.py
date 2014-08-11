@@ -616,7 +616,7 @@ class Instance(object):
                 try:
                     sge_svc = self.app.manager.get_services(
                         svc_role=ServiceRole.SGE)[0]
-                    if sge_svc.add_sge_host(self.get_id(), self.local_hostname):
+                    if sge_svc.add_node(self):
                         # Send a message to worker to start SGE
                         self.send_start_sge()
                         # If there are any bucket-based FSs, tell the worker to

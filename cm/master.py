@@ -1209,7 +1209,7 @@ class ConsoleManager(BaseConsoleManager):
                 sge_svc = sge_svc[0] if len(sge_svc) > 0 else None
                 if inst.get_id() is not None:
                     if sge_svc:
-                        sge_svc.remove_sge_host(inst.get_id(), inst.get_private_ip())
+                        sge_svc.remove_node(inst)
                     job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
                     job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
                     if job_manager_svc:
