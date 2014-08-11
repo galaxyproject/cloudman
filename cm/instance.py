@@ -578,10 +578,10 @@ class Instance(object):
                 self.send_mount_points()
             elif msg_type == "MOUNT_DONE":
                 log.debug("Got MOUNT_DONE message; setting up job manager(s)")
-                slurmctld_svc = self.app.manager.get_services(svc_role=ServiceRole.SLURMCTLD)
-                slurmctld_svc = slurmctld_svc[0] if len(slurmctld_svc) > 0 else None
-                if slurmctld_svc:
-                    slurmctld_svc.add_node(self)
+                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                if job_manager_svc:
+                    job_manager_svc.add_node(self)
                 else:
                     log.warning('Could not get a handle on slurmctld service to '
                                 'add node {0}'.format(self.get_desc()))
