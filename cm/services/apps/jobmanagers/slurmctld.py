@@ -179,7 +179,7 @@ class SlurmctldService(BaseJobManager):
 
         Note that as a consequence of how Slurm is administered (ie, at the
         cluster level vs. individual node level), this method does not use the
-        ``BaseJobManager``-requried ``instance`` argument.
+        ``BaseJobManager``-requried ``instance`` parameter.
         """
         log.debug("Adding node {0} into Slurm cluster".format(instance.alias))
         return self._reconfigure_cluster()
@@ -191,27 +191,29 @@ class SlurmctldService(BaseJobManager):
 
         Note that as a consequence of how Slurm is administered (ie, at the
         cluster level vs. individual node level), this method does not use the
-        ``BaseJobManager``-requried ``instance`` argument.
+        ``BaseJobManager``-requried ``instance`` parameter.
         """
         log.debug("Removing node {0} from Slurm cluster".format(instance.alias))
-        self.disable_node(instance.alias, state="DOWN")
+        self.disable_node(instance.alias, instance.private_ip, state="DOWN")
         return self._reconfigure_cluster()
 
-    def enable_node(self, alias):
+    def enable_node(self, alias, address):
         """
         Enable node identified by ``alias`` for running jobs by setting it's
         state to ``IDLE``. Note that this assumes the node is, on the back end,
         properly configured and will communicate with the master node to confirm
-        its status.
+        its status. Note that ``address`` parameter is not used in this
+        implementation.
         """
         return misc.run("/usr/bin/scontrol update NodeName={0} State=IDLE"
                         .format(alias))
 
-    def disable_node(self, alias, state="DRAIN", reason="CloudMan-disabled"):
+    def disable_node(self, alias, address, state="DRAIN", reason="CloudMan-disabled"):
         """
         Disable the node identified by ``alias`` from running jobs by setting
         it's state to ``state`` (eg, ``DOWN``, ``DRAIN``). If desired, can also
-        specify why the node is being disbled by providing a ``reason``.
+        specify why the node is being disbled by providing a ``reason``. Note
+        that ``address`` parameter is not used in this implementation.
 
         Setting the node state to ``DRAIN`` will allow the currently running
         job(s) to complete before Slurm will set the node state to ``DOWN``.
