@@ -227,7 +227,7 @@ class SlurmctldService(BaseJobManager):
     def idle_nodes(self):
         """
         Get a listing of nodes that are currently not executing any jobs. Return
-        a list of strings containing node names (as registered with Slurm)
+        a list of strings containing node names/aliases (as registered with Slurm)
         (eg, ``['master', 'w1', 'w2']``).
         """
         # Get a listing of idle nodes as reported by Slurm's sinfo command. The

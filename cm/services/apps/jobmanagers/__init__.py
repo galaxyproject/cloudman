@@ -65,6 +65,7 @@ class BaseJobManager(ApplicationService):
             Return a list of nodes that are currently not executing any jobs.
 
             :rtype: list
-            :return: A list of instance alias strings representing idle nodes.
+            :return: A list of strings (alias or private hostname) identifying
+                     the nodes.
         """
         raise NotImplementedError("idle_nodes method not implemented")

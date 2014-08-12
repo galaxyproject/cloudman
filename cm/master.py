@@ -1102,38 +1102,38 @@ class ConsoleManager(BaseConsoleManager):
         """
         # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
-        if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
-            proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
-                                    "%s/bin/lx24-amd64/qstat -f | grep all.q" % (
-                                        self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-                                    shell=True, stdout=subprocess.PIPE)
-            qstat_out = proc.communicate()[0]
-            # log.debug( "qstat output: %s" % qstat_out )
-            instances = qstat_out.splitlines()
-            nodes_list = []  # list of nodes containing node's domain name and number of used processing slots
-            idle_instances_dn = []  # list of domain names of idle instances
-            for inst in instances:
-                # Get instance domain name and # of used processing slots: ['domU-12-31-38-00-48-D1.c:0']
-                nodes_list.append(inst.split('@')[1].split(' ')[0] + ':' + inst.split('/')[1])
-            # if len( nodes_list ) > 0:
-            #     log.debug( "Processed qstat output: %s" % nodes_list )
+        # if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
+        #     proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
+        #                             "%s/bin/lx24-amd64/qstat -f | grep all.q" % (
+        #                                 self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
+        #                             shell=True, stdout=subprocess.PIPE)
+        #     qstat_out = proc.communicate()[0]
+        #     # log.debug( "qstat output: %s" % qstat_out )
+        #     instances = qstat_out.splitlines()
+        #     nodes_list = []  # list of nodes containing node's domain name and number of used processing slots
+        #     idle_instances_dn = []  # list of domain names of idle instances
+        #     for inst in instances:
+        #         # Get instance domain name and # of used processing slots: ['domU-12-31-38-00-48-D1.c:0']
+        #         nodes_list.append(inst.split('@')[1].split(' ')[0] + ':' + inst.split('/')[1])
+        #     # if len( nodes_list ) > 0:
+        #     #     log.debug( "Processed qstat output: %s" % nodes_list )
 
-            for node in nodes_list:
-                # If number of used slots on given instance is 0, mark it as idle
-                if int(node.split(':')[1]) == 0:
-                    idle_instances_dn.append(node.split(':')[0])
-            # if len( idle_instances_dn ) > 0:
-            #     log.debug( "Idle instances' DNs: %s" % idle_instances_dn )
+        #     for node in nodes_list:
+        #         # If number of used slots on given instance is 0, mark it as idle
+        #         if int(node.split(':')[1]) == 0:
+        #             idle_instances_dn.append(node.split(':')[0])
+        #     # if len( idle_instances_dn ) > 0:
+        #     #     log.debug( "Idle instances' DNs: %s" % idle_instances_dn )
 
-            for idle_instance_dn in idle_instances_dn:
-                for w_instance in self.worker_instances:
-                    # log.debug("Trying to match worker instance with private IP '%s' to idle "
-                    #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
-                    if w_instance.get_local_hostname() is not None:
-                        if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
-                            # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
-                            #     % (w_instance.id, idle_instance_dn))
-                            idle_instances.append(w_instance)
+        #     for idle_instance_dn in idle_instances_dn:
+        #         for w_instance in self.worker_instances:
+        #             # log.debug("Trying to match worker instance with private IP '%s' to idle "
+        #             #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
+        #             if w_instance.get_local_hostname() is not None:
+        #                 if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
+        #                     # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
+        #                     #     % (w_instance.id, idle_instance_dn))
+        #                     idle_instances.append(w_instance)
         job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
         job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
         if job_manager_svc and job_manager_svc.status() == service_states.RUNNING:
@@ -1143,7 +1143,7 @@ class ConsoleManager(BaseConsoleManager):
             # behavior (because idle instances may get terminated and we don't
             # want the master to get terminated).
             for w in self.worker_instances:
-                if w.alias in idle_nodes:
+                if w.alias in idle_nodes or w.local_hostname in idle_nodes:
                     idle_instances.append(w)
         # log.debug("Idle instaces: %s" % idle_instances)
         return idle_instances

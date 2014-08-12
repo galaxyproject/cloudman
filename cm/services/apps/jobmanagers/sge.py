@@ -14,6 +14,7 @@ from string import Template
 from cm.conftemplates import sge
 from cm.services import ServiceDependency, ServiceRole, service_states
 from cm.services.apps.jobmanagers import BaseJobManager
+from cm.services.apps.jobmanagers.sgeinfo import SGEInfo
 from cm.util import misc, paths
 from cm.util.decorators import TestFlag
 
@@ -44,6 +45,7 @@ class SGEService(BaseJobManager):
         self.name = ServiceRole.to_string(ServiceRole.SGE)
         self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.hosts = []
+        self.sge_info = SGEInfo()
 
     def start(self):
         self.state = service_states.STARTING
@@ -541,6 +543,16 @@ class SGEService(BaseJobManager):
                       % (inst_alias, inst_private_ip, stderr))
             return False
 
+    def _get_qstat_out(self, args="-f -xml"):
+        """
+        Run the ``qstat [args]`` command and return the output
+        """
+        cmd = ('{0} - galaxy -c "export SGE_ROOT={1};. {2}/default/common/settings.sh;'
+               '{3}/bin/lx24-amd64/qstat {4}"'.format(paths.P_SU,
+               self.app.path_resolver.sge_root, self.app.path_resolver.sge_root,
+               self.app.path_resolver.sge_root, args))
+        return misc.run(cmd)
+
     def add_node(self, instance):
         """
         Add the ``instance`` as a worker node into the SGE cluster. The node
@@ -583,7 +595,20 @@ class SGEService(BaseJobManager):
         log.debug("Disabling node {0} from running jobs.".format(alias))
         return self._remove_instance_from_exec_list(alias, address)
 
-    def check_sge(self):
+    def idle_nodes(self):
+        """
+        Return a list of nodes that are currently not executing any jobs. Each
+        node is identified by it's node name, as registered with SGE. The name
+        corresponds to the node's private hostname.
+        """
+        idle_nodes = []
+        nodes_info = self.sge_info.parse_qstat(self._get_qstat_out()).get('nodes', [])
+        for node in nodes_info:
+            if node.get('slots_used') == 0:
+                idle_nodes.append(node.get('node_name'))
+        return idle_nodes
+
+    def _check_sge(self):
         """
         Check if SGE qmaster is running and qstat returns at least one node
         (assuming one should be available based on the current state of the
@@ -615,7 +640,7 @@ class SGEService(BaseJobManager):
         Check and update the status of SGE service. If the service state is
         ``SHUTTING_DOWN``, ``SHUT_DOWN``, ``UNSTARTED``, or ``WAITING_FOR_USER_ACTION``,
         the method doesn't do anything. Otherwise, it updates service status (see
-        ``check_sge``) by setting ``self.state``, whose value is always the method's
+        ``_check_sge``) by setting ``self.state``, whose value is always the method's
         return value.
         """
         if self.state == service_states.SHUTTING_DOWN or \
@@ -624,7 +649,7 @@ class SGEService(BaseJobManager):
                 self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
         elif self._check_daemon('sge'):
-            if self.check_sge():
+            if self._check_sge():
                 self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:
             log.error("SGE error; SGE not runnnig")
