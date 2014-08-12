@@ -567,6 +567,22 @@ class SGEService(BaseJobManager):
             ok = self._remove_instance_from_exec_list(instance.alias, instance.local_hostname)
         return ok
 
+    def enable_node(self, alias, address):
+        """
+        Enable node named ``alias`` with ``address`` as it's private IP or local
+        hostname for running jobs.
+        """
+        log.debug("Enabling node {0} for running jobs.".format(alias))
+        return self._add_instance_as_exec_host(alias, address)
+
+    def disable_node(self, alias, address):
+        """
+        Disable node named ``alias`` with ``address`` as it's private IP or local
+        hostname from running jobs.
+        """
+        log.debug("Disabling node {0} from running jobs.".format(alias))
+        return self._remove_instance_from_exec_list(alias, address)
+
     def check_sge(self):
         """
         Check if SGE qmaster is running and qstat returns at least one node

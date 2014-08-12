@@ -838,15 +838,24 @@ class ConsoleManager(BaseConsoleManager):
             :return: ``True`` if the instance is set as an execution host;
                      ``False`` otherwise.
         """
+        log.debug("Toggling master instance as exec host")
         job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
         job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
         if job_manager_svc:
+            node_alias = 'master'
+            node_address = self.app.cloud_interface.get_private_ip()
             if self.master_exec_host or force_removal:
-                job_manager_svc.disable_node('master')
+                job_manager_svc.disable_node(node_alias, node_address)
                 self.master_exec_host = False
             else:
-                job_manager_svc.enable_node('master')
+                job_manager_svc.enable_node(node_alias, node_address)
                 self.master_exec_host = True
+        if self.master_exec_host:
+            log.info("The master instance is set to execute jobs. "
+                "To manually change this, use the CloudMan Admin panel.")
+        else:
+            log.info("The master instance is set to *not* execute jobs. "
+                "To manually change this, use the CloudMan Admin panel.")
         return self.master_exec_host
 
         # sge_svc = self.get_services(svc_role=ServiceRole.SGE)
@@ -870,12 +879,6 @@ class ConsoleManager(BaseConsoleManager):
         #     else:
         #         log.warning(
         #             "SGE not running thus cannot toggle master as exec host")
-        #     if self.master_exec_host:
-        #         log.info("The master instance has been set to execute jobs. "
-        #             "To manually change this, use the cloudman admin panel.")
-        #     else:
-        #         log.info("The master instance has been set to *not* execute jobs. "
-        #             "To manually change this, use the cloudman admin panel.")
         # return self.master_exec_host
 
     @TestFlag([])

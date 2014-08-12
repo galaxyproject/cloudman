@@ -38,9 +38,10 @@ class BaseJobManager(ApplicationService):
         """
         raise NotImplementedError("remove_node method not implemented")
 
-    def enable_node(self, alias):
+    def enable_node(self, alias, address):
         """
-            Enable the node identified by ``alias`` for running jobs.
+            Enable the node identified by ``alias`` and/or ``address`` for
+            running jobs.
 
             :rtype: bool
             :return: ``True`` if the node was successfully enabled for running
@@ -48,9 +49,10 @@ class BaseJobManager(ApplicationService):
         """
         raise NotImplementedError("enable_node method not implemented")
 
-    def disable_node(self, alias, **kwargs):
+    def disable_node(self, alias, address, **kwargs):
         """
-            Disable the node identified by ``alias`` from running jobs.
+            Disable the node identified by ``alias`` and/or ``address`` from
+            running jobs.
 
             :rtype: bool
             :return: ``True`` if the node was successfully disabled from running
