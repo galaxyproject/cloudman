@@ -41,7 +41,7 @@ def fix_libc():
 class SGEService(BaseJobManager):
     def __init__(self, app):
         super(SGEService, self).__init__(app)
-        self.svc_roles = [ServiceRole.SGE]
+        self.svc_roles = [ServiceRole.SGE, ServiceRole.JOB_MANAGER]
         self.name = ServiceRole.to_string(ServiceRole.SGE)
         self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.hosts = []
@@ -254,10 +254,10 @@ class SGEService(BaseJobManager):
         # come online
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "   2.[46].*)",
-            "   [23].[24567890]?.*)")
+            "   [23].[24567890].*)")
         misc.replace_string(
             self.app.path_resolver.sge_root + '/util/arch', "      2.6.*)",
-            "      [23].[24567890]?.*)")
+            "      [23].[24567890].*)")
         misc.run("sed -i.bak 's/sort -u/sort -u | head -1/g' %s/util/arch" % self.app.path_resolver.sge_root, "Error modifying %s/util/arch" %
                  self.app.path_resolver.sge_root, "Modified %s/util/arch" % self.app.path_resolver.sge_root)
         misc.run("chmod +rx %s/util/arch" % self.app.path_resolver.sge_root, "Error chmod %s/util/arch" %
@@ -603,9 +603,11 @@ class SGEService(BaseJobManager):
         """
         idle_nodes = []
         nodes_info = self.sge_info.parse_qstat(self._get_qstat_out()).get('nodes', [])
+        # log.debug("SGE nodes_info: {0}".format(nodes_info))
         for node in nodes_info:
             if node.get('slots_used') == 0:
                 idle_nodes.append(node.get('node_name'))
+        # log.debug("Idle SGE nodes: {0}".format(idle_nodes))
         return idle_nodes
 
     def _check_sge(self):
