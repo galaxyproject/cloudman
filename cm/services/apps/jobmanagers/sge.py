@@ -545,12 +545,11 @@ class SGEService(BaseJobManager):
 
     def _get_qstat_out(self, args="-f -xml"):
         """
-        Run the ``qstat [args]`` command and return the output
+        Run the ``qstat [args]`` command (as root user) and return the output
         """
-        cmd = ('{0} - galaxy -c "export SGE_ROOT={1};. {2}/default/common/settings.sh;'
-               '{3}/bin/lx24-amd64/qstat {4}"'.format(paths.P_SU,
-               self.app.path_resolver.sge_root, self.app.path_resolver.sge_root,
-               self.app.path_resolver.sge_root, args))
+        cmd = ('export SGE_ROOT={0};. {1}/default/common/settings.sh;'
+               '{2}/bin/lx24-amd64/qstat {3}'.format(self.app.path_resolver.sge_root,
+               self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, args))
         return misc.run(cmd, quiet=True)
 
     def add_node(self, instance):
@@ -627,6 +626,12 @@ class SGEService(BaseJobManager):
         misc.run('export SGE_ROOT={0}; . $SGE_ROOT/default/common/settings.sh; '
                  '{1}/bin/lx24-amd64/qmod -usq {2}'.format(self.app.path_resolver.sge_root,
                  self.app.path_resolver.sge_root, queue_name))
+
+    def jobs(self):
+        """
+        Return a list of jobs currently registered with the job mamanger.
+        """
+        return self.sge_info.parse_qstat(self._get_qstat_out()).get('jobs', [])
 
     def _check_sge(self):
         """

@@ -1,7 +1,5 @@
-import commands
 import datetime
 import logging
-import time
 from cm.services import (Service, ServiceDependency, ServiceRole, ServiceType,
                          service_states)
 
@@ -124,29 +122,21 @@ class Autoscale(Service):
         """
         running_jobs = []
         queued_jobs = []
-        # cmd = "%s/bin/lx24-amd64/qstat -f -u '*' | tr -s ' ' | grep ^' [0-9]' | cut -d' ' -f6,7,8" % self.app.path_resolver.sge_root
-        cmd = "squeue -h -o'%t %S' --states=PD,R"  # Slurm
-        qstat_out = commands.getoutput(cmd)
-        # log.debug('Plain qstat_out for cmd "%s":\n"%s"' % (cmd, qstat_out))
-        if qstat_out != '':  # else, the job queue is empty so just return
-            qstat_out = qstat_out.split('\n')
-            # log.debug('Split qstat_out: %s' % qstat_out)
-            now = datetime.datetime.utcnow()
-            for job in qstat_out:
-                try:
-                    # log.debug('Autoscaling qstat_out: %s' % qstat_out)
-                    job_state = job.split()[0]
-                    if job.split()[1] == 'N/A':
-                        continue
-                    time_job_entered_state = datetime.datetime(*time.strptime(
-                        job.split()[1], "%Y-%m-%dT%H:%M:%S")[0:6])
-                    if job_state == 'R':
-                        running_jobs.append(self.total_seconds(now - time_job_entered_state))
-                    elif job_state == 'PD':
-                        queued_jobs.append(self.total_seconds(now - time_job_entered_state))
-                except Exception, e:
-                    log.debug("Trouble parsing qstat output (%s) as part of autoscaling: %s"
-                              % (qstat_out, e))
+        job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc:
+            jobs = job_manager_svc.jobs()
+            # log.debug("Autoscaling jobs: {0}".format(jobs))
+            for job in jobs:
+                now = datetime.datetime.now()
+                if job.get('job_state') == 'running':
+                    time_job_entered_state = job.get('time_job_entered_state',
+                                                     datetime.datetime.now())
+                    running_jobs.append(self.total_seconds(now - time_job_entered_state))
+                elif job.get('job_state') == 'pending':
+                    time_job_entered_state = job.get('time_job_entered_state',
+                                                     datetime.datetime.now)
+                    queued_jobs.append(self.total_seconds(now - time_job_entered_state))
         return {'running': running_jobs, 'queued': queued_jobs}
 
     def get_num_instances_to_remove(self):

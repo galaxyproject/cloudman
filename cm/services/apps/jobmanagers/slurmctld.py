@@ -11,6 +11,7 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.services.apps.jobmanagers import BaseJobManager
+from cm.services.apps.jobmanagers.slurminfo import SlurmInfo
 from cm.util import misc
 from cm.util.misc import flock
 
@@ -27,6 +28,7 @@ class SlurmctldService(BaseJobManager):
             ServiceDependency(self, ServiceRole.MIGRATION),
             ServiceDependency(self, ServiceRole.TRANSIENT_NFS),
         ]
+        self.slurm_info = SlurmInfo()
         self.num_restarts = 0
         self.max_restarts = 3
         self.slurm_lock_file = os.path.join(self.app.path_resolver.slurm_root_nfs,
@@ -254,6 +256,12 @@ class SlurmctldService(BaseJobManager):
         """
         log.debug("Unsuspending Slurm partition {0}".format(queue_name))
         misc.run('/usr/bin/scontrol update PartitionName={0} State=UP'.format(queue_name))
+
+    def jobs(self):
+        """
+        Return a list of jobs currently registered with the job mamanger.
+        """
+        return self.slurm_info.jobs
 
     def status(self):
         """
