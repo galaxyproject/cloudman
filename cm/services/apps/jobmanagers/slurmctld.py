@@ -68,6 +68,9 @@ class SlurmctldService(BaseJobManager):
         Setup Munge (used by Slurm as a user auth mechanism)
         """
         log.debug("Setting up Munge (for Slurm)...")
+        if not os.path.exists('/etc/munge'):
+            # Munge not installed so grab it
+            misc.run("apt-get update; apt-get install munge libmunge-dev -y")
         misc.run("/usr/sbin/create-munge-key")
         misc.append_to_file('/etc/default/munge', 'OPTIONS="--force"')
         misc.run("service munge start")
@@ -86,6 +89,9 @@ class SlurmctldService(BaseJobManager):
         """
         log.debug("Setting up Slurmctld... (if stuck here for a while, check {0})"
             .format(self.slurm_lock_file))
+        if not os.path.exists('/etc/slurm-llnl'):
+            # Slurm package not installed so grab it
+            misc.run("apt-get install slurm-llnl -y")
         self._setup_slurm_conf()
         self._start_slurmctld()
         log.debug("Done setting up Slurmctld")
