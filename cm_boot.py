@@ -497,8 +497,8 @@ def main():
             sys.exit(0)
         else:
             usage()
-    if ('nectar' in ud.get('cloud_name', '').lower()):
-        _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
+    # if ('nectar' in ud.get('cloud_name', '').lower()):
+    #     _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     _install_conf_files(log, ud)
     _install_authorized_keys(log, ud)
     if ('no_start' not in ud):

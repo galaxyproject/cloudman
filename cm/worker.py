@@ -298,7 +298,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         if not os.path.exists('/etc/slurm-llnl'):
             # Slurm package not installed so grab it
-            misc.run("apt-get update; apt-get install slurm-llnl -y")
+            misc.run("apt-get install slurm-llnl -y")
         # Does not work because worker class has no notion of services, which
         # are used as part the path resolver property so must hard code the path
         # nfs_slurm_conf = self.app.path_resolver.slurm_conf_nfs
