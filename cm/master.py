@@ -138,9 +138,13 @@ class ConsoleManager(BaseConsoleManager):
         """ Convenience function that suspends SGE jobs and removes Galaxy &
         Postgres services, thus allowing system level operations to be performed."""
         # Suspend all SGE jobs
-        log.debug("Suspending SGE queue all.q")
-        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q'
-                 % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
+        log.debug("Suspending job manager queue")
+        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc:
+            job_manager_svc.suspend_queue()
+        # misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q'
+        #          % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
         # Stop application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
@@ -170,11 +174,15 @@ class ConsoleManager(BaseConsoleManager):
             except IndexError, e:
                 log.error("Tried adding app level service '%s' but failed: %s"
                           % (ServiceRole.to_string([svc_role]), e))
-        log.debug("Unsuspending SGE queue all.q")
-        misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q'
-                 % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-                 "Error unsuspending SGE jobs",
-                 "Successfully unsuspended all SGE jobs")
+        log.debug("Unsuspending job manager queue")
+        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc:
+            job_manager_svc.unsuspend_queue()
+        # misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q'
+        #          % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
+        #          "Error unsuspending SGE jobs",
+        #          "Successfully unsuspended all SGE jobs")
 
     def recover_monitor(self, force='False'):
         if self.console_monitor:
@@ -1198,34 +1206,26 @@ class ConsoleManager(BaseConsoleManager):
         that the instance is first removed from the job manager as a worker and
         then it is terminated via the cloud middleware API.
         """
-        if instance_id == '':
-            log.warning(
-                "Tried to remove an instance but did not receive instance ID")
+        if not instance_id:
+            log.warning("Tried to remove an instance but did not receive instance ID")
             return False
         log.debug("Specific termination of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 inst.worker_status = 'Stopping'
-                log.debug("Set instance {0} state to {1}".format(inst.get_desc(),
-                                                                 inst.worker_status))
-                sge_svc = self.get_services(svc_role=ServiceRole.SGE)
-                sge_svc = sge_svc[0] if len(sge_svc) > 0 else None
-                if inst.get_id() is not None:
-                    if sge_svc:
-                        sge_svc.remove_node(inst)
-                    job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                    job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                    if job_manager_svc:
-                        job_manager_svc.remove_node(inst)
-                    # Remove the given instance from /etc/hosts files
-                    misc.remove_from_etc_hosts(inst.private_ip)
-                try:
-                    inst.terminate()
-                    log.info("Initiated requested termination of instance. "
-                             "Terminating '%s'." % instance_id)
-                except EC2ResponseError, e:
-                    log.error("Trouble terminating instance '{0}': {1}".format(
-                        instance_id, e))
+                log.debug("Set instance {0} state to {1}"
+                          .format(inst.get_desc(), inst.worker_status))
+                job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                if job_manager_svc:
+                    job_manager_svc.remove_node(inst)
+                # Remove the given instance from /etc/hosts files
+                misc.remove_from_etc_hosts(inst.private_ip)
+                # Terminate the instance
+                inst.terminate()
+                log.info("Initiated requested termination of instance. "
+                         "Terminating '%s'." % instance_id)
+
 
     def reboot_instance(self, instance_id='', count_reboot=True):
         """
@@ -1234,14 +1234,15 @@ class ConsoleManager(BaseConsoleManager):
         the instance ``self.config.instance_reboot_attempts`` (see `Instance`
         `reboot` method).
         """
-        if instance_id == '':
+        if not instance_id:
             log.warning("Tried to reboot an instance but did not receive instance ID")
             return False
         log.info("Specific reboot of instance '%s' requested." % instance_id)
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 inst.reboot(count_reboot=count_reboot)
-        log.info("Initiated requested reboot of instance. Rebooting '%s'." % instance_id)
+                log.info("Initiated requested reboot of instance. Rebooting '%s'."
+                         % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
         # Remove master from execution queue automatically

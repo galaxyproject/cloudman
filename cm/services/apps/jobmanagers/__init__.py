@@ -43,6 +43,13 @@ class BaseJobManager(ApplicationService):
             Enable the node identified by ``alias`` and/or ``address`` for
             running jobs.
 
+            :type alias: string
+            :param alias: A name an instance is associated with in the job manager
+
+            :type address: string
+            :param address: An address (IP or FQDN) an instance is associated
+                            with in the job manager.
+
             :rtype: bool
             :return: ``True`` if the node was successfully enabled for running
                      jobs; ``False`` otherwise.
@@ -53,6 +60,13 @@ class BaseJobManager(ApplicationService):
         """
             Disable the node identified by ``alias`` and/or ``address`` from
             running jobs.
+
+            :type alias: string
+            :param alias: A name an instance is associated with in the job manager
+
+            :type address: string
+            :param address: An address (IP or FQDN) an instance is associated
+                            with in the job manager.
 
             :rtype: bool
             :return: ``True`` if the node was successfully disabled from running
@@ -69,3 +83,23 @@ class BaseJobManager(ApplicationService):
                      the nodes.
         """
         raise NotImplementedError("idle_nodes method not implemented")
+
+    def suspend_queue(self, queue_name=None):
+        """
+            Suspend ``queue_name`` queue from running jobs.
+
+            :type queue_name: string
+            :param queue_name: A name of the queue to suspend. If not specified,
+                               suspend the default job manager queue.
+        """
+        raise NotImplementedError("suspend_queue method not implemented")
+
+    def unsuspend_queue(self, queue_name=None):
+        """
+            Unsuspend ``queue_name`` queue so it can run jobs.
+
+            :type queue_name: string
+            :param queue_name: A name of the queue to unsuspend. If not specified,
+                               unsuspend the default job manager queue.
+        """
+        raise NotImplementedError("unsuspend_queue method not implemented")
