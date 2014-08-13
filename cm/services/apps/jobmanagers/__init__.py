@@ -103,3 +103,16 @@ class BaseJobManager(ApplicationService):
                                unsuspend the default job manager queue.
         """
         raise NotImplementedError("unsuspend_queue method not implemented")
+
+    def jobs(self):
+        """
+            Return a list of jobs currently registered with the job mamanger.
+
+            :rtype: list
+            :return: A list of dictionaries with details of jobs. Returned
+                     dict is to have at least the following keys:
+                     ``job_state``, ``time_job_entered_state``. Valid
+                     ``job_state`` values include: ``running``, ``pending``,
+                     ``queued``, ``error``.
+        """
+        raise NotImplementedError("jobs method not implemented")
