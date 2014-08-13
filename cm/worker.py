@@ -190,7 +190,7 @@ class ConsoleManager(BaseConsoleManager):
         except Exception, e:
             log.error("Error mounting devices: {0}\n Attempting to continue, but failure likely...".format(e))
         # Mount SGE regardless of cluster type
-        # mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
+        mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
         # Mount Hadoop regardless of cluster type
         mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
@@ -228,10 +228,6 @@ class ConsoleManager(BaseConsoleManager):
             self._umount(old_path)
         # Update the current list of mount points
         self.mount_points = mount_points
-        # If the instance is not ``READY``, it means it's still being configured
-        # so send a message to continue the handshake
-        if self.worker_status != worker_states.READY:
-            self.console_monitor.conn.send("MOUNT_DONE")
 
     def unmount_filesystems(self):
         log.info("Unmounting directories: {0}".format(self.mount_points))
@@ -281,7 +277,7 @@ class ConsoleManager(BaseConsoleManager):
         local_munge_key = '/etc/munge/munge.key'
         if not os.path.exists('/etc/munge'):
             # Munge not installed so grab it
-            misc.run("apt-get update; apt-get install munge -y")
+            misc.run("apt-get update; apt-get install munge libmunge-dev -y")
         if os.path.exists(nfs_munge_key):
             shutil.copyfile(nfs_munge_key, local_munge_key)
             os.chmod(local_munge_key, 0400)
@@ -300,6 +296,9 @@ class ConsoleManager(BaseConsoleManager):
         This is required because `slurm-llnl` package does not respect the `-f`
         flag for a custom file location.
         """
+        if not os.path.exists('/etc/slurm-llnl'):
+            # Slurm package not installed so grab it
+            misc.run("apt-get update; apt-get install slurm-llnl -y")
         # Does not work because worker class has no notion of services, which
         # are used as part the path resolver property so must hard code the path
         # nfs_slurm_conf = self.app.path_resolver.slurm_conf_nfs
@@ -574,12 +573,16 @@ class ConsoleMonitor(object):
                 log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
-            self.app.manager.start_condor(self.app.ud['master_public_ip'])
-            self.app.manager.start_hadoop()
+            # self.app.manager.start_condor(self.app.ud['master_public_ip'])
+            # self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
             self.app.manager.mount_nfs(self.app.ud['master_ip'],
                                        mount_json=message.split(' | ')[1])
+            # If the instance is not ``READY``, it means it's still being configured
+            # so send a message to continue the handshake
+            if self.app.manager.worker_status != worker_states.READY:
+                self.app.manager.console_monitor.conn.send("MOUNT_DONE")
         elif message.startswith("START_SLURMD"):
             alias = message.split(' | ')[1]
             log.info("Got START_SLURMD with worker name {0}".format(alias))
