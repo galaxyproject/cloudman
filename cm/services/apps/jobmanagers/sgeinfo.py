@@ -1,3 +1,4 @@
+from datetime import datetime
 from xml.dom import minidom
 
 
@@ -28,15 +29,28 @@ class SGEInfo(object):
             Given an XML representation of a ``job`` from the output of ``qstat``,
             return a dict with parsed job info. The returned dict contains the
             following keys: ``job_state``, ``job_number``, ``job_slots``,
-            ``job_submission_time``, and ``job_node_name``.
+            ``time_job_entered_state``, and ``job_node_name``.
         """
         job_state = job.getAttribute("state")
         job_number = int(job.getElementsByTagName('JB_job_number')[0].childNodes[0].data)
-        job_submission_time = job.getElementsByTagName('JAT_start_time')[0].childNodes[0].data
+        job_node_name = None
+        if job_state == 'running':
+            time_job_entered_state = job.getElementsByTagName('JAT_start_time')[0]\
+                                        .childNodes[0].data
+            job_node_name = job.parentNode.getElementsByTagName('name')[0].childNodes[0].data
+        else:
+            try:
+                time_job_entered_state = job.getElementsByTagName('JB_submission_time')[0]\
+                                            .childNodes[0].data
+            except IndexError:
+                time_job_entered_state = None
+        # Format the time value as a datetime.datetime object
+        if time_job_entered_state:
+            time_job_entered_state = datetime.strptime(time_job_entered_state,
+                                                       "%Y-%m-%dT%H:%M:%S")
         job_slots = int(job.getElementsByTagName('slots')[0].childNodes[0].data)
-        job_node_name = job.parentNode.getElementsByTagName('name')[0].childNodes[0].data
         job_info = {'job_state': job_state, 'job_number': job_number,
-                    'job_submission_time': job_submission_time, 'job_slots': job_slots,
+                    'time_job_entered_state': time_job_entered_state, 'job_slots': job_slots,
                     'job_node_name': job_node_name}
         return job_info
 
