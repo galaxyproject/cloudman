@@ -241,6 +241,20 @@ class SlurmctldService(BaseJobManager):
         # log.debug("Slurm idle nodes: %s" % idle_nodes)
         return idle_nodes
 
+    def suspend_queue(self, queue_name='main'):
+        """
+        Suspend ``queue_name`` queue from running jobs.
+        """
+        log.debug("Suspending Slurm partition {0}".format(queue_name))
+        misc.run('/usr/bin/scontrol update PartitionName={0} State=DOWN'.format(queue_name))
+
+    def unsuspend_queue(self, queue_name='main'):
+        """
+        Unsuspend ``queue_name`` queue so it can run jobs.
+        """
+        log.debug("Unsuspending Slurm partition {0}".format(queue_name))
+        misc.run('/usr/bin/scontrol update PartitionName={0} State=UP'.format(queue_name))
+
     def status(self):
         """
         Check and update the status of Slurmctld service. If the service state is

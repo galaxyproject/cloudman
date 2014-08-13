@@ -610,6 +610,24 @@ class SGEService(BaseJobManager):
         # log.debug("Idle SGE nodes: {0}".format(idle_nodes))
         return idle_nodes
 
+    def suspend_queue(self, queue_name='all.q'):
+        """
+        Suspend ``queue_name`` queue from running jobs.
+        """
+        log.debug("Suspending SGE queue {0}".format(queue_name))
+        misc.run('export SGE_ROOT={0}; . $SGE_ROOT/default/common/settings.sh; '
+                 '{1}/bin/lx24-amd64/qmod -sq {2}'.format(self.app.path_resolver.sge_root,
+                 self.app.path_resolver.sge_root, queue_name))
+
+    def unsuspend_queue(self, queue_name='all.q'):
+        """
+        Unsuspend ``queue_name`` queue so it can run jobs.
+        """
+        log.debug("Unsuspending SGE queue {0}".format(queue_name))
+        misc.run('export SGE_ROOT={0}; . $SGE_ROOT/default/common/settings.sh; '
+                 '{1}/bin/lx24-amd64/qmod -usq {2}'.format(self.app.path_resolver.sge_root,
+                 self.app.path_resolver.sge_root, queue_name))
+
     def _check_sge(self):
         """
         Check if SGE qmaster is running and qstat returns at least one node
