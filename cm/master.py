@@ -22,9 +22,6 @@ from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
-# from cm.services.apps.jobmanagers.sge import SGEService
-from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
-from cm.services.apps.jobmanagers.slurmd import SlurmdService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
@@ -304,12 +301,22 @@ class ConsoleManager(BaseConsoleManager):
         # Always add migration service
         self.add_master_service(MigrationService(self.app))
 
-        # Always add Slurm services
-        self.add_master_service(SlurmctldService(self.app))
-        self.add_master_service(SlurmdService(self.app))
-
-        # Always add SGE service
-        # self.add_master_service(SGEService(self.app))
+        # Always add a job manager service
+        # Starting with Ubuntu 14.04, we transitioned to using Slurm
+        cmd = "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -f2 -d'='"
+        os_release = str(misc.run(cmd)).strip()
+        if os_release in ['14.04']:
+            log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
+                      .format(os_release))
+            from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
+            from cm.services.apps.jobmanagers.slurmd import SlurmdService
+            self.add_master_service(SlurmctldService(self.app))
+            self.add_master_service(SlurmdService(self.app))
+        else:
+            log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
+                      .format(os_release))
+            from cm.services.apps.jobmanagers.sge import SGEService
+            self.add_master_service(SGEService(self.app))
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
