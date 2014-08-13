@@ -551,7 +551,7 @@ class SGEService(BaseJobManager):
                '{3}/bin/lx24-amd64/qstat {4}"'.format(paths.P_SU,
                self.app.path_resolver.sge_root, self.app.path_resolver.sge_root,
                self.app.path_resolver.sge_root, args))
-        return misc.run(cmd)
+        return misc.run(cmd, quiet=True)
 
     def add_node(self, instance):
         """

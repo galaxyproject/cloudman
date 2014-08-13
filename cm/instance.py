@@ -577,15 +577,8 @@ class Instance(object):
             elif msg_type == "GET_MOUNTPOINTS":
                 self.send_mount_points()
             elif msg_type == "MOUNT_DONE":
-                log.debug("Got MOUNT_DONE message; setting up job manager(s)")
-                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc:
-                    job_manager_svc.add_node(self)
-                else:
-                    log.warning('Could not get a handle on slurmctld service to '
-                                'add node {0}'.format(self.get_desc()))
-                # EA-Slurm self.send_master_pubkey()
+                log.debug("Got MOUNT_DONE message")
+                self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type in ('openstack', 'eucalyptus'):
                     hn2 = ''
@@ -608,32 +601,30 @@ class Instance(object):
                     f.close()
                 # log.debug("Update /etc/hosts through master")
                 # self.app.manager.update_etc_host()
-                self.send_start_slurmd()
             elif msg_type == "WORKER_H_CERT":
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
-                log.debug("Worker '%s' host certificate received and appended to /root/.ssh/known_hosts" % self.id)
-                try:
-                    sge_svc = self.app.manager.get_services(
-                        svc_role=ServiceRole.SGE)[0]
-                    if sge_svc.add_node(self):
-                        # Send a message to worker to start SGE
-                        self.send_start_sge()
-                        # If there are any bucket-based FSs, tell the worker to
-                        # add those
-                        fss = self.app.manager.get_services(
-                            svc_type=ServiceType.FILE_SYSTEM)
-                        for fs in fss:
-                            if len(fs.buckets) > 0:
-                                for b in fs.buckets:
-                                    self.send_add_s3fs(b.bucket_name, fs.svc_roles)
-                        log.info("Waiting on worker instance %s to configure itself." % self.get_desc())
+                log.debug("Worker '%s' host certificate received and appended "
+                          "to /root/.ssh/known_hosts" % self.id)
+                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                if job_manager_svc:
+                    job_manager_svc.add_node(self)
+                    # Instruct the worker to start appropriate job manager daemon
+                    if ServiceRole.SLURMCTLD in job_manager_svc.svc_roles:
+                        self.send_start_slurmd()
                     else:
-                        log.error("Adding host to SGE did not go smoothly, "
-                                  "not instructing worker to configure SGE daemon.")
-                except IndexError:
-                    log.error(
-                        "Could not get a handle on SGE service to add a host; host not added")
+                        self.send_start_sge()
+                else:
+                    log.warning('Could not get a handle on job manager service to '
+                                'add node {0}'.format(self.get_desc()))
+                # If there are any bucket-based FSs, tell the worker to add those
+                fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
+                for fs in fss:
+                    if len(fs.buckets) > 0:
+                        for b in fs.buckets:
+                            self.send_add_s3fs(b.bucket_name, fs.svc_roles)
+                log.info("Waiting on worker instance %s to configure itself." % self.get_desc())
             elif msg_type == "NODE_READY":
                 self.worker_status = "Ready"
                 log.info("Instance %s ready" % self.get_desc())

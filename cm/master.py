@@ -853,11 +853,11 @@ class ConsoleManager(BaseConsoleManager):
             node_alias = 'master'
             node_address = self.app.cloud_interface.get_private_ip()
             if self.master_exec_host or force_removal:
-                job_manager_svc.disable_node(node_alias, node_address)
                 self.master_exec_host = False
+                job_manager_svc.disable_node(node_alias, node_address)
             else:
-                job_manager_svc.enable_node(node_alias, node_address)
                 self.master_exec_host = True
+                job_manager_svc.enable_node(node_alias, node_address)
         if self.master_exec_host:
             log.info("The master instance is set to execute jobs. "
                 "To manually change this, use the CloudMan Admin panel.")
@@ -1247,7 +1247,7 @@ class ConsoleManager(BaseConsoleManager):
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
         # Remove master from execution queue automatically
         if self.master_exec_host:
-            self.toggle_master_as_exec_host()
+            self.toggle_master_as_exec_host(force_removal=True)
         self.app.cloud_interface.run_instances(num=num_nodes,
                                                instance_type=instance_type,
                                                spot_price=spot_price)
