@@ -16,7 +16,6 @@ class SlurmdService(BaseJobManager):
         self.dependencies = [
             ServiceDependency(self, ServiceRole.SLURMCTLD),
         ]
-        self.hosts = []
         self.num_restarts = 0
         self.max_restarts = 3
 

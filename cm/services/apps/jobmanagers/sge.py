@@ -44,7 +44,6 @@ class SGEService(BaseJobManager):
         self.svc_roles = [ServiceRole.SGE, ServiceRole.JOB_MANAGER]
         self.name = ServiceRole.to_string(ServiceRole.SGE)
         self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
-        self.hosts = []
         self.sge_info = SGEInfo()
 
     def start(self):

@@ -21,7 +21,7 @@ TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
 
 class Instance(object):
     def __init__(self, app, inst=None, m_state=None, last_m_state_change=None,
-                 sw_state=None, reboot_required=False, spot_request_id=None):
+                 reboot_required=False, spot_request_id=None):
         self.app = app
         self.config = app.config
         self.spot_request_id = spot_request_id
@@ -45,7 +45,6 @@ class Instance(object):
         # A time stamp when the most recent update of the instance state
         # (m_state) took place
         self.last_state_update = Time.now()
-        self.sw_state = sw_state  # Software state
         self.is_alive = False
         self.num_cpus = 1
         self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
@@ -318,11 +317,6 @@ class Instance(object):
             log.warning("Instance '%s' no longer in instance list, the global monitor probably "
                         "picked it up and deleted it already: %s" % (self.id, e))
 
-    def instance_can_be_terminated(self):
-        log.debug("Checking if instance '%s' can be terminated" % self.id)
-        # TODO (qstat -qs {a|c|d|o|s|u|A|C|D|E|S})
-        return False
-
     @TestFlag("running")
     def get_m_state(self):
         """ Update the machine state of the current instance by querying the
@@ -370,18 +364,6 @@ class Instance(object):
             log.debug("Transient FS on instance {0} not available (code {1}); "
                       "waiting a bit...".format(self.get_desc(), self.nfs_tfs))
             time.sleep(7)
-
-    @TestFlag(None)
-    def send_status_check(self):
-        # log.debug("\tMT: Sending STATUS_CHECK message" )
-        self.app.manager.console_monitor.conn.send('STATUS_CHECK', self.id)
-        # log.debug( "\tMT: Message STATUS_CHECK sent; waiting on response" )
-
-    @TestFlag(None)
-    def send_worker_restart(self):
-        # log.info("\tMT: Sending restart message to worker %s" % self.id)
-        self.app.manager.console_monitor.conn.send('RESTART | %s' % self.app.cloud_interface.get_private_ip(), self.id)
-        log.info("\tMT: Sent RESTART message to worker '%s'" % self.id)
 
     def update_spot(self, force=False):
         """ Get an update on the state of a Spot request. If the request has entered

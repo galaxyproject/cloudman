@@ -99,8 +99,6 @@ class ConsoleManager(BaseConsoleManager):
         self.console_monitor = ConsoleMonitor(self.app)
         self.worker_status = worker_states.WAKE
         self.worker_instances = []  # Needed because of UI and number of nodes value
-        # Default to the most comprehensive type
-        self.cluster_type = self.app.ud.get('cluster_type', 'Galaxy')
         # The following list of current mount points; each list element must
         # have the following structure: (label, local_path, type, server_path)
         self.mount_points = []
@@ -111,7 +109,6 @@ class ConsoleManager(BaseConsoleManager):
         self.nfs_sge = 0
         self.get_cert = 0
         self.sge_started = 0
-        self.custom_hostname = None
 
         self.load = 0
         # Slurm lock file must be the same on the master
@@ -127,11 +124,6 @@ class ConsoleManager(BaseConsoleManager):
         Returns the local hostname for this instance.
         """
         return self.app.cloud_interface.get_local_hostname()
-        # Not working (SGE cannot resolve master host)
-        # if not self.custom_hostname:
-        #     self.custom_hostname = "{0}-{1}".format(self.app.cloud_interface.get_instance_id(),
-        #                                             self.app.cloud_interface.get_private_ip())
-        # return self.custom_hostname
 
     def start(self):
         self._handle_prestart_commands()
@@ -439,7 +431,6 @@ class ConsoleManager(BaseConsoleManager):
 class ConsoleMonitor(object):
     def __init__(self, app):
         self.app = app
-        self.waiting = []
         self.state = worker_states.INITIAL_STARTUP
         self.running = True
         # Helper for interruptible sleep
@@ -454,13 +445,6 @@ class ConsoleMonitor(object):
         self.app.manager.worker_status = worker_states.WAKE
         self.last_state_change_time = dt.datetime.utcnow()
         self.monitor_thread.start()
-
-    def get_msg(self, m_tag):
-        msg = self.conn.recv()
-        if msg:
-            if msg.body.startswith(m_tag):
-                log.debug("Got message: %s" % msg.body)
-                return msg.body
 
     def send_alive_message(self):
         # If necessary, do some cloud-specific instance adjustments first
