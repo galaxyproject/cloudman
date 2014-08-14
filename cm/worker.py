@@ -232,8 +232,7 @@ class ConsoleManager(BaseConsoleManager):
     @TestFlag("TEST_WORKERHOSTCERT")
     def get_host_cert(self):
         w_cert_file = '/tmp/wCert.txt'
-        cmd = '%s - sgeadmin -c "ssh-keyscan -t rsa %s > %s"' % (
-            paths.P_SU, self.app.cloud_interface.get_fqdn(), w_cert_file)
+        cmd = 'ssh-keyscan -t rsa %s > %s' % (self.app.cloud_interface.get_fqdn(), w_cert_file)
         log.info("Retrieving worker host certificate; cmd: {0}".format(cmd))
         ret_code = subprocess.call(cmd, shell=True)
         if ret_code == 0:
