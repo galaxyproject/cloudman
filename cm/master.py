@@ -140,8 +140,6 @@ class ConsoleManager(BaseConsoleManager):
         job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
         if job_manager_svc:
             job_manager_svc.suspend_queue()
-        # misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -sq all.q'
-        #          % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root), "Error suspending SGE jobs", "Successfully suspended all SGE jobs.")
         # Stop application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
@@ -176,10 +174,6 @@ class ConsoleManager(BaseConsoleManager):
         job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
         if job_manager_svc:
             job_manager_svc.unsuspend_queue()
-        # misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; %s/bin/lx24-amd64/qmod -usq all.q'
-        #          % (self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-        #          "Error unsuspending SGE jobs",
-        #          "Successfully unsuspended all SGE jobs")
 
     def recover_monitor(self, force='False'):
         if self.console_monitor:
@@ -820,29 +814,6 @@ class ConsoleManager(BaseConsoleManager):
                 "To manually change this, use the CloudMan Admin panel.")
         return self.master_exec_host
 
-        # sge_svc = self.get_services(svc_role=ServiceRole.SGE)
-        # if len(sge_svc) > 0:
-        #     sge_svc = sge_svc[0]
-        #     if sge_svc.state == service_states.RUNNING:
-        #         if self.master_exec_host is True or force_removal:
-        #             self.master_exec_host = False
-        #             if not sge_svc._remove_instance_from_exec_list(
-        #                 self.app.cloud_interface.get_instance_id(),
-        #                     self.app.cloud_interface.get_private_ip()):
-        #                 # If the removal was unseccessful, reset the flag
-        #                 self.master_exec_host = True
-        #         else:
-        #             self.master_exec_host = True
-        #             if not sge_svc._add_instance_as_exec_host(
-        #                 self.app.cloud_interface.get_instance_id(),
-        #                     self.app.cloud_interface.get_private_ip()):
-        #                 # If the removal was unseccessful, reset the flag
-        #                 self.master_exec_host = False
-        #     else:
-        #         log.warning(
-        #             "SGE not running thus cannot toggle master as exec host")
-        # return self.master_exec_host
-
     @TestFlag([])
     def get_worker_instances(self):
         instances = []
@@ -1064,38 +1035,6 @@ class ConsoleManager(BaseConsoleManager):
         """
         # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
-        # if os.path.exists('%s/default/common/settings.sh' % self.app.path_resolver.sge_root):
-        #     proc = subprocess.Popen("export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; "
-        #                             "%s/bin/lx24-amd64/qstat -f | grep all.q" % (
-        #                                 self.app.path_resolver.sge_root, self.app.path_resolver.sge_root),
-        #                             shell=True, stdout=subprocess.PIPE)
-        #     qstat_out = proc.communicate()[0]
-        #     # log.debug( "qstat output: %s" % qstat_out )
-        #     instances = qstat_out.splitlines()
-        #     nodes_list = []  # list of nodes containing node's domain name and number of used processing slots
-        #     idle_instances_dn = []  # list of domain names of idle instances
-        #     for inst in instances:
-        #         # Get instance domain name and # of used processing slots: ['domU-12-31-38-00-48-D1.c:0']
-        #         nodes_list.append(inst.split('@')[1].split(' ')[0] + ':' + inst.split('/')[1])
-        #     # if len( nodes_list ) > 0:
-        #     #     log.debug( "Processed qstat output: %s" % nodes_list )
-
-        #     for node in nodes_list:
-        #         # If number of used slots on given instance is 0, mark it as idle
-        #         if int(node.split(':')[1]) == 0:
-        #             idle_instances_dn.append(node.split(':')[0])
-        #     # if len( idle_instances_dn ) > 0:
-        #     #     log.debug( "Idle instances' DNs: %s" % idle_instances_dn )
-
-        #     for idle_instance_dn in idle_instances_dn:
-        #         for w_instance in self.worker_instances:
-        #             # log.debug("Trying to match worker instance with private IP '%s' to idle "
-        #             #    "instance '%s'" % (w_instance.get_local_hostname(), idle_instance_dn))
-        #             if w_instance.get_local_hostname() is not None:
-        #                 if w_instance.get_local_hostname().lower().startswith(str(idle_instance_dn).lower()):
-        #                     # log.debug("Marking instance '%s' with FQDN '%s' as idle." \
-        #                     #     % (w_instance.id, idle_instance_dn))
-        #                     idle_instances.append(w_instance)
         job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
         job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
         if job_manager_svc and job_manager_svc.status() == service_states.RUNNING:
@@ -1347,7 +1286,7 @@ class ConsoleManager(BaseConsoleManager):
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs()
         elif cluster_type == 'Test':
-            # SGE service is automatically added at cluster start (see
+            # Job manager service is automatically added at cluster start (see
             # ``start`` method)
             pass
         else:
@@ -1856,7 +1795,6 @@ class ConsoleManager(BaseConsoleManager):
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
-            # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
             w_inst.send_mount_points()
         log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
 
@@ -1866,14 +1804,6 @@ class ConsoleManager(BaseConsoleManager):
         """
         log.info("Stopping all '%s' worker instance(s)" % len(self.worker_instances))
         self.remove_instances(len(self.worker_instances), force=True)
-        # to_terminate = []
-        # for i in self.worker_instances:
-        #     to_terminate.append(i)
-        # for inst in to_terminate:
-        #     log.debug(
-        #         "Initiating termination of instance %s" % inst.get_desc())
-        #     inst.terminate()
-        # log.debug("Initiated termination of instance '%s'" % inst.id )
 
     @TestFlag({})  # {'default_CM_rev': '64', 'user_CM_rev':'60'} # For testing
     @synchronized(s3_rlock)

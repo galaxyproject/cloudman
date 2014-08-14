@@ -127,7 +127,6 @@ class ConsoleManager(BaseConsoleManager):
 
     def start(self):
         self._handle_prestart_commands()
-        # self.mount_nfs( self.app.ud['master_ip'] )
         misc.add_to_etc_hosts(self.app.ud['master_ip'],
                               [self.app.ud['master_hostname'],
                                self.app.ud['master_hostname_alt']])
@@ -264,6 +263,8 @@ class ConsoleManager(BaseConsoleManager):
         start the service. If `munge` is not installed on the instance, install
         it using `apt-get`.
         """
+        # FIXME: path_resolver does not always work with workers because workers
+        # do not have a notion of 'Services'
         # nfs_munge_key = os.path.join(self.app.path_resolver.slurm_root_nfs, 'munge.key')
         nfs_munge_key = '/mnt/transient_nfs/slurm/munge.key'
         local_munge_key = '/etc/munge/munge.key'
@@ -591,14 +592,6 @@ class ConsoleMonitor(object):
             fs.add_bucket(bucket_name)
             fs.add()
             log.debug("Worker done adding FS from bucket {0}".format(bucket_name))
-        # elif message.startswith("ADD_NFS_FS"):
-        #     nfs_server_info = message.split(' | ')[1]
-        #     # Try to load NFS server info from JSON message body
-        #     try:
-        #         nfs_server_info = json.loads(nfs_server_info.strip())
-        #     except Exception, e:
-        #         log.error("NFS server JSON load exception: %s" % e)
-        #     self.app.manager.add_nfs_fs(nfs_server_info)
         elif message.startswith('ALIVE_REQUEST'):
             self.send_alive_message()
         elif message.startswith('SYNC_ETC_HOSTS'):

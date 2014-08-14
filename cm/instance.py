@@ -507,18 +507,6 @@ class Instance(object):
         msg = 'ADDS3FS | {0} | {1}'.format(bucket_name, ServiceRole.to_string(svc_roles))
         self._send_msg(msg)
 
-    # def send_add_nfs_fs(self, nfs_server, fs_name, svc_roles, username=None, pwd=None):
-    #     """
-    #     Send a message to the worker node requesting it to mount a new file system
-    #     form the ``nfs_server`` at mount point /mnt/``fs_name`` with roles``svc_roles``.
-    #     """
-    #     nfs_server_info = {
-    #         'nfs_server': nfs_server, 'fs_name': fs_name, 'username': username,
-    #         'pwd': pwd, 'svc_roles': ServiceRole.to_string(svc_roles)
-    #     }
-    #     msg = "ADD_NFS_FS | {0}".format(json.dumps({'nfs_server_info': nfs_server_info}))
-    #     self._send_msg(msg)
-
     def _send_msg(self, msg):
         """
         An internal convenience method to log and send a message to the current instance.
@@ -610,14 +598,6 @@ class Instance(object):
             elif msg_type == "NODE_READY":
                 self.worker_status = "Ready"
                 log.info("Instance %s ready" % self.get_desc())
-                # msplit = msg.split(' | ')
-                # try:
-                #     self.num_cpus = int(msplit[2])
-                # except:
-                #     log.debug(
-                #         "Instance '%s' num CPUs is not int? '%s'" % (self.id, msplit[2]))
-                # log.debug("Instance '%s' reported as having '%s' CPUs." %
-                #           (self.id, self.num_cpus))
                 # Make sure the instace is tagged (this is also necessary to do
                 # here for OpenStack because it does not allow tags to be added
                 # until an instance is 'running')
