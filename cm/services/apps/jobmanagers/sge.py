@@ -542,7 +542,7 @@ class SGEService(BaseJobManager):
                       % (inst_alias, inst_private_ip, stderr))
             return False
 
-    def _get_qstat_out(self, args="-f -xml"):
+    def _get_qstat_out(self, args='-f -xml -u "*"'):
         """
         Run the ``qstat [args]`` command (as root user) and return the output
         """
