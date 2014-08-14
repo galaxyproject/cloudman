@@ -625,59 +625,6 @@ class ConsoleManager(BaseConsoleManager):
 
         return svcs
 
-    def fs_status_text(self):
-        """fs_status"""
-        good_count = 0
-        bad_count = 0
-        fsarr = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
-        if len(fsarr) == 0:
-            return "nodata"
-        # DBTODO Fix this conflated volume/filesystem garbage.
-        for fs in fsarr:
-            if fs.state == service_states.RUNNING:
-                good_count += 1
-            else:
-                bad_count += 1
-        if good_count == len(fsarr):
-            return "green"
-        elif bad_count > 0:
-            return "red"
-        else:
-            return "yellow"
-
-    def pg_status_text(self):
-        """pg_status"""
-        svcarr = self.get_services(svc_role=ServiceRole.GALAXY_POSTGRES)
-        if len(svcarr) > 0:
-            if svcarr[0].state == service_states.RUNNING:
-                return "green"
-            else:
-                return "red"
-        else:
-            return "nodata"
-
-    def sge_status_text(self):
-        """sge_status"""
-        svcarr = self.get_services(svc_role=ServiceRole.SGE)
-        if len(svcarr) > 0:
-            if svcarr[0].state == service_states.RUNNING:
-                return "green"
-            else:
-                return "red"
-        else:
-            return "nodata"
-
-    def galaxy_status_text(self):
-        """galaxy_status"""
-        svcarr = self.get_services(svc_role=ServiceRole.GALAXY)
-        if len(svcarr) > 0:
-            if svcarr[0].state == service_states.RUNNING:
-                return "green"
-            else:
-                return "red"
-        else:
-            return "nodata"
-
     def get_srvc_status(self, srvc):
         """
         Get the status a service ``srvc``. If the service is not a recognized as
@@ -2078,29 +2025,6 @@ class ConsoleManager(BaseConsoleManager):
         f.close()
         return True
 
-    @TestFlag({})
-    def get_workers_status(self, worker_id=None):
-        """
-        Retrieves current status of all worker instances or of only worker
-        instance whose ID was passed as the parameter. Returns a dict
-        where instance ID's are the keys.
-        """
-        workers_status = {}
-        if worker_id:
-            log.info("Checking status of instance '%s'" % worker_id)
-            try:
-                reservation = self.app.cloud_interface.get_all_instances(worker_id.strip())
-                if reservation:
-                    workers_status[reservation[0]
-                                   .instances[0].id] = reservation[0].instances[0].state
-            except Exception, e:
-                log.error("Error while updating instance '%s' status: %s" % (worker_id, e))
-        else:
-            logging.info("Checking status of all worker nodes... ")
-            for w_instance in self.worker_instances:
-                workers_status[w_instance.id] = w_instance.get_m_state()
-        return workers_status
-
     def get_num_available_workers(self):
         """
         Return the number of available worker nodes. A worker node is assumed
@@ -2116,55 +2040,6 @@ class ConsoleManager(BaseConsoleManager):
     # ==========================================================================
     # ============================ UTILITY METHODS =============================
     # ========================================================================
-    @synchronized(s3_rlock)
-    def _make_file_from_list(self, input_list, file_name, bucket_name=None):
-        """
-        Create a file from provided list so that each list element is
-        printed on a separate line. If bucket_name parameter is provided,
-        save created file to the bucket.
-
-        :rtype: bool
-        :return: True if a file was created and, if requested by provding
-        bucket name, successfully saved to the bucket. False if length of
-        provided list is 0 or bucket save fails.
-        """
-        if len(input_list) > 0:
-            with open(file_name, 'w') as f:
-                for el in input_list:
-                    f.write("%s\n" % el)
-            if bucket_name is not None:
-                log.debug("Saving file '%s' created from list '%s' to user's bucket '%s'." %
-                          (file_name, input_list, bucket_name))
-                s3_conn = self.app.cloud_interface.get_s3_connection()
-                return misc.save_file_to_bucket(s3_conn, bucket_name, file_name, file_name)
-        else:
-            log.debug("Will not create file '%s' from provided list because the list is empty." %
-                      file_name)
-            return False
-        return True
-
-    def _update_file(self, file_name, search_exp, replace_exp):
-        """
-        Search file_name for a line containing search_exp and replace that
-        expression with replace_exp.
-
-        :type file_name: str
-        :param file_name: Name of the file to modify
-
-        :type search_exp: str
-        :param search_exp: String for which to search
-
-        :type replace_exp: str
-        :param replace_exp: String used to replace search string
-        """
-        fin = open(file_name)
-        fout = open("%s-tmp" % file_name, "w")
-        for line in fin:
-            fout.write(line.replace(search_exp, replace_exp))
-        fin.close()
-        fout.close()
-        shutil.copy("%s-tmp" % file_name, file_name)
-
     def update_etc_host(self):
         """
         This method is for syncing hosts files in all workers with the master.
@@ -2219,8 +2094,6 @@ class ConsoleManager(BaseConsoleManager):
 class ConsoleMonitor(object):
     def __init__(self, app):
         self.app = app
-        self.num_workers_processed = 0
-        self.sge_was_setup = False
         self.last_state_change_time = None
         self.conn = comm.CMMasterComm()
         if not self.app.TESTFLAG:
