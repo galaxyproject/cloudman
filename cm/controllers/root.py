@@ -749,6 +749,11 @@ class CM(BaseController):
         fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for fs in fss:
             filesystems.append(fs.name)
+        job_manager = ''
+        job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+        if job_manager_svc:
+            job_manager = job_manager_svc.name
         return trans.fill_template('admin.mako',
                                    ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
@@ -756,7 +761,8 @@ class CM(BaseController):
                                    bucket_cluster=self.app.ud['bucket_cluster'],
                                    cloud_type=self.app.ud.get('cloud_type', 'ec2'),
                                    initial_cluster_type=self.app.manager.initial_cluster_type,
-                                   cluster_name=self.app.ud['cluster_name'])
+                                   cluster_name=self.app.ud['cluster_name'],
+                                   job_manager=job_manager)
 
     @expose
     def cluster_status(self, trans):
