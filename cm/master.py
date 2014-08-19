@@ -1190,16 +1190,18 @@ class ConsoleManager(BaseConsoleManager):
         :param pss: Persistent Storage Size associated with data volumes being
                     created for the cluster
         """
-        def _add_data_fs():
+        def _add_data_fs(fs_name=None):
             """
-            A local convenience method used to add a new file system
+            A local convenience method used to add a new data file system
             """
             if self.get_services(svc_role=ServiceRole.GALAXY_DATA):
+                log.debug("Tried to add data file system, but GALAXY_DATA service "
+                          "already exists.")
                 return
-            fs_name = ServiceRole.to_string(ServiceRole.GALAXY_DATA)
+            if not fs_name:
+                fs_name = ServiceRole.to_string(ServiceRole.GALAXY_DATA)
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
-            fs = Filesystem(
-                self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
+            fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
             self.add_master_service(fs)
 
@@ -1284,7 +1286,7 @@ class ConsoleManager(BaseConsoleManager):
             self.add_master_service(GalaxyReportsService(self.app))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
-            _add_data_fs()
+            _add_data_fs(fs_name='galaxy')
         elif cluster_type == 'Test':
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
