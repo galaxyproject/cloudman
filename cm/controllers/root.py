@@ -319,13 +319,18 @@ class CM(BaseController):
         self.app.manager.clean()
 
     @expose
-    def add_instances(self, trans, number_nodes, instance_type='', spot_price=''):
+    def add_instances(self, trans, number_nodes, instance_type='', spot_price='',
+                      custom_instance_type=''):
         try:
             number_nodes = int(number_nodes)
             if spot_price != '':
                 spot_price = float(spot_price)
             else:
                 spot_price = None
+            if instance_type == 'custom_instance_type' and custom_instance_type:
+                instance_type = custom_instance_type.strip()
+            elif not instance_type:
+                instance_type = self.app.cloud_interface.get_type()
         except ValueError, e:
             log.error("You must provide valid value:  %s" % e)
             return self.instance_state_json(trans)

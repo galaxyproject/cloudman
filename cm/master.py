@@ -1138,6 +1138,8 @@ class ConsoleManager(BaseConsoleManager):
                          % instance_id)
 
     def add_instances(self, num_nodes, instance_type='', spot_price=None):
+        log.debug("Adding {0}{1} {2} instance(s)".format(num_nodes,
+                  ' spot' if spot_price else '', instance_type))
         # Remove master from execution queue automatically
         if self.master_exec_host:
             self.toggle_master_as_exec_host(force_removal=True)

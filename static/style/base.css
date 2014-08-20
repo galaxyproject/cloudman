@@ -36,6 +36,9 @@ div.form-row-input > input{max-width:300px;}
 .right{
     float: right;
 }
+.hidden{
+    display: none;
+}
 #masthead td, th{
     vertical-align: middle;
 }
