@@ -50,9 +50,10 @@ vertical-align: top;
                 <div class="LV_msgbox"><span id="number_nodes_vtag"></span></div>
             </div>
             <br/>
-            <label><a href="http://aws.amazon.com/ec2/#instance" target="_blank">Type</a> of node(s):</label>
-            <div style="color:#9D9E9E">(master node type: ${master_instance_type})</div>
-            <div id="instance_type" class="form-row-input">
+            <a href="http://aws.amazon.com/ec2/instance-types/" target="_blank">Type</a>
+                of underlying instance(s):
+            <div style="color:#9D9E9E">(master instance type: ${master_instance_type})</div>
+            <div id="instance_type_choices" class="form-row-input">
                 ## Select available instance types based on cloud name
                 <%include file="instance_types.mako" />
             </div>
@@ -743,6 +744,14 @@ function shutting_down() {
 $(document).ready(function() {
     var initial_cluster_type = '${initial_cluster_type}';
     var permanent_storage_size = ${permanent_storage_size};
+
+    $('#instance_type').change(function(){
+        var isCustom = $(this).val() == 'custom_instance_type';
+        $('#cit_container').toggle(isCustom);
+        if ($('#cit_container').is(":visible")) {
+            $('#custom_instance_type').focus();
+        }
+    });
 
     $('#shared_visibility').click(function() {
         $('#user_permissions').show();

@@ -18,19 +18,16 @@ DEFAULT_INSTANCE_REBOOT_ATTEMPTS = 4
 DEFAULT_INSTANCE_TERMINATE_ATTEMPTS = 4
 DEFAULT_INSTANCE_TYPES = [
     ("", "Same as Master"),
-    ("t1.micro", "Micro"),
-    ("m1.small", "Small"),
-    ("m1.medium", "Medium"),
-    ("m1.large", "Large"),
-    ("m1.xlarge", "Extra Large"),
-    ("m2.xlarge", "High-Memory Extra Large"),
-    ("m2.2xlarge", "High-Memory Double Extra Large"),
-    ("m2.4xlarge", "High-Memory Quadruple Extra Large"),
-    ("c1.xlarge", "High-CPU Extra Large"),
-    ("i2.xlarge", "High I/O Extra Large"),
-    ("i2.2xlarge", "High I/O Double Extra Large"),
-    ("i2.4xlarge", "High I/O Quadruple Extra Large"),
-    ("i2.8xlarge", "High I/O 8x Extra Large")
+    ("", "-------------"),
+    ("c3.large", "Compute optimized Large (2 vCPU/4GB RAM)"),
+    ("c3.2xlarge", "Compute optimized 2xLarge (8 vCPU/15GB RAM)"),
+    ("c3.8xlarge", "Compute optimized 8xLarge (32 vCPU/60GB RAM)"),
+    ("", "-------------"),
+    ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
+    ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
+    ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
+    ("", "-------------"),
+    ("custom_instance_type", "Custom instance type")
 ]
 
 
