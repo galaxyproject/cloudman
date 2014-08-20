@@ -134,7 +134,8 @@ class Configuration(object):
                 ("m1.medium", "Medium"),
                 ("m1.large", "Large"),
                 ("m1.xlarge", "Extra Large"),
-                ("m1.xxlarge", "Extra Extra Large")
+                ("m1.xxlarge", "Extra Extra Large"),
+                ("custom_instance_type", "Custom instance type")
             ]
         elif cloud_name == "hpcloud":
             instance_types = [
