@@ -244,20 +244,38 @@ class PathResolver(object):
         return '/var/run/slurmd.pid'
 
     @property
-    def nginx_dir(self):
+    def nginx_executable(self):
+        """
+        Get the path of the nginx executable
+        """
+        possible_paths = ['/usr/sbin/nginx', '/usr/nginx/sbin/nginx',
+                         '/opt/galaxy/pkg/nginx/sbin/nginx']
+        return misc.which('nginx', possible_paths)
+
+    @property
+    def nginx_conf_dir(self):
         """
         Look around at possible nginx directory locations (from published
         images) and resort to a file system search
         """
-        nginx_dir = None
-        for path in ['/usr/nginx', '/opt/galaxy/pkg/nginx']:
+        for path in ['/etc/nginx', '/usr/nginx', '/opt/galaxy/pkg/nginx']:
             if os.path.exists(path):
-                nginx_dir = path
-            if not nginx_dir:
-                cmd = 'find / -type d -name nginx'
-                output = misc.run(cmd)
-                if isinstance(output, str):
-                    path = output.strip()
-                    if os.path.exists(path):
-                        nginx_dir = path
-        return nginx_dir
+                return path
+        return ''
+
+    @property
+    def nginx_conf_file(self):
+        """
+        Get the path of the nginx conf file, namely ``nginx.conf``
+        """
+        path = os.path.join(self.nginx_conf_dir, 'nginx.conf')
+        if os.path.exists(path):
+            return path
+        # Resort to a full file system search
+        cmd = 'find / -name nginx.conf'
+        output = misc.run(cmd)
+        if isinstance(output, str):
+            path = output.strip()
+            if os.path.exists(path):
+                return path
+        return None

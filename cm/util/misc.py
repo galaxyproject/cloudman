@@ -1079,6 +1079,28 @@ def get_a_number():
         number += 1
 
 
+def which(program, additional_paths=[]):
+    """
+    Like *NIX's ``which`` command, look for ``program`` in the user's $PATH
+    and ``additional_paths`` and return an absolute path for the ``program``. If
+    the ``program`` was not found, return ``None``.
+    """
+    def _is_exec(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if _is_exec(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep) + additional_paths:
+            path = path.strip('"')
+            exec_file = os.path.join(path, program)
+            if _is_exec(exec_file):
+                return exec_file
+    return None
+
+
 class MD5TransparentFilter:
     def __init__(self, fp):
         self._md5 = hashlib.md5()

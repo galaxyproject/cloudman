@@ -269,8 +269,13 @@ class ConsoleManager(BaseConsoleManager):
                     if 'size' in snap:
                         self.default_galaxy_data_size = snap['size']
                     elif 'snap_id' in snap:
-                        self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0])
-                        self.default_galaxy_data_size = self.snapshot.volume_size
+                        try:
+                            self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0])
+                            self.default_galaxy_data_size = self.snapshot.volume_size
+                        except EC2ResponseError, e:
+                            log.warning("Could not get snapshot {0} size (setting the "
+                                        "value to 10): {1}".format(snap['snap_id'], e))
+                            self.default_galaxy_data_size = 10
                     log.debug("Got default galaxy FS size as {0}GB".format(
                         self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)

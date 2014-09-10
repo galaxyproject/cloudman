@@ -309,8 +309,7 @@ class GalaxyService(ApplicationService):
         Generate nginx.conf from a template and reload nginx process so config
         options take effect
         """
-        nginx_dir = self.app.path_resolver.nginx_dir
-        if nginx_dir:
+        if self.app.path_resolver.nginx_executable:
             galaxy_server = "server localhost:8080;"
             if self._multiple_processes():
                 web_thread_count = int(self.app.ud.get("web_thread_count", 3))
@@ -322,7 +321,8 @@ class GalaxyService(ApplicationService):
                 for i in range(web_thread_count):
                     galaxy_server += "server localhost:808%s;" % i
             # Customize the appropriate nginx template
-            if "1.4" in commands.getoutput("/usr/nginx/sbin/nginx -v"):
+            if self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
+               "{0} -v".format(self.app.path_resolver.nginx_executable)):
                 log.debug("Using nginx v1.4+ template")
                 nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
             else:
@@ -336,14 +336,14 @@ class GalaxyService(ApplicationService):
             template = nginx_conf_template.substitute(params)
 
             # Write out the files
-            nginx_config_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
-            with open(nginx_config_file, 'w') as f:
+            with open(self.app.path_resolver.nginx_conf_file, 'w') as f:
                 print >> f, template
 
-            nginx_cmdline_config_file = os.path.join(nginx_dir, 'conf', 'commandline_utilities_http.conf')
+            nginx_cmdline_config_file = os.path.join(self.app.path_resolver.nginx_conf_dir,
+                                                     'commandline_utilities_http.conf')
             misc.run('touch {0}'.format(nginx_cmdline_config_file))
             # Reload nginx process, specifying the newly generated config file
-            misc.run('{0} -c {1} -s reload'.format(
-                os.path.join(nginx_dir, 'sbin', 'nginx'), nginx_config_file))
+            misc.run('{0} -c {1} -s reload'.format(self.app.path_resolver.nginx_executable,
+                                                   self.app.path_resolver.nginx_conf_file))
         else:
-            log.warning("Cannot find nginx directory to reload nginx config")
+            log.warning("Cannot find nginx executable to reload nginx config")

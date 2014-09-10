@@ -43,6 +43,48 @@ def _make_dir(log, path):
             log.error(("Making directory '%s' failed: %s" % (path, e)))
     else:
         log.debug(("Directory '%s' exists." % path))
+
+def _which(program, additional_paths=[]):
+    "\n    Like *NIX's ``which`` command, look for ``program`` in the user's $PATH\n    and ``additional_paths`` and return an absolute path for the ``program``. If\n    the ``program`` was not found, return ``None``.\n    "
+
+    def _is_exec(fpath):
+        return (os.path.isfile(fpath) and os.access(fpath, os.X_OK))
+    (fpath, fname) = os.path.split(program)
+    if fpath:
+        if _is_exec(program):
+            return program
+    else:
+        for path in (os.environ['PATH'].split(os.pathsep) + additional_paths):
+            path = path.strip('"')
+            exec_file = os.path.join(path, program)
+            if _is_exec(exec_file):
+                return exec_file
+    return None
+
+def _nginx_executable():
+    '\n    Get the path of the nginx executable\n    '
+    possible_paths = ['/usr/sbin/nginx', '/usr/nginx/sbin/nginx', '/opt/galaxy/pkg/nginx/sbin/nginx']
+    return _which('nginx', possible_paths)
+
+def _nginx_conf_dir():
+    '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
+    for path in ['/etc/nginx', '/usr/nginx', '/opt/galaxy/pkg/nginx']:
+        if os.path.exists(path):
+            return path
+    return ''
+
+def _nginx_conf_file():
+    '\n    Get the path of the nginx conf file, namely ``nginx.conf``\n    '
+    path = os.path.join(_nginx_conf_dir(), 'nginx.conf')
+    if os.path.exists(path):
+        return path
+    cmd = 'find / -name nginx.conf'
+    output = _run(cmd)
+    if isinstance(output, str):
+        path = output.strip()
+        if os.path.exists(path):
+            return path
+    return None
 import base64
 import os
 import re
@@ -107,7 +149,7 @@ def _install_conf_files(log, ud):
 
 def _configure_nginx(log, ud):
     nginx_conf = ud.get('nginx_conf_contents', None)
-    nginx_conf_path = ud.get('nginx_conf_path', '/usr/nginx/conf/nginx.conf')
+    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file())
     if nginx_conf:
         _write_conf_file(log, nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get('reconfigure_nginx', True)
@@ -116,7 +158,7 @@ def _configure_nginx(log, ud):
 
 def _reconfigure_nginx(ud, nginx_conf_path, log):
     log.debug('Reconfiguring nginx conf')
-    configure_multiple_galaxy_processes = ud.get('configure_multiple_galaxy_processes', True)
+    configure_multiple_galaxy_processes = ud.get('configure_multiple_galaxy_processes', False)
     web_threads = ud.get('web_thread_count', 3)
     if (configure_multiple_galaxy_processes and (web_threads > 1)):
         log.debug(('Reconfiguring nginx to support Galaxy running %s web threads.' % web_threads))
@@ -195,10 +237,9 @@ def _start_nginx(ud):
     _fix_nginx_upload(ud)
     rmdir = False
     upload_store_dir = '/mnt/galaxyData/upload_store'
-    nginx_dir = _get_nginx_dir()
-    if nginx_dir:
-        ul = None
-        nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
+    ul = None
+    nginx_conf_file = _nginx_conf_file()
+    if nginx_conf_file:
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
         for line in lines:
@@ -210,49 +251,27 @@ def _start_nginx(ud):
                 upload_store_dir = ul.strip().split(' ')[1].strip(';')
             except Exception as e:
                 log.error('Trouble parsing nginx conf line {0}: {1}'.format(ul, e))
-    if (not os.path.exists(upload_store_dir)):
-        rmdir = True
-        log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
-        os.makedirs(upload_store_dir)
+        if (not os.path.exists(upload_store_dir)):
+            rmdir = True
+            log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
+            os.makedirs(upload_store_dir)
+    else:
+        log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
     if (not _is_running(log, 'nginx')):
-        if (not _run(log, os.path.join(nginx_dir, 'sbin/nginx'))):
+        if (not _run(log, _nginx_executable())):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')
-            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
+            _run(log, _nginx_executable())
     else:
         log.debug('nginx already running; reloading it')
-        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
+        _run(log, '{0} -s reload'.format(_nginx_executable()))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
 
-def _get_nginx_dir():
-    '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
-    nginx_dir = None
-    for path in ['/usr/nginx', '/opt/galaxy/pkg/nginx']:
-        if os.path.exists(path):
-            nginx_dir = path
-        if (not nginx_dir):
-            cmd = 'find / -type d -name nginx'
-            output = _run(log, cmd)
-            if isinstance(output, str):
-                path = output.strip()
-                if os.path.exists(path):
-                    nginx_dir = path
-    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
-    return nginx_dir
-
 def _fix_nginx_upload(ud):
     '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
-    if os.path.exists('/opt/galaxy/pkg/nginx/conf/nginx.conf'):
-        nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
-    elif os.path.exists('/usr/nginx/conf/nginx.conf'):
-        nginx_conf_path = '/usr/nginx/conf/nginx.conf'
-    elif os.path.exists('/opt/cloudman/pkg/nginx/conf/nginx.conf'):
-        nginx_conf_path = '/opt/cloudman/pkg/nginx/conf/nginx.conf'
-    else:
-        nginx_conf_path = ''
-    nginx_conf_path = ud.get('nginx_conf_path', nginx_conf_path)
+    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file())
     log.info('Attempting to configure max_client_body_size in {0}'.format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
         bkup_nginx_conf_path = '/tmp/cm/original_nginx.conf'
@@ -497,8 +516,6 @@ def main():
             sys.exit(0)
         else:
             usage()
-    # if ('nectar' in ud.get('cloud_name', '').lower()):
-    #     _run(log, 'apt-get update; apt-get install -y libmunge-dev munge slurm-llnl')
     _install_conf_files(log, ud)
     _install_authorized_keys(log, ud)
     if ('no_start' not in ud):

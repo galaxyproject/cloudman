@@ -22,7 +22,7 @@ import yaml
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
 
-from .util import _run, _is_running, _make_dir
+from .util import _run, _is_running, _make_dir, _nginx_conf_file, _nginx_executable
 from .conf import _install_authorized_keys, _install_conf_files, _configure_nginx
 from .object_store import _get_file_from_bucket, _key_exists_in_bucket
 
@@ -71,21 +71,15 @@ def _start_nginx(ud):
     # However, because user data will be mounted after boot and because given
     # directory already exists on the user's data disk, must remove it after
     # nginx starts
-    # In case an nginx configuration file different than the one on the image needs to be included
-    # local_nginx_conf_file = '/opt/galaxy/conf/nginx.conf'
-    # url = 'http://userwww.service.emory.edu/~eafgan/content/nginx.conf'
-    # log.info("Getting nginx conf file (using wget) from '%s' and saving it to '%s'" % (url, local_nginx_conf_file))
-    # _run('wget --output-document=%s %s' % (local_nginx_conf_file, url))
     _configure_nginx(log, ud)
     _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
     upload_store_dir = '/mnt/galaxyData/upload_store'
-    nginx_dir = _get_nginx_dir()
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
-    if nginx_dir:
-        ul = None
-        nginx_conf_file = os.path.join(nginx_dir, 'conf', 'nginx.conf')
+    ul = None
+    nginx_conf_file = _nginx_conf_file()
+    if nginx_conf_file:
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
         for line in lines:
@@ -97,43 +91,24 @@ def _start_nginx(ud):
                 upload_store_dir = ul.strip().split(' ')[1].strip(';')
             except Exception, e:
                 log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
-    if not os.path.exists(upload_store_dir):
-        rmdir = True
-        log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
-        os.makedirs(upload_store_dir)
-    # TODO: Use nginx_dir as well vs. this hardcoded path
+        if not os.path.exists(upload_store_dir):
+            rmdir = True
+            log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
+            os.makedirs(upload_store_dir)
+    else:
+        log.error("Could not find nginx.conf: {0}".format(nginx_conf_file))
     if not _is_running(log, 'nginx'):
-        if not _run(log, os.path.join(nginx_dir, 'sbin/nginx')):
+        if not _run(log, _nginx_executable()):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
-            _run(log, os.path.join(nginx_dir, 'sbin/nginx'))
+            _run(log, _nginx_executable())
     else:
         # nginx already running, so reload
         log.debug("nginx already running; reloading it")
-        _run(log, os.path.join(nginx_dir, 'sbin/nginx -s reload'))
+        _run(log, '{0} -s reload'.format(_nginx_executable()))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
-
-
-def _get_nginx_dir():
-    """
-    Look around at possible nginx directory locations (from published
-    images) and resort to a file system search
-    """
-    nginx_dir = None
-    for path in ['/usr/nginx', '/opt/galaxy/pkg/nginx']:
-        if os.path.exists(path):
-            nginx_dir = path
-        if not nginx_dir:
-            cmd = 'find / -type d -name nginx'
-            output = _run(log, cmd)
-            if isinstance(output, str):
-                path = output.strip()
-                if os.path.exists(path):
-                    nginx_dir = path
-    log.debug("Located nginx dir as '{0}'".format(nginx_dir))
-    return nginx_dir
 
 
 def _fix_nginx_upload(ud):
@@ -141,17 +116,7 @@ def _fix_nginx_upload(ud):
     Set ``max_client_body_size`` in nginx config. This is necessary for the
     Galaxy Cloud AMI ``ami-da58aab3``.
     """
-    # Accommodate different images and let user data override file location
-    if os.path.exists('/opt/galaxy/pkg/nginx/conf/nginx.conf'):
-        nginx_conf_path = '/opt/galaxy/pkg/nginx/conf/nginx.conf'
-    elif os.path.exists("/usr/nginx/conf/nginx.conf"):
-        nginx_conf_path = "/usr/nginx/conf/nginx.conf"
-    elif os.path.exists("/opt/cloudman/pkg/nginx/conf/nginx.conf"):
-        nginx_conf_path = "/opt/cloudman/pkg/nginx/conf/nginx.conf"
-    else:
-        # TODO: Search for nginx.conf?
-        nginx_conf_path = ''
-    nginx_conf_path = ud.get("nginx_conf_path", nginx_conf_path)
+    nginx_conf_path = ud.get("nginx_conf_path", _nginx_conf_file())
     log.info("Attempting to configure max_client_body_size in {0}".format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
         # Make sure any duplicate entries are collapsed into one (otherwise,
