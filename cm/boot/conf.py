@@ -2,7 +2,7 @@ import base64
 import os
 import re
 
-from .util import _run
+from .util import _run, _nginx_conf_file
 
 
 class AuthorizedKeysManager(object):
@@ -78,7 +78,7 @@ def _configure_nginx(log, ud):
     # User specified nginx.conf file, can be specified as
     # url or base64 encoded plain-text.
     nginx_conf = ud.get("nginx_conf_contents", None)
-    nginx_conf_path = ud.get("nginx_conf_path", "/usr/nginx/conf/nginx.conf")
+    nginx_conf_path = ud.get("nginx_conf_path", _nginx_conf_file())
     if nginx_conf:
         _write_conf_file(log, nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get("reconfigure_nginx", True)
