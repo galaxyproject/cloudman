@@ -181,6 +181,8 @@ http {
         include commandline_utilities_http.conf;
 
         location /cloud {
+            auth_pam    "Secure Zone";
+            auth_pam_service_name   "nginx";
             proxy_pass  http://cm_app;
             proxy_set_header   X-Forwarded-Host $$host;
             proxy_set_header   X-Forwarded-For  $$proxy_add_x_forwarded_for;
