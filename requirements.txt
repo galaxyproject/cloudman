@@ -14,6 +14,5 @@ distribute>=0.6.19
 oca>=0.2.3
 simplejson>=2.3.2
 wsgiref==0.1.2
-yolk>=0.4.1
 hoover>=0.5.3
 requests>=0.13.1
