@@ -1764,11 +1764,15 @@ class ConsoleManager(BaseConsoleManager):
         kind is provided, must provide ``vol_id``, ``snap_id``, or ``vol_size``,
         respectively - but not all!
         """
-        log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
-        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
-        fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
-        self.add_master_service(fs)
-        log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
+        if fs_name:
+            log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
+            fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+            fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
+            self.add_master_service(fs)
+            log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
+        else:
+            log.error("Wanted to add a volume-based file system but no file "
+                       "system name provided; skipping.")
 
     @TestFlag(None)
     def add_fs_gluster(self, gluster_server, fs_name,
@@ -1776,17 +1780,21 @@ class ConsoleManager(BaseConsoleManager):
         """
         Add a new file system service for a Gluster-based file system.
         """
-        log.info("Adding a Gluster-based file system {0} from Gluster server {1}"
-                 .format(fs_name, gluster_server))
-        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
-        fs.add_glusterfs(gluster_server)
-        self.add_master_service(fs)
-        # Inform all workers to add the same FS (the file system will be the same
-        # and sharing it over NFS does not seems to work)
-        for w_inst in self.worker_instances:
-            # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
-            w_inst.send_mount_points()
-        log.debug("Master done adding FS from Gluster server {0}".format(gluster_server))
+        if fs_name:
+            log.info("Adding a Gluster-based file system {0} from Gluster server {1}"
+                     .format(fs_name, gluster_server))
+            fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+            fs.add_glusterfs(gluster_server)
+            self.add_master_service(fs)
+            # Inform all workers to add the same FS (the file system will be the same
+            # and sharing it over NFS does not seems to work)
+            for w_inst in self.worker_instances:
+                # w_inst.send_add_nfs_fs(nfs_server, fs_name, fs_roles, username, pwd)
+                w_inst.send_mount_points()
+            log.debug("Master done adding FS from Gluster server {0}".format(gluster_server))
+        else:
+            log.error("Wanted to add a volume-based file system but no file "
+                       "system name provided; skipping.")
 
     @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
@@ -1796,16 +1804,20 @@ class ConsoleManager(BaseConsoleManager):
         provide password-based credentials (``username`` and ``pwd``) for
         accessing the NFS server.
         """
-        log.info("Adding a NFS-based file system {0} from NFS server {1}"
-                 .format(fs_name, nfs_server))
-        fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
-        fs.add_nfs(nfs_server, username, pwd)
-        self.add_master_service(fs)
-        # Inform all workers to add the same FS (the file system will be the same
-        # and sharing it over NFS does not seems to work)
-        for w_inst in self.worker_instances:
-            w_inst.send_mount_points()
-        log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
+        if fs_name:
+            log.info("Adding a NFS-based file system {0} from NFS server {1}"
+                     .format(fs_name, nfs_server))
+            fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
+            fs.add_nfs(nfs_server, username, pwd)
+            self.add_master_service(fs)
+            # Inform all workers to add the same FS (the file system will be the same
+            # and sharing it over NFS does not seems to work)
+            for w_inst in self.worker_instances:
+                w_inst.send_mount_points()
+            log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
+        else:
+            log.error("Wanted to add a volume-based file system but no file "
+                       "system name provided; skipping.")
 
     def stop_worker_instances(self):
         """
