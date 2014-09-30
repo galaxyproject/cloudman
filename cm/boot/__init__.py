@@ -354,7 +354,7 @@ def _start_cm():
     shutil.copyfile(os.path.join(
         CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
-    ex_cmd = "pip install -U boto"  # Required for VPC for AMI v2.3
+    ex_cmd = "pip install -r {0}".format(os.path.join(CM_HOME, "requirements.txt"))
     _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 

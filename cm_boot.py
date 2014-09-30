@@ -434,7 +434,7 @@ def _start_cm():
     log.debug(("Copying user data file from '%s' to '%s'" % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))))
     shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
     log.info(('<< Starting CloudMan in %s >>' % CM_HOME))
-    ex_cmd = 'pip install -U boto'
+    ex_cmd = 'pip install -r {0}'.format(os.path.join(CM_HOME, 'requirements.txt'))
     _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
 
 def _stop_cm(clean=False):
