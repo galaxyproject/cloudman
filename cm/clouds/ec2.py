@@ -417,7 +417,7 @@ class EC2Interface(CloudInterface):
         # logging.getLogger('boto').setLevel(logging.DEBUG)
 
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            ['%s: "%s"' % (key, value) for key, value in worker_ud.iteritems()])
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
@@ -428,7 +428,7 @@ class EC2Interface(CloudInterface):
                           "security_group_ids={sgs}, user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=self.get_security_group_ids(),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                                  ud="\n".join(['%s: "%s"' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
                                   type=instance_type, zone=self.get_zone(), subnet_id=self.get_subnet_id()))
 
                 interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
@@ -450,7 +450,7 @@ class EC2Interface(CloudInterface):
                           "security_groups=['{sgs}'], user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                                  ud="\n".join(['%s: "%s"' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
                                   type=instance_type, zone=self.get_zone()))
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
                                                      min_count=min_num,
@@ -492,7 +492,7 @@ class EC2Interface(CloudInterface):
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            ['%s: "%s"' % (key, value) for key, value in worker_ud.iteritems()])
         reqs = None
         try:
             ec2_conn = self.get_ec2_connection()

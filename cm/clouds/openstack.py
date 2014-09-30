@@ -173,7 +173,7 @@ class OSInterface(EC2Interface):
         the provided `worker_ud` dict that contains the instance user data.
         """
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            ['%s: "%s"' % (key, value) for key, value in worker_ud.iteritems()])
         try:
             reservation = None
             ec2_conn = self.get_ec2_connection()
@@ -184,7 +184,7 @@ class OSInterface(EC2Interface):
                       "instance_type='{type}', placement='{zone}')"
                       .format(iid=self.get_ami(), min_num=min_num, num=num,
                               key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
-                              ud="\n".join(['%s: %s' % (key, value) for key, value
+                              ud="\n".join(['%s: "%s"' % (key, value) for key, value
                                 in worker_ud.iteritems() if key not in['password', 'secret_key']]),
                               type=instance_type, zone=self.get_zone()))
             reservation = ec2_conn.run_instances(image_id=self.get_ami(),
