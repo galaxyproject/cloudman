@@ -157,7 +157,7 @@ http {
     gzip_disable "MSIE [1-6].(?!.*SV1)";
 
     upstream galaxy_app {
-        server localhost:8080;
+        $galaxy_server
     }
 
     upstream cm_app {
@@ -172,13 +172,7 @@ http {
         server localhost:6080;
     }
 
-    server {
-        listen 80;
-        client_max_body_size 2048m;
-        server_name localhost;
-        proxy_read_timeout 600;
-
-        include commandline_utilities_http.conf;
+    $server_block_head
 
         location /cloud {
             auth_pam    "Secure Zone";
@@ -343,4 +337,33 @@ http {
     }
 
 }
+"""
+
+SERVER_BLOCK_HEAD_SSL = """server {
+        listen 80;
+        return 301 https://$host$request_uri;
+
+        include commandline_utilities_http.conf;
+    }
+
+    server {
+        listen                  443 ssl;
+        client_max_body_size    2048m;
+        server_name             localhost;
+        proxy_read_timeout      600;
+
+        ssl on;
+        ssl_certificate         /root/.ssh/instance_selfsigned_cert.pem;
+        ssl_certificate_key     /root/.ssh/instance_selfsigned_key.pem;
+
+        include commandline_utilities_https.conf;
+"""
+
+SERVER_BLOCK_HEAD = """server {
+        listen 80;
+        client_max_body_size 2048m;
+        server_name localhost;
+        proxy_read_timeout 600;
+
+        include commandline_utilities_http.conf;
 """

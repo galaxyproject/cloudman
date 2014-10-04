@@ -1082,7 +1082,7 @@ def get_a_number():
 def which(program, additional_paths=[]):
     """
     Like *NIX's ``which`` command, look for ``program`` in the user's $PATH
-    and ``additional_paths`` and return an absolute path for the ``program``. If
+    and ``additional_paths`` to return an absolute path for the ``program``. If
     the ``program`` was not found, return ``None``.
     """
     def _is_exec(fpath):

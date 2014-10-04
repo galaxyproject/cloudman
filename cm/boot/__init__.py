@@ -78,7 +78,7 @@ def _start_nginx(ud):
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
     ul = None
-    nginx_conf_file = _nginx_conf_file()
+    nginx_conf_file = _nginx_conf_file(log)
     if nginx_conf_file:
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
@@ -97,15 +97,17 @@ def _start_nginx(ud):
             os.makedirs(upload_store_dir)
     else:
         log.error("Could not find nginx.conf: {0}".format(nginx_conf_file))
+    nginx_executable = _nginx_executable(log)
+    log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
     if not _is_running(log, 'nginx'):
-        if not _run(log, _nginx_executable()):
+        if not _run(log, nginx_executable):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
-            _run(log, _nginx_executable())
+            _run(log, nginx_executable)
     else:
         # nginx already running, so reload
         log.debug("nginx already running; reloading it")
-        _run(log, '{0} -s reload'.format(_nginx_executable()))
+        _run(log, '{0} -s reload'.format(nginx_executable))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
@@ -116,7 +118,7 @@ def _fix_nginx_upload(ud):
     Set ``max_client_body_size`` in nginx config. This is necessary for the
     Galaxy Cloud AMI ``ami-da58aab3``.
     """
-    nginx_conf_path = ud.get("nginx_conf_path", _nginx_conf_file())
+    nginx_conf_path = ud.get("nginx_conf_path", _nginx_conf_file(log))
     log.info("Attempting to configure max_client_body_size in {0}".format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
         # Make sure any duplicate entries are collapsed into one (otherwise,

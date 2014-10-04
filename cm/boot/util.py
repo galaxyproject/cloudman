@@ -3,17 +3,24 @@ import subprocess
 
 
 def _run(log, cmd):
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    if process.returncode == 0:
-        log.debug("Successfully ran '%s'" % cmd)
-        if stdout:
-            return stdout
+    if not cmd:
+        log.error("Trying to run an empty command? '{0}'".format(cmd))
+        return False
+    try:
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode == 0:
+            log.debug("Successfully ran '%s'" % cmd)
+            if stdout:
+                return stdout
+            else:
+                return True
         else:
-            return True
-    else:
-        log.error("Error running '%s'. Process returned code '%s' and following stderr: %s"
-                  % (cmd, process.returncode, stderr))
+            log.error("Error running '%s'. Process returned code '%s' and following stderr: '%s'"
+                      % (cmd, process.returncode, stderr))
+            return False
+    except Exception, e:
+        log.error("Exception running '%s': '%s'" % (cmd, e))
         return False
 
 
@@ -39,13 +46,15 @@ def _make_dir(log, path):
         log.debug("Directory '%s' exists." % path)
 
 
-def _which(program, additional_paths=[]):
+def _which(log, program, additional_paths=[]):
     """
     Like *NIX's ``which`` command, look for ``program`` in the user's $PATH
     and ``additional_paths`` and return an absolute path for the ``program``. If
     the ``program`` was not found, return ``None``.
     """
     def _is_exec(fpath):
+        log.debug("%s is file: %s; it's executable: %s" % (fpath, os.path.isfile(fpath),
+                    os.access(fpath, os.X_OK)))
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
     fpath, fname = os.path.split(program)
@@ -56,18 +65,19 @@ def _which(program, additional_paths=[]):
         for path in os.environ["PATH"].split(os.pathsep) + additional_paths:
             path = path.strip('"')
             exec_file = os.path.join(path, program)
+            log.debug("Checking %s" % exec_file)
             if _is_exec(exec_file):
                 return exec_file
     return None
 
 
-def _nginx_executable():
+def _nginx_executable(log):
     """
     Get the path of the nginx executable
     """
-    possible_paths = ['/usr/sbin/nginx', '/usr/nginx/sbin/nginx',
-                     '/opt/galaxy/pkg/nginx/sbin/nginx']
-    return _which('nginx', possible_paths)
+    possible_paths = ['/usr/sbin', '/usr/nginx/sbin',
+                     '/opt/galaxy/pkg/nginx/sbin']
+    return _which(log, 'nginx', possible_paths)
 
 
 def _nginx_conf_dir():
@@ -81,7 +91,7 @@ def _nginx_conf_dir():
     return ''
 
 
-def _nginx_conf_file():
+def _nginx_conf_file(log):
     """
     Get the path of the nginx conf file, namely ``nginx.conf``
     """
@@ -90,7 +100,7 @@ def _nginx_conf_file():
         return path
     # Resort to a full file system search
     cmd = 'find / -name nginx.conf'
-    output = _run(cmd)
+    output = _run(log, cmd)
     if isinstance(output, str):
         path = output.strip()
         if os.path.exists(path):

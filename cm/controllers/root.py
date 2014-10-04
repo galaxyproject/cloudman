@@ -748,6 +748,25 @@ class CM(BaseController):
         return comment
 
     @expose
+    def toggle_ssl(self, trans):
+        """
+        Toggle use of SSL for the nginx proxy server.
+        This will generate a self-signed certificate and update nginx config to
+        use it - note that this will result in a browser warning regarding an
+        untrusted certificate. Also note that this only works on images that
+        have nginx v1.4+.
+
+        TODO: Extract nginx into its own service so SSL can be turned on
+        without requiring Galaxy service.
+        """
+        log.debug("Toggling SSL")
+        svcs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
+        if len(svcs) > 0:
+            galaxy_service = svcs[0]
+            galaxy_service.configure_nginx(setup_ssl=(not galaxy_service.ssl_is_on))
+            return "SSL toggled"
+
+    @expose
     def admin(self, trans):
         # Get names of the file systems
         filesystems = []

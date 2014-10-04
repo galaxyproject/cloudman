@@ -248,8 +248,7 @@ class PathResolver(object):
         """
         Get the path of the nginx executable
         """
-        possible_paths = ['/usr/sbin/nginx', '/usr/nginx/sbin/nginx',
-                         '/opt/galaxy/pkg/nginx/sbin/nginx']
+        possible_paths = ['/usr/sbin', '/usr/nginx/sbin', '/opt/galaxy/pkg/nginx/sbin']
         return misc.which('nginx', possible_paths)
 
     @property

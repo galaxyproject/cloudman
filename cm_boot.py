@@ -15,16 +15,23 @@ import os
 import subprocess
 
 def _run(log, cmd):
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (stdout, stderr) = process.communicate()
-    if (process.returncode == 0):
-        log.debug(("Successfully ran '%s'" % cmd))
-        if stdout:
-            return stdout
+    if (not cmd):
+        log.error("Trying to run an empty command? '{0}'".format(cmd))
+        return False
+    try:
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+        if (process.returncode == 0):
+            log.debug(("Successfully ran '%s'" % cmd))
+            if stdout:
+                return stdout
+            else:
+                return True
         else:
-            return True
-    else:
-        log.error(("Error running '%s'. Process returned code '%s' and following stderr: %s" % (cmd, process.returncode, stderr)))
+            log.error(("Error running '%s'. Process returned code '%s' and following stderr: '%s'" % (cmd, process.returncode, stderr)))
+            return False
+    except Exception as e:
+        log.error(("Exception running '%s': '%s'" % (cmd, e)))
         return False
 
 def _is_running(log, process_name):
@@ -44,10 +51,11 @@ def _make_dir(log, path):
     else:
         log.debug(("Directory '%s' exists." % path))
 
-def _which(program, additional_paths=[]):
+def _which(log, program, additional_paths=[]):
     "\n    Like *NIX's ``which`` command, look for ``program`` in the user's $PATH\n    and ``additional_paths`` and return an absolute path for the ``program``. If\n    the ``program`` was not found, return ``None``.\n    "
 
     def _is_exec(fpath):
+        log.debug(("%s is file: %s; it's executable: %s" % (fpath, os.path.isfile(fpath), os.access(fpath, os.X_OK))))
         return (os.path.isfile(fpath) and os.access(fpath, os.X_OK))
     (fpath, fname) = os.path.split(program)
     if fpath:
@@ -57,14 +65,15 @@ def _which(program, additional_paths=[]):
         for path in (os.environ['PATH'].split(os.pathsep) + additional_paths):
             path = path.strip('"')
             exec_file = os.path.join(path, program)
+            log.debug(('Checking %s' % exec_file))
             if _is_exec(exec_file):
                 return exec_file
     return None
 
-def _nginx_executable():
+def _nginx_executable(log):
     '\n    Get the path of the nginx executable\n    '
-    possible_paths = ['/usr/sbin/nginx', '/usr/nginx/sbin/nginx', '/opt/galaxy/pkg/nginx/sbin/nginx']
-    return _which('nginx', possible_paths)
+    possible_paths = ['/usr/sbin', '/usr/nginx/sbin', '/opt/galaxy/pkg/nginx/sbin']
+    return _which(log, 'nginx', possible_paths)
 
 def _nginx_conf_dir():
     '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
@@ -73,13 +82,13 @@ def _nginx_conf_dir():
             return path
     return ''
 
-def _nginx_conf_file():
+def _nginx_conf_file(log):
     '\n    Get the path of the nginx conf file, namely ``nginx.conf``\n    '
     path = os.path.join(_nginx_conf_dir(), 'nginx.conf')
     if os.path.exists(path):
         return path
     cmd = 'find / -name nginx.conf'
-    output = _run(cmd)
+    output = _run(log, cmd)
     if isinstance(output, str):
         path = output.strip()
         if os.path.exists(path):
@@ -149,7 +158,7 @@ def _install_conf_files(log, ud):
 
 def _configure_nginx(log, ud):
     nginx_conf = ud.get('nginx_conf_contents', None)
-    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file())
+    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file(log))
     if nginx_conf:
         _write_conf_file(log, nginx_conf, nginx_conf_path)
     reconfigure_nginx = ud.get('reconfigure_nginx', True)
@@ -238,7 +247,7 @@ def _start_nginx(ud):
     rmdir = False
     upload_store_dir = '/mnt/galaxyData/upload_store'
     ul = None
-    nginx_conf_file = _nginx_conf_file()
+    nginx_conf_file = _nginx_conf_file(log)
     if nginx_conf_file:
         with open(nginx_conf_file, 'r') as f:
             lines = f.readlines()
@@ -257,21 +266,23 @@ def _start_nginx(ud):
             os.makedirs(upload_store_dir)
     else:
         log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
+    nginx_executable = _nginx_executable(log)
+    log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
     if (not _is_running(log, 'nginx')):
-        if (not _run(log, _nginx_executable())):
+        if (not _run(log, nginx_executable)):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')
-            _run(log, _nginx_executable())
+            _run(log, nginx_executable)
     else:
         log.debug('nginx already running; reloading it')
-        _run(log, '{0} -s reload'.format(_nginx_executable()))
+        _run(log, '{0} -s reload'.format(nginx_executable))
     if rmdir:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
 
 def _fix_nginx_upload(ud):
     '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
-    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file())
+    nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file(log))
     log.info('Attempting to configure max_client_body_size in {0}'.format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
         bkup_nginx_conf_path = '/tmp/cm/original_nginx.conf'

@@ -35,6 +35,7 @@ class GalaxyService(ApplicationService):
         self.svc_roles = [ServiceRole.GALAXY]
         self.remaining_start_attempts = NUM_START_ATTEMPTS
         self.configured = False  # Indicates if the environment for running Galaxy has been configured
+        self.ssl_is_on = False
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {
             "SGE_ROOT": self.app.path_resolver.sge_root,
@@ -304,7 +305,7 @@ class GalaxyService(ApplicationService):
     def add_galaxy_admin_users(self, admins_list=[]):
         populate_admin_users(self.option_manager, admins_list)
 
-    def configure_nginx(self):
+    def configure_nginx(self, setup_ssl=False):
         """
         Generate nginx.conf from a template and reload nginx process so config
         options take effect
@@ -321,17 +322,36 @@ class GalaxyService(ApplicationService):
                 for i in range(web_thread_count):
                     galaxy_server += "server localhost:808%s;" % i
             # Customize the appropriate nginx template
-            if self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
-               "{0} -v".format(self.app.path_resolver.nginx_executable)):
+            if (setup_ssl and self.app.path_resolver.nginx_executable and "1.4"
+               in commands.getoutput("{0} -v".format(self.app.path_resolver.nginx_executable))):
+                # Generate a self-signed certificate
+                log.info("Generating self-signed certificate for SSL encryption")
+                cert_home = "/root/.ssh/"
+                certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
+                keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
+                misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
+                    "rsa:1024 -keyout " + keyfile + " -out " + certfile)
+                misc.run("chmod 440 " + keyfile)
+                server_block_head = nginx.SERVER_BLOCK_HEAD_SSL
+                log.debug("Using nginx v1.4+ template w/ SSL")
+                self.ssl_is_on = True
+                nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
+            elif (self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
+                  "{0} -v".format(self.app.path_resolver.nginx_executable))):
+                server_block_head = nginx.SERVER_BLOCK_HEAD
                 log.debug("Using nginx v1.4+ template")
                 nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
+                self.ssl_is_on = False
             else:
+                server_block_head = ""
                 nginx_tmplt = nginx.NGINX_CONF_TEMPLATE
+                self.ssl_is_on = False
             nginx_conf_template = Template(nginx_tmplt)
             params = {
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
-                'galaxy_server': galaxy_server
+                'galaxy_server': galaxy_server,
+                'server_block_head': server_block_head
             }
             template = nginx_conf_template.substitute(params)
 
@@ -346,4 +366,5 @@ class GalaxyService(ApplicationService):
             misc.run('{0} -c {1} -s reload'.format(self.app.path_resolver.nginx_executable,
                                                    self.app.path_resolver.nginx_conf_file))
         else:
-            log.warning("Cannot find nginx executable to reload nginx config")
+            log.warning("Cannot find nginx executable to reload nginx config (got"
+                        " '{0}')".format(self.app.path_resolver.nginx_executable))

@@ -195,6 +195,7 @@
                     </div>
                 </span>
             <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
+            <li><a class="action" id='toggle_ssl' href="${h.url_for(controller='root', action='toggle_ssl')}">Toggle use of SSL on this instance</a></li>
             <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
             </li>
             <li>
