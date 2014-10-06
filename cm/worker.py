@@ -24,60 +24,10 @@ from cm.util.bunch import Bunch
 from cm.util.decorators import TestFlag
 from cm.util.manager import BaseConsoleManager
 from cm.util.misc import flock
+from cm.conftemplates import conf_manager
 
 log = logging.getLogger('cloudman')
 
-
-sge_install_template = """
-SGE_ROOT="/opt/sge"
-SGE_QMASTER_PORT="6444"
-SGE_EXECD_PORT="6445"
-SGE_ENABLE_SMF="false"
-SGE_CLUSTER_NAME="GalaxyCloudMan"
-SGE_JMX_PORT=""
-SGE_JMX_SSL="false"
-SGE_JMX_SSL_CLIENT="false"
-SGE_JMX_SSL_KEYSTORE=""
-SGE_JMX_SSL_KEYSTORE_PW=""
-SGE_JVM_LIB_PATH=""
-SGE_ADDITIONAL_JVM_ARGS=""
-CELL_NAME="default"
-ADMIN_USER=""
-QMASTER_SPOOL_DIR="/opt/sge/default/spool/qmaster"
-EXECD_SPOOL_DIR="/opt/sge/default/spool/execd"
-GID_RANGE="20000-20100"
-SPOOLING_METHOD="classic"
-DB_SPOOLING_SERVER="none"
-DB_SPOOLING_DIR="/opt/sge/default/spooldb"
-PAR_EXECD_INST_COUNT="20"
-ADMIN_HOST_LIST="%s"
-SUBMIT_HOST_LIST="%s"
-EXEC_HOST_LIST="%s"
-EXECD_SPOOL_DIR_LOCAL=""
-HOSTNAME_RESOLVING="true"
-SHELL_NAME="ssh"
-COPY_COMMAND="scp"
-DEFAULT_DOMAIN="none"
-ADMIN_MAIL="none"
-ADD_TO_RC="false"
-SET_FILE_PERMS="true"
-RESCHEDULE_JOBS="wait"
-SCHEDD_CONF="1"
-SHADOW_HOST=""
-EXEC_HOST_LIST_RM=""
-REMOVE_RC="false"
-WINDOWS_SUPPORT="false"
-WIN_ADMIN_NAME="Administrator"
-WIN_DOMAIN_ACCESS="false"
-CSP_RECREATE="true"
-CSP_COPY_CERTS="false"
-CSP_COUNTRY_CODE="DE"
-CSP_STATE="Germany"
-CSP_LOCATION="Building"
-CSP_ORGA="Organisation"
-CSP_ORGA_UNIT="Organisation_unit"
-CSP_MAIL_ADDRESS="name@yourdomain.com"
-"""
 
 # Worker states
 worker_states = Bunch(
@@ -374,8 +324,7 @@ class ConsoleManager(BaseConsoleManager):
 
         SGE_config_file = '/tmp/galaxyEC2_configuration.conf'
         f = open(SGE_config_file, 'w')
-        print >> f, sge_install_template % (self.local_hostname,
-                                            self.local_hostname, self.local_hostname)
+        print >> f, sge._get_sge_install_conf(self.app, self.local_hostname)
         f.close()
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2],
                  grp.getgrnam("sgeadmin")[2])

@@ -417,7 +417,8 @@ class EC2Interface(CloudInterface):
         # logging.getLogger('boto').setLevel(logging.DEBUG)
 
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            [('%s: %s' % (key, value)) if (value and value.isdigit()) else ('%s: "%s"' % (key, value)) for key, value in worker_ud.iteritems()])
+        
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
@@ -492,7 +493,8 @@ class EC2Interface(CloudInterface):
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            [('%s: %s' % (key, value)) if (value and value.isdigit()) else ('%s: "%s"' % (key, value)) for key, value in worker_ud.iteritems()])
+                
         reqs = None
         try:
             ec2_conn = self.get_ec2_connection()

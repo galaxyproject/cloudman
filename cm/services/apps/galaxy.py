@@ -4,9 +4,8 @@ import urllib2
 import commands
 import subprocess
 from datetime import datetime
-from string import Template
 
-from cm.conftemplates import nginx
+from cm.conftemplates import conf_manager
 from cm.services.apps import ApplicationService
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -332,21 +331,21 @@ class GalaxyService(ApplicationService):
                 misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
                     "rsa:1024 -keyout " + keyfile + " -out " + certfile)
                 misc.run("chmod 440 " + keyfile)
-                server_block_head = nginx.SERVER_BLOCK_HEAD_SSL
+                server_block_head = conf_manager.NGINX_SERVER_BLOCK_HEAD_SSL
                 log.debug("Using nginx v1.4+ template w/ SSL")
                 self.ssl_is_on = True
-                nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
+                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
             elif (self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
                   "{0} -v".format(self.app.path_resolver.nginx_executable))):
-                server_block_head = nginx.SERVER_BLOCK_HEAD
+                server_block_head = conf_manager.NGINX_SERVER_BLOCK_HEAD
                 log.debug("Using nginx v1.4+ template")
-                nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
+                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
                 self.ssl_is_on = False
             else:
                 server_block_head = ""
-                nginx_tmplt = nginx.NGINX_CONF_TEMPLATE
+                nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
                 self.ssl_is_on = False
-            nginx_conf_template = Template(nginx_tmplt)
+            nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
