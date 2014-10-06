@@ -492,8 +492,6 @@ class EC2Interface(CloudInterface):
         log.debug("Setting boto's logger to INFO mode")
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
-#         worker_ud_str = "\n".join(
-#             [('%s: "%s"' % (key, value)) if isinstance(value, str) else ('%s: %s' % (key, value)) for key, value in worker_ud.iteritems()])
         worker_ud_str = yaml.dump(worker_ud)
                 
         reqs = None

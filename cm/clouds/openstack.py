@@ -173,8 +173,6 @@ class OSInterface(EC2Interface):
         Actually launch the `num` instance(s) of type `instance_type` and using
         the provided `worker_ud` dict that contains the instance user data.
         """
-#         worker_ud_str = "\n".join(
-#             [('%s: "%s"' % (key, value)) if isinstance(value, str) else ('%s: %s' % (key, value)) for key, value in worker_ud.iteritems()])
         worker_ud_str = yaml.dump(worker_ud)
 
         try:
