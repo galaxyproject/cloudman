@@ -1,4 +1,4 @@
-SLURM_CONF_TEMPLATE = """#
+#
 # See the slurm.conf man page for more information.
 #
 ClusterName=GalaxyCloudMan
@@ -35,4 +35,3 @@ NodeName=master NodeAddr=127.0.0.1 CPUs=$num_cpus Weight=10 State=UNKNOWN
 $worker_nodes
 # PARTITIONS (ie, QUEUES)
 PartitionName=main Nodes=master$worker_names Default=YES MaxTime=INFINITE State=UP
-"""

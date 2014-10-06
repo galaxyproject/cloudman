@@ -4,9 +4,8 @@ import urllib2
 import commands
 import subprocess
 from datetime import datetime
-from string import Template
 
-from cm.conftemplates import nginx
+from cm.conftemplates import conf_manager
 from cm.services.apps import ApplicationService
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -324,10 +323,10 @@ class GalaxyService(ApplicationService):
             if self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
                "{0} -v".format(self.app.path_resolver.nginx_executable)):
                 log.debug("Using nginx v1.4+ template")
-                nginx_tmplt = nginx.NGINX_14_CONF_TEMPLATE
+                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
             else:
-                nginx_tmplt = nginx.NGINX_CONF_TEMPLATE
-            nginx_conf_template = Template(nginx_tmplt)
+                nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
+            nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
