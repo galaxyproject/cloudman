@@ -331,13 +331,13 @@ class GalaxyService(ApplicationService):
                 misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
                     "rsa:1024 -keyout " + keyfile + " -out " + certfile)
                 misc.run("chmod 440 " + keyfile)
-                server_block_head = conf_manager.NGINX_SERVER_BLOCK_HEAD_SSL
+                server_block_head = conf_manager.load_conf_template(conf_manager.NGINX_SERVER_BLOCK_HEAD_SSL).safe_substitute()
                 log.debug("Using nginx v1.4+ template w/ SSL")
                 self.ssl_is_on = True
                 nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
             elif (self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
                   "{0} -v".format(self.app.path_resolver.nginx_executable))):
-                server_block_head = conf_manager.NGINX_SERVER_BLOCK_HEAD
+                server_block_head = conf_manager.load_conf_template(conf_manager.NGINX_SERVER_BLOCK_HEAD).safe_substitute()
                 log.debug("Using nginx v1.4+ template")
                 nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
                 self.ssl_is_on = False
