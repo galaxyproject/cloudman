@@ -4,9 +4,8 @@ import grp
 import time
 import shutil
 import commands
-from string import Template
 
-from cm.conftemplates import slurm
+from cm.conftemplates import conf_manager
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
@@ -126,7 +125,7 @@ class SlurmctldService(BaseJobManager):
             os.chown(self.app.path_resolver.slurm_root_tmp,
                 pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
             worker_nodes, worker_names = _worker_nodes_conf()
-            slurm_conf_template = Template(slurm.SLURM_CONF_TEMPLATE)
+            slurm_conf_template = conf_manager.load_conf_template(conf_manager.SLURM_CONF_TEMPLATE)
             slurm_conf_params = {
                 "master_hostname": misc.get_hostname(),
                 "num_cpus": max(self.app.manager.num_cpus - 1, 1),  # Reserve 1 CPU
