@@ -2,6 +2,7 @@ import boto
 import socket
 import time
 import urllib
+import yaml
 
 from boto.ec2.connection import EC2Connection
 from boto.exception import BotoServerError, EC2ResponseError
@@ -416,8 +417,7 @@ class EC2Interface(CloudInterface):
         # log.debug("Setting boto's logger to DEBUG mode")
         # logging.getLogger('boto').setLevel(logging.DEBUG)
 
-        worker_ud_str = "\n".join(
-            [('%s: %s' % (key, value)) if (value and value.isdigit()) else ('%s: "%s"' % (key, value)) for key, value in worker_ud.iteritems()])
+        worker_ud_str = yaml.dump(worker_ud)
         
         try:
             # log.debug( "Would be starting worker instance(s)..." )
@@ -492,8 +492,9 @@ class EC2Interface(CloudInterface):
         log.debug("Setting boto's logger to INFO mode")
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
-        worker_ud_str = "\n".join(
-            [('%s: %s' % (key, value)) if (value and value.isdigit()) else ('%s: "%s"' % (key, value)) for key, value in worker_ud.iteritems()])
+#         worker_ud_str = "\n".join(
+#             [('%s: "%s"' % (key, value)) if isinstance(value, str) else ('%s: %s' % (key, value)) for key, value in worker_ud.iteritems()])
+        worker_ud_str = yaml.dump(worker_ud)
                 
         reqs = None
         try:
