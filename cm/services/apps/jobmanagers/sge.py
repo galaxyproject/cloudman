@@ -37,15 +37,22 @@ def fix_libc():
             log.error("SGE config is likely to fail because '/lib64/libc.so.6' does not exist.")
 
 
-def _get_sge_install_conf(app, host_list):
+def _get_sge_install_conf(app, host):
+    """Fills and returns the SGE_INSTALL_TEMPLATE as a string.
+
+    Positional arguments:
+    app -- The cloudman app
+    host -- the host param string is used for admin, submit and exec hosts
+    """
+    
     # Add master as an execution host
     # Additional execution hosts will be added later, as they start
     sge_install_template = conf_manager.load_conf_template(conf_manager.SGE_INSTALL_TEMPLATE)
     sge_params = {
         "cluster_name": "GalaxyEC2",
-        "admin_host_list": host_list,
-        "submit_host_list": host_list,
-        "exec_host_list": host_list,
+        "admin_host_list": host,
+        "submit_host_list": host,
+        "exec_host_list": host,
         "hostname_resolving": "true",
     }
     for key, value in app.ud.iteritems():

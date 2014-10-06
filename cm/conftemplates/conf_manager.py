@@ -18,6 +18,13 @@ SLURM_CONF_TEMPLATE = "slurm.conf"
 
 
 def load_conf_template(conf_file_name):
+    """Loads and returns the given text file as a string Template.
+    The file will be loaded from CONF_TEMPLATE_PATH first, but if it does
+    not exist, it will append the .default extension and load that file instead.
+
+    Positional arguments:
+    conf_file_name -- The name of the conf template
+    """
     filepath = os.path.join(CONF_TEMPLATE_PATH, conf_file_name)
     if not os.path.exists(filepath): # Allow user to use a custom template if they wish, or fall back to sample template
         filepath = os.path.join(CONF_TEMPLATE_PATH, conf_file_name + ".default")
