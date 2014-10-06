@@ -9,9 +9,8 @@ import subprocess
 import tarfile
 import time
 import urllib2
-from string import Template
 
-from cm.conftemplates import sge
+from cm.conftemplates import conf_manager
 from cm.services import ServiceDependency, ServiceRole, service_states
 from cm.services.apps.jobmanagers import BaseJobManager
 from cm.services.apps.jobmanagers.sgeinfo import SGEInfo
@@ -37,6 +36,24 @@ def fix_libc():
         if not fixed:
             log.error("SGE config is likely to fail because '/lib64/libc.so.6' does not exist.")
 
+
+def _get_sge_install_conf(app, host_list):
+    # Add master as an execution host
+    # Additional execution hosts will be added later, as they start
+    sge_install_template = conf_manager.load_conf_template(conf_manager.SGE_INSTALL_TEMPLATE)
+    sge_params = {
+        "cluster_name": "GalaxyEC2",
+        "admin_host_list": host_list,
+        "submit_host_list": host_list,
+        "exec_host_list": host_list,
+        "hostname_resolving": "true",
+    }
+    for key, value in app.ud.iteritems():
+        if key.startswith("sge_"):
+            key = key[len("sge_"):]
+            sge_params[key] = value
+
+    return sge_install_template.substitute(sge_params)
 
 class SGEService(BaseJobManager):
     def __init__(self, app):
@@ -149,31 +166,13 @@ class SGEService(BaseJobManager):
             paths.P_CHOWN, self.app.path_resolver.sge_root), shell=True)
         return True
 
-    def _get_sge_install_conf(self):
-        # Add master as an execution host
-        # Additional execution hosts will be added later, as they start
-        exec_nodes = self.app.cloud_interface.get_private_ip()
-        sge_install_template = Template(sge.SGE_INSTALL_TEMPLATE)
-        sge_params = {
-            "cluster_name": "GalaxyEC2",
-            "admin_host_list": self.app.cloud_interface.get_private_ip(),
-            "submit_host_list": self.app.cloud_interface.get_private_ip(),
-            "exec_host_list": exec_nodes,
-            "hostname_resolving": "true",
-        }
-        for key, value in self.app.ud.iteritems():
-            if key.startswith("sge_"):
-                key = key[len("sge_"):]
-                sge_params[key] = value
-
-        return sge_install_template.substitute(sge_params)
 
     @TestFlag(None)
     def _configure_sge(self):
         log.info("Setting up SGE...")
         SGE_config_file = '%s/galaxyEC2.conf' % self.app.path_resolver.sge_root
         with open(SGE_config_file, 'w') as f:
-            print >> f, self._get_sge_install_conf()
+            print >> f, _get_sge_install_conf(self.app, self.app.cloud_interface.get_private_ip())
         os.chown(SGE_config_file, pwd.getpwnam("sgeadmin")[2],
                  grp.getgrnam("sgeadmin")[2])
         log.debug(
@@ -184,17 +183,17 @@ class SGEService(BaseJobManager):
         if misc.run('cd %s; ./inst_sge -m -x -auto %s' % (self.app.path_resolver.sge_root, SGE_config_file), "Setting up SGE did not go smoothly", "Successfully set up SGE"):
             log.debug("Successfully setup SGE; configuring SGE")
             log.debug("Adding parallel environments")
-            pes = ['SMP_PE', 'MPI_PE']
+            pes = ['SGE_SMP_PE', 'SGE_MPI_PE']
             for pe in pes:
                 pe_file_path = os.path.join('/tmp', pe)
                 with open(pe_file_path, 'w') as f:
-                    print >> f, getattr(sge, pe)
+                    print >> f, conf_manager.load_conf_template(getattr(conf_manager, pe)).safe_substitute()
                 misc.run('cd %s; ./bin/lx24-amd64/qconf -Ap %s' % (
                     self.app.path_resolver.sge_root, pe_file_path))
             log.debug("Creating queue 'all.q'")
 
             SGE_allq_file = '%s/all.q.conf' % self.app.path_resolver.sge_root
-            all_q_template = Template(sge.ALL_Q_TEMPLATE)
+            all_q_template = conf_manager.load_conf_template(conf_manager.SGE_ALL_Q_TEMPLATE)
             if self.app.config.hadoop_enabled:
                 all_q_params = {
                     "slots": int(commands.getoutput("nproc")),
@@ -225,7 +224,7 @@ class SGEService(BaseJobManager):
             misc.append_to_file(paths.LOGIN_SHELL_SCRIPT,
                                 "\n. $SGE_ROOT/default/common/settings.sh\n")
             # Write out the .sge_request file for individual users
-            sge_request_template = Template(sge.SGE_REQUEST_TEMPLATE)
+            sge_request_template = conf_manager.load_conf_template(conf_manager.SGE_REQUEST_TEMPLATE)
             sge_request_params = {
                 'psql_home': self.app.path_resolver.pg_home,
                 'galaxy_tools_dir': self.app.path_resolver.galaxy_tools,
@@ -349,7 +348,7 @@ class SGEService(BaseJobManager):
                     "sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             host_conf_file = os.path.join(host_conf_dir, str(inst_alias))
             with open(host_conf_file, 'w') as f:
-                print >> f, sge.SGE_HOST_CONF_TEMPLATE % (
+                print >> f, conf_manager.load_conf_template(conf_manager.SGE_HOST_CONF_TEMPLATE) % (
                     inst_private_ip)
             os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])

@@ -173,7 +173,8 @@ class OSInterface(EC2Interface):
         the provided `worker_ud` dict that contains the instance user data.
         """
         worker_ud_str = "\n".join(
-            ['%s: %s' % (key, value) for key, value in worker_ud.iteritems()])
+            [('%s: %s' % (key, value)) if (value and value.isdigit()) else ('%s: "%s"' % (key, value)) for key, value in worker_ud.iteritems()])
+
         try:
             reservation = None
             ec2_conn = self.get_ec2_connection()
