@@ -1154,8 +1154,8 @@ class ConsoleManager(BaseConsoleManager):
 
     def add_live_instance(self, instance_id):
         """
-        Add an existing instance to the list of worker instances tracked by the master;
-        get a handle to the instance object in the process.
+        Add an existing instance to the list of worker instances tracked by the
+        master; get a handle to the instance object in the process.
         """
         try:
             log.debug("Adding live instance '%s'" % instance_id)
@@ -1168,17 +1168,23 @@ class ConsoleManager(BaseConsoleManager):
                                                      self.app.ud['cluster_name'])
                     # Default to 'worker' role tag
                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
-                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
+                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}"
+                        .format(self.app.ud['cluster_name']))
                     self.worker_instances.append(i)
-                    i.send_alive_request()  # to make sure info like ip-address and hostname are updated
+                    # Make sure info like ip-address and hostname are updated
+                    i.send_alive_request()
                     log.debug('Added instance {0}....'.format(instance_id))
                 else:
-                    log.debug("Live instance '%s' is at the end of its life (state: %s); not adding the instance." %
+                    log.debug("Live instance '%s' is at the end of its life "
+                              "(state: %s); not adding the instance." %
                               (instance_id, instance.state))
                 return True
         except EC2ResponseError, e:
-            log.debug(
-                "Problem adding a live instance (tried ID: %s): %s" % (instance_id, e))
+            log.debug("Problem adding a live instance (tried ID: %s): %s" %
+                      (instance_id, e))
+        except Exception, e:
+            log.error("Exception adding a live instance (tried ID: %s): %s" %
+                      (instance_id, e))
         return False
 
     @TestFlag(None)
