@@ -12,7 +12,7 @@ class Autoscale(Service):
         self.app = app
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
-        self.svc_type = ServiceType.APPLICATION
+        self.svc_type = ServiceType.CM_SERVICE
         self.name = ServiceRole.to_string(ServiceRole.AUTOSCALE)
         self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
         self.as_max = as_max  # Max number of nodes autoscale should maintain

@@ -24,6 +24,7 @@ service_states = Bunch(
 class ServiceType(object):
     FILE_SYSTEM = "FileSystem"
     APPLICATION = "Application"
+    CM_SERVICE = "CloudManService"
 
 
 class ServiceRole(object):
@@ -36,8 +37,8 @@ class ServiceRole(object):
                        "Postgres DB for Galaxy"}
     GALAXY_REPORTS = {'type': ServiceType.APPLICATION, 'name':
                       "Galaxy Reports"}
-    AUTOSCALE = {'type': ServiceType.APPLICATION, 'name': "Autoscale"}
-    PSS = {'type': ServiceType.APPLICATION, 'name': "Post Start Script"}
+    AUTOSCALE = {'type': ServiceType.CM_SERVICE, 'name': "Autoscale"}
+    PSS = {'type': ServiceType.CM_SERVICE, 'name': "Post Start Script"}
     GALAXY_DATA = {'type': ServiceType.FILE_SYSTEM, 'name': "Galaxy Data FS"}
     GALAXY_INDICES = {'type': ServiceType.FILE_SYSTEM, 'name':
                       "Galaxy Indices FS"}
@@ -46,7 +47,7 @@ class ServiceRole(object):
     TRANSIENT_NFS = {'type': ServiceType.FILE_SYSTEM, 'name':
                      "Transient NFS FS"}
     HADOOP = {'type': ServiceType.APPLICATION, 'name': "Hadoop Service"}
-    MIGRATION = {'type': ServiceType.APPLICATION, 'name': "Migration Service"}
+    MIGRATION = {'type': ServiceType.CM_SERVICE, 'name': "Migration Service"}
     HTCONDOR = {'type': ServiceType.APPLICATION, 'name': "HTCondor Service"}
     LWR = {'type': ServiceType.APPLICATION, 'name': "LWR Service"}
 

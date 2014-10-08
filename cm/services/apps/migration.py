@@ -260,7 +260,7 @@ class MigrationService(ApplicationService, Migrate1to2):
 
         self.svc_roles = [ServiceRole.MIGRATION]
         self.name = ServiceRole.to_string(ServiceRole.MIGRATION)
-
+        self.svc_type = ServiceType.CM_SERVICE
         self.dependencies = []
 
         if 'filesystems' in self.app.ud:
