@@ -3,7 +3,7 @@ import threading
 from cm.util import misc
 from cm.util import cluster_status
 from cm.services import service_states
-from cm.services import ServiceRole
+from cm.services import ServiceRole, ServiceType
 from cm.services.apps import ApplicationService
 
 import logging
@@ -23,6 +23,7 @@ class PSSService(ApplicationService):
         super(PSSService, self).__init__(app)
         self.svc_roles = [ServiceRole.PSS]
         self.name = ServiceRole.to_string(ServiceRole.PSS)
+        self.svc_type = ServiceType.CM_SERVICE
         self.instance_role = instance_role
         log.debug("Configured PSS as {0}".format(self.instance_role))
         # Name of the default script to run
