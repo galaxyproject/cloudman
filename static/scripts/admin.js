@@ -61,7 +61,8 @@ function update(repeat_update){
                 update_application_status("#slurmctld_status", data.Slurmctld);
                 update_application_status("#slurmd_status", data.Slurmd);
                 update_application_status("#sge_status", data.SGE);
-                update_application_status("#galaxy_reports_status", data.GalaxyReports);
+                update_application_status("#proftpd_status", data.ProFTPd);
+                update_application_status("#galaxyreports_status", data.GalaxyReports);
                 update_application_status("#lwr_status", data.LWR);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){

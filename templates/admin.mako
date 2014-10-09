@@ -1,4 +1,8 @@
 <%inherit file="/base_panels.mako"/>
+<%!
+    def lowercase(text):
+        return text.lower()
+%>
 <%def name="main_body()">
     <div class="body" style="max-width: 720px; margin: 0 auto;">
         <div id="msg_box" class="info_msg_box" style="margin-top: -25px; min-height: 16px">
@@ -83,81 +87,18 @@
             <tr style="text-align:left">
                 <th width="20%">Service name</th>
                 <th width="15%">Status</th>
-                <th width="65%" colspan="6"></th>
+                <th width="65%" colspan="5"></th>
             </tr>
-            <tr>
-                <td>Galaxy</td>
-                <td><span id="galaxy_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Galaxy">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy&to_be_started=False" target='_blank'>Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Galaxy" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Galaxy" target="_blank">Restart</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='update_galaxy')}?db_only=True" target='_blank'>Update DB</a></td>
-            </tr>
-            <tr>
-                <td>PostgreSQL</td>
-                <td><span id="postgres_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=Postgres">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Postgres" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Postgres" target="_blank">Restart</a></td>
-            </tr>
-            %if job_manager == 'Slurmctld':
+            %for app_svc in app_services:
                 <tr>
-                    <td>Slurmctld</td>
-                    <td><span id="slurmctld_status">&nbsp;</span></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmctld">Log</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmctld&to_be_started=False" target="_blank">Stop</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmctld" target="_blank">Start</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Slurmctld" target="_blank">Restart</a></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmctld&q=sinfo">sinfo</a></td>
+                    <td>${app_svc}</td>
+                    <td><span id="${app_svc | lowercase}_status">&nbsp;</span></td>
+                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=${app_svc}">Log</a></td>
+                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=${app_svc}&to_be_started=False" target='_blank'>Stop</a></td>
+                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=${app_svc}" target="_blank">Start</a></td>
+                    <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=${app_svc}" target="_blank">Restart</a></td>
                 </tr>
-                <tr>
-                    <td>Slurmd</td>
-                    <td><span id="slurmd_status">&nbsp;</span></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=slurmd">Log</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmd&to_be_started=False" target="_blank">Stop</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=Slurmd" target="_blank">Start</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=Slurmd" target="_blank">Restart</a></td>
-                </tr>
-            %endif
-            %if job_manager == 'SGE':
-                <tr>
-                    <td>SGE</td>
-                    <td><span id="sge_status">&nbsp;</span></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE">Log</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE&to_be_started=False" target="_blank">Stop</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=SGE" target="_blank">Start</a></td>
-                    <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=SGE" target="_blank">Restart</a></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=conf">Q conf</a></td>
-                    <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=SGE&q=qstat">qstat</a></td>
-                </tr>
-            %endif
-            <%doc>
-            ## Given LWR is not quite ready within CloudMan, hide the service
-            ## actions for the time being
-            <tr>
-                <td>LWR</td>
-                <td><span id="lwr_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=LWR">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=LWR&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=LWR" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=LWR" target="_blank">Restart</a></td>
-            </tr>
-            </%doc>
-            <tr>
-                <td>Galaxy Reports</td>
-                <td><span id="galaxy_reports_status">&nbsp;</span></td>
-                <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=GalaxyReports">Log</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports&to_be_started=False" target="_blank">Stop</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=GalaxyReports" target="_blank">Start</a></td>
-                <td><a class='action' href="${h.url_for(controller='root',action='restart_service')}?service_name=GalaxyReports" target="_blank">Restart</a></td>
-            </tr>
-
-            ##<tr>
-            ##    <td>Dummy</td>
-            ##    <td><span id="dummy"></span></td>
-            ##</tr>
+            %endfor
         </table>
         <strong>File systems</strong>
         ## backbone-managed
