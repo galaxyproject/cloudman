@@ -77,7 +77,7 @@ def _nginx_executable(log):
 
 def _nginx_conf_dir():
     '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
-    for path in ['/etc/nginx', '/usr/nginx', '/opt/galaxy/pkg/nginx']:
+    for path in ['/etc/nginx/conf', '/usr/nginx/conf', '/opt/galaxy/pkg/nginx/conf']:
         if os.path.exists(path):
             return path
     return ''
