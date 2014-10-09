@@ -77,7 +77,7 @@ def _nginx_executable(log):
 
 def _nginx_conf_dir():
     '\n    Look around at possible nginx directory locations (from published\n    images) and resort to a file system search\n    '
-    for path in ['/etc/nginx/conf', '/usr/nginx/conf', '/opt/galaxy/pkg/nginx/conf']:
+    for path in ['/etc/nginx', '/usr/nginx/conf', '/opt/galaxy/pkg/nginx/conf']:
         if os.path.exists(path):
             return path
     return ''
@@ -87,12 +87,6 @@ def _nginx_conf_file(log):
     path = os.path.join(_nginx_conf_dir(), 'nginx.conf')
     if os.path.exists(path):
         return path
-    cmd = 'find / -name nginx.conf'
-    output = _run(log, cmd)
-    if isinstance(output, str):
-        path = output.strip()
-        if os.path.exists(path):
-            return path
     return None
 import base64
 import os
