@@ -85,7 +85,7 @@ def _nginx_conf_dir():
     Look around at possible nginx directory locations (from published
     images) and resort to a file system search
     """
-    for path in ['/etc/nginx/conf', '/usr/nginx/conf', '/opt/galaxy/pkg/nginx/conf']:
+    for path in ['/etc/nginx', '/usr/nginx/conf', '/opt/galaxy/pkg/nginx/conf']:
         if os.path.exists(path):
             return path
     return ''
