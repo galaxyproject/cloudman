@@ -1,0 +1,17 @@
+    server {
+        listen 80;
+        return 301 https://$host$request_uri;
+
+        include commandline_utilities_http.conf;
+    }
+
+    server {
+        listen                  443 ssl;
+        client_max_body_size    10G;
+        proxy_read_timeout      600;
+
+        ssl on;
+        ssl_certificate         /root/.ssh/instance_selfsigned_cert.pem;
+        ssl_certificate_key     /root/.ssh/instance_selfsigned_key.pem;
+
+        include commandline_utilities_https.conf;

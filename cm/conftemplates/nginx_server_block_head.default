@@ -1,0 +1,6 @@
+    server {
+        listen                  80;
+        client_max_body_size    10G;
+        proxy_read_timeout      600;
+
+        include commandline_utilities_http.conf;
