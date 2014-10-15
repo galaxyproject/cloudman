@@ -153,12 +153,4 @@ http {
             root   html;
         }
     }
-
-    server {
-        listen                  443 ssl;
-        client_max_body_size    10G;
-        proxy_read_timeout      600;
-
-        include commandline_utilities_https.conf;
-    }
 }
