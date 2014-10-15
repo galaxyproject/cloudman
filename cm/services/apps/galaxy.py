@@ -310,7 +310,7 @@ class GalaxyService(ApplicationService):
         options take effect
         """
         if self.app.path_resolver.nginx_executable:
-            galaxy_server = "server localhost:8080;"
+            galaxy_server = "server 127.0.0.1:8080;"
             if self._multiple_processes():
                 web_thread_count = int(self.app.ud.get("web_thread_count", 3))
                 galaxy_server = ''
@@ -319,7 +319,7 @@ class GalaxyService(ApplicationService):
                         "Setting the web thread count to 9.")
                     web_thread_count = 9
                 for i in range(web_thread_count):
-                    galaxy_server += "server localhost:808%s;" % i
+                    galaxy_server += "server 127.0.0.1:808%s;" % i
             # Customize the appropriate nginx template
             if (setup_ssl and self.app.path_resolver.nginx_executable and "1.4"
                in commands.getoutput("{0} -v".format(self.app.path_resolver.nginx_executable))):
@@ -347,6 +347,7 @@ class GalaxyService(ApplicationService):
                 self.ssl_is_on = False
             nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
+                'galaxy_user_name': 'galaxy',
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server,

@@ -1,4 +1,5 @@
 worker_processes  2;
+user $galaxy_user_name;
 
 events {
     worker_connections  1024;
@@ -25,15 +26,15 @@ http {
     }
 
     upstream cm_app {
-        server localhost:42284;
+        server 127.0.0.1:42284;
     }
 
     upstream galaxy_reports_app {
-        server localhost:9001;
+        server 127.0.0.1:9001;
     }
 
     upstream vnc_app {
-        server localhost:6080;
+        server 127.0.0.1:6080;
     }
 
     $server_block_head
@@ -101,7 +102,7 @@ http {
         }
 
         location /admin/jobs {
-            proxy_pass  http://localhost:8079;
+            proxy_pass  http://127.0.0.1:8079;
         }
 
         location /_x_accel_redirect/ {
@@ -128,43 +129,6 @@ http {
             proxy_set_header Connection "upgrade";
         }
 
-
-        location /gvl-scf {
-            alias /home/ubuntu/www;
-            index index.php;
-            rewrite ^ /gvl-scf/index.php;
-
-            # This is cool because no php is touched for static content
-            try_files $$uri @rewrite;
-            location ~* \.(jpg|jpeg|gif|png|bmp|ico|pdf|flv|swf|exe|html|htm|txt|css|js) {
-                alias /home/ubuntu/www$$fastcgi_script_name;
-                expires           1d;
-            }
-#           rewrite ^/(.*)$$ /gvl-scf/index.php?q=$$1;
-
-            location ~ \.php$$ {
-                alias /home/ubuntu/www;
-                try_files $$uri =404;
-                fastcgi_split_path_info ^(.+\.php)(/.+)$$;
-                fastcgi_pass unix:/var/run/php5-fpm.sock;
-                #fastcgi_pass localhost:9000;
-                fastcgi_index index.php;
-                include fastcgi_params;
-                fastcgi_read_timeout 900;
-                fastcgi_param  SCRIPT_FILENAME  $$document_root$$fastcgi_script_name;
-
-           }
-
-        }
-
-        location @rewrite {
-         # Some modules enforce no slash (/) at the end of the URL
-         # Else this rewrite block wouldn't be needed (GlobalRedirect)
-             #root /home/ubuntu/www;
-             rewrite ^/(.*)$$ /gvl-scf/index.php?q=$$1;
-        }
-
-
         location /_upload {
             upload_store $galaxy_data/upload_store;
             upload_pass_form_field "";
@@ -177,7 +141,7 @@ http {
         }
 
         location /_upload_done {
-            set $$dst /tool_runner/index;
+            set $dst /api/tools;
             if ($$args ~ nginx_redir=([^&]+)) {
                 set $$dst $$1;
             }
@@ -188,16 +152,13 @@ http {
         location /errdoc {
             root   html;
         }
-
     }
 
     server {
         listen                  443 ssl;
-        client_max_body_size    2048m;
-        server_name             localhost;
+        client_max_body_size    10G;
         proxy_read_timeout      600;
 
         include commandline_utilities_https.conf;
     }
-
 }

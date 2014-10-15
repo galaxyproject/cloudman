@@ -129,9 +129,10 @@ def _fix_nginx_upload(ud):
         # Check if the directive is already defined
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
         if not _run(log, already_defined):
+            log.degbu("Adding client_max_body_size to {0}".format(nginx_conf_path))
             sedargs = """'
 /listen/ a\
-        client_max_body_size 2048m;
+        client_max_body_size 10G;
 ' -i %s""" % nginx_conf_path
             _run(log, 'sudo sed %s' % sedargs)
             _run(log, 'sudo kill -HUP `cat /opt/galaxy/pkg/nginx/logs/nginx.pid`')
