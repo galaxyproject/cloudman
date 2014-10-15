@@ -1,4 +1,5 @@
 worker_processes  2;
+user $galaxy_user_name;
 
 events {
     worker_connections  1024;
@@ -24,17 +25,16 @@ http {
     }
 
     upstream cm_app {
-        server localhost:42284;
+        server 127.0.0.1:42284;
     }
 
     upstream galaxy_reports_app {
-        server localhost:9001;
+        server 127.0.0.1:9001;
     }
 
     server {
         listen                  80;
-        client_max_body_size    2048m;
-        server_name             localhost;
+        client_max_body_size    10G;
         proxy_read_timeout      600;
 
         include commandline_utilities_http.conf;
@@ -98,7 +98,7 @@ http {
         }
 
         location /admin/jobs {
-            proxy_pass  http://localhost:8079;
+            proxy_pass  http://127.0.0.1:8079;
         }
 
         location /_x_accel_redirect/ {
@@ -118,7 +118,7 @@ http {
         }
 
         location /_upload_done {
-            set $$dst /tool_runner/index;
+            set $dst /api/tools;
             if ($$args ~ nginx_redir=([^&]+)) {
                 set $$dst $$1;
             }

@@ -65,7 +65,6 @@ def _which(log, program, additional_paths=[]):
         for path in (os.environ['PATH'].split(os.pathsep) + additional_paths):
             path = path.strip('"')
             exec_file = os.path.join(path, program)
-            log.debug(('Checking %s' % exec_file))
             if _is_exec(exec_file):
                 return exec_file
     return None
@@ -284,7 +283,8 @@ def _fix_nginx_upload(ud):
         _run(log, 'uniq {0} > {1}'.format(bkup_nginx_conf_path, nginx_conf_path))
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
         if (not _run(log, already_defined)):
-            sedargs = ("'\n/listen/ a        client_max_body_size 2048m;\n' -i %s" % nginx_conf_path)
+            log.degbu('Adding client_max_body_size to {0}'.format(nginx_conf_path))
+            sedargs = ("'\n/listen/ a        client_max_body_size 10G;\n' -i %s" % nginx_conf_path)
             _run(log, ('sudo sed %s' % sedargs))
             _run(log, 'sudo kill -HUP `cat /opt/galaxy/pkg/nginx/logs/nginx.pid`')
         else:

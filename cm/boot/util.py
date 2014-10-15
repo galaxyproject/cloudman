@@ -65,7 +65,7 @@ def _which(log, program, additional_paths=[]):
         for path in os.environ["PATH"].split(os.pathsep) + additional_paths:
             path = path.strip('"')
             exec_file = os.path.join(path, program)
-            log.debug("Checking %s" % exec_file)
+            # log.debug("Checking %s" % exec_file)
             if _is_exec(exec_file):
                 return exec_file
     return None
