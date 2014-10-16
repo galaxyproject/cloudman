@@ -36,12 +36,9 @@ class GalaxyService(ApplicationService):
         self.configured = False  # Indicates if the environment for running Galaxy has been configured
         self.ssl_is_on = False
         # Environment variables to set before executing galaxy's run.sh
-        self.env_vars = {
-            "SGE_ROOT": self.app.path_resolver.sge_root,
-            "DRMAA_LIBRARY_PATH": self.app.path_resolver.drmaa_library_path
-        }
+        self.env_vars = {}
         self.dependencies = [
-            ServiceDependency(self, ServiceRole.SGE),
+            ServiceDependency(self, ServiceRole.JOB_MANAGER),
             ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
             ServiceDependency(self, ServiceRole.GALAXY_DATA),
             ServiceDependency(self, ServiceRole.GALAXY_INDICES),
@@ -117,7 +114,13 @@ class GalaxyService(ApplicationService):
                 self.configure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
-                s3_conn = self.app.cloud_interface.get_s3_connection()
+                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                if job_manager_svc and ServiceRole.SGE in job_manager_svc.svc_roles:
+                    log.debug("Running on SGE; setting env_vars")
+                    self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
+                    self.env_vars["DRMAA_LIBRARY_PATH"] = self.app.path_resolver.drmaa_library_path
+                # s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." %
                               self.galaxy_home)
@@ -127,30 +130,30 @@ class GalaxyService(ApplicationService):
                     return False
                 # If a configuration file is not already in Galaxy's dir,
                 # retrieve it from a persistent data repository (i.e., S3)
-                if s3_conn:
-                    for f_name in ['universe_wsgi.ini',
-                                   'tool_conf.xml',
-                                   'tool_data_table_conf.xml',
-                                   'shed_tool_conf.xml',
-                                   'datatypes_conf.xml',
-                                   'shed_tool_data_table_conf.xml']:
-                        f_path = os.path.join(self.galaxy_home, f_name)
-                        if not os.path.exists(f_path):
-                            if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
-                                    '{0}.cloud'.format(f_name), f_path):
-                                # We did not get the config file from cluster's
-                                # bucket so get it from the default bucket
-                                log.debug("Did not get Galaxy configuration file " +
-                                          "'{0}' from cluster bucket '{1}'"
-                                          .format(f_name, self.app.ud['bucket_cluster']))
-                                log.debug("Trying to retrieve one ({0}.cloud) "
-                                          "from the default '{1}' bucket."
-                                          .format(f_name, self.app.ud['bucket_default']))
-                                local_file = os.path.join(self.galaxy_home, f_name)
-                                misc.get_file_from_bucket(s3_conn,
-                                    self.app.ud['bucket_default'], '{0}.cloud'.format(f_name),
-                                    local_file)
-                                attempt_chown_galaxy_if_exists(local_file)
+                # if s3_conn:
+                #     for f_name in ['universe_wsgi.ini',
+                #                    'tool_conf.xml',
+                #                    'tool_data_table_conf.xml',
+                #                    'shed_tool_conf.xml',
+                #                    'datatypes_conf.xml',
+                #                    'shed_tool_data_table_conf.xml']:
+                #         f_path = os.path.join(self.galaxy_home, f_name)
+                #         if not os.path.exists(f_path):
+                #             if not misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_cluster'],
+                #                     '{0}.cloud'.format(f_name), f_path):
+                #                 # We did not get the config file from cluster's
+                #                 # bucket so get it from the default bucket
+                #                 log.debug("Did not get Galaxy configuration file " +
+                #                           "'{0}' from cluster bucket '{1}'"
+                #                           .format(f_name, self.app.ud['bucket_cluster']))
+                #                 log.debug("Trying to retrieve one ({0}.cloud) "
+                #                           "from the default '{1}' bucket."
+                #                           .format(f_name, self.app.ud['bucket_default']))
+                #                 local_file = os.path.join(self.galaxy_home, f_name)
+                #                 misc.get_file_from_bucket(s3_conn,
+                #                     self.app.ud['bucket_default'], '{0}.cloud'.format(f_name),
+                #                     local_file)
+                #                 attempt_chown_galaxy_if_exists(local_file)
 
                 # Make sure the temporary job_working_directory exists on user
                 # data volume (defined in universe_wsgi.ini.cloud)
@@ -163,10 +166,10 @@ class GalaxyService(ApplicationService):
                 attempt_chown_galaxy('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
                 # TEMPORARY ONLY - UNTIL SAMTOOLS WRAPPER IS CONVERTED TO USE
                 # DATA TABLES
-                if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):
-                    shutil.copy(
-                        '/mnt/galaxyIndices/locfiles/sam_fa_indices.loc',
-                        '%s/tool-data/sam_fa_indices.loc' % self.galaxy_home)
+                # if os.path.exists('/mnt/galaxyIndices/locfiles/sam_fa_indices.loc'):
+                #     shutil.copy(
+                #         '/mnt/galaxyIndices/locfiles/sam_fa_indices.loc',
+                #         '%s/tool-data/sam_fa_indices.loc' % self.galaxy_home)
                 # Ensure the environment is setup for running Galaxy
                 # This can also be setup on the tools snapshot and thus avoid these patches
                 # try:

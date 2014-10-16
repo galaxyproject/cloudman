@@ -141,7 +141,7 @@ http {
         }
 
         location /_upload_done {
-            set $dst /api/tools;
+            set $$dst /api/tools;
             if ($$args ~ nginx_redir=([^&]+)) {
                 set $$dst $$1;
             }
