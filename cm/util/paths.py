@@ -1,5 +1,7 @@
 import commands
 import os
+import random
+import string
 from cm.util import misc
 from cm.services import ServiceRole
 
@@ -19,6 +21,7 @@ C_PSQL_PORT = "5930"
 USER_DATA_FILE = "userData.yaml"
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/bash.bashrc"
+GALAXY_USER_NAME = 'galaxy'
 
 # Paths
 P_BASE_INSTALL_DIR = '/opt/galaxy/pkg'
@@ -63,7 +66,7 @@ try:
         "dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
     P_PG_HOME = "/usr/lib/postgresql/{0}/bin".format(pg_ver)
 except Exception, e:
-    P_PG_HOME = "/usr/lib/postgresql/9.1/bin"
+    P_PG_HOME = "/usr/lib/postgresql/9.3/bin"
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_HOME to '{1}'"\
         .format(e, P_PG_HOME)
 
@@ -169,6 +172,10 @@ class PathResolver(object):
             return P_GALAXY_DATA
 
     @property
+    def galaxy_config_dir(self):
+        return os.path.join(self.galaxy_data, 'configuration_data', 'galaxy')
+
+    @property
     def galaxy_temp(self):
         return os.path.join(self.galaxy_data, 'tmp')
 
@@ -189,6 +196,10 @@ class PathResolver(object):
     @property
     def psql_dir(self):
         return os.path.join(self.galaxy_data, "db")
+
+    @property
+    def psql_cmd(self):
+        return os.path.join(self.pg_home, 'psql')
 
     @property
     def mount_root(self):
@@ -278,3 +289,38 @@ class PathResolver(object):
 #             if os.path.exists(path):
 #                 return path
         return None
+
+    @property
+    def proftpd_conf_file(self):
+        """
+        Get the location of ProFTPd config file
+        """
+        return '/usr/proftpd/etc/proftpd.conf'
+
+    @property
+    def proftpd_galaxyftp_user_pwd(self):
+        """
+        Return a new random password for the `galaxyftp` user
+
+        (From http://stackoverflow.com/questions/2257441)
+        """
+        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+
+    @property
+    def psql_db_port(self):
+        """
+        Return the port number on which PostgreSQL database is available.
+
+        The scheme used here is 5MajorMinor0, where *Major* is PostgreSQL's
+        major version number, *Minor* is the minor version number. For
+        example, PostgreSQL v9.1.14 will be set to run on port 5910.
+        """
+        cmd = ("{0} --version | cut -d')' -f2 | tr -d ' ' | cut -d'.' -f1,2 | tr -d '.'"
+               .format(self.psql_cmd))
+        try:
+            ver_number = commands.getoutput(cmd)
+        except Exception, e:
+            log.error("Exception retrieving psql version number used for DB port; "
+                      "defaulting port to 5930: {0}".format(e))
+            ver_number = '93'
+        return "5{0}0".format(ver_number)

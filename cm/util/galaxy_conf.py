@@ -7,7 +7,6 @@ from pwd import getpwnam
 from grp import getgrnam
 
 from .misc import run
-from cm.util import paths
 
 import logging
 log = logging.getLogger('cloudman')
@@ -133,7 +132,7 @@ def populate_galaxy_paths(option_manager):
     properties = {}
     path_resolver = option_manager.app.path_resolver
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
-        .format(paths.C_PSQL_PORT)
+        .format(path_resolver.psql_db_port)
     properties["use_pbkdf2"] = "False"  # Required for FTP
     properties["genome_data_path"] = \
         join(path_resolver.galaxy_indices, "genomes")
@@ -146,7 +145,11 @@ def populate_galaxy_paths(option_manager):
     properties["new_file_path"] = temp_dir
     # This is something a user may change so this is not an ideal solution
     # but a relation to the required files is necessary so here it is.
-    properties['tool_config_file'] = "tool_conf.xml,shed_tool_conf.xml"
+    # properties['tool_config_file'] = "tool_conf.xml,shed_tool_conf.xml"
+    tool_config_files = []
+    for tcf in ['tool_conf.xml', 'shed_tool_conf_cloud.xml']:
+        tool_config_files.append(join(path_resolver.galaxy_config_dir, tcf))
+    properties['tool_config_file'] = ','.join(tool_config_files)
     properties["job_working_directory"] = \
         join(temp_dir, "job_working_directory")
     properties["cluster_files_directory"] = \

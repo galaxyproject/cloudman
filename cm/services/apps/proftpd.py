@@ -2,13 +2,15 @@
 CloudMan service encapsulating ProFTPd application
 """
 import os
+import urllib
 
-from cm.util import misc
-from cm.util import paths
-from cm.services import ServiceRole
+from cm.conftemplates import conf_manager
 from cm.services import service_states
 from cm.services import ServiceDependency
+from cm.services import ServiceRole
 from cm.services.apps import ApplicationService
+from cm.util import misc
+from cm.util import paths
 from cm.util.galaxy_conf import attempt_chown_galaxy
 
 import logging
@@ -48,23 +50,36 @@ class ProFTPdService(ApplicationService):
         """
         Configure environment for running ProFTPd service.
         """
-        # In the config, set the port on which postgres is running
         log.debug("Configuring ProFTPd")
-        # This is a bit dodgy but ports are hardcoded in CBL so shoudl be a pretty
-        # safe bet for the time being
-        misc.replace_string('/usr/proftpd/etc/proftpd.conf',
-                            'galaxy@localhost:5840',
-                            'galaxy@localhost:{0}'.format(paths.C_PSQL_PORT))
-        misc.replace_string('/usr/proftpd/etc/proftpd.conf',
-                            '/mnt/galaxyData',
-                            self.app.path_resolver.galaxy_data)
-        # Verify that the expected config path exists.  This is expected to be
-        # /mnt/galaxy/tools/proftpd
-        # TODO just use /usr/proftpd.  Should be a simple update to the init.d
-        expected_config_path = os.path.join(self.app.path_resolver.galaxy_data, 'tools', 'proftpd')
-        if not os.path.exists(expected_config_path):
-            misc.run('ln -s -f /usr/proftpd %s' % expected_config_path)
-        # Setup the data dir for FTP
+        # Because we're rewriting the proftpd config file below, update the
+        # password for PostgreSQL galaxyftp user
+        gftp_pwd = self.app.path_resolver.proftpd_galaxyftp_user_pwd
+        log.debug("Setting psql password for galaxyftp role to {0}".format(gftp_pwd))
+        for role in ['CREATE', 'ALTER']:
+            cmd = ('{0} - postgres -c"{1} -c\\\"{2} ROLE galaxyftp LOGIN PASSWORD \'{3}\'\\\""'
+                   .format(paths.P_SU, self.app.path_resolver.psql_cmd, role, gftp_pwd))
+            if misc.run(cmd):
+                break
+        # Update the config to match the current environment
+        proftpd_tmplt = conf_manager.PROFTPD_CONF_TEMPLATE
+        proftpd_conf_template = conf_manager.load_conf_template(proftpd_tmplt)
+        params = {
+            'galaxy_user_name': paths.GALAXY_USER_NAME,
+            'galaxyftp_user_name': 'galaxyftp',
+            'psql_galaxyftp_password': gftp_pwd,
+            'galaxy_db_port': self.app.path_resolver.psql_db_port,
+            'galaxyFS_base_path': self.app.path_resolver.galaxy_data
+        }
+        template = proftpd_conf_template.substitute(params)
+        # Write out the config file
+        with open(self.app.path_resolver.proftpd_conf_file, 'w') as f:
+            print >> f, template
+        log.debug("Updated ProFTPd conf file {0}".format(
+                  self.app.path_resolver.proftpd_conf_file))
+        # Place the FTP welcome message file
+        urllib.urlretrieve("https://s3.amazonaws.com/cloudman/files/proftpd_welcome.txt",
+                           "/usr/proftpd/etc/welcome_msg.txt")
+        # Setup the Galaxy data dir for FTP
         ftp_data_dir = '%s/tmp/ftp' % self.app.path_resolver.galaxy_data
         if not os.path.exists(ftp_data_dir):
             os.makedirs(ftp_data_dir)
@@ -79,7 +94,8 @@ class ProFTPdService(ApplicationService):
             self.state = service_states.RUNNING
             return True
         else:
-            log.debug("Trouble starting ProFTPd")
+            log.error("Trouble starting ProFTPd")
+            self.state = service_states.ERROR
             return False
 
     def status(self):
