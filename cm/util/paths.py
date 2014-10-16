@@ -15,7 +15,7 @@ P_MV = "/bin/mv"
 P_LN = "/bin/ln"
 
 # Configs
-C_PSQL_PORT = "5910"
+C_PSQL_PORT = "5930"
 USER_DATA_FILE = "userData.yaml"
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 LOGIN_SHELL_SCRIPT = "/etc/bash.bashrc"
