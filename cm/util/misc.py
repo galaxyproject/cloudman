@@ -590,8 +590,8 @@ def save_file_to_bucket(conn, bucket_name, remote_filename, local_file):
         k = Key(b, remote_filename)
         try:
             k.set_contents_from_filename(local_file)
-            log.debug("Saved file '%s' of size %sB to bucket '%s'"
-                      % (remote_filename, k.size, bucket_name))
+            log.debug("Saved file '%s' of size %sB as '%s' to bucket '%s'"
+                      % (local_file, k.size, remote_filename, bucket_name))
             # Store some metadata (key-value pairs) about the contents of the
             # file being uploaded
             k.set_metadata('date_uploaded', dt.datetime.utcnow())

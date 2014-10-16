@@ -1,5 +1,4 @@
 import os
-import shutil
 import urllib2
 import commands
 import subprocess
@@ -13,7 +12,7 @@ from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
 from cm.util.decorators import TestFlag
-from cm.util.galaxy_conf import attempt_chown_galaxy, attempt_chown_galaxy_if_exists
+from cm.util.galaxy_conf import attempt_chown_galaxy
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
 from cm.util.galaxy_conf import populate_dynamic_options
@@ -230,8 +229,9 @@ class GalaxyService(ApplicationService):
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (
             key, value) for key, value in self.env_vars.iteritems()])
-        run_command = '%s - galaxy -c "%s; sh $GALAXY_HOME/run.sh %s"' % (
-            paths.P_SU, env_exports, args)
+        venv = "source $GALAXY_HOME/.venv/bin/activate"
+        run_command = '%s - galaxy -c "%s; %s; sh $GALAXY_HOME/run.sh %s"' % (
+            paths.P_SU, env_exports, venv, args)
         return run_command
 
     def status(self):
@@ -278,8 +278,9 @@ class GalaxyService(ApplicationService):
                 # Once the service gets running, reset the number of start attempts
                 self.remaining_start_attempts = NUM_START_ATTEMPTS
                 log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
-                misc.run('%s - postgres -c "%s/psql -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "'
-                         % (paths.P_SU, self.app.path_resolver.pg_home, paths.C_PSQL_PORT),
+                misc.run('%s - postgres -c "%s -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "'
+                         % (paths.P_SU, self.app.path_resolver.psql_cmd,
+                            self.app.path_resolver.psql_db_port),
                          "Error granting SELECT grant to 'galaxyftp' user",
                          "Successfully added SELECT grant to 'galaxyftp' user")
             # Force cluster configuration state update on status change
@@ -350,7 +351,7 @@ class GalaxyService(ApplicationService):
                 self.ssl_is_on = False
             nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
-                'galaxy_user_name': 'galaxy',
+                'galaxy_user_name': paths.GALAXY_USER_NAME,
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server,
