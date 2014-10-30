@@ -446,9 +446,9 @@ class Filesystem(DataService):
                 mount_point = self.mount_point
             mount_point = mount_point.replace(
                 '/', '\/')  # Escape slashes for sed
-            cmd = "sed -i '/^{0}/d' {1}".format(mount_point, ee_file)
+            cmd = "sed -i '/^{0}\s/d' {1}".format(mount_point, ee_file)
             log.debug("Removing NSF share for mount point {0}; cmd: {1}".format(
-                mount_point, cmd))
+                      mount_point, cmd))
             # To avoid race conditions between threads, use a lock file
             with flock(self.nfs_lock_file):
                 run(cmd)
