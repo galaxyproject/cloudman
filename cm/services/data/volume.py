@@ -12,7 +12,6 @@ from glob import glob
 from boto.exception import EC2ResponseError
 
 from cm.util.misc import run
-from cm.util.misc import flock
 from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import BlockStorage
@@ -735,17 +734,7 @@ class Volume(BlockStorage):
         Unmount the file system from the specified mount point, removing it from
         NFS in the process.
         """
-        try:
-            mp = mount_point.replace('/', '\/')  # Escape slashes for sed
-            # Because we're unmounting the file systems in separate threads, use a lock file
-            with flock(self.fs.nfs_lock_file):
-                if run("/bin/sed -i 's/^%s/#%s/' /etc/exports" % (mp, mp),
-                        "Error removing '%s' from '/etc/exports'" % mount_point,
-                        "Successfully removed '%s' from '/etc/exports'" % mount_point):
-                    self.fs.dirty = True
-        except Exception, e:
-            log.debug("Problems configuring NFS or /etc/exports: '%s'" % e)
-            return False
+        self.fs.remove_nfs_share()
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
             log.debug("Unmounting volume-based FS from {0}".format(mount_point))
