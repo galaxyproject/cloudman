@@ -158,7 +158,7 @@ class GalaxyService(ApplicationService):
                 # data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
-                attempt_chown_galaxy('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/tmp/' % self.app.path_resolver.galaxy_data)
                 # Make sure the default shed_tools directory exists
                 if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)

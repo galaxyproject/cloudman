@@ -149,6 +149,19 @@ class PathResolver(object):
         return P_GALAXY_HOME
 
     @property
+    def galaxy_config_dir(self):
+        """
+        Get the likely dir where Galaxy's configuration files are located
+        """
+        # Starting with 2014-10-06 Galaxy release, config files are stored in
+        # `galaxy_home/config` dir so check if that dir exists and use it
+        for cfd in ['config', '']:
+            config_dir_path = os.path.join(self.galaxy_home, cfd)
+            if os.path.exists(config_dir_path):
+                break
+        return config_dir_path
+
+    @property
     def lwr_home(self):
         lwr_home = self._get_ud_path('lwr_home', None)
         if lwr_home:
@@ -170,10 +183,6 @@ class PathResolver(object):
         else:
             log.debug("Warning: Returning default path for galaxy_data")
             return P_GALAXY_DATA
-
-    @property
-    def galaxy_config_dir(self):
-        return os.path.join(self.galaxy_data, 'configuration_data', 'galaxy')
 
     @property
     def galaxy_temp(self):

@@ -26,7 +26,7 @@ def _run(log, cmd):
 
 def _is_running(log, process_name):
     """
-    Check if a process with ``process_name`` is running. Return ``True`` is so,
+    Check if a process with ``process_name`` is running. Return ``True`` if so,
     ``False`` otherwise.
     """
     p = _run(log, "ps xa | grep {0} | grep -v grep".format(process_name))

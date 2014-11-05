@@ -33,9 +33,9 @@
                     <div class="help_content" style="display: none">
                         Set admin users for the Galaxy application. This action
                         sets the admin_users value in Galaxy's
-                        universe_wsgi.ini file.  Once these users are
+                        configuration file. Once these users are
                         registered, or if they already are, they will be
-                        administrator users for this galaxy instance.  Note
+                        administrator users for this Galaxy instance.  Note
                         that this action will restart the Galaxy service.
                     </div>
                 </span>

@@ -12,7 +12,7 @@ import logging
 log = logging.getLogger('cloudman')
 
 
-OPTIONS_FILE_NAME = 'universe_wsgi.ini'
+OPTIONS_FILE_NAME = 'galaxy.ini'
 
 
 def attempt_chown_galaxy_if_exists(path):
@@ -41,7 +41,7 @@ def populate_admin_users(option_manager, admins_list=[]):
         (see below) or by calling this method and providing a user list.
         YAML format for user data for providing admin users
         (note that these users will still have to manually register
-        on the given cloud instance):
+        on the given Galaxy instance):
         admin_users:
          - user@example.com
          - user2@anotherexample.edu """
@@ -50,7 +50,7 @@ def populate_admin_users(option_manager, admins_list=[]):
                 admins_list.append(admin)
     if len(admins_list) == 0:
         return False
-    log.info('Adding Galaxy admin users: %s' % admins_list)
+    log.info('Setting Galaxy admin users to: %s' % admins_list)
     option_manager.set_properties({"admin_users": ",".join(admins_list)})
 
 
@@ -104,7 +104,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
     server_name = "%s%d" % (prefix, index)
     if port == 8080:
         # Special case, server on port 8080 must be called main unless we want
-        # to start deleting chunks of universe_wsgi.ini.
+        # to start deleting chunks of galaxy.ini.
         server_name = "main"
     option_manager.set_properties(server_options,
                                   section="server:%s" % server_name,
@@ -168,7 +168,7 @@ def populate_galaxy_paths(option_manager):
 
 class FileGalaxyOptionManager(object):
     """
-    Default Galaxy option manager, modifies $galaxy_home/universe_wsgi
+    Default Galaxy option manager, modifies `$galaxy_config_dir/$OPTIONS_FILE_NAME`
     directly.
     """
 
@@ -179,9 +179,14 @@ class FileGalaxyOptionManager(object):
         """ setup should return conf_dir, in this case there is none."""
         return None
 
-    def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
-        galaxy_home = self.app.path_resolver.galaxy_home
-        config_file_path = join(galaxy_home, OPTIONS_FILE_NAME)
+    def set_properties(self, properties, section="app:main", description=None,
+                       priority_offset=0):
+        """
+        Rewrite Galaxy's conf file `OPTIONS_FILE_NAME` to set options.
+        """
+        galaxy_config_dir = self.app.path_resolver.galaxy_config_dir
+        config_file_path = join(galaxy_config_dir, OPTIONS_FILE_NAME)
+        log.debug("Rewriting Galaxy's main config file: {0}".format(config_file_path))
         input_config_file_path = config_file_path
         if not exists(input_config_file_path):
             input_config_file_path = "%s.sample" % config_file_path
@@ -193,7 +198,7 @@ class FileGalaxyOptionManager(object):
         for key, value in properties.iteritems():
             parser.set(section, key, str(value))
         configfile.close()
-        new_config_file_path = join(galaxy_home, 'universe_wsgi.ini.new')
+        new_config_file_path = join(galaxy_config_dir, '{0}.new'.format(OPTIONS_FILE_NAME))
         with open(new_config_file_path, 'wt') as output_file:
                 parser.write(output_file)
         move(new_config_file_path, config_file_path)
@@ -223,19 +228,19 @@ class DirectoryGalaxyOptionManager(object):
         if not exists(conf_dir):
             makedirs(conf_dir)
             defaults_destination = join(conf_dir, "010_%s" % self.conf_file_name)
-            galaxy_home = self.app.path_resolver.galaxy_home
-            universe_wsgi = join(galaxy_home, self.conf_file_name)
-            if not exists(universe_wsgi):
+            galaxy_config_dir = self.app.path_resolver.galaxy_config_dir
+            config_file_path = join(galaxy_config_dir, self.conf_file_name)
+            if not exists(config_file_path):
                 # Fresh install, take the oppertunity to just link in defaults
                 sample_name = "%s.sample" % self.conf_file_name
-                defaults_source = join(galaxy_home, sample_name)
+                defaults_source = join(galaxy_config_dir, sample_name)
                 symlink(defaults_source, defaults_destination)
             else:
                 # CloudMan has previously been run without the galaxy_conf_dir
                 # option enabled. Users may have made modifications to
                 # universe_wsgi.ini that I guess we should preserve for
                 # backward compatibility.
-                defaults_source = join(galaxy_home, self.conf_file_name)
+                defaults_source = join(galaxy_config_dir, self.conf_file_name)
                 copyfile(defaults_source, defaults_destination)
 
     def set_properties(self, properties, section="app:main", description=None, priority_offset=0):

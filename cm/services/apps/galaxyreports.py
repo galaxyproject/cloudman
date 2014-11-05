@@ -68,7 +68,7 @@ class GalaxyReportsService(ApplicationService):
                                               description='proxy_prefix_props')
 
     def remove(self, synchronous=False):
-        if self.state in [service_states.RUNNING, service_states.STARTING]:
+        if self.state in [service_states.RUNNING, service_states.STARTING, service_states.ERROR]:
             log.info("Removing '%s' service" % self.name)
             super(GalaxyReportsService, self).remove(synchronous)
             self.state = service_states.SHUTTING_DOWN
