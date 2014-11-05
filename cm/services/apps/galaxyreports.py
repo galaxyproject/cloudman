@@ -40,8 +40,7 @@ class GalaxyReportsService(ApplicationService):
         self.status()
         if not self.state == service_states.RUNNING:
             self._setup()
-            # --sync-config will update Galaxy Report's database settings with Galaxy's.
-            started = self._run("--sync-config start")
+            started = self._run("start")
             if not started:
                 log.warn("Failed to setup or run galaxy reports server.")
                 self.state = service_states.ERROR
@@ -52,10 +51,14 @@ class GalaxyReportsService(ApplicationService):
                                                               conf_dir=self.conf_dir,
                                                               conf_file_name='reports_wsgi.ini')
         reports_option_manager.setup()
+        file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
+        new_file_path = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
         main_props = {
-            # Place dummy database_connection for run_reports.sh's --sync-config option to replace
-            'database_connection': 'dummy',
+            'database_connection': "postgres://galaxy@localhost:{0}/galaxy" \
+                                   .format(self.app.path_resolver.psql_db_port),
             'filter-with': 'proxy-prefix',
+            'file_path': file_path,
+            'new_file_path': new_file_path
         }
         proxy_props = {
             'use': 'egg:PasteDeploy#prefix',
