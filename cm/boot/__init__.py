@@ -100,6 +100,7 @@ def _start_nginx(ud):
     nginx_executable = _nginx_executable(log)
     log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
     if not _is_running(log, 'nginx'):
+        log.debug("nginx not running; will try and start it now")
         if not _run(log, nginx_executable):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?

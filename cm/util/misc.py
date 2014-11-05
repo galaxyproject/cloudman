@@ -724,7 +724,7 @@ def get_file_from_public_bucket(ud, bucket_name, remote_filename, local_file):
 
     url = urlparse.urljoin(url, bucket_name + "/")
     url = urlparse.urljoin(url, remote_filename)
-
+    log.debug("Fetching file {0} and saving it as {1}".format(url, local_file))
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
         f = open(local_file, 'w')

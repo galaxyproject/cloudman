@@ -35,7 +35,7 @@ def _run(log, cmd):
         return False
 
 def _is_running(log, process_name):
-    '\n    Check if a process with ``process_name`` is running. Return ``True`` is so,\n    ``False`` otherwise.\n    '
+    '\n    Check if a process with ``process_name`` is running. Return ``True`` if so,\n    ``False`` otherwise.\n    '
     p = _run(log, 'ps xa | grep {0} | grep -v grep'.format(process_name))
     return (p and (process_name in p))
 
@@ -262,6 +262,7 @@ def _start_nginx(ud):
     nginx_executable = _nginx_executable(log)
     log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
     if (not _is_running(log, 'nginx')):
+        log.debug('nginx not running; will try and start it now')
         if (not _run(log, nginx_executable)):
             _run(log, '/etc/init.d/apache2 stop')
             _run(log, '/etc/init.d/tntnet stop')
