@@ -14,6 +14,7 @@ from cm.instance import Instance
 from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
+from cm.services.registry import ServiceRegistry
 from cm.services.apps.galaxy import GalaxyService
 from cm.services.apps.galaxyreports import GalaxyReportsService
 from cm.services.apps.hadoop import HadoopService
@@ -76,6 +77,7 @@ class ConsoleManager(BaseConsoleManager):
         self.master_exec_host = True
         self.initial_cluster_type = None
         self.cluster_storage_type = None
+        self.service_registry = ServiceRegistry(self.app)
         self.services = []
         # Static data - get snapshot IDs from the default bucket and add respective file systems
         self.snaps = self._load_snapshot_data()
@@ -92,6 +94,7 @@ class ConsoleManager(BaseConsoleManager):
     def add_master_service(self, new_service):
         if not self.get_services(svc_name=new_service.name):
             log.debug("Adding service %s into the master service registry" % new_service.name)
+            # self.service_registry.load(new_service)
             self.services.append(new_service)
             self._update_dependencies(new_service, "ADD")
         else:
@@ -228,8 +231,11 @@ class ConsoleManager(BaseConsoleManager):
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'],
            'snaps.yaml', snaps_file):
             pass
-        elif misc.get_file_from_public_bucket(self.app.ud, self.app.ud['bucket_default'], 'snaps.yaml', snaps_file):
-            log.warn("Couldn't get snaps.yaml from bucket: %s. However, managed to retrieve from public s3 url instead." % self.app.ud['bucket_default'])
+        elif misc.get_file_from_public_bucket(self.app.ud, self.app.ud['bucket_default'],
+             'snaps.yaml', snaps_file):
+            log.warn("Couldn't get snaps.yaml from bucket: {0}. However, managed "
+                     "to retrieve it from public S3 bucket {0} instead.".format(
+                     self.app.ud['bucket_default']))
         else:
             log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
             return []
@@ -612,6 +618,16 @@ class ConsoleManager(BaseConsoleManager):
         all services matching type.
         """
         svcs = []
+        # Commenetd out until transition to the the Registry is complete
+        # for service_name in self.service_registry.services:
+        #     service = self.service_registry.services[service_name]
+        #     if service_name == svc_name:
+        #         return [service]
+        #     elif svc_role in service.svc_roles:
+        #         svcs.append(service)
+        #     elif service.svc_type == svc_type and svc_role is None:
+        #         svcs.append(service)
+
         for s in self.services:
             if s.name is None:  # Sanity check
                 log.error("A name has not been assigned to the service. A value must be assigned to the svc.name property.")
@@ -621,7 +637,6 @@ class ConsoleManager(BaseConsoleManager):
                 svcs.append(s)
             elif s.svc_type == svc_type and svc_role is None:
                 svcs.append(s)
-
         return svcs
 
     def get_srvc_status(self, srvc):
@@ -746,8 +761,12 @@ class ConsoleManager(BaseConsoleManager):
     def get_galaxy_admins(self):
         admins = 'None'
         try:
-            config_file = open(os.path.join(
-                self.app.path_resolver.galaxy_home, 'universe_wsgi.ini'), 'r').readlines()
+            for cf in ['galaxy.ini', 'universe_wsgi.ini']:
+                config_file_path = os.path.join(
+                    self.app.path_resolver.galaxy_config_dir, cf)
+                if os.path.exists(config_file_path):
+                    break
+            config_file = open(config_file_path, 'r').readlines()
             for line in config_file:
                 if 'admin_users' in line:
                     admins = line.split('=')[1].strip()
@@ -2065,7 +2084,6 @@ class ConsoleMonitor(object):
         # Start the monitor thread
         self.monitor_thread = threading.Thread(target=self.__monitor)
 
-    @TestFlag(None)
     def start(self):
         """
         Start the monitor thread, which monitors and manages all the services
@@ -2085,6 +2103,7 @@ class ConsoleMonitor(object):
                                                                self.app.ud['cluster_name']))
         except Exception, e:
             log.debug("Error setting tags on the master instance: %s" % e)
+        self.app.manager.service_registry.load_services()
         self.monitor_thread.start()
 
     def shutdown(self):
@@ -2242,7 +2261,7 @@ class ConsoleMonitor(object):
                                'tool_data_table_conf.xml',
                                'shed_tool_conf.xml',
                                'datatypes_conf.xml']:
-                    if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_home, f_name))) or \
+                    if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_config_dir, f_name))) or \
                        (misc.file_in_bucket_older_than_local(s3_conn, self.app.ud['bucket_cluster'], '%s.cloud' % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
                         log.debug(
                             "Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name,
