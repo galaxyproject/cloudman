@@ -428,8 +428,8 @@ class CM(BaseController):
             log_file = "paster.log"
         elif service_name == 'GalaxyReports':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
-        elif service_name == 'LWR':
-            log_file = os.path.join(self.app.path_resolver.lwr_home, 'paster.log')
+        elif service_name == 'Pulsar':
+            log_file = os.path.join(self.app.path_resolver.pulsar_home, 'paster.log')
         # Set log length
         if num_lines:
             if show == 'more':

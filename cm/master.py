@@ -23,6 +23,7 @@ from cm.services.apps.migration import MigrationService
 from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
+from cm.services.apps.pulsar import PulsarService
 from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
@@ -1323,6 +1324,7 @@ class ConsoleManager(BaseConsoleManager):
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
             pass
+            self.add_master_service(PulsarService(self.app))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
