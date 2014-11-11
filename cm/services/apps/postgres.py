@@ -21,7 +21,7 @@ class PostgresService(ApplicationService):
         super(PostgresService, self).__init__(app)
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
         self.svc_roles = [ServiceRole.GALAXY_POSTGRES]
-        self.psql_port = paths.C_PSQL_PORT
+        self.psql_port = app.path_resolver.psql_db_port
         self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
                      ServiceDependency(self, ServiceRole.MIGRATION)]
 
