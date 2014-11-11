@@ -318,7 +318,7 @@ class PathResolver(object):
         major version number, *Minor* is the minor version number. For
         example, PostgreSQL v9.1.14 will be set to run on port 5910.
         """
-        cmd = ("{0} --version | cut -d')' -f2 | tr -d ' ' | cut -d'.' -f1,2 | tr -d '.'"
+        cmd = ("{0} --version | head -n 1 | cut -d')' -f2 | tr -d ' ' | cut -d'.' -f1,2 | tr -d '.'"
                .format(self.psql_cmd))
         try:
             ver_number = commands.getoutput(cmd)
