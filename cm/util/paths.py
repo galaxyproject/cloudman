@@ -97,8 +97,8 @@ P_GALAXY_TOOLS = get_path(
     "galaxy_tools", os.path.join(P_MOUNT_ROOT, "galaxy"))
 P_GALAXY_HOME = get_path(
     "galaxy_home", os.path.join(P_GALAXY_TOOLS, "galaxy-app"))
-P_LWR_HOME = get_path(
-    "lwr_home", os.path.join(P_GALAXY_TOOLS, "lwr"))
+P_PULSAR_HOME = get_path(
+    "pulsar_home", os.path.join('/mnt', "pulsar"))
 P_GALAXY_DATA = get_path(
     "galaxy_data", os.path.join(P_MOUNT_ROOT, 'galaxy'))
 P_GALAXY_INDICES = get_path(
@@ -162,17 +162,11 @@ class PathResolver(object):
         return config_dir_path
 
     @property
-    def lwr_home(self):
-        lwr_home = self._get_ud_path('lwr_home', None)
-        if lwr_home:
-            return lwr_home
-        # Get the required file system where LWR should be kept
-        galaxy_tools_fs_svc = self.manager.get_services(
-            svc_role=ServiceRole.GALAXY_TOOLS)
-        lwr_home = os.path.join(galaxy_tools_fs_svc[0].mount_point, 'lwr')
-        if os.path.exists(lwr_home):
-            return lwr_home
-        return P_LWR_HOME
+    def pulsar_home(self):
+        pulsar_home = self._get_ud_path('pulsar_home', None)
+        if pulsar_home:
+            return pulsar_home
+        return P_PULSAR_HOME
 
     @property
     def galaxy_data(self):

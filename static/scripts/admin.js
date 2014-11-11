@@ -63,7 +63,7 @@ function update(repeat_update){
                 update_application_status("#sge_status", data.SGE);
                 update_application_status("#proftpd_status", data.ProFTPd);
                 update_application_status("#galaxyreports_status", data.GalaxyReports);
-                update_application_status("#lwr_status", data.LWR);
+                update_application_status("#pulsar_status", data.Pulsar);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
