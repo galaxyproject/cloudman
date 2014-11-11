@@ -355,8 +355,7 @@ class SGEService(BaseJobManager):
                     "sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             host_conf_file = os.path.join(host_conf_dir, str(inst_alias))
             with open(host_conf_file, 'w') as f:
-                print >> f, conf_manager.load_conf_template(conf_manager.SGE_HOST_CONF_TEMPLATE) % (
-                    inst_private_ip)
+                print >> f, conf_manager.load_conf_template(conf_manager.SGE_HOST_CONF_TEMPLATE).substitute({ 'hostname': inst_private_ip })
             os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
             log.debug(
