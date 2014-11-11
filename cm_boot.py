@@ -361,6 +361,8 @@ def _get_cm(ud):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
     elif ('cloudman_repository' in ud):
         url = ud.get('cloudman_repository')
+    elif 'nectar' in ud.get('cloud_name', '').lower():
+        url = "https://{0}:{1}{2}{3}{4}/{5}".format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'V1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
     else:
         url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
     log.info(('Attempting to retrieve from from %s' % url))
