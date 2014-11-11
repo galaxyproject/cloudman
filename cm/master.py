@@ -229,8 +229,9 @@ class ConsoleManager(BaseConsoleManager):
         snaps = []
         cloud_name = self.app.ud.get('cloud_name', 'amazon').lower()
         # Get a list of default file system data sources
+        validate = True if self.app.cloud_type == 'ec2' else False
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.ud['bucket_default'],
-           'snaps.yaml', snaps_file):
+           'snaps.yaml', snaps_file, validate=validate):
             pass
         elif misc.get_file_from_public_bucket(self.app.ud, self.app.ud['bucket_default'],
              'snaps.yaml', snaps_file):
@@ -1352,9 +1353,9 @@ class ConsoleManager(BaseConsoleManager):
                 share_string, e))
             return False
         # Check that the shared cluster's bucket exists
-        if not misc.bucket_exists(s3_conn, bucket_name, validate=False):
-            log.error(
-                "Shared cluster's bucket '%s' does not exist or is not accessible!" % bucket_name)
+        if not misc.bucket_exists(s3_conn, bucket_name):
+            log.error("Shared cluster's bucket '%s' does not exist or is not "
+                      "accessible!" % bucket_name)
             return False
         # Create the new cluster's bucket
         if not misc.bucket_exists(s3_conn, self.app.ud['bucket_cluster']):
