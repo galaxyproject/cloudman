@@ -195,13 +195,17 @@ def formatDelta(delta):
         return '%sm %ss' % (m, s)
 
 
-def bucket_exists(s3_conn, bucket_name, validate=True):
+def bucket_exists(s3_conn, bucket_name):
     if s3_conn is None:
         log.debug("Checking if S3 bucket exists, but no S3 connection provided!?")
         return False
     if bucket_name:
         try:
-            b = s3_conn.lookup(bucket_name, validate=validate)
+            b = s3_conn.get_bucket(bucket_name, validate=False)
+            try:
+                b.get_all_keys(maxkeys=0)
+            except S3ResponseError:
+                b = None  # The bucket does not exist
             if b:
                 # log.debug("Checking if bucket '%s' exists... it does." %
                 # bucket_name)
@@ -227,10 +231,10 @@ def create_bucket(s3_conn, bucket_name):
     return True
 
 
-def get_bucket(s3_conn, bucket_name, validate=True):
+def get_bucket(s3_conn, bucket_name, validate=False):
     """Get handle to bucket"""
     b = None
-    if bucket_exists(s3_conn, bucket_name, validate):
+    if bucket_exists(s3_conn, bucket_name):
         for i in range(0, 5):
             try:
                 b = s3_conn.get_bucket(bucket_name, validate=validate)
@@ -564,13 +568,17 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
 
 
 def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=True):
-    if bucket_exists(conn, bucket_name, validate):
+    if bucket_exists(conn, bucket_name):
         b = get_bucket(conn, bucket_name, validate)
         k = Key(b, remote_filename)
         try:
             k.get_contents_to_filename(local_file)
-            log.debug("Retrieved file '%s' from bucket '%s' on host '%s' to '%s'."
-                      % (remote_filename, bucket_name, conn.host, local_file))
+            if os.path.getsize(local_file) != 0:
+                log.debug("Retrieved file '%s' from bucket '%s' on host '%s' to '%s'."
+                          % (remote_filename, bucket_name, conn.host, local_file))
+            else:
+                log.warn("Got an empty file ({0})?!".format(local_file))
+                return False
         except S3ResponseError as e:
             log.debug("Failed to get file '%s' from bucket '%s': %s" % (
                 remote_filename, bucket_name, e))

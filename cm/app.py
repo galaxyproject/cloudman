@@ -96,9 +96,11 @@ class UniverseApplication(object):
         self.manager = None
         if self.use_object_store and 'bucket_cluster' in self.ud:
             log.debug("Getting pd.yaml")
+            validate = True if self.cloud_type == 'ec2' else False
             if misc.get_file_from_bucket(self.cloud_interface.get_s3_connection(),
                                          self.ud['bucket_cluster'],
-                                         'persistent_data.yaml', 'pd.yaml'):
+                                         'persistent_data.yaml', 'pd.yaml',
+                                         validate=validate):
                 pd = misc.load_yaml_file('pd.yaml')
                 self.ud = misc.merge_yaml_objects(self.ud, pd)
                 self.ud = misc.normalize_user_data(self, self.ud)
