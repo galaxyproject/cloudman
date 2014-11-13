@@ -163,7 +163,7 @@ class CM(BaseController):
                 new_vol_size = int(new_vol_size)
                 # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
                 if (new_vol_size > self.app.manager.get_permanent_storage_size()
-                   and new_vol_size < 1000):
+                   and new_vol_size < 16000):
                     self.app.manager.expand_user_data_volume(new_vol_size,
                                                              fs_name=fs_name,
                                                              snap_description=vol_expand_desc,
