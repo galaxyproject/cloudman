@@ -24,7 +24,7 @@ from cm.services.apps.postgres import PostgresService
 from cm.services.apps.proftpd import ProFTPdService
 from cm.services.apps.pss import PSSService
 from cm.services.apps.pulsar import PulsarService
-from cm.services.autoscale import Autoscale
+from cm.services.autoscale import AutoscaleService
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
 from cm.util.decorators import TestFlag
@@ -93,21 +93,24 @@ class ConsoleManager(BaseConsoleManager):
         return int(commands.getoutput("/usr/bin/nproc"))
 
     def add_master_service(self, new_service):
-        if not self.get_services(svc_name=new_service.name):
-            log.debug("Adding service %s into the master service registry" % new_service.name)
-            # self.service_registry.load(new_service)
-            self.services.append(new_service)
+        service = self.service_registry.services.get(new_service.name, None)
+        if service:
+            log.debug("Activating service {0}".format(new_service.name))
+            service.activated = True
             self._update_dependencies(new_service, "ADD")
         else:
-            log.debug("Would add master service %s but one already exists" % new_service.name)
+            log.debug("Could not find service {0} to activate?!".format(
+                      new_service.name))
 
     def remove_master_service(self, service_to_remove):
-        if service_to_remove in self.services:
-            self.services.remove(service_to_remove)
+        service = self.service_registry.services.get(service_to_remove.name, None)
+        if service:
+            log.debug("Deactivating service {0}".format(service_to_remove.name))
+            service.activated = True
             self._update_dependencies(service_to_remove, "REMOVE")
         else:
-            log.warning("Tried to remove service {0} but service not found in {1}"
-                        .format(service_to_remove, self.services))
+            log.debug("Could not find service {0} to deactivate?!".format(
+                      service_to_remove.name))
 
     def _update_dependencies(self, new_service, action):
         """
@@ -328,7 +331,8 @@ class ConsoleManager(BaseConsoleManager):
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
-        self.add_master_service(tfs)
+        # FIXME: Filesystem services also need to be added into the service registry
+        # self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSSService(self.app))
@@ -559,7 +563,7 @@ class ConsoleManager(BaseConsoleManager):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if not as_svc:
             self.add_master_service(
-                Autoscale(self.app, as_min, as_max, instance_type))
+                AutoscaleService(self.app, as_min, as_max, instance_type))
         else:
             log.debug("Autoscaling is already on.")
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -620,25 +624,14 @@ class ConsoleManager(BaseConsoleManager):
         all services matching type.
         """
         svcs = []
-        # Commenetd out until transition to the the Registry is complete
-        # for service_name in self.service_registry.services:
-        #     service = self.service_registry.services[service_name]
-        #     if service_name == svc_name:
-        #         return [service]
-        #     elif svc_role in service.svc_roles:
-        #         svcs.append(service)
-        #     elif service.svc_type == svc_type and svc_role is None:
-        #         svcs.append(service)
-
-        for s in self.services:
-            if s.name is None:  # Sanity check
-                log.error("A name has not been assigned to the service. A value must be assigned to the svc.name property.")
-            elif s.name == svc_name:
-                return [s]  # Only one match possible - so return it immediately
-            elif svc_role in s.svc_roles:
-                svcs.append(s)
-            elif s.svc_type == svc_type and svc_role is None:
-                svcs.append(s)
+        for service_name in self.service_registry.services:
+            service = self.service_registry.services[service_name]
+            if service_name == svc_name:
+                return [service]
+            elif svc_role in service.svc_roles:
+                svcs.append(service)
+            elif service.svc_type == svc_type and svc_role is None:
+                svcs.append(service)
         return svcs
 
     def get_srvc_status(self, srvc):
@@ -898,8 +891,8 @@ class ConsoleManager(BaseConsoleManager):
 
         .. seealso:: `~cm.util.master.delete_cluster`
         """
-        log.debug("List of services before shutdown: %s" % [
-                  s.get_full_name() for s in self.services])
+        log.debug("List of services before shutdown: {0}".format(
+                  self.service_registry.services))
         self.cluster_status = cluster_status.SHUTTING_DOWN
         # Services need to be shut down in particular order
         if sd_autoscaling:
@@ -2170,7 +2163,7 @@ class ConsoleMonitor(object):
             if addl_data:
                 cc = addl_data
             cc['tags'] = self.app.cloud_interface.tags  # save cloud tags, in case the cloud doesn't support them natively
-            for srvc in self.app.manager.services:
+            for srvc in self.app.manager.service_registry.active():
                 if srvc.svc_type == ServiceType.FILE_SYSTEM:
                     if srvc.persistent:
                         fs = {}
@@ -2325,11 +2318,12 @@ class ConsoleMonitor(object):
     def __add_services(self):
         # Check and add any new services
         added_srvcs = False  # Flag to indicate if cluster conf was changed
-        for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
-            log.debug("Monitor adding service '%s'" % service.get_full_name())
-            self.last_system_change_time = Time.now()
-            if service.add():
-                added_srvcs = True  # else:
+        for service in self.app.manager.service_registry.active():
+            if service.state == service_states.UNSTARTED:
+                log.debug("Monitor adding service '%s'" % service.get_full_name())
+                self.last_system_change_time = Time.now()
+                if service.add():
+                    added_srvcs = True
 
             # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
             # .format(service.get_full_name(), service.state))
@@ -2399,7 +2393,7 @@ class ConsoleMonitor(object):
             if (Time.now() - self.last_update_time).seconds > self.update_frequency:
                 self.last_update_time = Time.now()
                 self.app.manager.check_disk()
-                for service in self.app.manager.services:
+                for service in self.app.manager.service_registry.active():
                     service.status()
                 # Indicate migration is in progress
                 migration_service = self.app.manager.get_services(svc_role=ServiceRole.MIGRATION)
@@ -2413,7 +2407,7 @@ class ConsoleMonitor(object):
                         self.app.msgs.remove_message(msg)
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
-                for s in self.app.manager.services:
+                for s in self.app.manager.service_registry.active():
                     svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances

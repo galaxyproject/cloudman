@@ -7,9 +7,9 @@ from cm.services import (Service, ServiceDependency, ServiceRole, ServiceType,
 log = logging.getLogger('cloudman')
 
 
-class Autoscale(Service):
+class AutoscaleService(Service):
     def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
-        self.app = app
+        super(AutoscaleService, self).__init__(app)
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
         self.svc_type = ServiceType.CM_SERVICE

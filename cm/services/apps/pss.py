@@ -67,8 +67,9 @@ class PSSService(ApplicationService):
                 awaiting_galaxy = True
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
-            for srvc in self.app.manager.services:
-                if srvc != self and not (srvc.running() or srvc.completed()):
+            for srvc in self.app.manager.service_registry.itervalues():
+                if srvc.activated and srvc != self and \
+                   not (srvc.running() or srvc.completed()):
                     prereqs_ok = False
                     break
             if prereqs_ok and awaiting_galaxy:
