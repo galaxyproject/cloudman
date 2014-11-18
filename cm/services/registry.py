@@ -18,6 +18,23 @@ class ServiceRegistry(object):
     def __iter__(self):
         return iter(self.services)
 
+    def iteritems(self):
+        return iter(self.services.iteritems())
+
+    def itervalues(self):
+        return iter(self.services.itervalues())
+
+    def active(self):
+        """
+        An iterator of currently `active` services.
+        """
+        active = []
+        for service in self.itervalues():
+            if service.activated:
+                active.append(service)
+        log.debug("Active services: {0}".format(active))
+        return iter(active)
+
     def __repr__(self):
         return "ServiceRegistry"
 
@@ -42,6 +59,8 @@ class ServiceRegistry(object):
         # Import the service module and instantiate the service class
         service = None
         if service_class_name:
+            log.debug("Importing service name {0} as module {1}".format(
+                      service_class_name, module))
             service_module = importlib.import_module(module)
             service = getattr(service_module, service_class_name)(self.app)
         else:
@@ -60,6 +79,7 @@ class ServiceRegistry(object):
         :rtype: dictionary
         :returns: loaded services
         """
+        log.debug("Initiating loading of services")
         for service_path in self.find_services():
             try:
                 service = self.load_service(service_path)
@@ -86,12 +106,12 @@ class ServiceRegistry(object):
         """
         for directory in self.directories:
             # log.debug("1 Looking in dir {0}".format(directory))
-            for dl in os.walk(directory):
-                # log.debug("2 Walking dir {0}".format(dl))
-                for d in dl[1]:
-                    # log.debug("3 Looking in subdir {0}".format(os.path.join(dl[0], d, '*.py')))
-                    for sp in glob.glob(os.path.join(dl[0], d, '*.py')):
-                        # log.debug("4 Found py file {0}".format(sp))
+            for dl in os.walk(directory):  # dl = directory listing
+                # log.debug(" 2 Walking dir {0}".format(dl))
+                for d in ([''] + dl[1]):  # d = directory; include current dir
+                    # log.debug("  3 Looking for {0}".format(os.path.join(dl[0], d, '*.py')))
+                    for sp in glob.glob(os.path.join(dl[0], d, '*.py')):  # sp = service path
+                        # log.debug("   4 Found py file {0}".format(sp))
                         if self.is_service(sp):
                             yield sp
 
@@ -109,6 +129,7 @@ class ServiceRegistry(object):
         # Look for a definition of the service class that matches the service
         # file name
         if "class {0}service".format(service_name) in open(service_path).read().lower():
-            # log.debug("5 {0} is in fact a service impl".format(service_path))
+            # log.debug("    5 {0} is in fact a service impl".format(service_path))
             return True
+        # log.debug("    6 {0} is not a service impl".format(service_path))
         return False

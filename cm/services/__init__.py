@@ -264,6 +264,7 @@ class Service(object):
 
     def __init__(self, app, service_type=None):
         self.app = app
+        self.activated = False
         self.state = service_states.UNSTARTED
         self.last_state_change_time = dt.datetime.utcnow()
         self.name = None
@@ -289,11 +290,11 @@ class Service(object):
             failed_prereqs = self.dependencies[:]
             # List of service prerequisites that have not been satisfied
             for dependency in self.dependencies:
-                # log.debug("'%s' service checking its prerequisite '%s:%s'" \
+                # log.debug("'%s' service checking its prerequisite '%s:%s'"
                 #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
                 no_services_satisfy_dependency = True
                 remove_dependency = False
-                for svc in self.app.manager.services:
+                for svc in self.app.manager.service_registry.itervalues():
                     # log.debug("Checking service %s state." % svc.name)
                     if dependency.is_satisfied_by(svc):
                         no_services_satisfy_dependency = False
@@ -329,7 +330,7 @@ class Service(object):
         for proper removal of service dependencies.
         """
         log.debug("Removing dependencies of service: {0}".format(self.name))
-        for service in self.app.manager.services:
+        for service in self.app.manager.service_registry.itervalues():
             for dependency in service.dependencies:
                 if (dependency.is_satisfied_by(self)):
                     service.remove()
