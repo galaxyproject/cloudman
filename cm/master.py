@@ -2100,6 +2100,7 @@ class ConsoleMonitor(object):
         except Exception, e:
             log.debug("Error setting tags on the master instance: %s" % e)
         self.app.manager.service_registry.load_services()
+        log.debug("Loaded services: {0}".format(self.app.manager.service_registry.services))
         self.monitor_thread.start()
 
     def shutdown(self):
