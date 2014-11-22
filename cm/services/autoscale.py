@@ -19,6 +19,9 @@ class AutoscaleService(Service):
         self.as_min = as_min  # Min number of nodes autoscale should maintain
         self.instance_type = instance_type  # Type of instances to start
 
+    def __repr__(self):
+        return "Autoscale"
+
     def get_full_name(self):
         return "AS"  # A shortcut name for log display
 

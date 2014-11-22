@@ -108,12 +108,10 @@ class ServiceRegistry(object):
             # log.debug("1 Looking in dir {0}".format(directory))
             for dl in os.walk(directory):  # dl = directory listing
                 # log.debug(" 2 Walking dir {0}".format(dl))
-                for d in ([''] + dl[1]):  # d = directory; include current dir
-                    # log.debug("  3 Looking for {0}".format(os.path.join(dl[0], d, '*.py')))
-                    for sp in glob.glob(os.path.join(dl[0], d, '*.py')):  # sp = service path
-                        # log.debug("   4 Found py file {0}".format(sp))
-                        if self.is_service(sp):
-                            yield sp
+                for sp in glob.glob(os.path.join(dl[0], '*.py')):  # sp = service path
+                    # log.debug("   3 Found py file {0}".format(sp))
+                    if self.is_service(sp):
+                        yield sp
 
     def is_service(self, service_path):
         """
@@ -129,7 +127,7 @@ class ServiceRegistry(object):
         # Look for a definition of the service class that matches the service
         # file name
         if "class {0}service".format(service_name) in open(service_path).read().lower():
-            # log.debug("    5 {0} is in fact a service impl".format(service_path))
+            # log.debug("    4 {0} is in fact a service impl".format(service_path))
             return True
-        # log.debug("    6 {0} is not a service impl".format(service_path))
+        # log.debug("    5 {0} is not a service impl".format(service_path))
         return False
