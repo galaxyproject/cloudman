@@ -93,20 +93,38 @@ class ConsoleManager(BaseConsoleManager):
         return int(commands.getoutput("/usr/bin/nproc"))
 
     def add_master_service(self, new_service):
-        service = self.service_registry.services.get(new_service.name, None)
-        if service:
-            log.debug("Activating service {0}".format(new_service.name))
-            service.activated = True
-            self._update_dependencies(new_service, "ADD")
+        """
+        Mark the `new_service` as *activated* in the service registry, which
+        will in turn trigger the service start. The `new_service` needs to be
+        an object of the desired service.
+        """
+        ok = True
+        # File system services get explicitly added into the registry. This is
+        # because a multiple file systems correspond to the same service
+        # implementation class.
+        if new_service.svc_type == ServiceType.FILE_SYSTEM and \
+           new_service.name not in self.service_registry.services:
+            log.debug("Adding a new file system service into the registry: {0}"
+                      .format(new_service.name))
+            ok = self.service_registry.register(new_service)
+        if ok:
+            # Activate the service
+            service = self.service_registry.services.get(new_service.name, None)
+            if service:
+                log.debug("Activating service {0}".format(new_service.name))
+                service.activated = True
+                self._update_dependencies(new_service, "ADD")
+            else:
+                log.debug("Could not find service {0} to activate?!".format(
+                          new_service.name))
         else:
-            log.debug("Could not find service {0} to activate?!".format(
-                      new_service.name))
+            log.warning("Did not activate service {0}".format(new_service))
 
     def remove_master_service(self, service_to_remove):
         service = self.service_registry.services.get(service_to_remove.name, None)
         if service:
             log.debug("Deactivating service {0}".format(service_to_remove.name))
-            service.activated = True
+            service.activated = False
             self._update_dependencies(service_to_remove, "REMOVE")
         else:
             log.debug("Could not find service {0} to deactivate?!".format(
@@ -331,8 +349,7 @@ class ConsoleManager(BaseConsoleManager):
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
-        # FIXME: Filesystem services also need to be added into the service registry
-        # self.add_master_service(tfs)
+        self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
         self.add_master_service(PSSService(self.app))

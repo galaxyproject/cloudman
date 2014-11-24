@@ -38,6 +38,27 @@ class ServiceRegistry(object):
     def __repr__(self):
         return "ServiceRegistry"
 
+    def register(self, service_object):
+        """
+        Explicitly register (ie. add) a `service_object` with the registry.
+        The `service_object` needs to be an instantiated instance of the
+        service object.
+        """
+        try:
+            service_name = service_object.name
+            log.debug("Registering service {0} with the registry".format(
+                      service_name))
+            if service_name not in self.services:
+                self.services[service_name] = service_object
+                return True
+            else:
+                log.warning("Service {0} already exists in the registry."
+                            .format(service_name))
+        except Exception, e:
+            log.error("Service object {0} does not have name attribute: {1}"
+                      .format(service_object, e))
+        return False
+
     def load_service(self, service_path):
         """
         Load the service class pointed to by `service_path` and return an
