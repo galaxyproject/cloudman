@@ -44,7 +44,7 @@ def _get_sge_install_conf(app, host):
     app -- The cloudman app
     host -- the host param string is used for admin, submit and exec hosts
     """
-    
+
     # Add master as an execution host
     # Additional execution hosts will be added later, as they start
     sge_install_template = conf_manager.load_conf_template(conf_manager.SGE_INSTALL_TEMPLATE)
@@ -61,6 +61,7 @@ def _get_sge_install_conf(app, host):
             sge_params[key] = value
 
     return sge_install_template.substitute(sge_params)
+
 
 class SGEService(BaseJobManager):
     def __init__(self, app):
@@ -80,7 +81,6 @@ class SGEService(BaseJobManager):
             self.state = service_states.ERROR
 
     def remove(self, synchronous=False):
-        # TODO write something to clean up SGE in the case of restarts?
         log.info("Removing SGE service")
         super(SGEService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
@@ -172,7 +172,6 @@ class SGEService(BaseJobManager):
         subprocess.call('%s -R sgeadmin:sgeadmin %s' % (
             paths.P_CHOWN, self.app.path_resolver.sge_root), shell=True)
         return True
-
 
     @TestFlag(None)
     def _configure_sge(self):
@@ -355,7 +354,7 @@ class SGEService(BaseJobManager):
                     "sgeadmin")[2], grp.getgrnam("sgeadmin")[2])
             host_conf_file = os.path.join(host_conf_dir, str(inst_alias))
             with open(host_conf_file, 'w') as f:
-                print >> f, conf_manager.load_conf_template(conf_manager.SGE_HOST_CONF_TEMPLATE).substitute({ 'hostname': inst_private_ip })
+                print >> f, conf_manager.load_conf_template(conf_manager.SGE_HOST_CONF_TEMPLATE).substitute({'hostname': inst_private_ip})
             os.chown(host_conf_file, pwd.getpwnam("sgeadmin")[
                      2], grp.getgrnam("sgeadmin")[2])
             log.debug(
