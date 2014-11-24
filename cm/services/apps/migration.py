@@ -292,9 +292,11 @@ class MigrationService(ApplicationService, Migrate1to2):
                 self.state = service_states.ERROR
             else:
                 self.state = service_states.COMPLETED
+                self.activated = False
         else:
             log.debug("No migration required. Service complete.")
             self.state = service_states.COMPLETED
+            self.activated = False
 
     def _apply(self):
         """

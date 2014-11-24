@@ -25,7 +25,7 @@ class SlurmctldService(BaseJobManager):
         self.name = ServiceRole.to_string(ServiceRole.SLURMCTLD)
         self.dependencies = [
             ServiceDependency(self, ServiceRole.MIGRATION),
-            #TMP ServiceDependency(self, ServiceRole.TRANSIENT_NFS),
+            ServiceDependency(self, ServiceRole.TRANSIENT_NFS),
         ]
         self.slurm_info = SlurmInfo()
         self.num_restarts = 0

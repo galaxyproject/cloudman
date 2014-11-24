@@ -334,6 +334,9 @@ class Service(object):
             for dependency in service.dependencies:
                 if (dependency.is_satisfied_by(self)):
                     service.remove()
+                    log.debug("Setting service {0} as not `activated`".format(
+                              service.get_full_name()))
+                    service.activated = False
 
     def running(self):
         """
