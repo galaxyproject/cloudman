@@ -148,6 +148,7 @@ class PSSService(ApplicationService):
             # once)
             self.remove()
         self.state = service_states.COMPLETED
+        self.activated = False
         # Once this service is complete, it's safe to assume the cluster is
         # READY
         self.app.manager.cluster_status = cluster_status.READY

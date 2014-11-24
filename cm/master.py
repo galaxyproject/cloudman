@@ -923,8 +923,12 @@ class ConsoleManager(BaseConsoleManager):
         # full_svc_list = self.services[:]  # A copy to ensure consistency
         if sd_apps:
             for svc in self.get_services(svc_type=ServiceType.APPLICATION):
-                log.debug("Initiating removal of service {0}".format(svc.name))
-                svc.remove()
+                if svc.activated:
+                    log.debug("Initiating removal of service {0}".format(svc.name))
+                    svc.remove()
+                else:
+                    log.debug("Service {0} not activated; not removing it."
+                              .format(svc.get_full_name()))
         if sd_filesystems:
             for svc in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
                 log.debug("Initiating removal of file system service {0}".format(svc.name))
