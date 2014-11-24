@@ -852,6 +852,7 @@ class CM(BaseController):
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns(trans)
         snap_status = self.app.manager.snapshot_status()
+        use_autoscaling = self.app.manager.service_registry.is_active('Autoscale')
         ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
                     'dns': dns,
                     'instance_status': {'idle': str(len(self.app.manager.get_idle_instances())),
@@ -864,9 +865,9 @@ class CM(BaseController):
                     'app_status': self.app.manager.get_app_status(),
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
-                    'autoscaling': {'use_autoscaling': bool(self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)),
-                                    'as_min': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
-                                    'as_max': 'N/A' if not self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE) else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max}
+                    'autoscaling': {'use_autoscaling': use_autoscaling,
+                                    'as_min': 'N/A' if not use_autoscaling else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
+                                    'as_max': 'N/A' if not use_autoscaling else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max}
                     }
         if no_json:
             return ret_dict
