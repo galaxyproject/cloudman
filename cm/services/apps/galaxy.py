@@ -113,8 +113,11 @@ class GalaxyService(ApplicationService):
                 self.configure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
-                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
+                job_manager_svcs = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
+                job_manager_svc = None
+                for jms in job_manager_svcs:
+                    if jms.activated:
+                        job_manager_svc = jms
                 if job_manager_svc and ServiceRole.SGE in job_manager_svc.svc_roles:
                     log.debug("Running on SGE; setting env_vars")
                     self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
