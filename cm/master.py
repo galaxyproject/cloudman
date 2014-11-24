@@ -736,7 +736,7 @@ class ConsoleManager(BaseConsoleManager):
                           "7%", "error_msg": ""})
         return dummy
 
-    @TestFlag({"Slurm": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+    @TestFlag({"Slurmctld": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
                "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
@@ -748,7 +748,7 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        for srvc in self.services:
+        for srvc in self.service_registry.itervalues():
             status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
         return status_dict
 

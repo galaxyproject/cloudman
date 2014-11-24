@@ -32,7 +32,7 @@ class ServiceRegistry(object):
         for service in self.itervalues():
             if service.activated:
                 active.append(service)
-        log.debug("Active services: {0}".format(active))
+        # log.debug("Active services: {0}".format(active))
         return iter(active)
 
     def is_active(self, service_name):
