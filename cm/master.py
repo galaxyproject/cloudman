@@ -634,8 +634,8 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_services(self, svc_type=None, svc_role=None, svc_name=None):
         """
-        Returns all services that best match given service type, role and name.
-        If service name is specified, it is matched first.
+        Returns a list of all services that best match given service type, role
+        and name. If service name is specified, it is matched first.
         Next, if a role is specified, returns all services containing that role.
         Lastly, if svc_role is ``None``, but a ``svc_type`` is specified, returns
         all services matching type.

@@ -35,6 +35,15 @@ class ServiceRegistry(object):
         log.debug("Active services: {0}".format(active))
         return iter(active)
 
+    def is_active(self, service_name):
+        """
+        Indicate if the service with `service_name` is active.
+        """
+        service = self.services.get(service_name, None)
+        if service and self.services[service_name].activated:
+            return True
+        return False
+
     def __repr__(self):
         return "ServiceRegistry"
 
