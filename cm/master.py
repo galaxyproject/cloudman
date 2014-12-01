@@ -82,7 +82,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         return int(commands.getoutput("/usr/bin/nproc"))
 
-    def add_master_service(self, new_service):
+    def activate_master_service(self, new_service):
         """
         Mark the `new_service` as *activated* in the service registry, which
         will in turn trigger the service start. The `new_service` needs to be
@@ -317,7 +317,7 @@ class ConsoleManager(BaseConsoleManager):
         self.get_root_public_key()
 
         # Always add migration service
-        self.add_master_service(self.service_registry.get('Migration'))
+        self.activate_master_service(self.service_registry.get('Migration'))
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
@@ -326,27 +326,27 @@ class ConsoleManager(BaseConsoleManager):
         if os_release in ['14.04']:
             log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
                       .format(os_release))
-            self.add_master_service(self.service_registry.get('Slurmctld'))
-            self.add_master_service(self.service_registry.get('Slurmd'))
+            self.activate_master_service(self.service_registry.get('Slurmctld'))
+            self.activate_master_service(self.service_registry.get('Slurmd'))
         else:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
             # from cm.services.apps.jobmanagers.sge import SGEService
-            self.add_master_service(self.service_registry.get('SGE'))
+            self.activate_master_service(self.service_registry.get('SGE'))
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
-        self.add_master_service(tfs)
+        self.activate_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.add_master_service(self.service_registry.get('PSS'))
+        self.activate_master_service(self.service_registry.get('PSS'))
 
         if self.app.config.condor_enabled:
-            self.add_master_service(self.service_registry.get('HTCondor'))
+            self.activate_master_service(self.service_registry.get('HTCondor'))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.config.hadoop_enabled:
-            self.add_master_service(self.service_registry.get('Hadoop'))
+            self.activate_master_service(self.service_registry.get('Hadoop'))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -460,7 +460,7 @@ class ConsoleManager(BaseConsoleManager):
                     if not err:
                         log.debug("Adding a previously existing filesystem '{0}' of "
                                   "kind '{1}'".format(fs['name'], fs['kind']))
-                        self.add_master_service(filesystem)
+                        self.activate_master_service(filesystem)
             return True
         except Exception, e:
             log.error(
@@ -524,7 +524,7 @@ class ConsoleManager(BaseConsoleManager):
                                     log.debug("Loaded class: {0}.{1}".format(module_path,
                                               service_object.__name__))
                                     # Add the object into the master's service registry
-                                    self.add_master_service(service_object(self.app))
+                                    self.activate_master_service(service_object(self.app))
                                 except Exception, e:
                                     log.debug("Trouble instantiating class {0}: {1}"
                                               .format(discovered_class, e))
@@ -576,7 +576,7 @@ class ConsoleManager(BaseConsoleManager):
                 as_svc.as_min = as_min
                 as_svc.as_max = as_max
                 as_svc.instance_type = instance_type
-                self.add_master_service(as_svc)
+                self.activate_master_service(as_svc)
             else:
                 log.warning('Cannot find Autoscale service?')
         else:
@@ -1246,7 +1246,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
@@ -1315,18 +1315,18 @@ class ConsoleManager(BaseConsoleManager):
                                           .format(snap['type]'], snap['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                                   .format(fs.get_full_name(), fs.volumes))
-                        self.add_master_service(fs)
+                        self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
-            self.add_master_service(self.service_registry.get('Postgres'))
+            self.activate_master_service(self.service_registry.get('Postgres'))
             # Add ProFTPd service
-            self.add_master_service(self.service_registry.get('ProFTPd'))
+            self.activate_master_service(self.service_registry.get('ProFTPd'))
             # Add Galaxy service
-            self.add_master_service(self.service_registry.get('Galaxy'))
+            self.activate_master_service(self.service_registry.get('Galaxy'))
             # Add Galaxy Reports service
-            self.add_master_service(self.service_registry.get('GalaxyReports'))
+            self.activate_master_service(self.service_registry.get('GalaxyReports'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs(fs_name='galaxy')
@@ -1334,7 +1334,7 @@ class ConsoleManager(BaseConsoleManager):
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
             pass
-            self.add_master_service(self.service_registry.get('Pulsar'))
+            self.activate_master_service(self.service_registry.get('Pulsar'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
@@ -1756,7 +1756,7 @@ class ConsoleManager(BaseConsoleManager):
                     fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
-                    self.add_master_service(fs)
+                    self.activate_master_service(fs)
                     # Monitor will pick up the new service and start it up but
                     # need to wait until that happens before can add rest of
                     # the services
@@ -1784,7 +1784,7 @@ class ConsoleManager(BaseConsoleManager):
         fs = Filesystem(self.app, fs_name or bucket_name,
                         persistent=persistent, svc_roles=fs_roles)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
-        self.add_master_service(fs)
+        self.activate_master_service(fs)
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
@@ -1805,7 +1805,7 @@ class ConsoleManager(BaseConsoleManager):
             log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
         else:
             log.error("Wanted to add a volume-based file system but no file "
@@ -1822,7 +1822,7 @@ class ConsoleManager(BaseConsoleManager):
                      .format(fs_name, gluster_server))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_glusterfs(gluster_server)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             # Inform all workers to add the same FS (the file system will be the same
             # and sharing it over NFS does not seems to work)
             for w_inst in self.worker_instances:
@@ -1846,7 +1846,7 @@ class ConsoleManager(BaseConsoleManager):
                      .format(fs_name, nfs_server))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_nfs(nfs_server, username, pwd)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             # Inform all workers to add the same FS (the file system will be the same
             # and sharing it over NFS does not seems to work)
             for w_inst in self.worker_instances:

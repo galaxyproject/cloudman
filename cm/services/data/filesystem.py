@@ -310,7 +310,7 @@ class Filesystem(DataService):
         log.debug("{0} snapshot process completed; adding self to the list of master services"
                   .format(self.get_full_name()))
         self.state = service_states.UNSTARTED  # Need to reset state so it gets picked up by monitor
-        self.app.manager.add_master_service(self)
+        self.app.manager.activate_master_service(self)
         return snap_ids
 
     def _get_attach_device_from_device(self, device):
