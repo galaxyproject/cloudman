@@ -15,16 +15,6 @@ from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
 from cm.services.registry import ServiceRegistry
-from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxyreports import GalaxyReportsService
-from cm.services.apps.hadoop import HadoopService
-from cm.services.apps.htcondor import HTCondorService
-from cm.services.apps.migration import MigrationService
-from cm.services.apps.postgres import PostgresService
-from cm.services.apps.proftpd import ProFTPdService
-from cm.services.apps.pss import PSSService
-from cm.services.apps.pulsar import PulsarService
-from cm.services.autoscale import AutoscaleService
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
 from cm.util.decorators import TestFlag
@@ -327,7 +317,7 @@ class ConsoleManager(BaseConsoleManager):
         self.get_root_public_key()
 
         # Always add migration service
-        self.add_master_service(MigrationService(self.app))
+        self.add_master_service(self.service_registry.get('Migration'))
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
@@ -336,15 +326,13 @@ class ConsoleManager(BaseConsoleManager):
         if os_release in ['14.04']:
             log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
                       .format(os_release))
-            from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
-            from cm.services.apps.jobmanagers.slurmd import SlurmdService
-            self.add_master_service(SlurmctldService(self.app))
-            self.add_master_service(SlurmdService(self.app))
+            self.add_master_service(self.service_registry.get('Slurmctld'))
+            self.add_master_service(self.service_registry.get('Slurmd'))
         else:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
-            from cm.services.apps.jobmanagers.sge import SGEService
-            self.add_master_service(SGEService(self.app))
+            # from cm.services.apps.jobmanagers.sge import SGEService
+            self.add_master_service(self.service_registry.get('SGE'))
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
@@ -352,13 +340,13 @@ class ConsoleManager(BaseConsoleManager):
         self.add_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.add_master_service(PSSService(self.app))
+        self.add_master_service(self.service_registry.get('PSS'))
 
         if self.app.config.condor_enabled:
-            self.add_master_service(HTCondorService(self.app, "master"))
+            self.add_master_service(self.service_registry.get('HTCondor'))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.config.hadoop_enabled:
-            self.add_master_service(HadoopService(self.app))
+            self.add_master_service(self.service_registry.get('Hadoop'))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -577,21 +565,28 @@ class ConsoleManager(BaseConsoleManager):
         return None
 
     def start_autoscaling(self, as_min, as_max, instance_type):
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        if not as_svc:
-            self.add_master_service(
-                AutoscaleService(self.app, as_min, as_max, instance_type))
+        """
+        Activate the `Autoscale` service, setting the minimum number of worker
+        nodes of maintain (`as_min`), the maximum number of worker nodes to
+        maintain (`as_max`) and the `instance_type` to use.
+        """
+        if not self.service_registry.is_active('Autoscale'):
+            as_svc = self.service_registry.get('Autoscale')
+            if as_svc:
+                as_svc.as_min = as_min
+                as_svc.as_max = as_max
+                as_svc.instance_type = instance_type
+                self.add_master_service(as_svc)
+            else:
+                log.warning('Cannot find Autoscale service?')
         else:
-            log.debug("Autoscaling is already on.")
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        log.debug(as_svc[0])
+            log.debug("Autoscaling is already active.")
 
     def stop_autoscaling(self):
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        if as_svc:
-            self.remove_master_service(as_svc[0])
-        else:
-            log.debug("Not stopping autoscaling because it is not on.")
+        """
+        Deactivate the `Autoscale` service.
+        """
+        self.remove_master_service('Autoscale')
 
     def adjust_autoscaling(self, as_min, as_max):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -1325,13 +1320,13 @@ class ConsoleManager(BaseConsoleManager):
             if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
-            self.add_master_service(PostgresService(self.app))
+            self.add_master_service(self.service_registry.get('Postgres'))
             # Add ProFTPd service
-            self.add_master_service(ProFTPdService(self.app))
+            self.add_master_service(self.service_registry.get('ProFTPd'))
             # Add Galaxy service
-            self.add_master_service(GalaxyService(self.app))
+            self.add_master_service(self.service_registry.get('Galaxy'))
             # Add Galaxy Reports service
-            self.add_master_service(GalaxyReportsService(self.app))
+            self.add_master_service(self.service_registry.get('GalaxyReports'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs(fs_name='galaxy')
@@ -1339,7 +1334,7 @@ class ConsoleManager(BaseConsoleManager):
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
             pass
-            self.add_master_service(PulsarService(self.app))
+            self.add_master_service(self.service_registry.get('Pulsar'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
