@@ -24,6 +24,14 @@ class ServiceRegistry(object):
     def itervalues(self):
         return iter(self.services.itervalues())
 
+    def get(self, service_name):
+        """
+        A getter method for retrieving a service object based on the
+        `service_name`. If a service with the given name is not found,
+        return `None`.
+        """
+        return self.services.get(service_name, None)
+
     def active(self):
         """
         An iterator of currently `active` services.
