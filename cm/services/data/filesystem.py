@@ -520,6 +520,24 @@ class Filesystem(DataService):
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
 
+    def _is_mounted(self, mount_point=None):
+        """
+        Check if the `mount_point` (or `self.mount_point` if the argument is not
+        provided) is mounted. Do so by inspecting `/proc/mounts`.
+        """
+        if not mount_point:
+            mount_point = self.mount_point
+        mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] "
+                                                "| cut -d' ' -f2".format(mount_point))
+        if mnt_location[0] == 0 and mnt_location[1] != '':
+            try:
+                if mount_point == mnt_location[1]:
+                    return True
+            except Exception, e:
+                log.error("Exception checking if FS {0} is mounted at {1}: {2}"
+                          .format(self.name, mount_point, e))
+        return False
+
     def status(self):
         """
         Do a status update for the current file system, checking
@@ -554,8 +572,8 @@ class Filesystem(DataService):
         elif self._service_starting():
             pass
         elif self.mount_point is not None:
-            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] | cut -d' ' -f1,2"
-                                                    % self.mount_point)
+            mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] "
+                                                    "| cut -d' ' -f1,2" % self.mount_point)
             if mnt_location[0] == 0 and mnt_location[1] != '':
                 try:
                     device, mnt_path = mnt_location[1].split(' ')
@@ -568,18 +586,18 @@ class Filesystem(DataService):
                         self.state = service_states.RUNNING
                         self._update_size()
                     else:
-                        log.error("STATUS CHECK [FS %s]: Retrieved mount path '%s' does not match "
-                                  "expected path '%s'" % (self.get_full_name(), mnt_location[1],
-                                                          self.mount_point))
+                        log.error("STATUS CHECK [FS %s]: Retrieved mount path '%s' "
+                                  "does not match expected path '%s'" %
+                                  (self.get_full_name(), mnt_location[1], self.mount_point))
                         self.state = service_states.ERROR
                 except Exception, e:
-                    log.error(
-                        "STATUS CHECK: Exception checking status of FS '%s': %s" % (self.name, e))
+                    log.error("STATUS CHECK: Exception checking status of FS "
+                              "'%s': %s".format(self.name, e))
                     self.state = service_states.ERROR
                     log.debug(mnt_location)
             else:
-                log.error("STATUS CHECK: File system named '%s' is not mounted. Error code %s"
-                          % (self.name, mnt_location[0]))
+                log.error("STATUS CHECK: File system {0} is not mounted at {1}"
+                          .format(self.name, self.mount_point))
                 self.state = service_states.ERROR
         else:
             log.debug("Did not check status of filesystem '%s' with mount point '%s' in state '%s'"
