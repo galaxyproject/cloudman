@@ -92,6 +92,7 @@ class ApplicationService(Service):
         s = socket(AF_INET, SOCK_STREAM)
         try:
             result = s.connect_ex(('127.0.0.1', port))
+            log.debug("Port 127.0.0.1:{0} is bound? {1}".format(port, result == 0))
             return result == 0
         finally:
             s.close()

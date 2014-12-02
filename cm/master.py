@@ -85,8 +85,10 @@ class ConsoleManager(BaseConsoleManager):
     def activate_master_service(self, new_service):
         """
         Mark the `new_service` as *activated* in the service registry, which
-        will in turn trigger the service start. The `new_service` needs to be
-        an object of the desired service.
+        will in turn trigger the service start.
+
+        :type   new_service: object
+        :param  new_service: an instance object of the service to activate
         """
         ok = True
         # File system services get explicitly added into the registry. This is
@@ -111,7 +113,14 @@ class ConsoleManager(BaseConsoleManager):
             log.warning("Did not activate service {0}".format(new_service))
 
     def remove_master_service(self, service_to_remove):
-        service = self.service_registry.services.get(service_to_remove.name, None)
+        """
+        Deactivate the `service_to_remove`, updating its dependencies in the
+        process.
+
+        :type   service_to_remove: object
+        :param  service_to_remove: an instance object of the service to remove
+        """
+        service = self.service_registry.get(service_to_remove.name)
         if service:
             log.debug("Deactivating service {0}".format(service_to_remove.name))
             service.activated = False
@@ -470,78 +479,23 @@ class ConsoleManager(BaseConsoleManager):
 
     def add_preloaded_services(self):
         """
-        Dynamically add any previously available services to the master's service
-        registry, which will in turn start those services. The list of preloaded
+        Activate any previously available services. The list of preloaded
         services is extracted from the user data entry ``services``.
 
         Note that this method is automatically called when an existing cluster
         is being recreated.
-
-        In order for the dynamic service loading to work, there are some requirements
-        on the structure of user data and services themselves. Namely, user data
-        must contain a name for the service. The service implementation must be in
-        a (sub)module inside ``cm.services.apps`` and it must implement a class
-        that matches the specified the user data service name (e.g., if the
-        service name in user data is ``ProFTPd``, a module inside ``cm.services.apps``
-        must exist that implements a class whose name contains ``ProFTPd``,
-        properly capitalized).
         """
-        def _do_imports(base_dir, services_to_create):
-            """
-            Recursively search for python modules inside the ``base_dir`` path
-            and create objects for each of the discovered classes, given the
-            service name is provided in the ``services_to_create`` list, appending
-            the created objects to the master service registry list.
-            For example, if ``services_to_create`` contains a list like so
-            ``['Galaxy', 'Slurmctld'] and the ``base_dir`` contains a module
-            that defines a class ``Galaxy`` and ``Slurmctld``, instantiate those
-            two objects.
-            """
-            log.debug("Looking for importable service classes in {0}".format(base_dir))
-            for name in os.listdir(base_dir):
-                if name.endswith(".py") and name != "__init__.py":
-                    module = name[:-3]  # Strip the file extension
-                    package_path = base_dir.replace('/', '.')
-                    module_path = '.'.join([package_path, module])
-                    # Get all the class names defined in the given module
-                    discovered_classes = pyclbr.readmodule(module_path).keys()
-                    # log.debug("In module {0}, discovered classes: {1}"
-                    #           .format(module_path, discovered_classes))
-                    try:
-                        # Import the given module w/ all the discovered classes
-                        module = __import__(module_path, fromlist=discovered_classes)
-                        for discovered_class in discovered_classes:
-                            # Check if the an object of the discovered class should
-                            # be created. The ones that should be rreated are
-                            # provided in the ``services_to_create`` function argument.
-                            # Note that the name comparisson is done based on
-                            # the service name alone, without the `Service` part
-                            # of the class name (eg, compare `Slurm` rather than
-                            # `SlurmService`)
-                            if discovered_class.replace('Service', '') in services_to_create:
-                                try:
-                                    service_object = getattr(module, discovered_class)
-                                    log.debug("Loaded class: {0}.{1}".format(module_path,
-                                              service_object.__name__))
-                                    # Add the object into the master's service registry
-                                    self.activate_master_service(service_object(self.app))
-                                except Exception, e:
-                                    log.debug("Trouble instantiating class {0}: {1}"
-                                              .format(discovered_class, e))
-                    except Exception, e:
-                        log.debug("Trouble importing module {0}: {1}" % (module_path, e))
-                elif os.path.isdir(os.path.join(base_dir, name)):
-                    _do_imports(os.path.join(base_dir, name), services_to_create)
-
-        log.debug("Processing previously-available application services in "
-                  "an existing cluster config")
-        preloaded_services = []
-        for service in self.app.ud.get('services', []):
-            if service.get('name', None):
-                preloaded_services.append(service['name'])
-        if preloaded_services:
-            log.debug("Discovered preloaded services: {0}".format(preloaded_services))
-            _do_imports('cm/services/apps', services_to_create=preloaded_services)
+        log.debug("Activating previously-available application services from "
+                  "an existing cluster config.")
+        for service_name in self.app.ud.get('services', []):
+            if service_name.get('name', None):
+                service = self.service_registry.get(service_name['name'])
+                if service:
+                    self.activate_master_service(service)
+                else:
+                    log.warning("Cannot find an instance of the previously "
+                                "existing service {0} in the current service "
+                                "registry?".format(service_name))
         return True
 
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
@@ -586,7 +540,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         Deactivate the `Autoscale` service.
         """
-        self.remove_master_service('Autoscale')
+        self.remove_master_service(self.service_registry.get('Autoscale'))
 
     def adjust_autoscaling(self, as_min, as_max):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
