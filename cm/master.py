@@ -570,7 +570,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_app_status(self):
         count = 0
-        for svc in self.get_services(svc_type=ServiceType.APPLICATION):
+        for svc in self.service_registry.active(service_type=ServiceType.APPLICATION):
             count += 1
             if svc.state == service_states.ERROR:
                 return "red"
