@@ -32,15 +32,31 @@ class ServiceRegistry(object):
         """
         return self.services.get(service_name, None)
 
-    def active(self):
+    def active(self, service_type=None, service_role=None):
         """
-        An iterator of currently `active` services.
+        An iterator of currently `active` services, possibly filtered based on
+        provided arguments. Note that either of the arguments can be provided
+        but not both (if both are provided, `service_role` takes precedence).
+
+        :type   service_type: cm.services.ServiceType
+        :param  service_type: If provided, filter only services of the specified
+                              type.
+
+        :type   service_role: cm.services.ServiceRole
+        :param  service_role: If provided, filter only services having the
+                              specified role.
         """
         active = []
         for service in self.itervalues():
             if service.activated:
-                active.append(service)
-        # log.debug("Active services: {0}".format(active))
+                if service_role and service_role in service.svc_roles:
+                    active.append(service)
+                elif service_type and service_type == service.svc_type:
+                    active.append(service)
+                elif not service_role and not service_type:
+                    active.append(service)
+        # log.debug("Active services (filtered by type: {0}; role: {1}): {2}"
+        #           .format(service_type, service_role, active))
         return iter(active)
 
     def is_active(self, service_name):
