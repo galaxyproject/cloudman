@@ -1,5 +1,5 @@
 import logging
-
+from cm.util import cluster_status
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
@@ -41,3 +41,22 @@ def TestFlag(ret_val, quiet=False):
                 return fn(*args, **kwargs)
         return df
     return decorator
+
+
+def cluster_ready(func):
+    """
+    Check if the cluster status is READY and return `True` if so, `False`
+    otherwise.
+    """
+    def wrap(*args, **kwargs):
+        cl = args[0]  # Get the function class
+        current_status = cl.app.manager.cluster_status
+        # log.debug("Cluster current_status: {0}".format(current_status))
+        if current_status != cluster_status.READY:
+            log.debug("Cluster not yet ready ({0}), skipping method {1}->{2}.{3}"
+                      .format(current_status, cl.__module__, cl.__class__.__name__,
+                      func.func_name))
+        else:
+            # The cluster is READY, call the function
+            func(*args, **kwargs)
+    return wrap
