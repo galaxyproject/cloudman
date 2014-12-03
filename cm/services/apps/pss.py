@@ -188,7 +188,7 @@ class PSSService(ApplicationService):
         if self.state == service_states.SHUT_DOWN:
             log.debug(
                 "Removing %s service from master list of services" % self.name)
-            self.app.manager.remove_master_service(self)
+            self.app.manager.deactivate_master_service(self)
         else:
             log.debug("Tried removing %s service but it's not in state %s"
                       % (self.name, service_states.SHUT_DOWN))

@@ -204,7 +204,7 @@ class Filesystem(DataService):
         self.state = service_states.SHUT_DOWN
         # Remove self from the list of master's services
         if self.state == service_states.SHUT_DOWN and remove_from_master:
-            self.app.manager.remove_master_service(self)
+            self.app.manager.deactivate_master_service(self)
 
     def clean(self):
         """

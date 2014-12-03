@@ -17,7 +17,7 @@ from cm.services import service_states
 from cm.services.registry import ServiceRegistry
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
-from cm.util.decorators import TestFlag
+from cm.util.decorators import TestFlag, cluster_ready
 from cm.util.manager import BaseConsoleManager
 import cm.util.paths as paths
 
@@ -112,7 +112,7 @@ class ConsoleManager(BaseConsoleManager):
         else:
             log.warning("Did not activate service {0}".format(new_service))
 
-    def remove_master_service(self, service_to_remove):
+    def deactivate_master_service(self, service_to_remove):
         """
         Deactivate the `service_to_remove`, updating its dependencies in the
         process.
@@ -540,7 +540,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         Deactivate the `Autoscale` service.
         """
-        self.remove_master_service(self.service_registry.get('Autoscale'))
+        self.deactivate_master_service(self.service_registry.get('Autoscale'))
 
     def adjust_autoscaling(self, as_min, as_max):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -2191,6 +2191,7 @@ class ConsoleMonitor(object):
             log.error("Problem creating cluster configuration file: '%s'" % e)
         return file_name
 
+    @cluster_ready
     @synchronized(s3_rlock)
     def store_cluster_config(self):
         """
@@ -2286,16 +2287,16 @@ class ConsoleMonitor(object):
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],
                                      "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
 
-    def __add_services(self):
+    def __start_services(self):
+        config_changed = False  # Flag to indicate if cluster conf was changed
         # Check and add any new services
-        added_srvcs = False  # Flag to indicate if cluster conf was changed
         for service in self.app.manager.service_registry.active():
-            if service.state == service_states.UNSTARTED:
+            if service.state == service_states.UNSTARTED or \
+               service.state == service_states.SHUT_DOWN:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = Time.now()
-                if service.add():
-                    added_srvcs = True
-
+                service.add()
+                config_changed = True
             # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
             # .format(service.get_full_name(), service.state))
             # Store cluster conf after all services have been added.
@@ -2306,16 +2307,26 @@ class ConsoleMonitor(object):
             # service that would indicate the configuration of the service is
             # complete. This could probably be done by monitoring
             # the service state flag that is already maintained?
-        if added_srvcs and self.app.cloud_type != 'opennebula':
-            self.store_cluster_config()  # Check and grow the file system
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
                 self.last_system_change_time = Time.now()
                 self.expand_user_data_volume()
-            # Opennebula has no storage like S3, so this is not working (yet)
-                if self.app.cloud_type != 'opennebula':
-                    self.store_cluster_config()
+        return config_changed
+
+    def __stop_services(self):
+        """
+        Initiate stopping of any services that have been marked as not `active`
+        yet are still running.
+        """
+        config_changed = False  # Flag to indicate if cluster conf was changed
+        for service in self.app.manager.service_registry.itervalues():
+            if not service.activated and service.state == service_states.RUNNING:
+                log.debug("Monitor stopping service '%s'" % service.get_full_name())
+                self.last_system_change_time = Time.now()
+                service.remove()
+                config_changed = True
+        return config_changed
 
     def __check_amqp_messages(self):
         # Check for any new AMQP messages
@@ -2408,5 +2419,13 @@ class ConsoleMonitor(object):
                         log.debug("Instance {0} has been quiet for a while (last check "
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
-            self.__add_services()
+            config_changed = self.__start_services()
+            config_changed = config_changed or self.__stop_services()
+            # Opennebula has no object storage, so this is not working (yet)
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # FIXME: This will trigger during a cluster shutdown as well, which
+            # will update the cluster config file and thus mess up cluster
+            # restarts.
+            if config_changed and self.app.cloud_type != 'opennebula':
+                self.store_cluster_config()
             self.__check_amqp_messages()

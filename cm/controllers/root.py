@@ -635,11 +635,11 @@ class CM(BaseController):
             log.debug("Managing services: %s" % svcs)
             if to_be_started is False:
                 for s in svcs:
-                    s.remove()
+                    self.app.manager.deactivate_master_service(s)
                 return "%s stopped" % service_name
             else:
                 for s in svcs:
-                    s.start()
+                    self.app.manager.activate_master_service(s)
                 return "%s started" % service_name
         else:
             msg = "Cannot find service '{0}'".format(service_name)
