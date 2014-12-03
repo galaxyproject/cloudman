@@ -784,6 +784,8 @@ class CM(BaseController):
         sl = self.app.manager.get_services(svc_type=ServiceType.APPLICATION)
         for s in sl:
             app_services.append(s.name)
+        # Explicitly add the PSSService
+        app_services.append(self.app.manager.service_registry.get('PSS'))
         return trans.fill_template('admin.mako',
                                    ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
@@ -793,7 +795,7 @@ class CM(BaseController):
                                    initial_cluster_type=self.app.manager.initial_cluster_type,
                                    cluster_name=self.app.ud['cluster_name'],
                                    job_manager=job_manager,
-                                   app_services=app_services)
+                                   app_services=sorted(app_services))
 
     @expose
     def cluster_status(self, trans):
