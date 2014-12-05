@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import commands
 import contextlib
 import datetime as dt
 import errno
@@ -775,6 +775,21 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
             log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'"
                       % (err, cmd, process.returncode, stderr))
         return False
+
+
+def getoutput(cmd, quiet=False):
+    """
+    Execute the shell command `cmd` and return the output. If `quiet` is set, do
+    not log any messages. If there is an exception, return `None`.
+    """
+    out = None
+    try:
+        out = commands.getoutput(cmd)
+        log.debug("Executing command {0} and got output: {1}".format(cmd, out))
+    except Exception, e:
+        if not quiet:
+            log.error("Exception executing command {0}: {1}".format(cmd, e))
+    return out
 
 
 def replace_string(file_name, pattern, subst):
