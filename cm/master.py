@@ -156,13 +156,14 @@ class ConsoleManager(BaseConsoleManager):
                         req.assigned_service = None
 
     def _stop_app_level_services(self):
-        """ Convenience function that suspends SGE jobs and removes Galaxy &
-        Postgres services, thus allowing system level operations to be performed."""
-        # Suspend all SGE jobs
+        """
+        A convenience function that suspends job manager jobs, removes Galaxy &
+        Postgres services, allowing system level operations to be performed.
+        """
+        # Suspend all job manager jobs
         log.debug("Suspending job manager queue")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             job_manager_svc.suspend_queue()
         # Stop application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
@@ -194,9 +195,8 @@ class ConsoleManager(BaseConsoleManager):
                 log.error("Tried adding app level service '%s' but failed: %s"
                           % (ServiceRole.to_string([svc_role]), e))
         log.debug("Unsuspending job manager queue")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             job_manager_svc.unsuspend_queue()
 
     def recover_monitor(self, force='False'):
@@ -780,9 +780,8 @@ class ConsoleManager(BaseConsoleManager):
                      ``False`` otherwise.
         """
         log.debug("Toggling master instance as exec host")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             node_alias = 'master'
             node_address = self.app.cloud_interface.get_private_ip()
             if self.master_exec_host or force_removal:
@@ -1095,11 +1094,10 @@ class ConsoleManager(BaseConsoleManager):
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 inst.worker_status = 'Stopping'
-                log.debug("Set instance {0} state to {1}"
-                          .format(inst.get_desc(), inst.worker_status))
-                job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc:
+                log.debug("Set instance {0} state to {1}".format(inst.get_desc(),
+                          inst.worker_status))
+                for job_manager_svc in self.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
                     job_manager_svc.remove_node(inst)
                 # Remove the given instance from /etc/hosts files
                 misc.remove_from_etc_hosts(inst.private_ip)

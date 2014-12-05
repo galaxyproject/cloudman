@@ -572,13 +572,13 @@ class Instance(object):
                 # log.debug("Update /etc/hosts through master")
                 # self.app.manager.update_etc_host()
             elif msg_type == "WORKER_H_CERT":
+                log.debug("Got WORKER_H_CERT message")
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
                 log.debug("Worker '%s' host certificate received and appended "
                           "to /root/.ssh/known_hosts" % self.id)
-                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc:
+                for job_manager_svc in self.app.manager.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
                     job_manager_svc.add_node(self)
                     # Instruct the worker to start appropriate job manager daemon
                     if ServiceRole.SLURMCTLD in job_manager_svc.svc_roles:

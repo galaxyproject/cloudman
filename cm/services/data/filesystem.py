@@ -108,8 +108,8 @@ class Filesystem(DataService):
         """
         if self.state == service_states.UNSTARTED or self.state == service_states.SHUT_DOWN:
             try:
-                log.debug("Trying to add file system service {0}".format(
-                    self.get_full_name()))
+                log.debug("Trying to add file system service named '{0}'"
+                          .format(self.get_full_name()))
                 self.state = service_states.STARTING
                 self.started_starting = datetime.utcnow()
                 # TODO: devices must be added to a file system before one can
@@ -383,6 +383,7 @@ class Filesystem(DataService):
                             mounting this NFS mount point. Use: 'rw' for
                             read-write (default) or 'ro' for read-only
         """
+        log.debug("Will attempt to share mount point {0} over NFS.".format(mount_point))
         try:
             ee_file = '/etc/exports'
             if mount_point is None:

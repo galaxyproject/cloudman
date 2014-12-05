@@ -113,15 +113,12 @@ class GalaxyService(ApplicationService):
                 self.configure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
-                job_manager_svcs = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = None
-                for jms in job_manager_svcs:
-                    if jms.activated:
-                        job_manager_svc = jms
-                if job_manager_svc and ServiceRole.SGE in job_manager_svc.svc_roles:
-                    log.debug("Running on SGE; setting env_vars")
-                    self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
-                    self.env_vars["DRMAA_LIBRARY_PATH"] = self.app.path_resolver.drmaa_library_path
+                for job_manager_svc in self.app.manager.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
+                    if ServiceRole.SGE in job_manager_svc.svc_roles:
+                        log.debug("Running on SGE; setting env_vars")
+                        self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
+                        self.env_vars["DRMAA_LIBRARY_PATH"] = self.app.path_resolver.drmaa_library_path
                 # s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." %
