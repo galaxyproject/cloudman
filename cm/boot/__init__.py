@@ -109,7 +109,7 @@ def _start_nginx(ud):
         # nginx already running, so reload
         log.debug("nginx already running; reloading it")
         _run(log, '{0} -s reload'.format(nginx_executable))
-    if rmdir:
+    if rmdir or len(os.listdir(upload_store_dir)) == 0:
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
 
