@@ -640,10 +640,13 @@ class Volume(BlockStorage):
                 if os.path.exists(mount_point):
                     # Check if the mount location is empty
                     if len(os.listdir(mount_point)) != 0:
-                        log.warning("A file system at {0} already exists and is not empty; cannot "
-                                    "mount volume {1}".format(mount_point, self.volume_id))
+                        log.warning("Mount point {0} already exists and is not "
+                                    "empty!? Will attempt to mount volume {1}"
+                                    .format(mount_point, self.volume_id))
                         return False
                 else:
+                    log.debug("Creating mount point directory {0} for {1}"
+                              .format(mount_point, self.fs.get_full_name()))
                     os.mkdir(mount_point)
                 # Potentially wait for the device to actually become available in the system
                 # TODO: Do something if the device is not available in the
@@ -661,32 +664,36 @@ class Volume(BlockStorage):
                 # even more by custom-handling the run command and thus not
                 # printing the err
                 cmd = '/bin/mount %s %s' % (self.device, mount_point)
-                process = subprocess.Popen(
-                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                _, _ = process.communicate()
-                if process.returncode != 0:
-                    # FIXME: Assume if a file system cannot be mounted that it's because
-                    # there is not a file system on the device so try creating
-                    # one
-                    if run('/sbin/mkfs.xfs %s' % self.device,
-                           "Failed to create a files ystem on device %s" % self.device,
-                           "Created a file system on device %s" % self.device):
-                        if not run(
-                            '/bin/mount %s %s' % (self.device, mount_point),
-                            "Error mounting file system %s from %s" % (
-                                mount_point, self.device),
-                                "Successfully mounted file system %s from %s" %
-                                (mount_point, self.device)):
-                            log.error("Failed to mount device '%s' to mount point '%s'"
-                                      % (self.device, mount_point))
-                            return False
-                # Resize the volume if it was created from a snapshot
-                else:
-                    if self.snapshot and self.volume.size > self.snapshot.volume_size:
-                        run('/usr/sbin/xfs_growfs %s' % mount_point)
-                        log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
-                log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
-
+                try:
+                    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                                               stderr=subprocess.PIPE)
+                    _, _ = process.communicate()
+                    if process.returncode != 0:
+                        # FIXME: Assume if a file system cannot be mounted that it's because
+                        # there is not a file system on the device so try creating
+                        # one
+                        if run('/sbin/mkfs.xfs %s' % self.device,
+                               "Failed to create a files ystem on device %s" % self.device,
+                               "Created a file system on device %s" % self.device):
+                            if not run(
+                                '/bin/mount %s %s' % (self.device, mount_point),
+                                "Error mounting file system %s from %s" % (
+                                    mount_point, self.device),
+                                    "Successfully mounted file system %s from %s" %
+                                    (mount_point, self.device)):
+                                log.error("Failed to mount device '%s' to mount point '%s'"
+                                          % (self.device, mount_point))
+                                return False
+                    # Resize the volume if it was created from a snapshot
+                    else:
+                        if self.snapshot and self.volume.size > self.snapshot.volume_size:
+                            run('/usr/sbin/xfs_growfs %s' % mount_point)
+                            log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
+                    log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
+                except Exception, e:
+                    log.error("Exception mounting {0} at {1}".format(
+                              self.fs.get_full_name(), mount_point))
+                    return False
                 try:
                     # Default owner of all mounted file systems to `galaxy`
                     # user

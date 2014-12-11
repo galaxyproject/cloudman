@@ -228,7 +228,7 @@ class ServiceDependency(object):
         self._assigned_service = assigned_service
 
     def __repr__(self):
-        return "<ServiceRole:{0},Owning:{1},Assigned:{2}>".format(
+        return "<ServiceRole:{0}; Owning:{1}; Assigned:{2}>".format(
             ServiceRole.to_string(self.service_role),
             "None" if self.owning_service is None else self.owning_service.name,
             "None" if self.assigned_service is None else self.assigned_service.name)
@@ -329,10 +329,14 @@ class Service(object):
         Child classes which override this method should ensure this is called
         for proper removal of service dependencies.
         """
-        log.debug("Removing dependencies of service: {0}".format(self.name))
+        log.debug("Removing all dependencies of service {0}: {1}".format(
+                  self.name, self.dependencies))
         for service in self.app.manager.service_registry.itervalues():
             for dependency in service.dependencies:
-                if (dependency.is_satisfied_by(self)):
+                if (dependency.is_satisfied_by(self)) and service.activated:
+                    log.debug("Initiating removal of service {0} because it "
+                              "depends on {1}".format(service.get_full_name(),
+                              self.name))
                     service.remove()
                     log.debug("Setting service {0} as not `activated`".format(
                               service.get_full_name()))

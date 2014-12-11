@@ -69,8 +69,8 @@ class PulsarService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(PulsarService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        log.info("Shutting down Pulsar service...")
-        if self._run("--stop-daemon"):
+        if self.pulsar_home and self._run("--stop-daemon"):
+            log.info("Shutting down Pulsar service...")
             self.state = service_states.SHUT_DOWN
             # TODO: Handle log files.
         else:

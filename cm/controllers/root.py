@@ -34,8 +34,7 @@ class CM(BaseController):
                                        initial_cluster_type=initial_cluster_type,
                                        cluster_name=cluster_name,
                                        master_instance_type=self.app.cloud_interface.get_type(),
-                                       use_autoscaling=bool(self.app.manager.get_services(
-                                                            svc_role=ServiceRole.AUTOSCALE)),
+                                       use_autoscaling=self.app.manager.service_registry.is_active('Autoscale'),
                                        CM_url=CM_url,
                                        cloud_type=self.app.ud.get('cloud_type', 'ec2'),
                                        instance_types=instance_types,
@@ -648,8 +647,9 @@ class CM(BaseController):
             return msg
 
     @expose
-    def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None):
-        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
+    def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None,
+                           custom_instance_type=''):
+        if self.app.manager.service_registry.is_active('Autoscale'):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
@@ -659,11 +659,10 @@ class CM(BaseController):
                     int(as_min), int(as_max), instance_type)
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, max: %s).  Autoscaling is OFF." % (as_min, as_max))
-        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
-
+        if self.app.manager.service_registry.is_active('Autoscale'):
             return json.dumps({'running': True,
-                               'as_min': self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
-                               'as_max': self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
+                               'as_min': self.app.manager.service_registry.get('Autoscale').as_min,
+                               'as_max': self.app.manager.service_registry.get('Autoscale').as_max,
                                'ui_update_data': self.instance_state_json(trans, no_json=True)})
         else:
             return json.dumps({'running': False,
@@ -672,8 +671,9 @@ class CM(BaseController):
                                'ui_update_data': self.instance_state_json(trans, no_json=True)})
 
     @expose
-    def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None):
-        if self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE):
+    def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None,
+                           custom_instance_type=''):
+        if self.app.manager.service_registry.is_active('Autoscale'):
             if self.check_as_vals(as_min_adj, as_max_adj):
                 # log.debug("Adjusting autoscaling; new bounds min: %s, max:
                 # %s" % (as_min_adj, as_max_adj))
@@ -683,8 +683,8 @@ class CM(BaseController):
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (
                     as_min_adj, as_max_adj))
             return json.dumps({'running': True,
-                               'as_min': self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
-                               'as_max': self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max,
+                               'as_min': self.app.manager.service_registry.get('Autoscale').as_min,
+                               'as_max': self.app.manager.service_registry.get('Autoscale').as_max,
                                'ui_update_data': self.instance_state_json(trans, no_json=True)})
         else:
             return json.dumps({'running': False,
@@ -861,8 +861,8 @@ class CM(BaseController):
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': use_autoscaling,
-                                    'as_min': 'N/A' if not use_autoscaling else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_min,
-                                    'as_max': 'N/A' if not use_autoscaling else self.app.manager.get_services(svc_role=ServiceRole.AUTOSCALE)[0].as_max}
+                                    'as_min': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_min,
+                                    'as_max': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_max}
                     }
         if no_json:
             return ret_dict
