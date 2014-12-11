@@ -37,6 +37,13 @@ class AutoscaleService(Service):
                 log.debug("Cannot start autoscaling because limits are not set (min: '%s' max: '%s')" % (
                     self.as_min, self.as_max))
 
+    def remove(self, synchronous=False):
+        log.info("Removing '%s' service" % self.name)
+        super(AutoscaleService, self).remove(synchronous)
+        self.as_max = -1
+        self.as_min = -1
+        self.state = service_states.UNSTARTED
+
     def status(self):
         """Check the status/size of the cluster and initiate appropriate action if necessary"""
         if self.too_large():

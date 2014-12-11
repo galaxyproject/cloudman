@@ -590,8 +590,7 @@ class ConsoleManager(BaseConsoleManager):
         all services matching type.
         """
         svcs = []
-        for service_name in self.service_registry.services:
-            service = self.service_registry.services[service_name]
+        for service_name, service in self.service_registry.iteritems():
             if service_name == svc_name:
                 return [service]
             elif svc_role in service.svc_roles:
@@ -1023,9 +1022,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc and job_manager_svc.status() == service_states.RUNNING:
+        for job_manager_svc in self.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             idle_nodes = job_manager_svc.idle_nodes()
             # Note that master is not part of worker_instances and will thus not
             # get included in the idle_instances list, which is the intended
@@ -1998,9 +1996,11 @@ class ConsoleManager(BaseConsoleManager):
         """
         Add the new pool to the condor big pool
         """
-        srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        if srvs:
-            srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
+        svc_name = ServiceRole.to_string(ServiceRole.HTCONDOR)
+        if self.service_registry.is_active(svc_name):
+            log.debug("Updating HTCondor host through master")
+            svc = self.service_registry.get(svc_name)
+            svc.modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     @TestFlag({'id': 'localtest', 'ld': "0.00 0.02 0.39",
                'time_in_state': 4321,
@@ -2219,9 +2219,8 @@ class ConsoleMonitor(object):
         # than potentially being overwritten by files that might exist on the
         # snap)
         try:
-            galaxy_svc = self.app.manager.get_services(
-                svc_role=ServiceRole.GALAXY)[0]
-            if galaxy_svc.running():
+            galaxy_svc = self.app.manager.service_registry.get_active('Galaxy')
+            if galaxy_svc and galaxy_svc.running():
                 for f_name in ['universe_wsgi.ini',
                                'tool_conf.xml',
                                'tool_data_table_conf.xml',

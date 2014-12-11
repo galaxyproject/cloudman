@@ -606,7 +606,6 @@ class Instance(object):
                 self.app.cloud_interface.add_tag(self.inst, 'alias', self.alias)
                 self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
 
-                log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
             elif msg_type == "NODE_STATUS":
                 # log.debug("Node {0} status message: {1}".format(self.get_desc(), msg))

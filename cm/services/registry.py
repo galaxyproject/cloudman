@@ -32,6 +32,16 @@ class ServiceRegistry(object):
         """
         return self.services.get(service_name, None)
 
+    def get_active(self, service_name):
+        """
+        Given a `service_name`, check of the given service exists in the
+        registry and if it is active. If so, return a handle to the service
+        object. Otherwise, return `None`.
+        """
+        if self.get(service_name) and self.is_active(service_name):
+            return self.get(service_name)
+        return None
+
     def active(self, service_type=None, service_role=None):
         """
         An iterator of currently `active` services, possibly filtered based on
