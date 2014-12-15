@@ -310,10 +310,12 @@ class GalaxyService(ApplicationService):
 
     def configure_nginx(self, setup_ssl=False):
         """
-        Generate nginx.conf from a template and reload nginx process so config
-        options take effect
+        Generate `nginx.conf` from a template and reload nginx process so config
+        options take effect.
         """
         if self.app.path_resolver.nginx_executable:
+            log.debug("Updating nginx config at {0}".format(
+                      self.app.path_resolver.nginx_conf_file))
             galaxy_server = "server 127.0.0.1:8080;"
             if self._multiple_processes():
                 web_thread_count = int(self.app.ud.get("web_thread_count", 3))
@@ -349,13 +351,33 @@ class GalaxyService(ApplicationService):
                 server_block_head = ""
                 nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
                 self.ssl_is_on = False
+            pulsar_block = ""
+            if self.app.manager.service_registry.is_active('Pulsar'):
+                pulsar_block = """
+    upstream pulsar_app {
+        server 127.0.0.1:8913;
+    }
+    server {
+        listen                  8914;
+        client_max_body_size    10G;
+        proxy_read_timeout      600;
+
+        location /jobs {
+            proxy_pass http://pulsar_app;
+            proxy_set_header   X-Forwarded-Host $host:$server_port;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+            error_page   502    /errdoc/cm_502.html;
+        }
+    }
+                """
             nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
                 'galaxy_user_name': paths.GALAXY_USER_NAME,
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server,
-                'server_block_head': server_block_head
+                'server_block_head': server_block_head,
+                'pulsar_block': pulsar_block
             }
             template = nginx_conf_template.substitute(params)
 
