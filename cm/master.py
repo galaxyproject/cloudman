@@ -2348,6 +2348,25 @@ class ConsoleMonitor(object):
                                 % m.properties['reply_to'])
             m = self.conn.recv()
 
+    def __check_if_cluster_ready(self):
+        """
+        Check if all active cluster services are running and set cluster state
+        to READY.
+        """
+        cluster_ready_flag = True
+        # Check if an activated service is still not RUNNING
+        for s in self.app.manager.service_registry.active():
+            if s.state != service_states.RUNNING:
+                cluster_ready_flag = False
+                log.debug("Service {0} not yet RUNNING.".format(s.get_full_name()))
+                break
+        if self.app.manager.cluster_status != cluster_status.READY and \
+           cluster_ready_flag:
+            self.app.manager.cluster_status = cluster_status.READY
+            msg = "All cluster services started; the cluster is ready for use."
+            log.info(msg)
+            self.app.msgs.info(msg)
+
     def __monitor(self):
         log.debug("Starting __monitor thread")
         if not self.app.manager.manager_started:
@@ -2357,6 +2376,7 @@ class ConsoleMonitor(object):
         log.debug("Monitor started; manager started")
         while self.running:
             self.sleeper.sleep(4)
+            self.__check_amqp_messages()
             if self.app.manager.cluster_status == cluster_status.TERMINATED:
                 self.running = False
                 return
@@ -2418,11 +2438,7 @@ class ConsoleMonitor(object):
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
             config_changed = self.__start_services()
             config_changed = config_changed or self.__stop_services()
+            self.__check_if_cluster_ready()
             # Opennebula has no object storage, so this is not working (yet)
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # FIXME: This will trigger during a cluster shutdown as well, which
-            # will update the cluster config file and thus mess up cluster
-            # restarts.
             if config_changed and self.app.cloud_type != 'opennebula':
                 self.store_cluster_config()
-            self.__check_amqp_messages()
