@@ -1,7 +1,6 @@
 import os
 import threading
 from cm.util import misc
-from cm.util import cluster_status
 from cm.services import service_states
 from cm.services import ServiceRole, ServiceType
 from cm.services.apps import ApplicationService
@@ -149,12 +148,6 @@ class PSSService(ApplicationService):
             self.remove()
         self.state = service_states.COMPLETED
         self.activated = False
-        # Once this service is complete, it's safe to assume the cluster is
-        # READY
-        self.app.manager.cluster_status = cluster_status.READY
-        msg = "All cluster services started; the cluster is ready for use."
-        log.info(msg)
-        self.app.msgs.info(msg)
 
     def save_to_bucket(self):
         """ Save the current post start script file to the cluster's
