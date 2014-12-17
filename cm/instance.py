@@ -47,6 +47,7 @@ class Instance(object):
         self.last_state_update = Time.now()
         self.is_alive = False
         self.num_cpus = 1
+        self.total_memory = 1  # in bytes
         self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
         self.terminate_attempt_count = 0
@@ -533,6 +534,7 @@ class Instance(object):
                 try:
                     self.local_hostname = msp[6]
                     self.num_cpus = int(msp[7])
+                    self.total_memory = int(msp[8])
                 except:
                     # Older versions of CloudMan did not pass this value so if the master
                     # and the worker are running 2 diff versions (can happen after an

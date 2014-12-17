@@ -112,8 +112,9 @@ class SlurmctldService(BaseJobManager):
             wnn = ''
             for i, w in enumerate(self.app.manager.worker_instances):
                 if w.worker_status in ['Ready', 'Startup']:
-                    wnc += ('NodeName={0} NodeAddr={1} CPUs={2} Weight=5 State=UNKNOWN\n'
-                            .format(w.alias, w.private_ip, w.num_cpus))
+                    wnc += ('NodeName={0} NodeAddr={1} CPUs={2} RealMemory={3} Weight=5 State=UNKNOWN\n'
+                            .format(w.alias, w.private_ip, w.num_cpus,
+                            max(1, w.total_memory / 1024)))
                     wnn += ',{0}'.format(w.alias)
             log.debug("Worker node names to include in slurm.conf: {0}".format(wnn[1:]))
             return wnc, wnn
@@ -129,6 +130,7 @@ class SlurmctldService(BaseJobManager):
             slurm_conf_params = {
                 "master_hostname": misc.get_hostname(),
                 "num_cpus": max(self.app.manager.num_cpus - 1, 1),  # Reserve 1 CPU
+                "total_memory": max(1, self.app.manager.total_memory / 1024),
                 "slurm_root_tmp": self.app.path_resolver.slurm_root_tmp,
                 "worker_nodes": worker_nodes,
                 "worker_names": worker_names

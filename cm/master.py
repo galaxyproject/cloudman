@@ -82,6 +82,13 @@ class ConsoleManager(BaseConsoleManager):
         """
         return int(commands.getoutput("/usr/bin/nproc"))
 
+    @property
+    def total_memory(self):
+        """
+        Return the total amount of memory (ie, RAM) on this instance, in bytes.
+        """
+        return int(misc.meminfo().get('total', 1))
+
     def activate_master_service(self, new_service):
         """
         Mark the `new_service` as *activated* in the service registry, which
@@ -2356,9 +2363,9 @@ class ConsoleMonitor(object):
         cluster_ready_flag = True
         # Check if an activated service is still not RUNNING
         for s in self.app.manager.service_registry.active():
-            if s.state != service_states.RUNNING:
+            if not (s.state == service_states.RUNNING or
+                    s.state == service_states.COMPLETED):
                 cluster_ready_flag = False
-                log.debug("Service {0} not yet RUNNING.".format(s.get_full_name()))
                 break
         if self.app.manager.cluster_status != cluster_status.READY and \
            cluster_ready_flag:
