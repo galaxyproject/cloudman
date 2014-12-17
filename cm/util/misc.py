@@ -979,6 +979,25 @@ class Sleeper(object):
         self.condition.release()
 
 
+def meminfo():
+    """
+    Get node total memory and memory usage by parsing `/proc/meminfo`.
+    Return a dictionary with the following keys: `free`, `total`, `used`
+    """
+    with open('/proc/meminfo', 'r') as mem:
+        ret = {}
+        tmp = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) == 'MemTotal:':
+                ret['total'] = int(sline[1])
+            elif str(sline[0]) in ('MemFree:', 'Buffers:', 'Cached:'):
+                tmp += int(sline[1])
+        ret['free'] = tmp
+        ret['used'] = int(ret['total']) - int(ret['free'])
+    return ret
+
+
 def nice_size(size):
     """
     Returns a readably formatted string with the size

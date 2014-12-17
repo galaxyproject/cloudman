@@ -134,7 +134,7 @@ class ConsoleManager(BaseConsoleManager):
         mount_points.append(('nfs_sge', self.app.path_resolver.sge_root, 'nfs', master_ip, ''))
 
         # Mount Hadoop regardless of cluster type
-        mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
+        # mount_points.append(('nfs_hadoop', paths.P_HADOOP_HOME, 'nfs', master_ip, ''))
 
         for i, extra_mount in enumerate(self._get_extra_nfs_mounts()):
             mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip, ''))
@@ -418,14 +418,17 @@ class ConsoleMonitor(object):
                 else:
                     log.debug("Problem initiating reboot!?")
         num_cpus = commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l")
+        total_memory = misc.meminfo().get('total', 0)
         # Compose the ALIVE message
-        msg = "ALIVE | %s | %s | %s | %s | %s | %s | %s" % (self.app.cloud_interface.get_private_ip(),
-                                                            self.app.cloud_interface.get_public_ip(),
-                                                            self.app.cloud_interface.get_zone(),
-                                                            self.app.cloud_interface.get_type(),
-                                                            self.app.cloud_interface.get_ami(),
-                                                            self.app.manager.local_hostname,
-                                                            num_cpus)
+        msg = ("ALIVE | %s | %s | %s | %s | %s | %s | %s | %s" %
+               (self.app.cloud_interface.get_private_ip(),
+                self.app.cloud_interface.get_public_ip(),
+                self.app.cloud_interface.get_zone(),
+                self.app.cloud_interface.get_type(),
+                self.app.cloud_interface.get_ami(),
+                self.app.manager.local_hostname,
+                num_cpus,
+                total_memory))
         self.conn.send(msg)
         log.debug("Sending message '%s'" % msg)
 
