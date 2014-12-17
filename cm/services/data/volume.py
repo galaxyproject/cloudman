@@ -647,7 +647,11 @@ class Volume(BlockStorage):
                 else:
                     log.debug("Creating mount point directory {0} for {1}"
                               .format(mount_point, self.fs.get_full_name()))
-                    os.mkdir(mount_point)
+                    try:
+                        os.mkdir(mount_point)
+                    except Exception, e:
+                        log.warning("Could not create {0} mount point {1}: {2}"
+                                    .format(self.fs.get_full_name(), mount_point, e))
                 # Potentially wait for the device to actually become available in the system
                 # TODO: Do something if the device is not available in the
                 # given time period
