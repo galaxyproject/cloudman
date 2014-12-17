@@ -158,7 +158,8 @@ class GalaxyService(ApplicationService):
                 # data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
-                attempt_chown_galaxy('%s/tmp/' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/tmp/' % self.app.path_resolver.galaxy_data,
+                                     recursive=True)
                 # Make sure the default shed_tools directory exists
                 if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
@@ -244,11 +245,13 @@ class GalaxyService(ApplicationService):
             else:
                 log.debug("Galaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
-        elif self.state == service_states.SHUTTING_DOWN or \
-            self.state == service_states.SHUT_DOWN or \
-            self.state == service_states.UNSTARTED or \
-                self.state == service_states.WAITING_FOR_USER_ACTION:
-             # self.state==service_states.STARTING:
+        elif self.state == service_states.STARTING:
+            # Start process failed
+            self.state = service_states.ERROR
+        elif (self.state == service_states.SHUTTING_DOWN or
+              self.state == service_states.SHUT_DOWN or
+              self.state == service_states.UNSTARTED or
+              self.state == service_states.WAITING_FOR_USER_ACTION):
             pass
         else:
             if self.state == service_states.STARTING and \
