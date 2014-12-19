@@ -14,7 +14,7 @@ log = logging.getLogger('cloudman')
 INVOKE_SUCCESS = "Successfully invoked Pulsar"
 INVOKE_FAILURE = "Error invoking Pulsar"
 DEFAULT_PULSAR_PORT = 8913
-DEFAULT_DOWNLOAD_URL = 'https://s3.amazonaws.com/cloudman/files/pulsar/pulsar-20141110.tar.gz'
+DEFAULT_DOWNLOAD_URL = 'https://cloudman.s3.amazonaws.com/files/pulsar/pulsar-20141219.tar.gz'
 
 
 class PulsarService(ApplicationService):
