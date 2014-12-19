@@ -472,8 +472,7 @@ class Volume(BlockStorage):
                     log.debug('After attach, devices = {0}'.format(
                         ' '.join(post_devices)))
                     new_devices = post_devices - pre_devices
-                    log.debug(
-                        'New devices = {0}'.format(' '.join(new_devices)))
+                    log.debug('New devices = {0}'.format(' '.join(new_devices)))
                     if len(new_devices) == 0:
                         log.debug('Could not find attached device for volume {0}. Attempted device = {1}'
                                   .format(self.volume_id, attempted_device))
@@ -488,6 +487,8 @@ class Volume(BlockStorage):
                     else:
                         device = tuple(new_devices)[0]
                         self.device = device
+                        log.debug("For {0}, set self.device to {1}".format(
+                                  self.fs.get_full_name(), device))
                         return device
                 # requested device didn't attach, for whatever reason
                 if self.status != volume_status.AVAILABLE and attempted_device[-3:-1] != 'vd':
@@ -641,9 +642,10 @@ class Volume(BlockStorage):
                     # Check if the mount location is empty
                     if len(os.listdir(mount_point)) != 0:
                         log.warning("Mount point {0} already exists and is not "
-                                    "empty!? Will attempt to mount volume {1}"
-                                    .format(mount_point, self.volume_id))
-                        return False
+                                    "empty!? ({2}) Will attempt to mount volume {1}"
+                                    .format(mount_point, self.volume_id,
+                                    os.listdir(mount_point)))
+                        # return False
                 else:
                     log.debug("Creating mount point directory {0} for {1}"
                               .format(mount_point, self.fs.get_full_name()))

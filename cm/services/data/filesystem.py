@@ -10,6 +10,7 @@ from datetime import datetime
 
 from boto.exception import EC2ResponseError
 
+from cm.util import misc
 from cm.util.misc import run
 from cm.util.misc import flock
 from cm.util.misc import nice_size
@@ -226,7 +227,7 @@ class Filesystem(DataService):
 
     def expand(self):
         """
-        Exapnd the size of this file system. Note that this process requires
+        Expand the size of this file system. Note that this process requires
         the file system to be unmounted during the operation and the new one
         will be automatically remounted upon completion of the process.
 
@@ -260,8 +261,7 @@ class Filesystem(DataService):
             if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
                        % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
                 return False
-            # Delete old, smaller volumes since everything seems to have gone
-            # ok
+            # Delete old, smaller volumes since everything seems to have gone ok
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
             for smaller_vol_id in smaller_vol_ids:
                 try:
@@ -332,20 +332,21 @@ class Filesystem(DataService):
         instance to ``device``. If not, try to update the reference to self.
         """
         # TODO: Abstract filtering into the cloud interface classes
+        # log.debug("Checking if a volume is attached to instance {0} on device {1}"
+        #           .format(self.app.cloud_interface.get_instance_id(), device))
         if self.app.cloud_type == "ec2":
             # filtering w/ boto is supported only with ec2
             f = {'attachment.device': device, 'attachment.instance-id':
                  self.app.cloud_interface.get_instance_id()}
-            vols = self.app.cloud_interface.get_ec2_connection(
-            ).get_all_volumes(filters=f)
+            vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
         else:
             vols = []
-            all_vols = self.app.cloud_interface.get_ec2_connection(
-            ).get_all_volumes()
+            all_vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
             for vol in all_vols:
                 if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id() and \
                         vol.attach_data.device == device:
                     vols.append(vol)
+        # log.debug("Found these volume(s) during a check: '{0}'".format(vols))
         if len(vols) == 1:
             att_vol = vols[0]
             for vol in self.volumes:  # Currently, bc. only 1 vol can be assoc w/ FS, we'll only deal w/ 1 vol
@@ -528,11 +529,12 @@ class Filesystem(DataService):
         """
         if not mount_point:
             mount_point = self.mount_point
-        mnt_location = commands.getstatusoutput("cat /proc/mounts | grep %s[[:space:]] "
-                                                "| cut -d' ' -f2".format(mount_point))
-        if mnt_location[0] == 0 and mnt_location[1] != '':
+        cmd = ("cat /proc/mounts | grep {0}[[:space:]] | cut -d' ' -f2"
+               .format(mount_point))
+        mnt_location = misc.getoutput(cmd)
+        if mnt_location:
             try:
-                if mount_point == mnt_location[1]:
+                if mount_point == mnt_location:
                     return True
             except Exception, e:
                 log.error("Exception checking if FS {0} is mounted at {1}: {2}"
