@@ -113,6 +113,9 @@ class Filesystem(DataService):
                           .format(self.get_full_name()))
                 self.state = service_states.STARTING
                 self.started_starting = datetime.utcnow()
+                if not self.activated:
+                    self.activated = True
+                    log.debug("Service {0} self-activated".format(self.get_full_name()))
                 # TODO: devices must be added to a file system before one can
                 # be `added` and thus we know what `kind` a FS is. So, instead of
                 # iterating over all devices, just use `self.kind`-based if/else, right?
