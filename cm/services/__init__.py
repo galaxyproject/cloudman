@@ -267,6 +267,10 @@ class Service(object):
         self.activated = False
         self.state = service_states.UNSTARTED
         self.last_state_change_time = dt.datetime.utcnow()
+        self.time_started = None
+        # Number of seconds after `self.time_started` that a call to the status
+        # method should be delayed by.
+        self.delay = 10
         self.name = None
         self.svc_roles = []
         self.dependencies = []
@@ -329,18 +333,26 @@ class Service(object):
         Child classes which override this method should ensure this is called
         for proper removal of service dependencies.
         """
-        log.debug("Removing all dependencies of service {0}: {1}".format(
-                  self.name, self.dependencies))
-        for service in self.app.manager.service_registry.itervalues():
+        # Assemble a list of dependent services to remove
+        dependent_services = []
+        for service in self.app.manager.service_registry.active():
             for dependency in service.dependencies:
-                if (dependency.is_satisfied_by(self)) and service.activated:
-                    log.debug("Initiating removal of service {0} because it "
-                              "depends on {1}".format(service.get_full_name(),
-                              self.name))
-                    service.remove()
-                    log.debug("Setting service {0} as not `activated`".format(
-                              service.get_full_name()))
-                    service.activated = False
+                if dependency.is_satisfied_by(self):
+                    dependent_services.append(service)
+        if dependent_services:
+            log.debug("Removing all services depending on {0}: {1}".format(
+                      self.name, dependent_services))
+        for dependent_service in dependent_services:
+            log.debug("Initiating removal of service {0} because it "
+                      "depends on {1}".format(dependent_service.get_full_name(),
+                      self.name))
+            dependent_service.remove()
+            log.debug("Setting dependent service {0} as not `activated`"
+                      .format(dependent_service.get_full_name()))
+            dependent_service.activated = False
+        log.debug("Setting service {0} as not `activated`".format(
+                  self.get_full_name()))
+        self.activated = False
 
     def running(self):
         """
