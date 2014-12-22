@@ -11,7 +11,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
-from cm.util.decorators import TestFlag
+from cm.util.decorators import TestFlag, delay
 from cm.util.galaxy_conf import attempt_chown_galaxy
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
@@ -54,8 +54,8 @@ class GalaxyService(ApplicationService):
         return self.app.path_resolver.galaxy_home
 
     def start(self):
+        self.time_started = datetime.utcnow()
         self.manage_galaxy(True)
-        self.status()
 
     def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
@@ -235,6 +235,7 @@ class GalaxyService(ApplicationService):
             paths.P_SU, env_exports, venv, args)
         return run_command
 
+    @delay
     def status(self):
         """Check if Galaxy daemon is running and the UI is accessible."""
         old_state = self.state
