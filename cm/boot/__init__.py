@@ -92,9 +92,13 @@ def _start_nginx(ud):
             except Exception, e:
                 log.error("Trouble parsing nginx conf line {0}: {1}".format(ul, e))
         if not os.path.exists(upload_store_dir):
-            rmdir = True
             log.debug("Creating tmp dir for nginx {0}".format(upload_store_dir))
-            os.makedirs(upload_store_dir)
+            try:
+                os.makedirs(upload_store_dir)
+                rmdir = True
+            except OSError, e:
+                log.error("Exception creating dir {0}: {1}".format(
+                          upload_store_dir, e))
     else:
         log.error("Could not find nginx.conf: {0}".format(nginx_conf_file))
     nginx_executable = _nginx_executable(log)
@@ -221,7 +225,7 @@ def _get_cm(ud):
                 log.info("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster'])
                 if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'],
                                          CM_REMOTE_FILENAME, local_cm_file):
-                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
+                    # _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
                     log.info("Restored Cloudman from bucket_cluster %s" %
                              (ud['bucket_cluster']))
                     return True
@@ -229,7 +233,7 @@ def _get_cm(ud):
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (
                 CM_REMOTE_FILENAME, default_bucket_name))
-            _write_cm_revision_to_file(s3_conn, default_bucket_name)
+            # _write_cm_revision_to_file(s3_conn, default_bucket_name)
             return True
     # ELSE try from local S3
     if 's3_url' in ud:
@@ -249,8 +253,8 @@ def _write_cm_revision_to_file(s3_conn, bucket_name):
     """ Get the revision number associated with the CM_REMOTE_FILENAME and save
     it locally to CM_REV_FILENAME """
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
-        rev = _get_file_metadata(
-            s3_conn, bucket_name, CM_REMOTE_FILENAME, 'revision')
+        rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME,
+                                 'revision')
         log.debug("Revision of remote file '%s' from bucket '%s': %s" % (
             CM_REMOTE_FILENAME, bucket_name, rev))
         if rev:

@@ -254,9 +254,12 @@ def _start_nginx(ud):
             except Exception as e:
                 log.error('Trouble parsing nginx conf line {0}: {1}'.format(ul, e))
         if (not os.path.exists(upload_store_dir)):
-            rmdir = True
             log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
-            os.makedirs(upload_store_dir)
+            try:
+                os.makedirs(upload_store_dir)
+                rmdir = True
+            except OSError as e:
+                log.error('Exception creating dir {0}: {1}'.format(upload_store_dir, e))
     else:
         log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
     nginx_executable = _nginx_executable(log)
@@ -350,12 +353,10 @@ def _get_cm(ud):
             if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
                 log.info(("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster']))
                 if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME, local_cm_file):
-                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
                     log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
                     return True
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name)))
-            _write_cm_revision_to_file(s3_conn, default_bucket_name)
             return True
     if ('s3_url' in ud):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
