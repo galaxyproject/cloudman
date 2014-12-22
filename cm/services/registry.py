@@ -44,7 +44,7 @@ class ServiceRegistry(object):
 
     def active(self, service_type=None, service_role=None):
         """
-        An iterator of currently `active` services, possibly filtered based on
+        An iterator of currently `active` service objects, possibly filtered based on
         provided arguments. Note that either of the arguments can be provided
         but not both (if both are provided, `service_role` takes precedence).
 

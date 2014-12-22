@@ -25,7 +25,10 @@ class GalaxyReportsService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.GALAXY_REPORTS)
         self.svc_roles = [ServiceRole.GALAXY_REPORTS]
         # Hopefully Galaxy dependency alone enough to ensure database migrated, etc...
-        self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY)]
+        self.dependencies = [
+            ServiceDependency(self, ServiceRole.GALAXY),
+            ServiceDependency(self, ServiceRole.GALAXY_POSTGRES)
+        ]
         self.conf_dir = os.path.join(self.app.path_resolver.galaxy_home, 'reports.conf.d')
 
     def __repr__(self):
@@ -54,7 +57,7 @@ class GalaxyReportsService(ApplicationService):
         file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
         new_file_path = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
         main_props = {
-            'database_connection': "postgres://galaxy@localhost:{0}/galaxy" \
+            'database_connection': "postgres://galaxy@localhost:{0}/galaxy"
                                    .format(self.app.path_resolver.psql_db_port),
             'filter-with': 'proxy-prefix',
             'file_path': file_path,

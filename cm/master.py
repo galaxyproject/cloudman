@@ -4,7 +4,6 @@ import datetime as dt
 import logging
 import logging.config
 import os
-import pyclbr
 import shutil
 import subprocess
 import threading
@@ -177,30 +176,25 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
-            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES,
-                             ServiceRole.PROFTPD]:
-                try:
-                    svc = self.get_services(svc_role=svc_role)
-                    if svc:
-                        svc[0].remove()
-                except IndexError, e:
-                    log.error("Tried removing app level service '%s' but failed: %s"
-                              % (svc_role, e))
+            # Remove Postgres service, which will (via dependency management)
+            # remove higher-level services
+            pgsn = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
+            pgs = self.service_registry.get(pgsn)
+            if pgs:
+                pgs.remove()
 
     def _start_app_level_services(self):
         # Resume application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
-        # the should be added to do for-loop list (in order in which they are
-        # to be added)
-        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.PROFTPD,
-                         ServiceRole.GALAXY]:
-            try:
-                svc = self.get_services(svc_role=svc_role)
-                if svc:
-                    svc[0].add()
-            except IndexError, e:
-                log.error("Tried adding app level service '%s' but failed: %s"
-                          % (ServiceRole.to_string([svc_role]), e))
+        # the should be added to do outer-most for-loop.
+        als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
+        log.debug("Activating app-level services: {0}".format(als))
+        for svc_name in als:
+            svc = self.service_registry.get(svc_name)
+            if svc:
+                # Activate only and the Monitor will pick it up to start it
+                svc.activated = True
+                log.debug("'activated' service {0}.".format(svc_name))
         log.debug("Unsuspending job manager queue")
         for job_manager_svc in self.app.manager.service_registry.active(
                 service_role=ServiceRole.JOB_MANAGER):
@@ -2299,8 +2293,10 @@ class ConsoleMonitor(object):
                service.state == service_states.SHUT_DOWN:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = Time.now()
-                service.add()
-                config_changed = True
+                if service.add():
+                    log.debug("Monitor done adding service {0} (setting config_changed)"
+                              .format(service.get_full_name()))
+                    config_changed = True
             # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
             # .format(service.get_full_name(), service.state))
             # Store cluster conf after all services have been added.
@@ -2368,6 +2364,8 @@ class ConsoleMonitor(object):
                 cluster_ready_flag = False
                 break
         if self.app.manager.cluster_status != cluster_status.READY and \
+           self.app.manager.cluster_status != cluster_status.SHUTTING_DOWN and \
+           self.app.manager.cluster_status != cluster_status.TERMINATED and \
            cluster_ready_flag:
             self.app.manager.cluster_status = cluster_status.READY
             msg = "All cluster services started; the cluster is ready for use."
