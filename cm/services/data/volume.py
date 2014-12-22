@@ -6,6 +6,7 @@ import os
 import grp
 import pwd
 import time
+import shutil
 import subprocess
 from glob import glob
 
@@ -759,11 +760,16 @@ class Volume(BlockStorage):
                         # Clean up the system path now that the file system is
                         # unmounted
                         try:
+                            # nginx upload store is sometimes left behind,
+                            # so clean it up
+                            usp = os.path.join(mount_point, 'upload_store')
+                            if os.path.exists(usp):
+                                shutil.rmtree(usp)
                             os.rmdir(mount_point)
+                            break
                         except OSError, e:
                             log.error("Error removing unmounted path {0}: {1}".format(
                                 mount_point, e))
-                        break
                     if counter == 9:
                         log.warning("Could not unmount file system at '%s'" % mount_point)
                         return False
