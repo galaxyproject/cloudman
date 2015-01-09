@@ -15,6 +15,9 @@ class ServiceRegistry(object):
         self.services = {}
         self.directories = ['cm/services']
 
+    def __repr__(self):
+        return "ServiceRegistry"
+
     def __iter__(self):
         return iter(self.services)
 
@@ -78,8 +81,14 @@ class ServiceRegistry(object):
             return True
         return False
 
-    def __repr__(self):
-        return "ServiceRegistry"
+    def remove(self, service_name):
+        """
+        Remove the service object for the service with `service_name` from
+        the registry.
+        """
+        if self.get(service_name):
+            log.debug("Removing service {0} from the registry".format(service_name))
+            del self.services[service_name]
 
     def register(self, service_object):
         """
