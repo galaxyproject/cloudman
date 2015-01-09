@@ -338,11 +338,14 @@ class ConsoleManager(BaseConsoleManager):
                       .format(os_release))
             self.activate_master_service(self.service_registry.get('Slurmctld'))
             self.activate_master_service(self.service_registry.get('Slurmd'))
+            self.service_registry.remove('SGE')  # SGE or Slurm can exist, not both
         else:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
             # from cm.services.apps.jobmanagers.sge import SGEService
             self.activate_master_service(self.service_registry.get('SGE'))
+            self.service_registry.remove('Slurmctld')  # SGE or Slurm can exist, not both
+            self.service_registry.remove('Slurmd')
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
