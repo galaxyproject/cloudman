@@ -567,7 +567,7 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
         return True
 
 
-def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=True):
+def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=False):
     if bucket_exists(conn, bucket_name):
         b = get_bucket(conn, bucket_name, validate)
         k = Key(b, remote_filename)
