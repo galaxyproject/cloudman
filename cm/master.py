@@ -97,6 +97,9 @@ class ConsoleManager(BaseConsoleManager):
         :param  new_service: an instance object of the service to activate
         """
         ok = True
+        if not new_service:
+            log.warning("Tried to activate a master service but no service received")
+            return False
         # File system services get explicitly added into the registry. This is
         # because a multiple file systems correspond to the same service
         # implementation class.
@@ -339,6 +342,7 @@ class ConsoleManager(BaseConsoleManager):
             self.activate_master_service(self.service_registry.get('Slurmctld'))
             self.activate_master_service(self.service_registry.get('Slurmd'))
             self.service_registry.remove('SGE')  # SGE or Slurm can exist, not both
+            self.service_registry.remove('Hadoop')  # Hadoop works only w/ SGE
         else:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
