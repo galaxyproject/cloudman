@@ -103,8 +103,7 @@ class PSSService(ApplicationService):
         self.state = service_states.RUNNING
         log.debug("%s service prerequisites OK (i.e., all other services running), "
                   "checking if %s was provided..." % (self.name, self.pss_filename))
-        local_pss_file = os.path.join(
-            self.app.ud['cloudman_home'], self.pss_filename)
+        local_pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
         # Check user data first to allow overwriting of a potentially existing
         # script
         if self.pss_url:
@@ -120,12 +119,14 @@ class PSSService(ApplicationService):
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = None
             if s3_conn and 'bucket_cluster' in self.app.ud:
-                b = s3_conn.lookup(self.app.ud['bucket_cluster'])
-            if b is not None:  # Check if an existing cluster has a stored post start script
-                log.debug("Cluster bucket '%s' found; looking for post start script '%s'"
-                          % (b.name, self.pss_filename))
-                misc.get_file_from_bucket(
-                    s3_conn, b.name, self.pss_filename, local_pss_file)
+                b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            if b is not None:  # Check if the existing cluster has a stored PSS
+                log.debug("Cluster bucket '%s' found; looking for post start "
+                          "script '%s'" % (b.name, self.pss_filename))
+                misc.get_file_from_bucket(s3_conn, b.name, self.pss_filename,
+                                          local_pss_file)
+            else:
+                log.debug("No s3_conn or the cluster bucket not found.")
         if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this may take a while)"
                      % (self.pss_filename, os.path.join(self.app.ud['cloudman_home'], self.pss_filename)))
