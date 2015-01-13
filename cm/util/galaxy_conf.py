@@ -148,7 +148,10 @@ def populate_galaxy_paths(option_manager):
     properties["tool_dependency_dir"] = \
         join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
-    temp_dir = join(path_resolver.galaxy_data, "tmp")
+    temp_dir = join(path_resolver.transient_nfs, "tmp")
+    if not exists(temp_dir):
+        makedirs(temp_dir)
+    attempt_chown_galaxy(temp_dir, recursive=True)
     properties["new_file_path"] = temp_dir
     # This is something a user may change so this is not an ideal solution
     # but a relation to the required files is necessary so here it is.
