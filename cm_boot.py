@@ -334,6 +334,8 @@ def _get_s3connection(ud):
     return s3_conn
 
 def _get_cm(ud):
+    log.debug('Deleting /mnt/cm dir before download')
+    _run(log, 'rm -rf /mnt/cm')
     log.info('<< Downloading CloudMan >>')
     _make_dir(log, CM_HOME)
     local_cm_file = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
