@@ -33,7 +33,8 @@ class PostgresService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(PostgresService, self).remove(synchronous)
         # Stop only if currently running
-        if self.state == service_states.RUNNING:
+        if self.state == service_states.RUNNING or \
+           self.state == service_states.ERROR:
             self.state = service_states.SHUTTING_DOWN
             self.manage_postgres(False)
         elif self.state == service_states.UNSTARTED:
