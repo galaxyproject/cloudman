@@ -149,8 +149,8 @@ class ConsoleManager(BaseConsoleManager):
         assigned service property is set to null for all services
         which depend on the new service.
         """
-        log.debug("Updating dependencies for service {0}".format(new_service.name))
-        for svc in self.services:
+        log.debug("{0} dependencies for service {1}".format(action, new_service.name))
+        for svc in self.service_registry.active():
             if action == "ADD":
                 for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
@@ -2297,7 +2297,8 @@ class ConsoleMonitor(object):
         # Check and add any new services
         for service in self.app.manager.service_registry.active():
             if service.state == service_states.UNSTARTED or \
-               service.state == service_states.SHUT_DOWN:
+               service.state == service_states.SHUT_DOWN and \
+               service.state != service_states.STARTING:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = Time.now()
                 if service.add():
@@ -2418,7 +2419,7 @@ class ConsoleMonitor(object):
                         self.app.msgs.remove_message(msg)
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
-                for s in self.app.manager.service_registry.active():
+                for s in self.app.manager.service_registry.itervalues():
                     svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances

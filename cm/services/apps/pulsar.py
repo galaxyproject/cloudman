@@ -41,6 +41,9 @@ class PulsarService(ApplicationService):
     def start(self):
         self.pulsar_home = self.app.path_resolver.pulsar_home
         self.state = service_states.STARTING
+        if not self.activated:
+            self.activated = True
+            log.debug("Service {0} self-activated".format(self.get_full_name()))
         self.status()
         if not self.state == service_states.RUNNING:
             self._download()

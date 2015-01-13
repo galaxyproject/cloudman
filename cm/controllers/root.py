@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 
 import cm.util.paths as paths
 
@@ -522,9 +523,17 @@ class CM(BaseController):
         svcs = self.app.manager.get_services(svc_role=service_role, svc_name=service_name)
         if svcs:
             for service in svcs:
-                service.remove()
+                log.debug("As part of service restart, removing {0}".format(
+                    service))
+                self.app.manager.deactivate_master_service(service)
+                # Wait until the service shuts down
+                while (service.state != service_states.SHUT_DOWN and
+                       service.state != service_states.ERROR):
+                    time.sleep(2)
             for service in svcs:
-                service.start()
+                log.debug("As part of service restart, starting {0}".format(
+                    service))
+                self.app.manager.activate_master_service(service)
             return "%s service restarted." % service_name
         else:
             return "Cannot find %s service." % service_name
@@ -631,7 +640,7 @@ class CM(BaseController):
         svcs = self.app.manager.get_services(
             svc_type=svc_type, svc_name=service_name)
         if svcs:
-            log.debug("Managing services: %s" % svcs)
+            log.debug("Managing services (starting? %s): %s" % (to_be_started, svcs))
             if to_be_started is False:
                 for s in svcs:
                     self.app.manager.deactivate_master_service(s)
