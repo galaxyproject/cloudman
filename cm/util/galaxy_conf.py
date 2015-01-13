@@ -29,16 +29,16 @@ def attempt_chown_galaxy(path, recursive=False):
     Change owner of file at specified `path` to `galaxy`.
     """
     try:
+        log.debug("Attemping to chown to galaxy for {0}".format(path))
         galaxy_uid = getpwnam("galaxy")[2]
         galaxy_gid = getgrnam("galaxy")[2]
+        chown(path, galaxy_uid, galaxy_gid)
         if recursive:
             for root, dirs, files in walk(path):
                 for d in dirs:
                     chown(join(root, d), galaxy_uid, galaxy_gid)
                 for f in files:
                     chown(join(root, f), galaxy_uid, galaxy_gid)
-        else:
-            chown(path, galaxy_uid, galaxy_gid)
     except BaseException:
         run("chown galaxy:galaxy '%s'" % path)
 
