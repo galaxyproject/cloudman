@@ -777,6 +777,9 @@ class CM(BaseController):
 
     @expose
     def admin(self, trans):
+        if self.app.ud['role'] == 'worker':
+            return ('This is a worker instance; visit <a href="http://{0}/cloud">'
+                    'the master</a> instead.'.format(self.app.ud['master_public_ip']))
         # Get names of the file systems
         filesystems = []
         fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
