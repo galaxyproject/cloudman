@@ -18,7 +18,7 @@ class CM(BaseController):
     @expose
     def index(self, trans, **kwd):
         if self.app.ud['role'] == 'worker':
-            return trans.fill_template('worker_index.mako', master_ip=self.app.ud['master_ip'])
+            return trans.fill_template('worker_index.mako', master_ip=self.app.ud['master_public_ip'])
         else:
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
