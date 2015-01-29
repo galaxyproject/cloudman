@@ -929,6 +929,7 @@ def add_to_etc_hosts(ip_address, hosts=[]):
         run('cp /etc/hosts /etc/hosts.orig')
         run('cp {0} /etc/hosts'.format(tmp.name))
         run('chmod 644 /etc/hosts')
+        log.debug("Added the following line to /etc/hosts: {0}".format(line))
     except (IOError, OSError) as e:
         log.error('Could not update /etc/hosts. {0}'.format(e))
 
