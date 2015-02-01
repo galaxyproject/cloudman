@@ -67,6 +67,7 @@ function update(repeat_update){
                 update_application_status("#hadoop_status", data.Hadoop);
                 update_application_status("#htcondor_status", data.HTCondor);
                 update_application_status("#pss_status", data.PSS);
+                update_application_status("#clouderamanager_status", data.ClouderaManager);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking

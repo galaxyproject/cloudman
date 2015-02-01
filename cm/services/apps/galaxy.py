@@ -379,6 +379,62 @@ class GalaxyService(ApplicationService):
         }
     }
                 """
+
+            cloudera_manager_app_block = ""
+            cloudera_manager_server_block = ""
+            if self.app.manager.service_registry.is_active('ClouderaManager'):
+                cloudera_manager_app_block = """
+    upstream cmf_app {
+        server 127.0.0.1:7180;
+    }
+                """
+                cloudera_manager_server_block = """
+        location /cmf {
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /static/ext{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /static/cms{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /static/release{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /static/snmp{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /static/apidocs{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /j_spring_security_check{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /j_spring_security_logout{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+        location /api/v6{
+            proxy_pass  http://cmf_app;
+            proxy_set_header   X-Forwarded-Host $host;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        }
+                """
             nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
                 'galaxy_user_name': paths.GALAXY_USER_NAME,
@@ -386,7 +442,9 @@ class GalaxyService(ApplicationService):
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server,
                 'server_block_head': server_block_head,
-                'pulsar_block': pulsar_block
+                'pulsar_block': pulsar_block,
+                'cloudera_manager_app_block': cloudera_manager_app_block,
+                'cloudera_manager_server_block': cloudera_manager_server_block
             }
             template = nginx_conf_template.substitute(params)
 

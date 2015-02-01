@@ -1293,6 +1293,7 @@ class ConsoleManager(BaseConsoleManager):
             # ``start`` method)
             pass
             self.activate_master_service(self.service_registry.get('Pulsar'))
+            self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 

@@ -39,7 +39,11 @@ http {
 
     $pulsar_block
 
+    $cloudera_manager_app_block
+
     $server_block_head
+
+        $cloudera_manager_server_block
 
         location /cloud {
             auth_pam    "Secure Zone";
