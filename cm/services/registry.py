@@ -45,6 +45,15 @@ class ServiceRegistry(object):
             return self.get(service_name)
         return None
 
+    def all_active(self, names=False):
+        """
+        Return a list of currently active service objects or service names, if
+        `names` is set.
+        """
+        if names:
+            return [service.name for service in self.active()]
+        return [service for service in self.active()]
+
     def active(self, service_type=None, service_role=None):
         """
         An iterator of currently `active` service objects, possibly filtered based on
