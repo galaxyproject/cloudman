@@ -64,7 +64,7 @@ class ClouderaManagerService(ApplicationService):
                        module_name="lineinfile",
                        module_args=('dest={0} backup=yes line="{1}" owner=postgres regexp="{2}"'
                                     .format(pg_conf, l, regexp))
-                      ).run()
+                       ).run()
             except Exception, e:
                 log.error("Exception updating psql conf {0}: {1}".format(l, e))
         # Restart psql
@@ -82,7 +82,7 @@ class ClouderaManagerService(ApplicationService):
                        module_name="postgresql_user",
                        module_args=("name={0} role_attr_flags=LOGIN password={1}"
                                     .format(role, pwd))
-                      ).run()
+                       ).run()
             except Exception, e:
                 log.error("Exception creating psql role {0}: {1}".format(role, e))
         # Create required databases
@@ -100,8 +100,8 @@ class ClouderaManagerService(ApplicationService):
                            module_name="postgresql_db",
                            module_args=("name={0} owner={1} encoding='UTF-8'"
                                     .format(db, owner))
-                          ).run()
-                if r.get('contacted',{}).get('localhost', {}).get('failed'):
+                           ).run()
+                if r.get('contacted', {}).get('localhost', {}).get('failed'):
                     msg = r.get('contacted', {}).get('localhost', {}).get('msg', 'N/A')
                     log.error("Creating the database filed: {0}".format(msg))
             except Exception, e:
@@ -143,10 +143,6 @@ class ClouderaManagerService(ApplicationService):
         if misc.run("service cloudera-scm-server start"):
             # This method may take a while so spawn it off
             threading.Thread(target=_disable_referer_check).start()
-            # Add Cloudeera Manager config to the nginx config
-            gs = self.app.manager.service_registry.get('Galaxy')
-            if gs:
-                gs.configure_nginx()
             self.state = service_states.RUNNING
 
     def status(self):

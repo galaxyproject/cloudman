@@ -1,10 +1,8 @@
 import os
 import urllib2
-import commands
 import subprocess
 from datetime import datetime
 
-from cm.conftemplates import conf_manager
 from cm.services.apps import ApplicationService
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -94,7 +92,7 @@ class GalaxyService(ApplicationService):
         if conf_dir:
             self.env_vars["GALAXY_UNIVERSE_CONFIG_DIR"] = conf_dir
 
-        if self._multiple_processes():
+        if self.multiple_processes():
             self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
             # HACK: Galaxy has a known problem when starting from a fresh configuration
             # in multiple process mode. Each process attempts to create the same directories
@@ -115,7 +113,9 @@ class GalaxyService(ApplicationService):
             # If not provided as part of user data, update nginx conf with
             # current paths
             if self.app.ud.get('nginx_conf_contents', None) is None:
-                self.configure_nginx()
+                ns = self.app.manager.service_registry.get('Nginx')
+                if ns:
+                    ns.reconfigure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
                 for job_manager_svc in self.app.manager.service_registry.active(
@@ -229,7 +229,7 @@ class GalaxyService(ApplicationService):
                 subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'"
                     % datetime.utcnow().strftime('%H_%M'), shell=True)
 
-    def _multiple_processes(self):
+    def multiple_processes(self):
         return self.app.ud.get("configure_multiple_galaxy_processes", False)
 
     def galaxy_run_command(self, args):
@@ -297,8 +297,7 @@ class GalaxyService(ApplicationService):
 
     def _is_galaxy_running(self):
         dns = "http://127.0.0.1:8080"
-        running_error_codes = [403]
-            # Error codes that indicate Galaxy is running
+        running_error_codes = [403]  # Error codes that indicate Galaxy is running
         try:
             urllib2.urlopen(dns)
             return True
@@ -308,7 +307,7 @@ class GalaxyService(ApplicationService):
             return False
 
     def update_galaxy_config(self):
-        if self._multiple_processes():
+        if self.multiple_processes():
             populate_process_options(self.option_manager)
         populate_dynamic_options(self.option_manager)
         populate_galaxy_paths(self.option_manager)
@@ -316,148 +315,3 @@ class GalaxyService(ApplicationService):
 
     def add_galaxy_admin_users(self, admins_list=[]):
         populate_admin_users(self.option_manager, admins_list)
-
-    def configure_nginx(self, setup_ssl=False):
-        """
-        Generate `nginx.conf` from a template and reload nginx process so config
-        options take effect.
-        """
-        if self.app.path_resolver.nginx_executable:
-            log.debug("Updating nginx config at {0}".format(
-                      self.app.path_resolver.nginx_conf_file))
-            galaxy_server = "server 127.0.0.1:8080;"
-            if self._multiple_processes():
-                web_thread_count = int(self.app.ud.get("web_thread_count", 3))
-                galaxy_server = ''
-                if web_thread_count > 9:
-                    log.warning("Current code supports max 9 web threads. "
-                        "Setting the web thread count to 9.")
-                    web_thread_count = 9
-                for i in range(web_thread_count):
-                    galaxy_server += "server 127.0.0.1:808%s;" % i
-            # Customize the appropriate nginx template
-            if (setup_ssl and self.app.path_resolver.nginx_executable and "1.4"
-               in commands.getoutput("{0} -v".format(self.app.path_resolver.nginx_executable))):
-                # Generate a self-signed certificate
-                log.info("Generating self-signed certificate for SSL encryption")
-                cert_home = "/root/.ssh/"
-                certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
-                keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
-                misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
-                    "rsa:1024 -keyout " + keyfile + " -out " + certfile)
-                misc.run("chmod 440 " + keyfile)
-                server_block_head = conf_manager.load_conf_template(conf_manager.NGINX_SERVER_BLOCK_HEAD_SSL).safe_substitute()
-                log.debug("Using nginx v1.4+ template w/ SSL")
-                self.ssl_is_on = True
-                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
-            elif (self.app.path_resolver.nginx_executable and "1.4" in commands.getoutput(
-                  "{0} -v".format(self.app.path_resolver.nginx_executable))):
-                server_block_head = conf_manager.load_conf_template(conf_manager.NGINX_SERVER_BLOCK_HEAD).safe_substitute()
-                log.debug("Using nginx v1.4+ template")
-                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
-                self.ssl_is_on = False
-            else:
-                server_block_head = ""
-                nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
-                self.ssl_is_on = False
-            pulsar_block = ""
-            if self.app.manager.service_registry.is_active('Pulsar'):
-                pulsar_block = """
-    upstream pulsar_app {
-        server 127.0.0.1:8913;
-    }
-    server {
-        listen                  8914;
-        client_max_body_size    10G;
-        proxy_read_timeout      600;
-
-        location /jobs {
-            proxy_pass http://pulsar_app;
-            proxy_set_header   X-Forwarded-Host $host:$server_port;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-            error_page   502    /errdoc/cm_502.html;
-        }
-    }
-                """
-
-            cloudera_manager_app_block = ""
-            cloudera_manager_server_block = ""
-            if self.app.manager.service_registry.is_active('ClouderaManager'):
-                cloudera_manager_app_block = """
-    upstream cmf_app {
-        server 127.0.0.1:7180;
-    }
-                """
-                cloudera_manager_server_block = """
-        location /cmf {
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /static/ext{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /static/cms{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /static/release{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /static/snmp{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /static/apidocs{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /j_spring_security_check{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /j_spring_security_logout{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-        location /api/v6{
-            proxy_pass  http://cmf_app;
-            proxy_set_header   X-Forwarded-Host $host;
-            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
-        }
-                """
-            nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
-            params = {
-                'galaxy_user_name': paths.GALAXY_USER_NAME,
-                'galaxy_home': self.galaxy_home,
-                'galaxy_data': self.app.path_resolver.galaxy_data,
-                'galaxy_server': galaxy_server,
-                'server_block_head': server_block_head,
-                'pulsar_block': pulsar_block,
-                'cloudera_manager_app_block': cloudera_manager_app_block,
-                'cloudera_manager_server_block': cloudera_manager_server_block
-            }
-            template = nginx_conf_template.substitute(params)
-
-            # Write out the files
-            with open(self.app.path_resolver.nginx_conf_file, 'w') as f:
-                print >> f, template
-
-            nginx_cmdline_config_file = os.path.join(self.app.path_resolver.nginx_conf_dir,
-                                                     'commandline_utilities_http.conf')
-            misc.run('touch {0}'.format(nginx_cmdline_config_file))
-            # Reload nginx process, specifying the newly generated config file
-            misc.run('{0} -c {1} -s reload'.format(self.app.path_resolver.nginx_executable,
-                                                   self.app.path_resolver.nginx_conf_file))
-        else:
-            log.warning("Cannot find nginx executable to reload nginx config (got"
-                        " '{0}')".format(self.app.path_resolver.nginx_executable))

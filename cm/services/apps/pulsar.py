@@ -52,11 +52,6 @@ class PulsarService(ApplicationService):
             if not started:
                 log.warn("Failed to setup or run Pulsar server.")
                 self.state = service_states.ERROR
-            else:
-                # Add Pulsar config to the nginx config
-                gs = self.app.manager.service_registry.get('Galaxy')
-                if gs:
-                    gs.configure_nginx()
 
     def _download(self):
         """
@@ -78,10 +73,6 @@ class PulsarService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(PulsarService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        # Remove Pulsar config from the nginx config
-        gs = self.app.manager.service_registry.get('Galaxy')
-        if gs:
-            gs.configure_nginx()
         if self.pulsar_home and self._run("--stop-daemon"):
             log.info("Shutting down Pulsar service...")
             self.state = service_states.SHUT_DOWN
