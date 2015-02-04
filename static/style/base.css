@@ -1364,6 +1364,12 @@ p.disabled {
 .fs-persist:hover {
     background-image : url(/cloud/static/images/persist.png);
 }
+.fs-snapshot{
+    background: transparent url(/cloud/static/images/disc-pencil-bw.png) no-repeat;
+}
+.fs-snapshot:hover {
+    background-image : url(/cloud/static/images/disc-pencil.png);
+}
 .fs-resize {
     background: transparent url(/cloud/static/images/disc_plus_bw.png) no-repeat;
 }

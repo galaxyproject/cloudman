@@ -115,7 +115,7 @@ class GalaxyService(ApplicationService):
             if self.app.ud.get('nginx_conf_contents', None) is None:
                 ns = self.app.manager.service_registry.get('Nginx')
                 if ns:
-                    ns.reconfigure_nginx()
+                    ns.reconfigure()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
                 for job_manager_svc in self.app.manager.service_registry.active(
