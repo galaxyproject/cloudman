@@ -180,9 +180,14 @@ class CM(BaseController):
         return "Initiated '{0}' file system expansion".format(fs_name)
 
     @expose
+    def snapshot_file_system(self, trans, fs_name):
+        snap_ids = self.app.manager.snapshot_file_system(fs_name)
+        return "Created snapshot(s) of file system {0}: {1}".format(fs_name, snap_ids)
+
+    @expose
     def update_file_system(self, trans, fs_name):
         self.app.manager.update_file_system(fs_name)
-        return "Initiated persisting of '{0}' file system".format(fs_name)
+        return "Updated file system '{0}'".format(fs_name)
 
     @expose
     def add_file_system(self, trans, fs_kind, dot=False, persist=False,
@@ -769,10 +774,9 @@ class CM(BaseController):
         without requiring Galaxy service.
         """
         log.debug("Toggling SSL")
-        svcs = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
-        if len(svcs) > 0:
-            galaxy_service = svcs[0]
-            galaxy_service.configure_nginx(setup_ssl=(not galaxy_service.ssl_is_on))
+        nginx_service = self.app.manager.service_registry.get('Nginx')
+        if nginx_service:
+            nginx_service.reconfigure(setup_ssl=(not nginx_service.ssl_is_on))
             return "SSL toggled"
 
     @expose
