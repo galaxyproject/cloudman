@@ -110,12 +110,6 @@ class GalaxyService(ApplicationService):
             self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
         if to_be_started and self.remaining_start_attempts > 0:
             self.status()
-            # If not provided as part of user data, update nginx conf with
-            # current paths
-            if self.app.ud.get('nginx_conf_contents', None) is None:
-                ns = self.app.manager.service_registry.get('Nginx')
-                if ns:
-                    ns.reconfigure()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
                 for job_manager_svc in self.app.manager.service_registry.active(

@@ -22,6 +22,8 @@ class ClouderaManagerService(ApplicationService):
         self.svc_roles = [ServiceRole.CLOUDERA_MANAGER]
         self.name = ServiceRole.to_string(ServiceRole.CLOUDERA_MANAGER)
         self.dependencies = []
+        self.db_pwd = misc.random_string_generator()
+        self.port = 7180
 
     def start(self):
         """
@@ -70,10 +72,10 @@ class ClouderaManagerService(ApplicationService):
         # Restart psql
         misc.run("service postgresql restart")
         # Add required roles to the main Postgres server
-        pwd = misc.random_string_generator()
         roles = ['scm', 'amon', 'rman', 'hive']
         for role in roles:
-            log.debug("Adding PostgreSQL role {0} (with pwd: {1})".format(role, pwd))
+            log.debug("Adding PostgreSQL role {0} (with pwd: {1})".format(role,
+                      self.db_pwd))
             try:
                 Runner(inventory=Inventory(['localhost']),
                        transport='local',
@@ -81,7 +83,7 @@ class ClouderaManagerService(ApplicationService):
                        sudo_user='postgres',
                        module_name="postgresql_user",
                        module_args=("name={0} role_attr_flags=LOGIN password={1}"
-                                    .format(role, pwd))
+                                    .format(role, self.db_pwd))
                        ).run()
             except Exception, e:
                 log.error("Exception creating psql role {0}: {1}".format(role, e))
@@ -113,7 +115,8 @@ class ClouderaManagerService(ApplicationService):
         for sql_cmd in sql_cmds:
             misc.run_psql_command(sql_cmd, 'postgres', self.app.path_resolver.psql_cmd, 5432)
         # Prepare the scm database
-        cmd = "/usr/share/cmf/schema/scm_prepare_database.sh -h localhost postgresql scm scm {0}".format(pwd)
+        cmd = ("/usr/share/cmf/schema/scm_prepare_database.sh -h localhost postgresql scm scm {0}"
+               .format(self.db_pwd))
         misc.run(cmd)
         # Make sure we have a clean DB env
         f = '/etc/cloudera-scm-server/db.mgmt.properties'

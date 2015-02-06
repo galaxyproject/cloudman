@@ -1,13 +1,16 @@
+    # This file is maintained my CloudMan.
+    # Changes will be overwritten!
+
     $upstream_servers
     server {
         listen 80;
-        return 301 https://$host$request_uri;
+        return 301 https://$$host$$request_uri;
     }
 
     server {
         listen                  443 ssl;
         client_max_body_size    10G;
-        proxy_read_timeout      600;
+        proxy_read_timeout      1200s;
 
         ssl on;
         ssl_certificate         /root/.ssh/instance_selfsigned_cert.pem;

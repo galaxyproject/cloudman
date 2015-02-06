@@ -236,7 +236,6 @@ def usage():
 def _start_nginx(ud):
     log.info('<< Starting nginx >>')
     _configure_nginx(log, ud)
-    _fix_nginx_upload(ud)
     rmdir = False
     upload_store_dir = '/mnt/galaxyData/upload_store'
     ul = None
@@ -287,7 +286,7 @@ def _fix_nginx_upload(ud):
         _run(log, 'uniq {0} > {1}'.format(bkup_nginx_conf_path, nginx_conf_path))
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
         if (not _run(log, already_defined)):
-            log.degbu('Adding client_max_body_size to {0}'.format(nginx_conf_path))
+            log.debug('Adding client_max_body_size to {0}'.format(nginx_conf_path))
             sedargs = ("'\n/listen/ a        client_max_body_size 10G;\n' -i %s" % nginx_conf_path)
             _run(log, ('sudo sed %s' % sedargs))
             _run(log, 'sudo kill -HUP `cat /opt/galaxy/pkg/nginx/logs/nginx.pid`')
