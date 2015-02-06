@@ -1,3 +1,6 @@
+    # This file is maintained my CloudMan.
+    # Changes will be overwritten!
+
     $upstream_servers
     server {
         listen                  80;

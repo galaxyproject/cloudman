@@ -963,6 +963,14 @@ def remove_from_etc_hosts(host):
         log.error('could not update /etc/hosts. {0}'.format(e))
 
 
+def delete_file(path):
+    """
+    Check if a file at `path` exists and delete it.
+    """
+    if os.path.exists(path):
+        os.remove(path)
+
+
 class Sleeper(object):
     """
     Provides a 'sleep' method that sleeps for a number of seconds *unless*

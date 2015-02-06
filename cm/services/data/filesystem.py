@@ -598,7 +598,7 @@ class Filesystem(DataService):
                         self.state = service_states.ERROR
                 except Exception, e:
                     log.error("STATUS CHECK: Exception checking status of FS "
-                              "'%s': %s".format(self.name, e))
+                              "'{0}': {0}".format(self.name, e))
                     self.state = service_states.ERROR
                     log.debug(mnt_location)
             else:
