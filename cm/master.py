@@ -101,7 +101,7 @@ class ConsoleManager(BaseConsoleManager):
             log.warning("Tried to activate a master service but no service received")
             return False
         # File system services get explicitly added into the registry. This is
-        # because a multiple file systems correspond to the same service
+        # because multiple file systems correspond to the same service
         # implementation class.
         if new_service.svc_type == ServiceType.FILE_SYSTEM and \
            new_service.name not in self.service_registry.services:
@@ -190,7 +190,9 @@ class ConsoleManager(BaseConsoleManager):
         # Resume application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do outer-most for-loop.
-        als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
+        als = []
+        if self.initial_cluster_type == 'Galaxy':
+            als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
         log.debug("Activating app-level services: {0}".format(als))
         for svc_name in als:
             svc = self.service_registry.get(svc_name)
@@ -331,6 +333,9 @@ class ConsoleManager(BaseConsoleManager):
 
         # Always add migration service
         self.activate_master_service(self.service_registry.get('Migration'))
+
+        # Activate Nginx service
+        self.activate_master_service(self.service_registry.get('Nginx'))
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
@@ -631,7 +636,14 @@ class ConsoleManager(BaseConsoleManager):
                 "mount_point": "/mnt/galaxyData", "name": "galaxyData", "snapshot_status": None,
                 "err_msg": None, "snapshot_progress": None, "from_snap": "snap-galaxyFS",
                 "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
-                "DoT": "No", "size": "1014M", "persistent": "Yes"},
+                "DoT": "No", "size": "1014M", "persistent": "Yes",
+                "snapshots_created": ['snap-gFSsnp1', 'snap-gFSsnp2', 'snap-gFSsnp3']},
+               {"size_used": "560M", "status": "Running", "kind": "Snapshot",
+                "mount_point": "/mnt/galaxyIndices", "name": "galaxyIndices",
+                "snapshot_status": None, "err_msg": None, "snapshot_progress": None,
+                "from_snap": "snap-indicesFS", "volume_id": "vol-0000000i",
+                "device": "/dev/vdd", "size_pct": "55%", "DoT": "Yes", "size": "1014M",
+                "persistent": "No", "snapshots_created": []},
                {"size_used": "52M", "status": "Configuring", "kind": "Volume",
                 "mount_point": "/mnt/galaxyData", "name": "galaxyDataResize",
                 "snapshot_status": "pending", "err_msg": None, "persistent": "Yes",
@@ -1293,6 +1305,7 @@ class ConsoleManager(BaseConsoleManager):
             # ``start`` method)
             pass
             self.activate_master_service(self.service_registry.get('Pulsar'))
+            self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
@@ -1671,7 +1684,43 @@ class ConsoleManager(BaseConsoleManager):
             ok = False
         return ok
 
-    @TestFlag(None)
+    @TestFlag(['snap-snapFS'])
+    def snapshot_file_system(self, file_system_name):
+        """
+        Create a snapshot of the volume(s) used for the `file_system_name`.
+        Note that this method applies only to volume-backed file systems.
+
+        The method will automatically stop any application-level services,
+        create a snapshot of the volume(s) and, after the snapshot(s) have
+        been created, start the application-level services. These are the steps:
+            1. Suspend all application-level services
+            2. Unmount and detach the volume associated with the file system
+            3. Create a snapshot of the volume
+            4. Re-mount the file system
+            5. Unsuspend services
+        """
+        log.info("Initiating file system '%s' snapshot." % file_system_name)
+        self.cluster_manipulation_in_progress = True
+        self._stop_app_level_services()
+        snap_ids = []
+        fs_service = self.service_registry.get(file_system_name)
+        if fs_service:
+            # Create a snapshot of the given volume/file system
+            snap_desc = ("Created by CloudMan ({0}; {1}) from file system '{2}'"
+                         .format(self.app.ud['cluster_name'],
+                         self.app.ud['bucket_cluster'], file_system_name))
+            snap_ids = fs_service.create_snapshot(snap_description=snap_desc)
+            # Start things back up
+            self._start_app_level_services()
+            self.cluster_manipulation_in_progress = False
+            log.info("File system {0} snapshot complete; snapshot(s): {1}"
+                     .format(file_system_name, snap_ids))
+        else:
+            log.error("Did not find file system with name {0}; snapshot(s) not "
+                      "created.".format(file_system_name))
+        return snap_ids
+
+    @TestFlag(['snap-updateFS'])
     def update_file_system(self, file_system_name):
         """ This method is used to update the underlying EBS volume/snapshot
         that is used to hold the provided file system. This is useful when
@@ -1726,11 +1775,10 @@ class ConsoleManager(BaseConsoleManager):
             self._start_app_level_services()
             self.cluster_manipulation_in_progress = False
             log.info("File system '%s' update complete" % file_system_name)
-            return True
         else:
             log.error("Did not find file system with name '%s'; update not performed." %
                       file_system_name)
-            return False
+        return snap_ids
 
     def add_fs_bucket(self, bucket_name, fs_name=None, fs_roles=[ServiceRole.GENERIC_FS],
                       bucket_a_key=None, bucket_s_key=None, persistent=False):

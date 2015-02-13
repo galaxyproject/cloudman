@@ -12,6 +12,8 @@ import subprocess
 import threading
 import time
 import yaml
+import string
+import random
 
 from boto.exception import S3CreateError, S3ResponseError
 from boto.s3.acl import ACL
@@ -929,6 +931,7 @@ def add_to_etc_hosts(ip_address, hosts=[]):
         run('cp /etc/hosts /etc/hosts.orig')
         run('cp {0} /etc/hosts'.format(tmp.name))
         run('chmod 644 /etc/hosts')
+        log.debug("Added the following line to /etc/hosts: {0}".format(line))
     except (IOError, OSError) as e:
         log.error('Could not update /etc/hosts. {0}'.format(e))
 
@@ -958,6 +961,14 @@ def remove_from_etc_hosts(host):
         run('chmod 644 /etc/hosts')
     except (IOError, OSError) as e:
         log.error('could not update /etc/hosts. {0}'.format(e))
+
+
+def delete_file(path):
+    """
+    Check if a file at `path` exists and delete it.
+    """
+    if os.path.exists(path):
+        os.remove(path)
 
 
 class Sleeper(object):
@@ -1141,6 +1152,22 @@ def which(program, additional_paths=[]):
             if _is_exec(exec_file):
                 return exec_file
     return None
+
+def run_psql_command(sql_command, user, psql_path, port=5432):
+    """
+    Given an `sql_command`, run the command using `psql` at `psql_path` for the
+    given `user` on the specified `port`.
+    """
+    log.debug("Running {0}:{1} command for user {2}: {3}".format(psql_path,
+              port, user, sql_command))
+    return run('/bin/su - postgres -c "{0} -p {1} {2} -c \\\"{3}\\\" "'.format
+               (psql_path, port, user, sql_command))
+
+def random_string_generator(size=10, chars=string.ascii_uppercase + string.digits):
+    """
+    Generate a random string of `size` consisting of `chars`
+    """
+    return ''.join(random.choice(chars) for _ in range(size))
 
 
 class MD5TransparentFilter:

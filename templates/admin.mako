@@ -321,6 +321,9 @@
         <tr><th>Size (used/total):</th><td><%= size_used %>/<%= size %> (<%= size_pct %>)</td>
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
         <tr><th>Persistent:</th><td><%= persistent %></td>
+        <% if (typeof(snapshots_created) != "undefined") { %>
+            <tr><th>Snapshots created:</th><td><%= snapshots_created %></td>
+        <% } %>
     </%text>
     </script>
     <script type="text/template" id="fileSystem-template">
@@ -356,6 +359,12 @@
             <a class="fs-remove icon-button" id="fs-<%= name %>-remove"
                 href="</%text>${h.url_for(controller='root',action='manage_service')}<%text filter='trim'>?service_name=<%= name %>&to_be_started=False&is_filesystem=True"
                 title="Remove this file system"></a>
+            <% } %>
+            <!-- // Enable snapshotting of 'volume' or 'snapshot' file system in 'Available' state -->
+            <% if ((status === "Available" || status === "Running") && (kind === "Volume" || kind === "Snapshot")) { %>
+            <a class="fs-snapshot fs-persist icon-button" id="fs-<%= name %>-remove"
+                href="</%text>${h.url_for(controller='root',action='snapshot_file_system')}<%text filter='trim'>?fs_name=<%= name %>"
+                title="Snapshot this file system"></a>
             <% } %>
             <!--// Only display additional controls when the file system is 'Available'-->
             <% if (status === "Available" || status === "Running") { %>

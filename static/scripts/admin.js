@@ -67,6 +67,8 @@ function update(repeat_update){
                 update_application_status("#hadoop_status", data.Hadoop);
                 update_application_status("#htcondor_status", data.HTCondor);
                 update_application_status("#pss_status", data.PSS);
+                update_application_status("#clouderamanager_status", data.ClouderaManager);
+                update_application_status("#nginx_status", data.Nginx);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
@@ -238,7 +240,8 @@ jQuery.fn.serializeObject = function() {
             size_pct: 'N/A',
             size: 'N/A',
             DoT: 'N/A'
-        }
+        },
+        urlRoot: get_all_filesystems_url
     });
 
     // Define the filesystems collection
@@ -492,10 +495,16 @@ jQuery.fn.serializeObject = function() {
     var FilesystemPersistConfirmationView = ModalConfirmationDialogView.extend({
         template:
             '<div class="modal-dialog-header">Persist <i><%= name %></i> file system changes?</div>' +
-            '<div class="modal-dialog-text"><p>If you have made changes to the ' +
-                '<i><%= name %></i> file system and would like to persist the changes ' +
-                'across cluster invocations, it is required to persist those ' +
-                'changes. </p><i>What will happen next?</i></br>' +
+            '<div class="modal-dialog-text"><p>Use this feature to persist changes ' +
+                'you made to the <i><%= name %></i> file system.<br/>' +
+                '<b>If you clicked "Persist" icon</b>, the current version of ' +
+                'the file system will be persisted across cluster invocations. <br/>' +
+                '<b>If you clicked "Snapshot" icon</b>, a snapshot of the current ' +
+                'version of the file system will be created and left in your ' +
+                'cloud account but the original file system (i.e., volume or snapshot) ' +
+                'will be used to reconstruct the contents of this file system ' +
+                'the next time you launch this cluster.' +
+                '</p><i>What will happen next?</i></br>' +
                 'Persisting file system changes requires that any services running on the ' +
                 'file system be stopped and the file system unmounted. Then, a ' +
                 'snapshot of the underlying volume will be created and any services ' +

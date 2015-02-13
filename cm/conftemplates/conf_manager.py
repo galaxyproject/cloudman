@@ -2,12 +2,20 @@ import os
 from string import Template
 
 CONF_TEMPLATE_PATH = "/mnt/cm/cm/conftemplates/"
+
 HTCONDOR_MASTER_CONF_TEMPLATE = "condor_master_config"
 HTCONDOR_WOORKER_CONF_TEMPLATE = "condor_worker_config"
+
 NGINX_CONF_TEMPLATE = "nginx.conf"
 NGINX_14_CONF_TEMPLATE = "nginx1.4.conf"
-NGINX_SERVER_BLOCK_HEAD = "nginx_server_block_head"
-NGINX_SERVER_BLOCK_HEAD_SSL = "nginx_server_block_head_ssl"
+NGINX_SERVER = "nginx_server"
+NGINX_SERVER_SSL = "nginx_server_ssl"
+NGINX_DEFAULT = "nginx_default_locations"
+NGINX_SERVER_PULSAR = "nginx_server_pulsar"
+NGINX_GALAXY_REPORTS = "nginx_galaxy_reports_locations"
+NGINX_GALAXY = "nginx_galaxy_locations"
+NGINX_CLOUDERA_MANAGER = "nginx_cloudera_manager_locations"
+
 PROFTPD_CONF_TEMPLATE = "proftpd.conf"
 SGE_INSTALL_TEMPLATE = "sge_install_template"
 SGE_HOST_CONF_TEMPLATE = "sge_host_conf_template"

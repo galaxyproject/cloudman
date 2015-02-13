@@ -48,6 +48,7 @@ class Volume(BlockStorage):
         self.from_snapshot_id = from_snapshot_id
         self.from_archive = from_archive
         self.snapshot = None
+        self.snapshots_created = []  # Snapshots that were created from this volume
         self.device = None
         # Static indicates if a volume is created from a snapshot AND can be
         # deleted upon cluster termination
@@ -94,6 +95,7 @@ class Volume(BlockStorage):
         details['snapshot_status'] = self.snapshot_status
         # TODO: keep track of any errors
         details['err_msg'] = None if details.get('err_msg', '') == '' else details['err_msg']
+        details['snapshots_created'] = self.snapshots_created
         return details
 
     def update(self, vol_id):
@@ -559,6 +561,7 @@ class Volume(BlockStorage):
             self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
             self.snapshot_progress = None  # Reset because of the UI
             self.snapshot_status = None  # Reset because of the UI
+            self.snapshots_created.append(snapshot.id)
             return str(snapshot.id)
         else:
             log.error(
