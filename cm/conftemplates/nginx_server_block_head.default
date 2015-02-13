@@ -1,8 +1,0 @@
-    $upstream_servers
-    server {
-        listen                  80;
-        client_max_body_size    10G;
-        proxy_read_timeout      1200s;
-
-        include /etc/nginx/sites-enabled/*.locations;
-    }
