@@ -47,6 +47,7 @@ class Instance(object):
         self.last_state_update = Time.now()
         self.is_alive = False
         self.num_cpus = 1
+        self.total_memory = 1  # in bytes
         self.time_rebooted = TIME_IN_PAST  # Initialize to a date in the past
         self.reboot_count = 0
         self.terminate_attempt_count = 0
@@ -533,6 +534,7 @@ class Instance(object):
                 try:
                     self.local_hostname = msp[6]
                     self.num_cpus = int(msp[7])
+                    self.total_memory = int(msp[8])
                 except:
                     # Older versions of CloudMan did not pass this value so if the master
                     # and the worker are running 2 diff versions (can happen after an
@@ -572,13 +574,13 @@ class Instance(object):
                 # log.debug("Update /etc/hosts through master")
                 # self.app.manager.update_etc_host()
             elif msg_type == "WORKER_H_CERT":
+                log.debug("Got WORKER_H_CERT message")
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
                 self.app.manager.save_host_cert(msg.split(" | ")[1])
                 log.debug("Worker '%s' host certificate received and appended "
                           "to /root/.ssh/known_hosts" % self.id)
-                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc:
+                for job_manager_svc in self.app.manager.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
                     job_manager_svc.add_node(self)
                     # Instruct the worker to start appropriate job manager daemon
                     if ServiceRole.SLURMCTLD in job_manager_svc.svc_roles:
@@ -606,7 +608,6 @@ class Instance(object):
                 self.app.cloud_interface.add_tag(self.inst, 'alias', self.alias)
                 self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
 
-                log.debug("update condor host through master")
                 self.app.manager.update_condor_host(self.public_ip)
             elif msg_type == "NODE_STATUS":
                 # log.debug("Node {0} status message: {1}".format(self.get_desc(), msg))

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import commands
 import contextlib
 import datetime as dt
 import errno
@@ -567,7 +567,7 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
         return True
 
 
-def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=True):
+def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=False):
     if bucket_exists(conn, bucket_name):
         b = get_bucket(conn, bucket_name, validate)
         k = Key(b, remote_filename)
@@ -777,6 +777,21 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
         return False
 
 
+def getoutput(cmd, quiet=False):
+    """
+    Execute the shell command `cmd` and return the output. If `quiet` is set, do
+    not log any messages. If there is an exception, return `None`.
+    """
+    out = None
+    try:
+        out = commands.getoutput(cmd)
+        log.debug("Executing command {0} and got output: {1}".format(cmd, out))
+    except Exception, e:
+        if not quiet:
+            log.error("Exception executing command {0}: {1}".format(cmd, e))
+    return out
+
+
 def replace_string(file_name, pattern, subst):
     """
     Replace string ``pattern`` in file ``file_name`` with ``subst``.
@@ -962,6 +977,25 @@ class Sleeper(object):
         self.condition.acquire()
         self.condition.notify()
         self.condition.release()
+
+
+def meminfo():
+    """
+    Get node total memory and memory usage by parsing `/proc/meminfo`.
+    Return a dictionary with the following keys: `free`, `total`, `used`
+    """
+    with open('/proc/meminfo', 'r') as mem:
+        ret = {}
+        tmp = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) == 'MemTotal:':
+                ret['total'] = int(sline[1])
+            elif str(sline[0]) in ('MemFree:', 'Buffers:', 'Cached:'):
+                tmp += int(sline[1])
+        ret['free'] = tmp
+        ret['used'] = int(ret['total']) - int(ret['free'])
+    return ret
 
 
 def nice_size(size):

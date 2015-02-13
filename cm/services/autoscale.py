@@ -7,9 +7,9 @@ from cm.services import (Service, ServiceDependency, ServiceRole, ServiceType,
 log = logging.getLogger('cloudman')
 
 
-class Autoscale(Service):
+class AutoscaleService(Service):
     def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
-        self.app = app
+        super(AutoscaleService, self).__init__(app)
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
         self.svc_type = ServiceType.CM_SERVICE
@@ -18,6 +18,9 @@ class Autoscale(Service):
         self.as_max = as_max  # Max number of nodes autoscale should maintain
         self.as_min = as_min  # Min number of nodes autoscale should maintain
         self.instance_type = instance_type  # Type of instances to start
+
+    def __repr__(self):
+        return "Autoscale"
 
     def get_full_name(self):
         return "AS"  # A shortcut name for log display
@@ -33,6 +36,13 @@ class Autoscale(Service):
             else:
                 log.debug("Cannot start autoscaling because limits are not set (min: '%s' max: '%s')" % (
                     self.as_min, self.as_max))
+
+    def remove(self, synchronous=False):
+        log.info("Removing '%s' service" % self.name)
+        super(AutoscaleService, self).remove(synchronous)
+        self.as_max = -1
+        self.as_min = -1
+        self.state = service_states.UNSTARTED
 
     def status(self):
         """Check the status/size of the cluster and initiate appropriate action if necessary"""
@@ -122,9 +132,8 @@ class Autoscale(Service):
         """
         running_jobs = []
         queued_jobs = []
-        job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             jobs = job_manager_svc.jobs()
             # log.debug("Autoscaling jobs: {0}".format(jobs))
             for job in jobs:

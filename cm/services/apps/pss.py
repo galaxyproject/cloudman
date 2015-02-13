@@ -1,7 +1,6 @@
 import os
 import threading
 from cm.util import misc
-from cm.util import cluster_status
 from cm.services import service_states
 from cm.services import ServiceRole, ServiceType
 from cm.services.apps import ApplicationService
@@ -67,8 +66,9 @@ class PSSService(ApplicationService):
                 awaiting_galaxy = True
             # If there is a service other than self that is not running, return.
             # Otherwise, start this service.
-            for srvc in self.app.manager.services:
-                if srvc != self and not (srvc.running() or srvc.completed()):
+            for srvc in self.app.manager.service_registry.itervalues():
+                if srvc.activated and srvc != self and \
+                   not (srvc.running() or srvc.completed()):
                     prereqs_ok = False
                     break
             if prereqs_ok and awaiting_galaxy:
@@ -103,8 +103,7 @@ class PSSService(ApplicationService):
         self.state = service_states.RUNNING
         log.debug("%s service prerequisites OK (i.e., all other services running), "
                   "checking if %s was provided..." % (self.name, self.pss_filename))
-        local_pss_file = os.path.join(
-            self.app.ud['cloudman_home'], self.pss_filename)
+        local_pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
         # Check user data first to allow overwriting of a potentially existing
         # script
         if self.pss_url:
@@ -120,12 +119,14 @@ class PSSService(ApplicationService):
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = None
             if s3_conn and 'bucket_cluster' in self.app.ud:
-                b = s3_conn.lookup(self.app.ud['bucket_cluster'])
-            if b is not None:  # Check if an existing cluster has a stored post start script
-                log.debug("Cluster bucket '%s' found; looking for post start script '%s'"
-                          % (b.name, self.pss_filename))
-                misc.get_file_from_bucket(
-                    s3_conn, b.name, self.pss_filename, local_pss_file)
+                b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            if b is not None:  # Check if the existing cluster has a stored PSS
+                log.debug("Cluster bucket '%s' found; looking for post start "
+                          "script '%s'" % (b.name, self.pss_filename))
+                misc.get_file_from_bucket(s3_conn, b.name, self.pss_filename,
+                                          local_pss_file)
+            else:
+                log.debug("No s3_conn or the cluster bucket not found.")
         if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this may take a while)"
                      % (self.pss_filename, os.path.join(self.app.ud['cloudman_home'], self.pss_filename)))
@@ -147,12 +148,7 @@ class PSSService(ApplicationService):
             # once)
             self.remove()
         self.state = service_states.COMPLETED
-        # Once this service is complete, it's safe to assume the cluster is
-        # READY
-        self.app.manager.cluster_status = cluster_status.READY
-        msg = "All cluster services started; the cluster is ready for use."
-        log.info(msg)
-        self.app.msgs.info(msg)
+        self.activated = False
 
     def save_to_bucket(self):
         """ Save the current post start script file to the cluster's
@@ -186,7 +182,7 @@ class PSSService(ApplicationService):
         if self.state == service_states.SHUT_DOWN:
             log.debug(
                 "Removing %s service from master list of services" % self.name)
-            self.app.manager.remove_master_service(self)
+            self.app.manager.deactivate_master_service(self)
         else:
             log.debug("Tried removing %s service but it's not in state %s"
                       % (self.name, service_states.SHUT_DOWN))

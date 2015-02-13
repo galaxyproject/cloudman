@@ -11,10 +11,10 @@ from cm.services.apps import ApplicationService
 import logging
 log = logging.getLogger('cloudman')
 
-INVOKE_SUCCESS = "Successfully invoked Pulsar."
-INVOKE_FAILURE = "Error invoking Pulsar."
+INVOKE_SUCCESS = "Successfully invoked Pulsar"
+INVOKE_FAILURE = "Error invoking Pulsar"
 DEFAULT_PULSAR_PORT = 8913
-DEFAULT_DOWNLOAD_URL = 'https://s3.amazonaws.com/cloudman/files/pulsar/pulsar-20141110.tar.gz'
+DEFAULT_DOWNLOAD_URL = 'https://cloudman.s3.amazonaws.com/files/pulsar/pulsar-20141219.tar.gz'
 
 
 class PulsarService(ApplicationService):
@@ -41,6 +41,9 @@ class PulsarService(ApplicationService):
     def start(self):
         self.pulsar_home = self.app.path_resolver.pulsar_home
         self.state = service_states.STARTING
+        if not self.activated:
+            self.activated = True
+            log.debug("Service {0} self-activated".format(self.get_full_name()))
         self.status()
         if not self.state == service_states.RUNNING:
             self._download()
@@ -49,6 +52,11 @@ class PulsarService(ApplicationService):
             if not started:
                 log.warn("Failed to setup or run Pulsar server.")
                 self.state = service_states.ERROR
+            else:
+                # Add Pulsar config to the nginx config
+                gs = self.app.manager.service_registry.get('Galaxy')
+                if gs:
+                    gs.configure_nginx()
 
     def _download(self):
         """
@@ -60,6 +68,7 @@ class PulsarService(ApplicationService):
         attempt_chown_galaxy_if_exists(self.pulsar_home)
 
     def _setup(self):
+        log.debug("Setting up Pulsar")
         ini_path = self.__ini_path()
         if not os.path.exists(ini_path):
             misc.run("cp '%s.sample' '%s'" % (ini_path, ini_path))
@@ -69,8 +78,12 @@ class PulsarService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(PulsarService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        log.info("Shutting down Pulsar service...")
-        if self._run("--stop-daemon"):
+        # Remove Pulsar config from the nginx config
+        gs = self.app.manager.service_registry.get('Galaxy')
+        if gs:
+            gs.configure_nginx()
+        if self.pulsar_home and self._run("--stop-daemon"):
+            log.info("Shutting down Pulsar service...")
             self.state = service_states.SHUT_DOWN
             # TODO: Handle log files.
         else:

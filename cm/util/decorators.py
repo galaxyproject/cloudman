@@ -1,5 +1,6 @@
 import logging
-
+from datetime import datetime
+from cm.util import cluster_status
 from boto.exception import EC2ResponseError, S3ResponseError
 
 log = logging.getLogger('cloudman')
@@ -41,3 +42,45 @@ def TestFlag(ret_val, quiet=False):
                 return fn(*args, **kwargs)
         return df
     return decorator
+
+
+def cluster_ready(func):
+    """
+    Check if the cluster status is READY and return `True` if so, `False`
+    otherwise.
+    """
+    def wrap(*args, **kwargs):
+        cl = args[0]  # Get the method class
+        current_status = cl.app.manager.cluster_status
+        # log.debug("Cluster current_status: {0}".format(current_status))
+        if current_status != cluster_status.READY:
+            log.debug("Cluster not yet ready ({0}), skipping method {1}->{2}.{3}"
+                      .format(current_status, cl.__module__, cl.__class__.__name__,
+                      func.func_name))
+        else:
+            # The cluster is READY, call the method
+            func(*args, **kwargs)
+    return wrap
+
+
+def delay(func):
+    """
+    Prevent a method from running until a certain amount of time has passed.
+    This decorator requires that the class to which the decorated method
+    belongs to have two fields defined: `time_started` and `delay`. This
+    decorator will then wait until `delay` seconds have passed after
+    `time_started` to allow the method to run.
+    """
+    def wrap(*args, **kwargs):
+        cl = args[0]  # Get the method class
+        delta = 0
+        if cl.time_started:
+            delta = (datetime.utcnow() - cl.time_started).seconds
+        if delta < cl.delay:
+            log.debug("Delay trigger not met (delta: {0}; delay: {1}. skipping "
+                      "method {2}->{3}.{4}".format(delta, cl.delay, cl.__module__,
+                      cl.__class__.__name__, func.func_name))
+        else:
+            # The delay has passed, call the method
+            return func(*args, **kwargs)
+    return wrap

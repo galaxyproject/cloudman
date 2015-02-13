@@ -254,9 +254,12 @@ def _start_nginx(ud):
             except Exception as e:
                 log.error('Trouble parsing nginx conf line {0}: {1}'.format(ul, e))
         if (not os.path.exists(upload_store_dir)):
-            rmdir = True
             log.debug('Creating tmp dir for nginx {0}'.format(upload_store_dir))
-            os.makedirs(upload_store_dir)
+            try:
+                os.makedirs(upload_store_dir)
+                rmdir = True
+            except OSError as e:
+                log.error('Exception creating dir {0}: {1}'.format(upload_store_dir, e))
     else:
         log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
     nginx_executable = _nginx_executable(log)
@@ -270,7 +273,7 @@ def _start_nginx(ud):
     else:
         log.debug('nginx already running; reloading it')
         _run(log, '{0} -s reload'.format(nginx_executable))
-    if rmdir:
+    if (rmdir or (len(os.listdir(upload_store_dir)) == 0)):
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
 
@@ -331,6 +334,8 @@ def _get_s3connection(ud):
     return s3_conn
 
 def _get_cm(ud):
+    log.debug('Deleting /mnt/cm dir before download')
+    _run(log, 'rm -rf /mnt/cm')
     log.info('<< Downloading CloudMan >>')
     _make_dir(log, CM_HOME)
     local_cm_file = os.path.join(CM_HOME, CM_LOCAL_FILENAME)
@@ -350,19 +355,17 @@ def _get_cm(ud):
             if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
                 log.info(("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster']))
                 if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME, local_cm_file):
-                    _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
                     log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
                     return True
         if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
             log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name)))
-            _write_cm_revision_to_file(s3_conn, default_bucket_name)
             return True
     if ('s3_url' in ud):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
     elif ('cloudman_repository' in ud):
         url = ud.get('cloudman_repository')
-    elif 'nectar' in ud.get('cloud_name', '').lower():
-        url = "https://{0}:{1}{2}{3}{4}/{5}".format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'V1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
+    elif ('nectar' in ud.get('cloud_name', '').lower()):
+        url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'V1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
     else:
         url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
     log.info(('Attempting to retrieve from from %s' % url))

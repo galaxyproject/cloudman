@@ -37,6 +37,8 @@ http {
         server 127.0.0.1:6080;
     }
 
+    $pulsar_block
+
     $server_block_head
 
         location /cloud {

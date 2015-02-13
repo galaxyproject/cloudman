@@ -390,7 +390,7 @@
         </div>
         <div class="form-row">
             <label>New disk size (minimum <span id="du-inc"><%= size %></span>B,
-            maximum 1000GB)</label>
+            maximum 16000GB)</label>
             <div id="permanent_storage_size" class="form-row-input">
                 <input type="text" name="new_vol_size" id="new_vol_size"
                 placeholder="Greater than <%= size %>B" size="25">

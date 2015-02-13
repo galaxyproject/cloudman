@@ -4,7 +4,6 @@ import datetime as dt
 import logging
 import logging.config
 import os
-import pyclbr
 import shutil
 import subprocess
 import threading
@@ -15,19 +14,9 @@ from cm.services import ServiceRole
 from cm.services import ServiceType
 from cm.services import service_states
 from cm.services.registry import ServiceRegistry
-from cm.services.apps.galaxy import GalaxyService
-from cm.services.apps.galaxyreports import GalaxyReportsService
-from cm.services.apps.hadoop import HadoopService
-from cm.services.apps.htcondor import HTCondorService
-from cm.services.apps.migration import MigrationService
-from cm.services.apps.postgres import PostgresService
-from cm.services.apps.proftpd import ProFTPdService
-from cm.services.apps.pss import PSSService
-from cm.services.apps.pulsar import PulsarService
-from cm.services.autoscale import Autoscale
 from cm.services.data.filesystem import Filesystem
 from cm.util import cluster_status, comm, misc, Time
-from cm.util.decorators import TestFlag
+from cm.util.decorators import TestFlag, cluster_ready
 from cm.util.manager import BaseConsoleManager
 import cm.util.paths as paths
 
@@ -92,22 +81,62 @@ class ConsoleManager(BaseConsoleManager):
         """
         return int(commands.getoutput("/usr/bin/nproc"))
 
-    def add_master_service(self, new_service):
-        if not self.get_services(svc_name=new_service.name):
-            log.debug("Adding service %s into the master service registry" % new_service.name)
-            # self.service_registry.load(new_service)
-            self.services.append(new_service)
-            self._update_dependencies(new_service, "ADD")
-        else:
-            log.debug("Would add master service %s but one already exists" % new_service.name)
+    @property
+    def total_memory(self):
+        """
+        Return the total amount of memory (ie, RAM) on this instance, in bytes.
+        """
+        return int(misc.meminfo().get('total', 1))
 
-    def remove_master_service(self, service_to_remove):
-        if service_to_remove in self.services:
-            self.services.remove(service_to_remove)
+    def activate_master_service(self, new_service):
+        """
+        Mark the `new_service` as *activated* in the service registry, which
+        will in turn trigger the service start.
+
+        :type   new_service: object
+        :param  new_service: an instance object of the service to activate
+        """
+        ok = True
+        if not new_service:
+            log.warning("Tried to activate a master service but no service received")
+            return False
+        # File system services get explicitly added into the registry. This is
+        # because a multiple file systems correspond to the same service
+        # implementation class.
+        if new_service.svc_type == ServiceType.FILE_SYSTEM and \
+           new_service.name not in self.service_registry.services:
+            log.debug("Adding a new file system service into the registry: {0}"
+                      .format(new_service.name))
+            ok = self.service_registry.register(new_service)
+        if ok:
+            # Activate the service
+            service = self.service_registry.services.get(new_service.name, None)
+            if service:
+                log.debug("Activating service {0}".format(new_service.name))
+                service.activated = True
+                self._update_dependencies(new_service, "ADD")
+            else:
+                log.debug("Could not find service {0} to activate?!".format(
+                          new_service.name))
+        else:
+            log.warning("Did not activate service {0}".format(new_service))
+
+    def deactivate_master_service(self, service_to_remove):
+        """
+        Deactivate the `service_to_remove`, updating its dependencies in the
+        process.
+
+        :type   service_to_remove: object
+        :param  service_to_remove: an instance object of the service to remove
+        """
+        service = self.service_registry.get(service_to_remove.name)
+        if service:
+            log.debug("Deactivating service {0}".format(service_to_remove.name))
+            service.activated = False
             self._update_dependencies(service_to_remove, "REMOVE")
         else:
-            log.warning("Tried to remove service {0} but service not found in {1}"
-                        .format(service_to_remove, self.services))
+            log.debug("Could not find service {0} to deactivate?!".format(
+                      service_to_remove.name))
 
     def _update_dependencies(self, new_service, action):
         """
@@ -120,8 +149,8 @@ class ConsoleManager(BaseConsoleManager):
         assigned service property is set to null for all services
         which depend on the new service.
         """
-        log.debug("Updating dependencies for service {0}".format(new_service.name))
-        for svc in self.services:
+        log.debug("{0} dependencies for service {1}".format(action, new_service.name))
+        for svc in self.service_registry.active():
             if action == "ADD":
                 for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
@@ -136,47 +165,42 @@ class ConsoleManager(BaseConsoleManager):
                         req.assigned_service = None
 
     def _stop_app_level_services(self):
-        """ Convenience function that suspends SGE jobs and removes Galaxy &
-        Postgres services, thus allowing system level operations to be performed."""
-        # Suspend all SGE jobs
+        """
+        A convenience function that suspends job manager jobs, removes Galaxy &
+        Postgres services, allowing system level operations to be performed.
+        """
+        # Suspend all job manager jobs
         log.debug("Suspending job manager queue")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             job_manager_svc.suspend_queue()
         # Stop application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
-            for svc_role in [ServiceRole.GALAXY, ServiceRole.GALAXY_POSTGRES,
-                             ServiceRole.PROFTPD]:
-                try:
-                    svc = self.get_services(svc_role=svc_role)
-                    if svc:
-                        svc[0].remove()
-                except IndexError, e:
-                    log.error("Tried removing app level service '%s' but failed: %s"
-                              % (svc_role, e))
+            # Remove Postgres service, which will (via dependency management)
+            # remove higher-level services
+            pgsn = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
+            pgs = self.service_registry.get(pgsn)
+            if pgs:
+                pgs.remove()
 
     def _start_app_level_services(self):
         # Resume application-level services managed via CloudMan
         # If additional service are to be added as things CloudMan can handle,
-        # the should be added to do for-loop list (in order in which they are
-        # to be added)
-        for svc_role in [ServiceRole.GALAXY_POSTGRES, ServiceRole.PROFTPD,
-                         ServiceRole.GALAXY]:
-            try:
-                svc = self.get_services(svc_role=svc_role)
-                if svc:
-                    svc[0].add()
-            except IndexError, e:
-                log.error("Tried adding app level service '%s' but failed: %s"
-                          % (ServiceRole.to_string([svc_role]), e))
+        # the should be added to do outer-most for-loop.
+        als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
+        log.debug("Activating app-level services: {0}".format(als))
+        for svc_name in als:
+            svc = self.service_registry.get(svc_name)
+            if svc:
+                # Activate only and the Monitor will pick it up to start it
+                svc.activated = True
+                log.debug("'activated' service {0}.".format(svc_name))
         log.debug("Unsuspending job manager queue")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             job_manager_svc.unsuspend_queue()
 
     def recover_monitor(self, force='False'):
@@ -306,7 +330,7 @@ class ConsoleManager(BaseConsoleManager):
         self.get_root_public_key()
 
         # Always add migration service
-        self.add_master_service(MigrationService(self.app))
+        self.activate_master_service(self.service_registry.get('Migration'))
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
@@ -315,29 +339,31 @@ class ConsoleManager(BaseConsoleManager):
         if os_release in ['14.04']:
             log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
                       .format(os_release))
-            from cm.services.apps.jobmanagers.slurmctld import SlurmctldService
-            from cm.services.apps.jobmanagers.slurmd import SlurmdService
-            self.add_master_service(SlurmctldService(self.app))
-            self.add_master_service(SlurmdService(self.app))
+            self.activate_master_service(self.service_registry.get('Slurmctld'))
+            self.activate_master_service(self.service_registry.get('Slurmd'))
+            self.service_registry.remove('SGE')  # SGE or Slurm can exist, not both
+            self.service_registry.remove('Hadoop')  # Hadoop works only w/ SGE
         else:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
-            from cm.services.apps.jobmanagers.sge import SGEService
-            self.add_master_service(SGEService(self.app))
+            # from cm.services.apps.jobmanagers.sge import SGEService
+            self.activate_master_service(self.service_registry.get('SGE'))
+            self.service_registry.remove('Slurmctld')  # SGE or Slurm can exist, not both
+            self.service_registry.remove('Slurmd')
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])
         tfs.add_transient_storage()
-        self.add_master_service(tfs)
+        self.activate_master_service(tfs)
         # Always add PSS service - note that this service runs only after the cluster
         # type has been selected and all of the services are in RUNNING state
-        self.add_master_service(PSSService(self.app))
+        self.activate_master_service(self.service_registry.get('PSS'))
 
         if self.app.config.condor_enabled:
-            self.add_master_service(HTCondorService(self.app, "master"))
+            self.activate_master_service(self.service_registry.get('HTCondor'))
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.config.hadoop_enabled:
-            self.add_master_service(HadoopService(self.app))
+            self.activate_master_service(self.service_registry.get('Hadoop'))
         # Check if starting a derived cluster and initialize from share,
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
@@ -451,7 +477,7 @@ class ConsoleManager(BaseConsoleManager):
                     if not err:
                         log.debug("Adding a previously existing filesystem '{0}' of "
                                   "kind '{1}'".format(fs['name'], fs['kind']))
-                        self.add_master_service(filesystem)
+                        self.activate_master_service(filesystem)
             return True
         except Exception, e:
             log.error(
@@ -461,78 +487,23 @@ class ConsoleManager(BaseConsoleManager):
 
     def add_preloaded_services(self):
         """
-        Dynamically add any previously available services to the master's service
-        registry, which will in turn start those services. The list of preloaded
+        Activate any previously available services. The list of preloaded
         services is extracted from the user data entry ``services``.
 
         Note that this method is automatically called when an existing cluster
         is being recreated.
-
-        In order for the dynamic service loading to work, there are some requirements
-        on the structure of user data and services themselves. Namely, user data
-        must contain a name for the service. The service implementation must be in
-        a (sub)module inside ``cm.services.apps`` and it must implement a class
-        that matches the specified the user data service name (e.g., if the
-        service name in user data is ``ProFTPd``, a module inside ``cm.services.apps``
-        must exist that implements a class whose name contains ``ProFTPd``,
-        properly capitalized).
         """
-        def _do_imports(base_dir, services_to_create):
-            """
-            Recursively search for python modules inside the ``base_dir`` path
-            and create objects for each of the discovered classes, given the
-            service name is provided in the ``services_to_create`` list, appending
-            the created objects to the master service registry list.
-            For example, if ``services_to_create`` contains a list like so
-            ``['Galaxy', 'Slurmctld'] and the ``base_dir`` contains a module
-            that defines a class ``Galaxy`` and ``Slurmctld``, instantiate those
-            two objects.
-            """
-            log.debug("Looking for importable service classes in {0}".format(base_dir))
-            for name in os.listdir(base_dir):
-                if name.endswith(".py") and name != "__init__.py":
-                    module = name[:-3]  # Strip the file extension
-                    package_path = base_dir.replace('/', '.')
-                    module_path = '.'.join([package_path, module])
-                    # Get all the class names defined in the given module
-                    discovered_classes = pyclbr.readmodule(module_path).keys()
-                    # log.debug("In module {0}, discovered classes: {1}"
-                    #           .format(module_path, discovered_classes))
-                    try:
-                        # Import the given module w/ all the discovered classes
-                        module = __import__(module_path, fromlist=discovered_classes)
-                        for discovered_class in discovered_classes:
-                            # Check if the an object of the discovered class should
-                            # be created. The ones that should be rreated are
-                            # provided in the ``services_to_create`` function argument.
-                            # Note that the name comparisson is done based on
-                            # the service name alone, without the `Service` part
-                            # of the class name (eg, compare `Slurm` rather than
-                            # `SlurmService`)
-                            if discovered_class.replace('Service', '') in services_to_create:
-                                try:
-                                    service_object = getattr(module, discovered_class)
-                                    log.debug("Loaded class: {0}.{1}".format(module_path,
-                                              service_object.__name__))
-                                    # Add the object into the master's service registry
-                                    self.add_master_service(service_object(self.app))
-                                except Exception, e:
-                                    log.debug("Trouble instantiating class {0}: {1}"
-                                              .format(discovered_class, e))
-                    except Exception, e:
-                        log.debug("Trouble importing module {0}: {1}" % (module_path, e))
-                elif os.path.isdir(os.path.join(base_dir, name)):
-                    _do_imports(os.path.join(base_dir, name), services_to_create)
-
-        log.debug("Processing previously-available application services in "
-                  "an existing cluster config")
-        preloaded_services = []
-        for service in self.app.ud.get('services', []):
-            if service.get('name', None):
-                preloaded_services.append(service['name'])
-        if preloaded_services:
-            log.debug("Discovered preloaded services: {0}".format(preloaded_services))
-            _do_imports('cm/services/apps', services_to_create=preloaded_services)
+        log.debug("Activating previously-available application services from "
+                  "an existing cluster config.")
+        for service_name in self.app.ud.get('services', []):
+            if service_name.get('name', None):
+                service = self.service_registry.get(service_name['name'])
+                if service:
+                    self.activate_master_service(service)
+                else:
+                    log.warning("Cannot find an instance of the previously "
+                                "existing service {0} in the current service "
+                                "registry?".format(service_name))
         return True
 
     def get_vol_if_fs(self, attached_volumes, filesystem_name):
@@ -556,21 +527,28 @@ class ConsoleManager(BaseConsoleManager):
         return None
 
     def start_autoscaling(self, as_min, as_max, instance_type):
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        if not as_svc:
-            self.add_master_service(
-                Autoscale(self.app, as_min, as_max, instance_type))
+        """
+        Activate the `Autoscale` service, setting the minimum number of worker
+        nodes of maintain (`as_min`), the maximum number of worker nodes to
+        maintain (`as_max`) and the `instance_type` to use.
+        """
+        if not self.service_registry.is_active('Autoscale'):
+            as_svc = self.service_registry.get('Autoscale')
+            if as_svc:
+                as_svc.as_min = as_min
+                as_svc.as_max = as_max
+                as_svc.instance_type = instance_type
+                self.activate_master_service(as_svc)
+            else:
+                log.warning('Cannot find Autoscale service?')
         else:
-            log.debug("Autoscaling is already on.")
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        log.debug(as_svc[0])
+            log.debug("Autoscaling is already active.")
 
     def stop_autoscaling(self):
-        as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
-        if as_svc:
-            self.remove_master_service(as_svc[0])
-        else:
-            log.debug("Not stopping autoscaling because it is not on.")
+        """
+        Deactivate the `Autoscale` service.
+        """
+        self.deactivate_master_service(self.service_registry.get('Autoscale'))
 
     def adjust_autoscaling(self, as_min, as_max):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
@@ -600,7 +578,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_app_status(self):
         count = 0
-        for svc in self.get_services(svc_type=ServiceType.APPLICATION):
+        for svc in self.service_registry.active(service_type=ServiceType.APPLICATION):
             count += 1
             if svc.state == service_states.ERROR:
                 return "red"
@@ -613,32 +591,20 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_services(self, svc_type=None, svc_role=None, svc_name=None):
         """
-        Returns all services that best match given service type, role and name.
-        If service name is specified, it is matched first.
+        Returns a list of all services that best match given service type, role
+        and name. If service name is specified, it is matched first.
         Next, if a role is specified, returns all services containing that role.
         Lastly, if svc_role is ``None``, but a ``svc_type`` is specified, returns
         all services matching type.
         """
         svcs = []
-        # Commenetd out until transition to the the Registry is complete
-        # for service_name in self.service_registry.services:
-        #     service = self.service_registry.services[service_name]
-        #     if service_name == svc_name:
-        #         return [service]
-        #     elif svc_role in service.svc_roles:
-        #         svcs.append(service)
-        #     elif service.svc_type == svc_type and svc_role is None:
-        #         svcs.append(service)
-
-        for s in self.services:
-            if s.name is None:  # Sanity check
-                log.error("A name has not been assigned to the service. A value must be assigned to the svc.name property.")
-            elif s.name == svc_name:
-                return [s]  # Only one match possible - so return it immediately
-            elif svc_role in s.svc_roles:
-                svcs.append(s)
-            elif s.svc_type == svc_type and svc_role is None:
-                svcs.append(s)
+        for service_name, service in self.service_registry.iteritems():
+            if service_name == svc_name:
+                return [service]
+            elif svc_role in service.svc_roles:
+                svcs.append(service)
+            elif service.svc_type == svc_type and svc_role is None:
+                svcs.append(service)
         return svcs
 
     def get_srvc_status(self, srvc):
@@ -726,7 +692,7 @@ class ConsoleManager(BaseConsoleManager):
                           "7%", "error_msg": ""})
         return dummy
 
-    @TestFlag({"Slurm": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
+    @TestFlag({"Slurmctld": "Running", "Postgres": "Running", "Galaxy": "TestFlag",
                "Filesystems": "Running"}, quiet=True)
     def get_all_services_status(self):
         """
@@ -738,7 +704,7 @@ class ConsoleManager(BaseConsoleManager):
             "Filesystems": "Running"}
         """
         status_dict = {}
-        for srvc in self.services:
+        for srvc in self.service_registry.itervalues():
             status_dict[srvc.name] = srvc.state  # NGTODO: Needs special handling for file systems
         return status_dict
 
@@ -821,9 +787,8 @@ class ConsoleManager(BaseConsoleManager):
                      ``False`` otherwise.
         """
         log.debug("Toggling master instance as exec host")
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc:
+        for job_manager_svc in self.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             node_alias = 'master'
             node_address = self.app.cloud_interface.get_private_ip()
             if self.master_exec_host or force_removal:
@@ -898,8 +863,8 @@ class ConsoleManager(BaseConsoleManager):
 
         .. seealso:: `~cm.util.master.delete_cluster`
         """
-        log.debug("List of services before shutdown: %s" % [
-                  s.get_full_name() for s in self.services])
+        log.debug("List of services before shutdown: {0}".format(
+                  self.service_registry.services))
         self.cluster_status = cluster_status.SHUTTING_DOWN
         # Services need to be shut down in particular order
         if sd_autoscaling:
@@ -913,8 +878,12 @@ class ConsoleManager(BaseConsoleManager):
         # full_svc_list = self.services[:]  # A copy to ensure consistency
         if sd_apps:
             for svc in self.get_services(svc_type=ServiceType.APPLICATION):
-                log.debug("Initiating removal of service {0}".format(svc.name))
-                svc.remove()
+                if svc.activated:
+                    log.debug("Initiating removal of service {0}".format(svc.name))
+                    svc.remove()
+                else:
+                    log.debug("Service {0} not activated; not removing it."
+                              .format(svc.get_full_name()))
         if sd_filesystems:
             for svc in self.get_services(svc_type=ServiceType.FILE_SYSTEM):
                 log.debug("Initiating removal of file system service {0}".format(svc.name))
@@ -1061,9 +1030,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         # log.debug("Looking for idle instances")
         idle_instances = []  # List of Instance objects corresponding to idle instances
-        job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-        job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-        if job_manager_svc and job_manager_svc.status() == service_states.RUNNING:
+        for job_manager_svc in self.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
             idle_nodes = job_manager_svc.idle_nodes()
             # Note that master is not part of worker_instances and will thus not
             # get included in the idle_instances list, which is the intended
@@ -1132,11 +1100,10 @@ class ConsoleManager(BaseConsoleManager):
         for inst in self.worker_instances:
             if inst.id == instance_id:
                 inst.worker_status = 'Stopping'
-                log.debug("Set instance {0} state to {1}"
-                          .format(inst.get_desc(), inst.worker_status))
-                job_manager_svc = self.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc:
+                log.debug("Set instance {0} state to {1}".format(inst.get_desc(),
+                          inst.worker_status))
+                for job_manager_svc in self.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
                     job_manager_svc.remove_node(inst)
                 # Remove the given instance from /etc/hosts files
                 misc.remove_from_etc_hosts(inst.private_ip)
@@ -1237,7 +1204,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Creating a new data filesystem: '%s'" % fs_name)
             fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
             fs.add_volume(size=pss)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
 
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
@@ -1306,18 +1273,18 @@ class ConsoleManager(BaseConsoleManager):
                                           .format(snap['type]'], snap['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                                   .format(fs.get_full_name(), fs.volumes))
-                        self.add_master_service(fs)
+                        self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
                 _add_data_fs()
             # Add PostgreSQL service
-            self.add_master_service(PostgresService(self.app))
+            self.activate_master_service(self.service_registry.get('Postgres'))
             # Add ProFTPd service
-            self.add_master_service(ProFTPdService(self.app))
+            self.activate_master_service(self.service_registry.get('ProFTPd'))
             # Add Galaxy service
-            self.add_master_service(GalaxyService(self.app))
+            self.activate_master_service(self.service_registry.get('Galaxy'))
             # Add Galaxy Reports service
-            self.add_master_service(GalaxyReportsService(self.app))
+            self.activate_master_service(self.service_registry.get('GalaxyReports'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs(fs_name='galaxy')
@@ -1325,7 +1292,7 @@ class ConsoleManager(BaseConsoleManager):
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
             pass
-            self.add_master_service(PulsarService(self.app))
+            self.activate_master_service(self.service_registry.get('Pulsar'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
@@ -1747,7 +1714,7 @@ class ConsoleManager(BaseConsoleManager):
                     fs = Filesystem(self.app, file_system_name, svc.svc_roles)
                     for snap_id in snap_ids:
                         fs.add_volume(from_snapshot_id=snap_id)
-                    self.add_master_service(fs)
+                    self.activate_master_service(fs)
                     # Monitor will pick up the new service and start it up but
                     # need to wait until that happens before can add rest of
                     # the services
@@ -1775,7 +1742,7 @@ class ConsoleManager(BaseConsoleManager):
         fs = Filesystem(self.app, fs_name or bucket_name,
                         persistent=persistent, svc_roles=fs_roles)
         fs.add_bucket(bucket_name, bucket_a_key, bucket_s_key)
-        self.add_master_service(fs)
+        self.activate_master_service(fs)
         # Inform all workers to add the same FS (the file system will be the same
         # and sharing it over NFS does not seems to work)
         for w_inst in self.worker_instances:
@@ -1796,7 +1763,7 @@ class ConsoleManager(BaseConsoleManager):
             log.info("Adding a {0}-based file system '{1}'".format(fs_kind, fs_name))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_volume(vol_id=vol_id, size=vol_size, from_snapshot_id=snap_id, dot=dot)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
         else:
             log.error("Wanted to add a volume-based file system but no file "
@@ -1813,7 +1780,7 @@ class ConsoleManager(BaseConsoleManager):
                      .format(fs_name, gluster_server))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_glusterfs(gluster_server)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             # Inform all workers to add the same FS (the file system will be the same
             # and sharing it over NFS does not seems to work)
             for w_inst in self.worker_instances:
@@ -1837,7 +1804,7 @@ class ConsoleManager(BaseConsoleManager):
                      .format(fs_name, nfs_server))
             fs = Filesystem(self.app, fs_name, persistent=persistent, svc_roles=fs_roles)
             fs.add_nfs(nfs_server, username, pwd)
-            self.add_master_service(fs)
+            self.activate_master_service(fs)
             # Inform all workers to add the same FS (the file system will be the same
             # and sharing it over NFS does not seems to work)
             for w_inst in self.worker_instances:
@@ -2037,9 +2004,11 @@ class ConsoleManager(BaseConsoleManager):
         """
         Add the new pool to the condor big pool
         """
-        srvs = self.get_services(svc_role=ServiceRole.HTCONDOR)
-        if srvs:
-            srvs[0].modify_htcondor("ALLOW_WRITE", new_worker_ip)
+        svc_name = ServiceRole.to_string(ServiceRole.HTCONDOR)
+        if self.service_registry.is_active(svc_name):
+            log.debug("Updating HTCondor host through master")
+            svc = self.service_registry.get(svc_name)
+            svc.modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
     @TestFlag({'id': 'localtest', 'ld': "0.00 0.02 0.39",
                'time_in_state': 4321,
@@ -2107,6 +2076,7 @@ class ConsoleMonitor(object):
         except Exception, e:
             log.debug("Error setting tags on the master instance: %s" % e)
         self.app.manager.service_registry.load_services()
+        log.debug("Loaded services: {0}".format(self.app.manager.service_registry.services))
         self.monitor_thread.start()
 
     def shutdown(self):
@@ -2170,7 +2140,7 @@ class ConsoleMonitor(object):
             if addl_data:
                 cc = addl_data
             cc['tags'] = self.app.cloud_interface.tags  # save cloud tags, in case the cloud doesn't support them natively
-            for srvc in self.app.manager.services:
+            for srvc in self.app.manager.service_registry.active():
                 if srvc.svc_type == ServiceType.FILE_SYSTEM:
                     if srvc.persistent:
                         fs = {}
@@ -2227,6 +2197,7 @@ class ConsoleMonitor(object):
             log.error("Problem creating cluster configuration file: '%s'" % e)
         return file_name
 
+    @cluster_ready
     @synchronized(s3_rlock)
     def store_cluster_config(self):
         """
@@ -2256,9 +2227,8 @@ class ConsoleMonitor(object):
         # than potentially being overwritten by files that might exist on the
         # snap)
         try:
-            galaxy_svc = self.app.manager.get_services(
-                svc_role=ServiceRole.GALAXY)[0]
-            if galaxy_svc.running():
+            galaxy_svc = self.app.manager.service_registry.get_active('Galaxy')
+            if galaxy_svc and galaxy_svc.running():
                 for f_name in ['universe_wsgi.ini',
                                'tool_conf.xml',
                                'tool_data_table_conf.xml',
@@ -2322,15 +2292,19 @@ class ConsoleMonitor(object):
             misc.save_file_to_bucket(s3_conn, self.app.ud['bucket_cluster'],
                                      "%s.clusterName" % self.app.ud['cluster_name'], cn_file)
 
-    def __add_services(self):
+    def __start_services(self):
+        config_changed = False  # Flag to indicate if cluster conf was changed
         # Check and add any new services
-        added_srvcs = False  # Flag to indicate if cluster conf was changed
-        for service in [s for s in self.app.manager.services if s.state == service_states.UNSTARTED]:
-            log.debug("Monitor adding service '%s'" % service.get_full_name())
-            self.last_system_change_time = Time.now()
-            if service.add():
-                added_srvcs = True  # else:
-
+        for service in self.app.manager.service_registry.active():
+            if service.state == service_states.UNSTARTED or \
+               service.state == service_states.SHUT_DOWN and \
+               service.state != service_states.STARTING:
+                log.debug("Monitor adding service '%s'" % service.get_full_name())
+                self.last_system_change_time = Time.now()
+                if service.add():
+                    log.debug("Monitor done adding service {0} (setting config_changed)"
+                              .format(service.get_full_name()))
+                    config_changed = True
             # log.debug("Monitor DIDN'T add service {0}? Service state: {1}"\
             # .format(service.get_full_name(), service.state))
             # Store cluster conf after all services have been added.
@@ -2341,16 +2315,26 @@ class ConsoleMonitor(object):
             # service that would indicate the configuration of the service is
             # complete. This could probably be done by monitoring
             # the service state flag that is already maintained?
-        if added_srvcs and self.app.cloud_type != 'opennebula':
-            self.store_cluster_config()  # Check and grow the file system
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
                 self.last_system_change_time = Time.now()
                 self.expand_user_data_volume()
-            # Opennebula has no storage like S3, so this is not working (yet)
-                if self.app.cloud_type != 'opennebula':
-                    self.store_cluster_config()
+        return config_changed
+
+    def __stop_services(self):
+        """
+        Initiate stopping of any services that have been marked as not `active`
+        yet are still running.
+        """
+        config_changed = False  # Flag to indicate if cluster conf was changed
+        for service in self.app.manager.service_registry.itervalues():
+            if not service.activated and service.state == service_states.RUNNING:
+                log.debug("Monitor stopping service '%s'" % service.get_full_name())
+                self.last_system_change_time = Time.now()
+                service.remove()
+                config_changed = True
+        return config_changed
 
     def __check_amqp_messages(self):
         # Check for any new AMQP messages
@@ -2375,6 +2359,27 @@ class ConsoleMonitor(object):
                                 % m.properties['reply_to'])
             m = self.conn.recv()
 
+    def __check_if_cluster_ready(self):
+        """
+        Check if all active cluster services are running and set cluster state
+        to READY.
+        """
+        cluster_ready_flag = True
+        # Check if an activated service is still not RUNNING
+        for s in self.app.manager.service_registry.active():
+            if not (s.state == service_states.RUNNING or
+                    s.state == service_states.COMPLETED):
+                cluster_ready_flag = False
+                break
+        if self.app.manager.cluster_status != cluster_status.READY and \
+           self.app.manager.cluster_status != cluster_status.SHUTTING_DOWN and \
+           self.app.manager.cluster_status != cluster_status.TERMINATED and \
+           cluster_ready_flag:
+            self.app.manager.cluster_status = cluster_status.READY
+            msg = "All cluster services started; the cluster is ready for use."
+            log.info(msg)
+            self.app.msgs.info(msg)
+
     def __monitor(self):
         log.debug("Starting __monitor thread")
         if not self.app.manager.manager_started:
@@ -2384,6 +2389,7 @@ class ConsoleMonitor(object):
         log.debug("Monitor started; manager started")
         while self.running:
             self.sleeper.sleep(4)
+            self.__check_amqp_messages()
             if self.app.manager.cluster_status == cluster_status.TERMINATED:
                 self.running = False
                 return
@@ -2399,7 +2405,7 @@ class ConsoleMonitor(object):
             if (Time.now() - self.last_update_time).seconds > self.update_frequency:
                 self.last_update_time = Time.now()
                 self.app.manager.check_disk()
-                for service in self.app.manager.services:
+                for service in self.app.manager.service_registry.active():
                     service.status()
                 # Indicate migration is in progress
                 migration_service = self.app.manager.get_services(svc_role=ServiceRole.MIGRATION)
@@ -2413,7 +2419,7 @@ class ConsoleMonitor(object):
                         self.app.msgs.remove_message(msg)
                 # Log current services' states (in condensed format)
                 svcs_state = "S&S: "
-                for s in self.app.manager.services:
+                for s in self.app.manager.service_registry.itervalues():
                     svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
                 log.debug(svcs_state)
                 # Check the status of worker instances
@@ -2443,5 +2449,9 @@ class ConsoleMonitor(object):
                         log.debug("Instance {0} has been quiet for a while (last check "
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
-            self.__add_services()
-            self.__check_amqp_messages()
+            config_changed = self.__start_services()
+            config_changed = config_changed or self.__stop_services()
+            self.__check_if_cluster_ready()
+            # Opennebula has no object storage, so this is not working (yet)
+            if config_changed and self.app.cloud_type != 'opennebula':
+                self.store_cluster_config()

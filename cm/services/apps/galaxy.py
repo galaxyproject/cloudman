@@ -11,7 +11,7 @@ from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
-from cm.util.decorators import TestFlag
+from cm.util.decorators import TestFlag, delay
 from cm.util.galaxy_conf import attempt_chown_galaxy
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
@@ -54,13 +54,18 @@ class GalaxyService(ApplicationService):
         return self.app.path_resolver.galaxy_home
 
     def start(self):
+        self.state = service_states.STARTING
+        self.time_started = datetime.utcnow()
+        if not self.activated:
+            self.activated = True
+            log.debug("Service {0} self-activated".format(self.get_full_name()))
         self.manage_galaxy(True)
-        self.status()
 
     def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
         super(GalaxyService, self).remove(synchronous)
-        if self.state == service_states.RUNNING:
+        if self.state == service_states.RUNNING or \
+           self.state == service_states.ERROR:
             self.state = service_states.SHUTTING_DOWN
             self.last_state_change_time = datetime.utcnow()
             self.manage_galaxy(False)
@@ -113,12 +118,12 @@ class GalaxyService(ApplicationService):
                 self.configure_nginx()
             if not self.configured:
                 log.debug("Setting up Galaxy application")
-                job_manager_svc = self.app.manager.get_services(svc_role=ServiceRole.JOB_MANAGER)
-                job_manager_svc = job_manager_svc[0] if len(job_manager_svc) > 0 else None
-                if job_manager_svc and ServiceRole.SGE in job_manager_svc.svc_roles:
-                    log.debug("Running on SGE; setting env_vars")
-                    self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
-                    self.env_vars["DRMAA_LIBRARY_PATH"] = self.app.path_resolver.drmaa_library_path
+                for job_manager_svc in self.app.manager.service_registry.active(
+                        service_role=ServiceRole.JOB_MANAGER):
+                    if ServiceRole.SGE in job_manager_svc.svc_roles:
+                        log.debug("Running on SGE; setting env_vars")
+                        self.env_vars["SGE_ROOT"] = self.app.path_resolver.sge_root,
+                        self.env_vars["DRMAA_LIBRARY_PATH"] = self.app.path_resolver.drmaa_library_path
                 # s3_conn = self.app.cloud_interface.get_s3_connection()
                 if not os.path.exists(self.galaxy_home):
                     log.error("Galaxy application directory '%s' does not exist! Aborting." %
@@ -158,7 +163,8 @@ class GalaxyService(ApplicationService):
                 # data volume (defined in universe_wsgi.ini.cloud)
                 if not os.path.exists('%s/tmp/job_working_directory' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/tmp/job_working_directory/' % self.app.path_resolver.galaxy_data)
-                attempt_chown_galaxy('%s/tmp/' % self.app.path_resolver.galaxy_data)
+                attempt_chown_galaxy('%s/tmp/' % self.app.path_resolver.galaxy_data,
+                                     recursive=True)
                 # Make sure the default shed_tools directory exists
                 if not os.path.exists('%s/../shed_tools' % self.app.path_resolver.galaxy_data):
                     os.makedirs('%s/../shed_tools/' % self.app.path_resolver.galaxy_data)
@@ -234,6 +240,7 @@ class GalaxyService(ApplicationService):
             paths.P_SU, env_exports, venv, args)
         return run_command
 
+    @delay
     def status(self):
         """Check if Galaxy daemon is running and the UI is accessible."""
         old_state = self.state
@@ -244,11 +251,13 @@ class GalaxyService(ApplicationService):
             else:
                 log.debug("Galaxy UI does not seem to be accessible.")
                 self.state = service_states.STARTING
-        elif self.state == service_states.SHUTTING_DOWN or \
-            self.state == service_states.SHUT_DOWN or \
-            self.state == service_states.UNSTARTED or \
-                self.state == service_states.WAITING_FOR_USER_ACTION:
-             # self.state==service_states.STARTING:
+        elif self.state == service_states.STARTING:
+            # Start process failed
+            self.state = service_states.ERROR
+        elif (self.state == service_states.SHUTTING_DOWN or
+              self.state == service_states.SHUT_DOWN or
+              self.state == service_states.UNSTARTED or
+              self.state == service_states.WAITING_FOR_USER_ACTION):
             pass
         else:
             if self.state == service_states.STARTING and \
@@ -310,10 +319,12 @@ class GalaxyService(ApplicationService):
 
     def configure_nginx(self, setup_ssl=False):
         """
-        Generate nginx.conf from a template and reload nginx process so config
-        options take effect
+        Generate `nginx.conf` from a template and reload nginx process so config
+        options take effect.
         """
         if self.app.path_resolver.nginx_executable:
+            log.debug("Updating nginx config at {0}".format(
+                      self.app.path_resolver.nginx_conf_file))
             galaxy_server = "server 127.0.0.1:8080;"
             if self._multiple_processes():
                 web_thread_count = int(self.app.ud.get("web_thread_count", 3))
@@ -349,13 +360,33 @@ class GalaxyService(ApplicationService):
                 server_block_head = ""
                 nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
                 self.ssl_is_on = False
+            pulsar_block = ""
+            if self.app.manager.service_registry.is_active('Pulsar'):
+                pulsar_block = """
+    upstream pulsar_app {
+        server 127.0.0.1:8913;
+    }
+    server {
+        listen                  8914;
+        client_max_body_size    10G;
+        proxy_read_timeout      600;
+
+        location /jobs {
+            proxy_pass http://pulsar_app;
+            proxy_set_header   X-Forwarded-Host $host:$server_port;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+            error_page   502    /errdoc/cm_502.html;
+        }
+    }
+                """
             nginx_conf_template = conf_manager.load_conf_template(nginx_tmplt)
             params = {
                 'galaxy_user_name': paths.GALAXY_USER_NAME,
                 'galaxy_home': self.galaxy_home,
                 'galaxy_data': self.app.path_resolver.galaxy_data,
                 'galaxy_server': galaxy_server,
-                'server_block_head': server_block_head
+                'server_block_head': server_block_head,
+                'pulsar_block': pulsar_block
             }
             template = nginx_conf_template.substitute(params)
 

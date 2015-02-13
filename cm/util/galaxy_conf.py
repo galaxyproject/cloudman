@@ -1,5 +1,5 @@
 from os.path import join, exists
-from os import makedirs, symlink, chown
+from os import makedirs, symlink, chown, walk
 from shutil import copyfile, move
 
 from ConfigParser import SafeConfigParser
@@ -24,14 +24,21 @@ def attempt_chown_galaxy_if_exists(path):
         attempt_chown_galaxy(path)
 
 
-def attempt_chown_galaxy(path):
+def attempt_chown_galaxy(path, recursive=False):
     """
     Change owner of file at specified `path` to `galaxy`.
     """
     try:
+        log.debug("Attemping to chown to galaxy for {0}".format(path))
         galaxy_uid = getpwnam("galaxy")[2]
         galaxy_gid = getgrnam("galaxy")[2]
         chown(path, galaxy_uid, galaxy_gid)
+        if recursive:
+            for root, dirs, files in walk(path):
+                for d in dirs:
+                    chown(join(root, d), galaxy_uid, galaxy_gid)
+                for f in files:
+                    chown(join(root, f), galaxy_uid, galaxy_gid)
     except BaseException:
         run("chown galaxy:galaxy '%s'" % path)
 
@@ -134,14 +141,15 @@ def populate_galaxy_paths(option_manager):
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
         .format(path_resolver.psql_db_port)
     properties["use_pbkdf2"] = "False"  # Required for FTP
-    properties["genome_data_path"] = \
-        join(path_resolver.galaxy_indices, "genomes")
+    properties["tool_data_path"] = join(path_resolver.galaxy_indices, "tool-data")
     properties["len_file_path"] = \
         join(path_resolver.galaxy_data, "configuration_data", "len")
-    properties["tool_dependency_dir"] = \
-        join(path_resolver.galaxy_tools, "tools")
+    properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
-    temp_dir = join(path_resolver.galaxy_data, "tmp")
+    temp_dir = join(path_resolver.transient_nfs, "tmp")
+    if not exists(temp_dir):
+        makedirs(temp_dir)
+    attempt_chown_galaxy(temp_dir, recursive=True)
     properties["new_file_path"] = temp_dir
     # This is something a user may change so this is not an ideal solution
     # but a relation to the required files is necessary so here it is.
@@ -150,16 +158,11 @@ def populate_galaxy_paths(option_manager):
     for tcf in ['tool_conf.xml', 'shed_tool_conf_cloud.xml']:
         tool_config_files.append(join(path_resolver.galaxy_config_dir, tcf))
     properties['tool_config_file'] = ','.join(tool_config_files)
-    properties["job_working_directory"] = \
-        join(temp_dir, "job_working_directory")
-    properties["cluster_files_directory"] = \
-        join(temp_dir, "pbs")
-    properties["ftp_upload_dir"] = \
-        join(temp_dir, "ftp")
-    properties["library_import_dir"] = \
-        join(temp_dir, "library_import_dir")
-    properties["nginx_upload_store"] = \
-        join(path_resolver.galaxy_data, "upload_store")
+    properties["job_working_directory"] = join(temp_dir, "job_working_directory")
+    properties["cluster_files_directory"] = join(temp_dir, "pbs")
+    properties["ftp_upload_dir"] = join(path_resolver.galaxy_data, 'tmp', "ftp")
+    properties["library_import_dir"] = join(temp_dir, "library_import_dir")
+    properties["nginx_upload_store"] = join(path_resolver.galaxy_data, "upload_store")
     properties['ftp_upload_site'] = option_manager.app.cloud_interface.get_public_ip()
     # Allow user data options to override these, spefically database.
     priority_offset = -1

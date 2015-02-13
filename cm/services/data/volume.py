@@ -6,6 +6,7 @@ import os
 import grp
 import pwd
 import time
+import shutil
 import subprocess
 from glob import glob
 
@@ -472,8 +473,7 @@ class Volume(BlockStorage):
                     log.debug('After attach, devices = {0}'.format(
                         ' '.join(post_devices)))
                     new_devices = post_devices - pre_devices
-                    log.debug(
-                        'New devices = {0}'.format(' '.join(new_devices)))
+                    log.debug('New devices = {0}'.format(' '.join(new_devices)))
                     if len(new_devices) == 0:
                         log.debug('Could not find attached device for volume {0}. Attempted device = {1}'
                                   .format(self.volume_id, attempted_device))
@@ -488,6 +488,8 @@ class Volume(BlockStorage):
                     else:
                         device = tuple(new_devices)[0]
                         self.device = device
+                        log.debug("For {0}, set self.device to {1}".format(
+                                  self.fs.get_full_name(), device))
                         return device
                 # requested device didn't attach, for whatever reason
                 if self.status != volume_status.AVAILABLE and attempted_device[-3:-1] != 'vd':
@@ -640,11 +642,19 @@ class Volume(BlockStorage):
                 if os.path.exists(mount_point):
                     # Check if the mount location is empty
                     if len(os.listdir(mount_point)) != 0:
-                        log.warning("A file system at {0} already exists and is not empty; cannot "
-                                    "mount volume {1}".format(mount_point, self.volume_id))
-                        return False
+                        log.warning("Mount point {0} already exists and is not "
+                                    "empty!? ({2}) Will attempt to mount volume {1}"
+                                    .format(mount_point, self.volume_id,
+                                    os.listdir(mount_point)))
+                        # return False
                 else:
-                    os.mkdir(mount_point)
+                    log.debug("Creating mount point directory {0} for {1}"
+                              .format(mount_point, self.fs.get_full_name()))
+                    try:
+                        os.mkdir(mount_point)
+                    except Exception, e:
+                        log.warning("Could not create {0} mount point {1}: {2}"
+                                    .format(self.fs.get_full_name(), mount_point, e))
                 # Potentially wait for the device to actually become available in the system
                 # TODO: Do something if the device is not available in the
                 # given time period
@@ -661,32 +671,36 @@ class Volume(BlockStorage):
                 # even more by custom-handling the run command and thus not
                 # printing the err
                 cmd = '/bin/mount %s %s' % (self.device, mount_point)
-                process = subprocess.Popen(
-                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                _, _ = process.communicate()
-                if process.returncode != 0:
-                    # FIXME: Assume if a file system cannot be mounted that it's because
-                    # there is not a file system on the device so try creating
-                    # one
-                    if run('/sbin/mkfs.xfs %s' % self.device,
-                           "Failed to create a files ystem on device %s" % self.device,
-                           "Created a file system on device %s" % self.device):
-                        if not run(
-                            '/bin/mount %s %s' % (self.device, mount_point),
-                            "Error mounting file system %s from %s" % (
-                                mount_point, self.device),
-                                "Successfully mounted file system %s from %s" %
-                                (mount_point, self.device)):
-                            log.error("Failed to mount device '%s' to mount point '%s'"
-                                      % (self.device, mount_point))
-                            return False
-                # Resize the volume if it was created from a snapshot
-                else:
-                    if self.snapshot and self.volume.size > self.snapshot.volume_size:
-                        run('/usr/sbin/xfs_growfs %s' % mount_point)
-                        log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
-                log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
-
+                try:
+                    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                                               stderr=subprocess.PIPE)
+                    _, _ = process.communicate()
+                    if process.returncode != 0:
+                        # FIXME: Assume if a file system cannot be mounted that it's because
+                        # there is not a file system on the device so try creating
+                        # one
+                        if run('/sbin/mkfs.xfs %s' % self.device,
+                               "Failed to create a files ystem on device %s" % self.device,
+                               "Created a file system on device %s" % self.device):
+                            if not run(
+                                '/bin/mount %s %s' % (self.device, mount_point),
+                                "Error mounting file system %s from %s" % (
+                                    mount_point, self.device),
+                                    "Successfully mounted file system %s from %s" %
+                                    (mount_point, self.device)):
+                                log.error("Failed to mount device '%s' to mount point '%s'"
+                                          % (self.device, mount_point))
+                                return False
+                    # Resize the volume if it was created from a snapshot
+                    else:
+                        if self.snapshot and self.volume.size > self.snapshot.volume_size:
+                            run('/usr/sbin/xfs_growfs %s' % mount_point)
+                            log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
+                    log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
+                except Exception, e:
+                    log.error("Exception mounting {0} at {1}".format(
+                              self.fs.get_full_name(), mount_point))
+                    return False
                 try:
                     # Default owner of all mounted file systems to `galaxy`
                     # user
@@ -738,7 +752,7 @@ class Volume(BlockStorage):
         self.fs.status()
         if self.fs.state == service_states.RUNNING or self.fs.state == service_states.SHUTTING_DOWN:
             log.debug("Unmounting volume-based FS from {0}".format(mount_point))
-            if os.path.exists(mount_point):
+            if self.fs._is_mounted(mount_point):
                 for counter in range(10):
                     if run('/bin/umount %s' % mount_point,
                             "Error unmounting file system '%s'" % mount_point,
@@ -746,11 +760,16 @@ class Volume(BlockStorage):
                         # Clean up the system path now that the file system is
                         # unmounted
                         try:
+                            # nginx upload store is sometimes left behind,
+                            # so clean it up
+                            usp = os.path.join(mount_point, 'upload_store')
+                            if os.path.exists(usp):
+                                shutil.rmtree(usp)
                             os.rmdir(mount_point)
+                            break
                         except OSError, e:
                             log.error("Error removing unmounted path {0}: {1}".format(
                                 mount_point, e))
-                        break
                     if counter == 9:
                         log.warning("Could not unmount file system at '%s'" % mount_point)
                         return False
@@ -758,8 +777,8 @@ class Volume(BlockStorage):
                     time.sleep(3)
                 return True
             else:
-                log.debug("Did not unmount file system {0} because its mount point "
-                          "{1} does not exist".format(self.fs.get_full_name(), mount_point))
+                log.debug("Did not unmount file system {0} at {1} because it is "
+                          "not mounted.".format(self.fs.get_full_name(), mount_point))
                 return False
         log.debug("Did not unmount file system '%s' because it is not in state "
                   "'running' or 'shutting-down'" % self.fs.get_full_name())

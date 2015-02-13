@@ -143,7 +143,7 @@ vertical-align: top;
         the snapshot's description.</p>
         </div>
         <div class="form-row">
-            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 1000GB):</label>
+            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 16000GB):</label>
             <div id="permanent_storage_size" class="form-row-input">
                 <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
             </div>
@@ -952,8 +952,8 @@ $(document).ready(function() {
 
         ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
         %if cloud_type == 'ec2':
-        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 1000, onlyInteger: true } );
-        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000, onlyInteger: true } );
+        	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, maximum: 16000, onlyInteger: true } );
+        	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 16000, onlyInteger: true } );
         %else:
         	g_permanent_storage_size.add( Validate.Numericality, { minimum: ${default_data_size}, onlyInteger: true } );
         	d_permanent_storage_size.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
@@ -965,7 +965,7 @@ $(document).ready(function() {
         spot_price.add( Validate.Numericality, { minimum: 0 } );
     }
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
-    expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 1000 } );
+    expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 16000 } );
 
     var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
     autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
