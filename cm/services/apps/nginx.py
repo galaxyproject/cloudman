@@ -51,6 +51,7 @@ class NginxService(ApplicationService):
         # Remove the default server config that comes with Nginx system package
         nginx_default_server = os.path.join(self.conf_dir, 'sites-enabled', 'default')
         misc.delete_file(nginx_default_server)
+        self.reconfigure(setup_ssl=self.ssl_is_on)
         # Get a handle on the server process
         if not self._check_daemon('nginx'):
             if misc.run(self.exe):
