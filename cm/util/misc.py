@@ -968,6 +968,7 @@ def delete_file(path):
     Check if a file at `path` exists and delete it.
     """
     if os.path.exists(path):
+        log.debug("Deleting file {0}".format(path))
         os.remove(path)
 
 
