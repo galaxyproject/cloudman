@@ -9,10 +9,12 @@ WebHelpers==1.3
 WebOb==1.2b2
 amqplib==1.0.2
 astor==0.2.1
-boto<2.35.0
+boto>=2.29.1,<=2.34.0
 distribute>=0.6.19
 oca>=0.2.3
 simplejson>=2.3.2
 wsgiref==0.1.2
 hoover>=0.5.3
 requests>=0.13.1
+cm-api==8.0.0
+ansible==1.8.2

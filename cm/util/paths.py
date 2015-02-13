@@ -70,6 +70,16 @@ except Exception, e:
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_HOME to '{1}'"\
         .format(e, P_PG_HOME)
 
+try:
+    # Get only the first 3 chars of the version since that's all that's used
+    # for dir name
+    pg_ver = load = (commands.getoutput(
+        "dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
+    P_PG_CONF = "/etc/postgresql/{0}/main/postgresql.conf".format(pg_ver)
+except Exception, e:
+    P_PG_CONF = "/etc/postgresql/9.3/main/postgresql.conf"
+    print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_CONF to '{1}'"\
+        .format(e, P_PG_CONF)
 
 def get_path(name, default_path):
     """

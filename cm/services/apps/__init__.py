@@ -76,6 +76,8 @@ class ApplicationService(Service):
             pid_file = '%s/reports_webapp.pid' % self.app.path_resolver.galaxy_home
         elif service == 'pulsar':
             pid_file = '%s/paster.pid' % self.app.path_resolver.pulsar_home
+        elif service == 'nginx':
+            pid_file = '/var/run/nginx.pid'
         else:
             return -1
         # log.debug("Checking pid file '%s' for service '%s'" % (pid_file,

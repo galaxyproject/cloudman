@@ -72,7 +72,7 @@ def _start_nginx(ud):
     # directory already exists on the user's data disk, must remove it after
     # nginx starts
     _configure_nginx(log, ud)
-    _fix_nginx_upload(ud)
+    # _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
     upload_store_dir = '/mnt/galaxyData/upload_store'
     # Look for ``upload_store`` definition in nginx conf file and create that dir
@@ -134,7 +134,7 @@ def _fix_nginx_upload(ud):
         # Check if the directive is already defined
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
         if not _run(log, already_defined):
-            log.degbu("Adding client_max_body_size to {0}".format(nginx_conf_path))
+            log.debug("Adding client_max_body_size to {0}".format(nginx_conf_path))
             sedargs = """'
 /listen/ a\
         client_max_body_size 10G;
