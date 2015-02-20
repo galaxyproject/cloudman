@@ -398,6 +398,11 @@ class ConsoleManager(BaseConsoleManager):
         else:
             cc_detail = "Configuring an old existing cluster of type {0}"\
                 .format(self.initial_cluster_type)
+        # Add master's private IP to /etc/hosts (workers need it and
+        # master's /etc/hosts is being synced to the workers)
+        misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
+                              [self.app.cloud_interface.get_local_hostname(),
+                               misc.get_hostname()])
         log.info("Completed the initial cluster startup process. {0}".format(
             cc_detail))
         return True
@@ -1119,11 +1124,11 @@ class ConsoleManager(BaseConsoleManager):
                     job_manager_svc.remove_node(inst)
                 # Remove the given instance from /etc/hosts files
                 misc.remove_from_etc_hosts(inst.private_ip)
+                self.sync_etc_hosts()
                 # Terminate the instance
                 inst.terminate()
                 log.info("Initiated requested termination of instance. "
                          "Terminating '%s'." % instance_id)
-
 
     def reboot_instance(self, instance_id='', count_reboot=True):
         """
@@ -2034,13 +2039,14 @@ class ConsoleManager(BaseConsoleManager):
     # ==========================================================================
     # ============================ UTILITY METHODS =============================
     # ========================================================================
-    def update_etc_host(self):
+    def sync_etc_hosts(self):
         """
         This method is for syncing hosts files in all workers with the master.
         It will copy the master etc hosts into a shared folder and send a message
         to the workers to inform them of the change.
         """
         try:
+            log.debug("Instructing all workers to sync /etc/hosts w/ master")
             shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
             for wrk in self.worker_instances:
                 wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)

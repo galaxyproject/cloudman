@@ -77,9 +77,6 @@ class ConsoleManager(BaseConsoleManager):
 
     def start(self):
         self._handle_prestart_commands()
-        misc.add_to_etc_hosts(self.app.ud['master_ip'],
-                              [self.app.ud['master_hostname'],
-                               self.app.ud['master_hostname_alt']])
 
     def shutdown(self, delete_cluster=None):
         self.worker_status = worker_states.SHUTTING_DOWN
@@ -254,8 +251,6 @@ class ConsoleManager(BaseConsoleManager):
         os.chown(self.app.path_resolver.slurm_root_tmp,
                  pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
         log.debug("Starting slurmd as worker named {0}...".format(self.alias))
-        # Add Slurm instance name to /etc/hosts
-        misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(), [self.alias])
         # If adding many nodes at once, slurm.conf may be edited by the master
         # and thus the worker cannot access it so do a quick check here. Far from
         # an ideal solution but seems to work
@@ -363,15 +358,17 @@ class ConsoleManager(BaseConsoleManager):
             self.condor = HTCondorService(self.app, "worker", host_ip)
             self.condor.start()
 
-    # #<KWS>
-    # Updating etc host by fetching the master's etc/hosts file
-    # # this is necessary for hadoop ssh component
     def sync_etc_host(self, sync_path=paths.P_ETC_TRANSIENT_PATH):
+        """
+        Update /etc/hosts across the cluster by fetching the master's copy
+        from `sync_path`.
+        """
         if os.path.exists(sync_path):
-            log.debug("Synced /etc/hosts with %s" % sync_path)
+            log.debug("Replacing local /etc/hosts with %s" % sync_path)
             shutil.copyfile(sync_path, "/etc/hosts")
         else:
-            log.warning("Sync path %s not available; cannot sync /etc/hosts" % sync_path)
+            log.warning("Sync path %s not available; cannot sync /etc/hosts"
+                        % sync_path)
 
     def _get_extra_nfs_mounts(self):
         return self.app.ud.get('extra_nfs_mounts', [])
@@ -420,7 +417,7 @@ class ConsoleMonitor(object):
         num_cpus = commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l")
         total_memory = misc.meminfo().get('total', 0)
         # Compose the ALIVE message
-        msg = ("ALIVE | %s | %s | %s | %s | %s | %s | %s | %s" %
+        msg = ("ALIVE | %s | %s | %s | %s | %s | %s | %s | %s | %s" %
                (self.app.cloud_interface.get_private_ip(),
                 self.app.cloud_interface.get_public_ip(),
                 self.app.cloud_interface.get_zone(),
@@ -428,7 +425,8 @@ class ConsoleMonitor(object):
                 self.app.cloud_interface.get_ami(),
                 self.app.manager.local_hostname,
                 num_cpus,
-                total_memory))
+                total_memory,
+                misc.get_hostname()))
         self.conn.send(msg)
         log.debug("Sending message '%s'" % msg)
 

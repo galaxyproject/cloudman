@@ -535,17 +535,21 @@ class Instance(object):
                     self.local_hostname = msp[6]
                     self.num_cpus = int(msp[7])
                     self.total_memory = int(msp[8])
+                    self.hostname = msp[9]
                 except:
                     # Older versions of CloudMan did not pass this value so if the master
                     # and the worker are running 2 diff versions (can happen after an
                     # automatic update), don't crash here.
                     self.local_hostname = self.public_ip
-                log.debug("INSTANCE_ALIVE private_ip: %s public_ip: %s zone: %s type: %s AMI: %s hostname: %s, CPUs: %s"
+                log.debug("INSTANCE_ALIVE private_ip: %s public_ip: %s zone: %s "
+                          "type: %s AMI: %s local_hostname: %s, CPUs: %s, hostname: %s"
                           % (self.private_ip, self.public_ip, self.zone,
                              self.type, self.ami, self.local_hostname,
-                             self.num_cpus))
+                             self.num_cpus, self.hostname))
                 # Add instance IP/name to /etc/hosts
-                misc.add_to_etc_hosts(self.private_ip, [self.alias, self.local_hostname])
+                misc.add_to_etc_hosts(self.private_ip, [self.alias, self.local_hostname,
+                                      self.hostname])
+                self.app.manager.sync_etc_hosts()
                 # Instance is alive and responding.
                 self.send_mount_points()
             elif msg_type == "GET_MOUNTPOINTS":
@@ -573,8 +577,6 @@ class Instance(object):
                     f = open("/etc/hosts", 'a')
                     f.write("%s\tworker-%s\n" % (self.private_ip, self.id))
                     f.close()
-                # log.debug("Update /etc/hosts through master")
-                # self.app.manager.update_etc_host()
             elif msg_type == "WORKER_H_CERT":
                 log.debug("Got WORKER_H_CERT message")
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
