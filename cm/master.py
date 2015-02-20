@@ -403,6 +403,7 @@ class ConsoleManager(BaseConsoleManager):
         misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
                               [self.app.cloud_interface.get_local_hostname(),
                                misc.get_hostname()])
+        misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended for Cloudera Manager
         log.info("Completed the initial cluster startup process. {0}".format(
             cc_detail))
         return True

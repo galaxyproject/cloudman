@@ -77,6 +77,7 @@ class ConsoleManager(BaseConsoleManager):
 
     def start(self):
         self._handle_prestart_commands()
+        misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended for Cloudera Manager
 
     def shutdown(self, delete_cluster=None):
         self.worker_status = worker_states.SHUTTING_DOWN
