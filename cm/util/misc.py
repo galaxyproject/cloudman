@@ -896,8 +896,9 @@ def add_to_etc_hosts(ip_address, hosts=[]):
     """
     Add a line with the list of ``hosts`` for the given ``ip_address`` to
     ``/etc/hosts``.
-    If a line with the provided ``ip_address`` already exist in the file, append
-    the new ``hosts`` to the given line.
+    If a line with the provided ``ip_address`` already exist in the file, keep
+    any existing hostnames and also add the otherwise not found new ``hosts``
+    to the given line.
     """
     try:
         etc_hosts = open('/etc/hosts', 'r')
@@ -918,8 +919,13 @@ def add_to_etc_hosts(ip_address, hosts=[]):
                 existing_line = l.strip()
         etc_hosts.close()
         if existing_line:
+            ip_address = existing_line.split()[0]
+            hostnames = existing_line.split()[1:]
+            for hostname in hosts:
+                if hostname not in hostnames:
+                    hostnames.append(hostname)
             # Append new hosts to the exisiting line
-            line = "{0} {1}\n".format(existing_line, ' '.join(hosts))
+            line = "{0} {1}\n".format(ip_address, ' '.join(hostnames))
         else:
             # Compose a new line with the hosts for the specified IP address
             line = '{0} {1}\n'.format(ip_address, ' '.join(hosts))
