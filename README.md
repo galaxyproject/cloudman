@@ -1,28 +1,29 @@
 ## CloudMan
 
-Easily create a [compute cluster][9] on top of a [cloud computing infrastructure][11].
+Easily create a [compute cluster][9] on top of a [cloud computing
+infrastructure][11].
 
 ### Overview
 
-[CloudMan][1] is a cloud manager that orchestrates all of the steps required
-to provision a complete compute cluster environment on a cloud infrastructure;
-subsequently, it allows one to manage the cluster, all through a web
-browser. Although CloudMan can be used in any domain and for any purpose that
-calls for a compute cluster, it is primarily used in the context of [Galaxy Cloud][4]
-and [CloudBioLinux][5] and, along with the infrastructure, ensures a complete
-[Next Generation Sequencing (NGS)][10] analysis toolset is instantly available.
+[CloudMan][1] is a cloud manager that orchestrates all of the steps required to
+provision a complete compute cluster environment on a cloud infrastructure;
+subsequently, it allows one to manage the cluster, all through a web browser.
+Although CloudMan can be used in any domain and for any purpose that calls for
+a compute cluster, it is primarily used in the context of [Galaxy Cloud][4] and
+[CloudBioLinux][5] and, along with the infrastructure, ensures a complete [Next
+Generation Sequencing (NGS)][10] analysis toolkit is instantly available.
 CloudMan is currently available on the [AWS EC2 cloud][6].
 
 ### Use
 
 To instantiate a CloudMan cluster, simply visit [usegalaxy.org/cloudlaunch][7].
-Alternatively, or if you want start an instance on one of the non-Amazon clouds,
-visit [biocloudcentral.org][12].
+Alternatively, or if you want start an instance on one of the non-Amazon
+clouds, visit [biocloudcentral.org][12].
 
 ### Local deployment
 For basic testing and some development, [CloudMan][1] can be run locally.
-Start by cloning [CloudMan source][3], installing [virtualenv][2], and
-adding Python libraries required by CloudMan. Then, run it:
+Start by cloning [CloudMan source][3], installing [virtualenv][2], and adding
+Python libraries required by CloudMan. Then, run it:
 
     $ cd <project root dir>
     $ hg clone https://bitbucket.org/galaxy/cloudman
@@ -34,7 +35,7 @@ adding Python libraries required by CloudMan. Then, run it:
 ### Custom cloud deployment
 If you would like to deploy CloudMan and all of its dependencies on a cloud
 infrastructure where a public image does not already exist, take a look at
-[CloduBioLinux][8] scripts (`cloudman` flavor in particular).
+[CloudBioLinux][8] scripts (`cloudman` flavor in particular).
 
 [1]: https://usecloudman.org/
 [2]: https://github.com/pypa/virtualenv
