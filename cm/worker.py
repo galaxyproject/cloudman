@@ -520,6 +520,8 @@ class ConsoleMonitor(object):
                 self.app.manager.console_monitor.conn.send("MOUNT_DONE")
         elif message.startswith("START_SLURMD"):
             alias = message.split(' | ')[1]
+            log.debug("Setting hostname to {0}".format(alias))
+            misc.run("hostname {0}".format(alias))  # Set the default hostname
             log.info("Got START_SLURMD with worker name {0}".format(alias))
             self.app.manager.start_slurmd(alias)
             # Now that the instance is ready, run the PSS service in a
