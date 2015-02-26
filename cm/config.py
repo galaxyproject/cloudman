@@ -16,186 +16,237 @@ DEFAULT_INSTANCE_COMM_TIMEOUT = 180
 DEFAULT_INSTANCE_STATE_CHANGE_WAIT = 400
 DEFAULT_INSTANCE_REBOOT_ATTEMPTS = 4
 DEFAULT_INSTANCE_TERMINATE_ATTEMPTS = 4
-DEFAULT_INSTANCE_TYPES = [
-    ("", "Same as Master"),
-    ("", "-------------"),
-    ("c3.large", "Compute optimized Large (2 vCPU/4GB RAM)"),
-    ("c3.2xlarge", "Compute optimized 2xLarge (8 vCPU/15GB RAM)"),
-    ("c3.8xlarge", "Compute optimized 8xLarge (32 vCPU/60GB RAM)"),
-    # R3 instance types require HVM virtualization and appropriate AMI so omit
-    # ("", "-------------"),
-    # ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
-    # ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
-    # ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
-    ("", "-------------"),
-    ("custom_instance_type", "Custom instance type")
-]
+DEFAULT_INSTANCE_TYPES = {
+    "amazon" : [
+        ("", "Same as Master"),
+        ("", "-------------"),
+        ("c3.large", "Compute optimized Large (2 vCPU/4GB RAM)"),
+        ("c3.2xlarge", "Compute optimized 2xLarge (8 vCPU/15GB RAM)"),
+        ("c3.8xlarge", "Compute optimized 8xLarge (32 vCPU/60GB RAM)"),
+        # R3 instance types require HVM virtualization and appropriate AMI so omit
+        # ("", "-------------"),
+        # ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
+        # ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
+        # ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
+        ("", "-------------"),
+        ("custom_instance_type", "Custom instance type")
+    ],
 
+    "nectar" : [
+        ("", "Same as Master"),
+        ("m1.small", "Small"),
+        ("m1.medium", "Medium"),
+        ("m1.large", "Large"),
+        ("m1.xlarge", "Extra Large"),
+        ("m1.xxlarge", "Extra Extra Large"),
+        ("custom_instance_type", "Custom instance type")
+    ],
 
-def resolve_path(path, root):
-    """If 'path' is relative make absolute by prepending 'root'"""
-    if not(os.path.isabs(path)):
-        path = os.path.join(root, path)
-    return path
+    "hpcloud" : [
+        ("", "Same as Master"),
+        ("standard.xsmall", "Extra Small"),
+        ("standard.small", "Small"),
+        ("standard.medium", "Medium"),
+        ("standard.large", "Large"),
+        ("standard.xlarge", "Extra Large"),
+        ("standard.2xlarge", "Extra Extra Large"),
+    ],
+
+    "ict-tas" : [
+        ("", "Same as Master"),
+        ("m1.small", "Small"),
+        ("m1.medium", "Medium"),
+        ("m1.xlarge", "Extra Large"),
+        ("m1.xxlarge", "Extra Extra Large"),
+    ]
+}
 
 
 class ConfigurationError(Exception):
     pass
 
 
-class Configuration(object):
-    def __init__(self, **kwargs):
+class Configuration(dict):
+
+    def __init__(self, kwargs, ud):
+        # Configuration data sources
         self.config_dict = kwargs
-        self.root = kwargs.get('root_dir', '.')
-        # Where dataset files are stored
-        self.id_secret = kwargs.get(
-            "id_secret", "USING THE DEFAULT IS NOT SECURE!")
-        self.use_remote_user = string_as_bool(
-            kwargs.get("use_remote_user", "False"))
-        self.require_login = string_as_bool(
-            kwargs.get("require_login", "False"))
-        self.template_path = resolve_path(
-            kwargs.get("template_path", "templates"), self.root)
-        self.cloudman_source_file_name = kwargs.get(
-            "cloudman_file_name", "cm.tar.gz")
-        # self.template_cache = resolve_path( kwargs.get(
-        # "template_cache_path", "database/reports/compiled_templates" ),
-        # self.root )
-        self.sendmail_path = kwargs.get('sendmail_path', "/usr/sbin/sendmail")
-        self.brand = kwargs.get('brand', None)
-        self.wiki_url = kwargs.get('wiki_url', "http://g2.trac.bx.psu.edu/")
-        self.GC_url = kwargs.get(
-            'GC_url', 'http://bitbucket.org/afgane/galaxy-central-gc2/')
-        self.CM_url = kwargs.get(
-            'GC_url', 'http://bitbucket.org/galaxy/cloudman/')
-        self.bugs_email = kwargs.get(
-            'bugs_email', "mailto:galaxy-bugs@bx.psu.edu")
-        self.blog_url = kwargs.get(
-            'blog_url', "http://g2.trac.bx.psu.edu/blog")
-        self.screencasts_url = kwargs.get(
-            'screencasts_url', "http://g2.trac.bx.psu.edu/wiki/ScreenCasts")
-        # Parse global_conf
-        global_conf = kwargs.get('global_conf', None)
-        global_conf_parser = ConfigParser.ConfigParser()
-        if global_conf and "__file__" in global_conf:
-            global_conf_parser.read(global_conf['__file__'])
-        # Load supported image configuration from a file on the image.
-        # This is a dict containing a list of configurations supported by
-        # the by system/image. Primarily, this contains a list
-        # of apps (available under key 'apps'). This config file allows CloudMan
-        # to integrate native and custom support for additional applications.
-        # The dict contains default values for backward combatibility.
-        self.ic = {'apps': ['cloudman', 'galaxy']}
-        if os.path.exists(paths.IMAGE_CONF_SUPPORT_FILE):
-            self.ic = misc.load_yaml_file(paths.IMAGE_CONF_SUPPORT_FILE)
-        # Logger is not configured yet so print
-        print "Image configuration suports: %s" % self.ic
-        self.instance_types = []
+        self._user_data = ud
+        self._rebuild_combined_config()
 
-    def get(self, key, default):
-        return self.config_dict.get(key, default)
+    def _rebuild_combined_config(self):
+        """
+        Build dictionary in reverse order of resolution
+        """
+        self.clear()
+        self.update(self.config_dict)
+        self.update(self.user_data)
+        self.update(self._extract_env_vars())
 
-    def check(self):
+    def _extract_env_vars(self):
+        return { key.upper() : os.environ[key.upper()] for key in os.environ if key.startswith("CM_") }
+
+# A debug version of __contains__, in case you need to trace the provenance of a variable """
+#     def __dontains__(self, value):
+#         if not value:
+#             log.debug("Key not found: {0}".format(value))
+#             return False
+#         elif value.startswith("cm_") and value.upper() in os.environ:
+#             log.debug("Key: {0} found in os.environ. CM_ auto prepended.".format(value))
+#             return True
+#         elif "CM_" + value.upper() in os.environ:
+#             log.debug("Key: {0} found in os.environ.".format(value))
+#             return True
+#         elif value in self.user_data:
+#             log.debug("Key: {0} found in user_data.".format(value))
+#             return True
+#         elif value in self.config_dict:
+#             log.debug("Key: {0} found in cm_wsgi.ini.".format(value))
+#             return True
+
+    def __getitem__(self, key):
+        """
+        Resolves configuration variables hierarchically.
+        The order of resolution is:
+        1. Environment variables ("CM_" is prepended to key if required, to avoid conflict with general environment variables. Env vars are expected to be in upper case)
+        2. User Data
+        3. cm_wsgi.ini
+        """
+        key = key.lower()
+
+        if key.startswith("cm_") and key.upper() in self:
+            return dict.__getitem__(self, key.upper())
+        elif "CM_" + key.upper() in self:
+            return dict.__getitem__(self, "CM_" + key.upper())
+        else:
+            return dict.__getitem__(self, key)
+
+    def validate(self):
         # Check that required directories exist
-        for path in self.root, self.template_path:
+        for path in self.root_dir, self.template_path:
             if not os.path.isdir(path):
                 raise ConfigurationError(
                     "Directory does not exist: %s" % path)
 
-    def init_with_user_data(self, user_data):
-        self.__configure_instance_management(user_data)
-        self.__configure_instance_types(user_data)
-        self.condor_enabled = user_data.get("condor_enabled", False)
-        self.hadoop_enabled = user_data.get("hadoop_enabled", False)
+    @property
+    def user_data(self):
+        return self._user_data
 
-    def __configure_instance_management(self, user_data):
-        """Configure attributes used control reboot/terminate behavior
-        of cm.util.master:Instance."""
-        self.instance_reboot_timeout = \
-            user_data.get("instance_reboot_timeout", DEFAULT_INSTANCE_REBOOT_TIMEOUT)
-        self.instance_comm_timeout = \
-            user_data.get("instance_comm_timeout", DEFAULT_INSTANCE_COMM_TIMEOUT)
-        self.instance_state_change_wait = \
-            user_data.get("instance_state_change_wait", DEFAULT_INSTANCE_STATE_CHANGE_WAIT)
-        self.instance_reboot_attempts = \
-            user_data.get("instance_reboot_attempts", DEFAULT_INSTANCE_REBOOT_ATTEMPTS)
-        self.instance_terminate_attempts = \
-            user_data.get("instance_terminate_attempts", DEFAULT_INSTANCE_TERMINATE_ATTEMPTS)
+    @user_data.setter
+    def user_data(self, value):
+        self._user_data = value
+        self._rebuild_combined_config()
 
-    def __configure_instance_types(self, user_data):
-        cloud_name = user_data.get('cloud_name', 'amazon').lower()
-        if "instance_types" in user_data:
+    @property
+    def root_dir(self):
+        return self.get('root_dir', '.')
+
+    @property
+    def template_path(self):
+        """If 'path' is relative make absolute by prepending 'root'"""
+        template_path = self.get("template_path", "templates")
+        if not(os.path.isabs(template_path)):
+            path = os.path.join(self.root_dir, template_path)
+        return path
+
+    @property
+    def cloudman_source_file_name(self):
+        return self.get("cloudman_file_name", "cm.tar.gz")
+
+    @property
+    def cloud_name(self):
+        return self.get('cloud_name', 'amazon').lower()
+
+    @property
+    def cloud_type(self):
+        return self.get('cloud_type', 'ec2').lower()
+
+    @property
+    def multiple_processes(self):
+        return self.get("configure_multiple_galaxy_processes", False)
+
+    @property
+    def condor_enabled(self):
+        return self.get("condor_enabled", False)
+
+    @property
+    def hadoop_enabled(self):
+        return self.get("hadoop_enabled", False)
+
+    @property
+    def instance_reboot_timeout(self):
+        return self.get("instance_reboot_timeout", DEFAULT_INSTANCE_REBOOT_TIMEOUT)
+
+    @property
+    def instance_comm_timeout(self):
+        return self.get("instance_comm_timeout", DEFAULT_INSTANCE_COMM_TIMEOUT)
+
+    @property
+    def instance_state_change_wait(self):
+        return self.get("instance_state_change_wait", DEFAULT_INSTANCE_STATE_CHANGE_WAIT)
+
+    @property
+    def instance_reboot_attempts(self):
+        return self.get("instance_reboot_attempts", DEFAULT_INSTANCE_REBOOT_ATTEMPTS)
+
+    @property
+    def instance_terminate_attempts(self):
+        return self.get("instance_terminate_attempts", DEFAULT_INSTANCE_TERMINATE_ATTEMPTS)
+
+    @property
+    def instance_types(self):
+        if self.get("instance_types"):
             ## Manually specified instance types
-            user_data_instance_types = user_data["instance_types"]
+            user_data_instance_types = self.get("instance_types")
             instance_types = [(type_def["key"], type_def["name"]) for type_def in user_data_instance_types]
-        elif "nectar" in cloud_name:
-            instance_types = [
-                ("", "Same as Master"),
-                ("m1.small", "Small"),
-                ("m1.medium", "Medium"),
-                ("m1.large", "Large"),
-                ("m1.xlarge", "Extra Large"),
-                ("m1.xxlarge", "Extra Extra Large"),
-                ("custom_instance_type", "Custom instance type")
-            ]
-        elif cloud_name == "hpcloud":
-            instance_types = [
-                ("", "Same as Master"),
-                ("standard.xsmall", "Extra Small"),
-                ("standard.small", "Small"),
-                ("standard.medium", "Medium"),
-                ("standard.large", "Large"),
-                ("standard.xlarge", "Extra Large"),
-                ("standard.2xlarge", "Extra Extra Large"),
-            ]
-        elif cloud_name == "ict-tas":
-            instance_types = [
-                ("", "Same as Master"),
-                ("m1.small", "Small"),
-                ("m1.medium", "Medium"),
-                ("m1.xlarge", "Extra Large"),
-                ("m1.xxlarge", "Extra Extra Large"),
-            ]
+            return instance_types
         else:
-            instance_types = DEFAULT_INSTANCE_TYPES
-        self.instance_types = instance_types
+            keys = [key for key in DEFAULT_INSTANCE_TYPES.keys() if key in self.cloud_name]
+            if keys:
+                return DEFAULT_INSTANCE_TYPES.get(keys[0])
+
+    @property
+    def cloudman_repo_url(self):
+        return self.get("CM_url", "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
+
+    @property
+    def ignore_unsatisfiable_dependencies(self):
+        return self.get("ignore_unsatisfiable_dependencies", False)
+
+    @property
+    def web_thread_count(self):
+        return self.get("web_thread_count", 3)
+
+    @property
+    def info_brand(self):
+        return self.get("brand", "")
+
+    @property
+    def info_wiki_url(self):
+        return self.get("wiki_url", "http://g2.trac.bx.psu.edu/")
+
+    @property
+    def info_bugs_email(self):
+        return self.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
+
+    @property
+    def info_blog_url(self):
+        return self.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
+
+    @property
+    def info_screencasts_url(self):
+        return self.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
 
 
-def get_database_engine_options(kwargs):
-    """
-    Allow options for the SQLAlchemy database engine to be passed by using
-    the prefix "database_engine_option_".
-    """
-    conversions = {
-        'convert_unicode': string_as_bool,
-        'pool_timeout': int,
-        'echo': string_as_bool,
-        'echo_pool': string_as_bool,
-        'pool_recycle': int,
-        'pool_size': int,
-        'max_overflow': int,
-        'pool_threadlocal': string_as_bool
-    }
-    prefix = "database_engine_option_"
-    prefix_len = len(prefix)
-    rval = {}
-    for key, value in kwargs.iteritems():
-        if key.startswith(prefix):
-            key = key[prefix_len:]
-            if key in conversions:
-                value = conversions[key](value)
-            rval[key] = value
-    return rval
-
-
-def configure_logging(config, user_data={}):
+# TODO: REFACTOR - This method doesn't belong here
+def configure_logging(config):
     """
     Allow some basic logging configuration to be read from the cherrpy
     config.
     """
     # format = config.get( "log_format", "%(name)s %(levelname)s %(asctime)s
     # %(message)s" )
-    format = config.get(
+    log_format = config.get(
         "log_format", "%(asctime)s %(levelname)-7s %(module)12s:%(lineno)-4d %(message)s")
     level = logging._levelNames[config.get("log_level", "DEBUG")]
     destination = config.get("log_destination", "stdout")
@@ -217,14 +268,12 @@ def configure_logging(config, user_data={}):
     else:
         handler = logging.FileHandler(destination)
     # Create formatter
-    formatter = logging.Formatter(format)
+    formatter = logging.Formatter(log_format)
     # Hook everything up
     handler.setFormatter(formatter)
     root.addHandler(handler)
     # Add loggly handler
     loggly_token = config.get('cm_loggly_token', None)
-    loggly_token = os.environ.get('CM_LOGGLY_TOKEN', loggly_token)
-    loggly_token = user_data.get('cm_loggly_token', loggly_token)
     if loggly_token is not None:
         loggly_handler = hoover.LogglyHttpHandler(token=loggly_token)
         loggly_handler.setFormatter(formatter)

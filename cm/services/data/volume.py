@@ -272,7 +272,7 @@ class Volume(BlockStorage):
             try:
                 # Temp code (Dec 2012) - required by the NeCTAR Research Cloud
                 # until general volumes arrive
-                if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                if self.app.config.cloud_name == 'nectar':
                     zone = self.app.cloud_interface.get_zone()
                     if zone in ['sa']:
                         msg = ("It seems you're running on the NeCTAR cloud and in "
@@ -301,9 +301,9 @@ class Volume(BlockStorage):
         # creating a new one)
         try:
             self.app.cloud_interface.add_tag(
-                self.volume, 'clusterName', self.app.ud['cluster_name'])
+                self.volume, 'clusterName', self.app.config.config['cluster_name'])
             self.app.cloud_interface.add_tag(
-                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+                self.volume, 'bucketName', self.app.config['bucket_cluster'])
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
                 self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
@@ -353,8 +353,8 @@ class Volume(BlockStorage):
 
         # AWS-specific munging
         # Perhaps should be moved to the interface anyway does not work for openstack
-        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())
-        if self.app.ud.get('cloud_type', 'ec2').lower() == 'ec2':
+        log.debug("Cloud type is: %s", self.app.config.cloud_type)
+        if self.app.config.cloud_type == 'ec2':
             log.debug('Applying AWS-specific munging to next device id calculation')
             if base == '/dev/xvd':
                 base = '/dev/sd'
@@ -555,9 +555,9 @@ class Volume(BlockStorage):
             log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
                      % (self.volume_id, snapshot.id))
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
-                                             self.app.ud['cluster_name'])
+                                             self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
-                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+                self.volume, 'bucketName', self.app.config['bucket_cluster'])
             self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
             self.snapshot_progress = None  # Reset because of the UI
             self.snapshot_status = None  # Reset because of the UI

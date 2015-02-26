@@ -361,7 +361,7 @@ class Filesystem(DataService):
                     # filesystem), add those
                     if not self.app.cloud_interface.get_tag(att_vol, 'clusterName'):
                         self.app.cloud_interface.add_tag(
-                            att_vol, 'clusterName', self.app.ud['cluster_name'])
+                            att_vol, 'clusterName', self.app.config['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
                         self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
                     self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)

@@ -319,7 +319,7 @@ class Service(object):
                         if svc.running() or svc.completed():
                             remove_dependency = True
                 if no_services_satisfy_dependency:
-                    if self.app.ud.get("ignore_unsatisfiable_dependencies", False):
+                    if self.app.config.ignore_unsatisfiable_dependencies:
                         remove_dependency = True
                     else:
                         # Fall into infinite loop.

@@ -418,7 +418,7 @@ class EC2Interface(CloudInterface):
         # logging.getLogger('boto').setLevel(logging.DEBUG)
 
         worker_ud_str = yaml.dump(worker_ud)
-        
+
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
@@ -468,10 +468,10 @@ class EC2Interface(CloudInterface):
             if reservation:
                 for instance in reservation.instances:
                     # At this point in the launch, tag only amazon instances
-                    if 'amazon' in self.app.ud.get('cloud_name', 'amazon').lower():
-                        self.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                    if 'amazon' in self.app.config.get('cloud_name', 'amazon').lower():
+                        self.add_tag(instance, 'clusterName', self.app.config['cluster_name'])
                         self.add_tag(instance, 'role', worker_ud['role'])
-                        self.add_tag(instance, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
+                        self.add_tag(instance, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
                     i = Instance(app=self.app, inst=instance, m_state=instance.state)
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
@@ -493,7 +493,7 @@ class EC2Interface(CloudInterface):
 
     def _make_spot_request(self, num, instance_type, price, worker_ud):
         worker_ud_str = yaml.dump(worker_ud)
-                
+
         reqs = None
         try:
             ec2_conn = self.get_ec2_connection()
@@ -599,7 +599,7 @@ class EC2Interface(CloudInterface):
         worker_ud['master_hostname_alt'] = misc.get_hostname()
         worker_ud['cluster_type'] = self.app.manager.initial_cluster_type
         # Merge the worker's user data with the master's user data
-        worker_ud = dict(self.app.ud.items() + worker_ud.items())
+        worker_ud = dict(self.app.config.items() + worker_ud.items())
         return worker_ud
 
     def get_all_volumes(self, volume_ids=None, filters=None):

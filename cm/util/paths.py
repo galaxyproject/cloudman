@@ -130,10 +130,10 @@ class PathResolver(object):
         else:  # For backward compatibility
             return P_GALAXY_TOOLS
 
-    def _get_ud_path(self, name, default_path):
+    def _get_path_from_config(self, name, default_path):
         path = None
-        if self.manager.app.ud:
-            path = self.manager.app.ud.get(name, None)
+        if self.manager.app.config:
+            path = self.manager.app.config.get(name, None)
         if not path:
             path = get_path(name, default_path)
         return path
@@ -142,7 +142,7 @@ class PathResolver(object):
     def galaxy_home(self):
         # First check if galaxy_home is defined in user data to allow any
         # path to be overridden
-        gh = self._get_ud_path('galaxy_home', None)
+        gh = self._get_path_from_config('galaxy_home', None)
         if gh:
             return gh
         # Get the required file system where Galaxy should be kept
@@ -173,7 +173,7 @@ class PathResolver(object):
 
     @property
     def pulsar_home(self):
-        pulsar_home = self._get_ud_path('pulsar_home', None)
+        pulsar_home = self._get_path_from_config('pulsar_home', None)
         if pulsar_home:
             return pulsar_home
         return P_PULSAR_HOME

@@ -19,5 +19,5 @@ class BaseConsoleManager(object):
               - "chown -R galaxy:galaxy /mnt/galaxyData"
         """
         user_data_variable = "%s_prestart_commands" % self.node_type
-        for command in self.app.ud.get(user_data_variable, []):
+        for command in self.app.config.get(user_data_variable, []):
             misc.run(command)

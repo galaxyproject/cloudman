@@ -17,12 +17,12 @@ log = logging.getLogger('cloudman')
 class CM(BaseController):
     @expose
     def index(self, trans, **kwd):
-        if self.app.ud['role'] == 'worker':
-            return trans.fill_template('worker_index.mako', master_ip=self.app.ud['master_public_ip'])
+        if self.app.config['role'] == 'worker':
+            return trans.fill_template('worker_index.mako', master_ip=self.app.config['master_public_ip'])
         else:
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
-            cluster_name = self.app.ud['cluster_name']
+            cluster_name = self.app.config['cluster_name']
             instance_types = self.app.config.instance_types
             CM_url = self.get_CM_url(trans)
             system_message = None
@@ -37,7 +37,7 @@ class CM(BaseController):
                                        master_instance_type=self.app.cloud_interface.get_type(),
                                        use_autoscaling=self.app.manager.service_registry.is_active('Autoscale'),
                                        CM_url=CM_url,
-                                       cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                       cloud_type=self.app.config.cloud_type,
                                        instance_types=instance_types,
                                        system_message=system_message,
                                        default_data_size=self.app.manager.get_default_data_size())
@@ -107,7 +107,7 @@ class CM(BaseController):
         changesets = self.app.manager.check_for_new_version_of_CM()
         if 'default_CM_rev' in changesets and 'user_CM_rev' in changesets:
             try:
-                CM_url = trans.app.config.get("CM_url", "https://bitbucket.org/galaxy/cloudman/commits/all?page=tip&search=")
+                CM_url = trans.app.config.cloudman_repo_url
                 # num_changes = int(changesets['default_CM_rev']) - int(changesets['user_CM_rev'])
                 CM_url += changesets['user_CM_rev'] + '::' + changesets['default_CM_rev']
                 return CM_url
@@ -781,8 +781,8 @@ class CM(BaseController):
 
     @expose
     def admin(self, trans):
-        if self.app.ud['role'] == 'worker':
-            return trans.fill_template('worker_index.mako', master_ip=self.app.ud['master_public_ip'])
+        if self.app.config['role'] == 'worker':
+            return trans.fill_template('worker_index.mako', master_ip=self.app.config['master_public_ip'])
         # Get names of the file systems
         filesystems = []
         fss = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
@@ -799,10 +799,10 @@ class CM(BaseController):
                                    ip=self.app.cloud_interface.get_public_ip(),
                                    key_pair_name=self.app.cloud_interface.get_key_pair_name(),
                                    filesystems=filesystems,
-                                   bucket_cluster=self.app.ud['bucket_cluster'],
-                                   cloud_type=self.app.ud.get('cloud_type', 'ec2'),
+                                   bucket_cluster=self.app.config['bucket_cluster'],
+                                   cloud_type=self.app.config.cloud_type,
                                    initial_cluster_type=self.app.manager.initial_cluster_type,
-                                   cluster_name=self.app.ud['cluster_name'],
+                                   cluster_name=self.app.config['cluster_name'],
                                    app_services=sorted(app_services))
 
     @expose
@@ -811,7 +811,7 @@ class CM(BaseController):
 
     @expose
     def get_user_data(self, trans):
-        return json.dumps(self.app.ud)
+        return json.dumps(self.app.config.user_data)
 
     @expose
     def recover_monitor(self, trans, force='False'):
@@ -890,12 +890,12 @@ class CM(BaseController):
 
     @expose
     def masthead(self, trans):
-        brand = trans.app.config.get("brand", "")
+        brand = trans.app.config.info_brand
         if brand:
             brand = "<span class='brand'>/%s</span>" % brand
         CM_url = self.get_CM_url(trans)
-        wiki_url = trans.app.config.get("wiki_url", "http://g2.trac.bx.psu.edu/")
-        bugs_email = trans.app.config.get("bugs_email", "mailto:galaxy-bugs@bx.psu.edu")
-        blog_url = trans.app.config.get("blog_url", "http://g2.trac.bx.psu.edu/blog")
-        screencasts_url = trans.app.config.get("screencasts_url", "http://main.g2.bx.psu.edu/u/aun1/p/screencasts")
+        wiki_url = trans.app.config.info_wiki_url
+        bugs_email = trans.app.config.info_bugs_email
+        blog_url = trans.app.config.info_blog_url
+        screencasts_url = trans.app.config.info_screencasts_url
         return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)

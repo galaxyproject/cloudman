@@ -55,7 +55,7 @@ def _get_sge_install_conf(app, host):
         "exec_host_list": host,
         "hostname_resolving": "true",
     }
-    for key, value in app.ud.iteritems():
+    for key, value in app.config.iteritems():
         if key.startswith("sge_"):
             key = key[len("sge_"):]
             sge_params[key] = value

@@ -58,7 +58,7 @@ class PulsarService(ApplicationService):
         Download an archive with Pulsar that's been pre-packaged/configured to
         run in the CloudMan environment.
         """
-        url = self.app.ud.get('pulsar_download_url', DEFAULT_DOWNLOAD_URL)
+        url = self.app.config.get('pulsar_download_url', DEFAULT_DOWNLOAD_URL)
         misc.extract_archive_content_to_path(url, os.path.dirname(self.pulsar_home))
         attempt_chown_galaxy_if_exists(self.pulsar_home)
 
