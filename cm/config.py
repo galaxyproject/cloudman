@@ -68,8 +68,9 @@ class ConfigurationError(Exception):
 
 class Configuration(dict):
 
-    def __init__(self, kwargs, ud):
+    def __init__(self, app, kwargs, ud):
         # Configuration data sources
+        self.app = app
         self.config_dict = kwargs
         self._user_data = ud
         self._rebuild_combined_config()
@@ -136,6 +137,12 @@ class Configuration(dict):
     def user_data(self, value):
         self._user_data = value
         self._rebuild_combined_config()
+
+    @property
+    def filesystem_templates(self):
+        if not 'filesystem_templates' in self:
+            self['filesystem_templates'] = self.app.manager.load_legacy_snapshot_data()
+        return self.get('filesystem_templates')
 
     @property
     def root_dir(self):

@@ -42,7 +42,7 @@ class UniverseApplication(object):
         # Create an appropriate cloud connection
         self.cloud_interface = cc.get_cloud_interface(self.cloud_type)
         # Read config file and check for errors
-        self.config = config.Configuration(kwargs, self.cloud_interface.get_user_data())
+        self.config = config.Configuration(self, kwargs, self.cloud_interface.get_user_data())
         # From user data determine if object store (S3) should be used.
         self.use_object_store = self.config.get("use_object_store", True)
         # From user data determine if block storage (EBS/nova-volume) should be used.

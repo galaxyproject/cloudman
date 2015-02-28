@@ -69,9 +69,6 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_storage_type = None
         self.service_registry = ServiceRegistry(self.app)
         self.services = []
-        # Static data - get snapshot IDs from the default bucket and add respective file systems
-#         self.app.config.set_snapshot_data(self._load_snapshot_data())
-        self.snaps = self._load_snapshot_data()
         self.default_galaxy_data_size = 0
 
     @property
@@ -244,7 +241,7 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag([])
     @synchronized(s3_rlock)
-    def _load_snapshot_data(self):
+    def load_legacy_snapshot_data(self):
         """
         Retrieve and return information about the default filesystems.
         This is done by retrieving ``snaps.yaml`` from the default bucket and
@@ -298,18 +295,18 @@ class ConsoleManager(BaseConsoleManager):
     @TestFlag(10)
     def get_default_data_size(self):
         if not self.default_galaxy_data_size:
-            for snap in self.snaps:
-                roles = ServiceRole.from_string_array(snap['roles'])
+            for fs_template in self.app.config.filesystem_templates:
+                roles = ServiceRole.from_string_array(fs_template['roles'])
                 if ServiceRole.GALAXY_DATA in roles:
-                    if 'size' in snap:
-                        self.default_galaxy_data_size = snap['size']
-                    elif 'snap_id' in snap:
+                    if 'size' in fs_template:
+                        self.default_galaxy_data_size = fs_template['size']
+                    elif 'snap_id' in fs_template:
                         try:
-                            self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([snap['snap_id']])[0])
+                            self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([fs_template['snap_id']])[0])
                             self.default_galaxy_data_size = self.snapshot.volume_size
                         except EC2ResponseError, e:
                             log.warning("Could not get snapshot {0} size (setting the "
-                                        "value to 10): {1}".format(snap['snap_id'], e))
+                                        "value to 10): {1}".format(fs_template['snap_id'], e))
                             self.default_galaxy_data_size = 10
                     log.debug("Got default galaxy FS size as {0}GB".format(
                         self.default_galaxy_data_size))
@@ -1235,63 +1232,63 @@ class ConsoleManager(BaseConsoleManager):
         self.app.msgs.info(msg)
         if cluster_type == 'Galaxy':
             # Turn those data sources into file systems
-            if self.snaps:
+            if self.app.config.filesystem_templates:
                 attached_volumes = self.get_attached_volumes()
-                for snap in [s for s in self.snaps if 'name' in s]:
-                    if 'roles' in snap:
-                        fs = Filesystem(self.app, snap['name'],
-                                        svc_roles=ServiceRole.from_string_array(snap['roles']))
+                for fs_template in [s for s in self.app.config.filesystem_templates if 'name' in s]:
+                    if 'roles' in fs_template:
+                        fs = Filesystem(self.app, fs_template['name'],
+                                        svc_roles=ServiceRole.from_string_array(fs_template['roles']))
                         # Check if an already attached volume maps to the current filesystem
-                        att_vol = self.get_vol_if_fs(attached_volumes, snap['name'])
+                        att_vol = self.get_vol_if_fs(attached_volumes, fs_template['name'])
                         if att_vol:
                             log.debug("{0} file system has volume(s) already attached".format(
-                                snap['name']))
+                                fs_template['name']))
                             fs.add_volume(vol_id=att_vol.id,
                                           size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
                             # snap_size = att_vol.size
-                        elif 'snap_id' in snap:
+                        elif 'snap_id' in fs_template:
                             log.debug("There are no volumes already attached for file system {0}"
-                                      .format(snap['name']))
+                                      .format(fs_template['name']))
                             size = 0
-                            if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
+                            if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
                                 size = pss
-                            fs.add_volume(size=size, from_snapshot_id=snap['snap_id'])
+                            fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
                             # snap_size = snap.get('size', 0)
-                        elif 'type' in snap:
-                            if 'archive' == snap['type'] and 'archive_url' in snap:
-                                log.debug("Attaching a volume based on an archive named {0}".format(snap['name']))
+                        elif 'type' in fs_template:
+                            if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
+                                log.debug("Attaching a volume based on an archive named {0}".format(fs_template['name']))
                                 if storage_type == 'volume':
-                                    if 'size' in snap:
-                                        size = snap['size']
-                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(snap['roles']):
-                                            if pss > snap['size']:
+                                    if 'size' in fs_template:
+                                        size = fs_template['size']
+                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
+                                            if pss > fs_template['size']:
                                                 size = pss
-                                        from_archive = {'url': snap['archive_url'],
-                                                        'md5_sum': snap.get('archive_md5', None)}
+                                        from_archive = {'url': fs_template['archive_url'],
+                                                        'md5_sum': fs_template.get('archive_md5', None)}
                                         fs.add_volume(size=size, from_archive=from_archive)
                                     else:
                                         log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
-                                                  .format(snap['name']))
+                                                  .format(fs_template['name']))
                                 elif storage_type == 'transient':
-                                    from_archive = {'url': snap['archive_url'],
-                                                    'md5_sum': snap.get('archive_md5', None)}
+                                    from_archive = {'url': fs_template['archive_url'],
+                                                    'md5_sum': fs_template.get('archive_md5', None)}
                                     fs.add_transient_storage(from_archive=from_archive)
                                 else:
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))
-                            elif 'gluster' == snap['type'] and 'server' in snap:
+                            elif 'gluster' == fs_template['type'] and 'server' in fs_template:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
-                                          .format(snap['name']))
-                                fs.add_glusterfs(snap['server'], mount_options=snap.get('mount_options', None))
-                            elif 'nfs' == snap['type'] and 'server' in snap:
+                                          .format(fs_template['name']))
+                                fs.add_glusterfs(fs_template['server'], mount_options=fs_template.get('mount_options', None))
+                            elif 'nfs' == fs_template['type'] and 'server' in fs_template:
                                 log.debug("Attaching an nfs based filesystem named {0}"
-                                          .format(snap['name']))
-                                fs.add_nfs(snap['server'], None, None, mount_options=snap.get('mount_options', None))
-                            elif 's3fs' == snap['type'] and 'bucket_name' in snap and 'bucket_a_key' in snap and 'bucket_s_key' in snap:
-                                fs.add_bucket(snap['bucket_name'], snap['bucket_a_key'], snap['bucket_s_key'])
+                                          .format(fs_template['name']))
+                                fs.add_nfs(fs_template['server'], None, None, mount_options=fs_template.get('mount_options', None))
+                            elif 's3fs' == fs_template['type'] and 'bucket_name' in fs_template and 'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template:
+                                fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'], fs_template['bucket_s_key'])
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
-                                          .format(snap['type]'], snap['name']))
+                                          .format(fs_template['type]'], fs_template['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                                   .format(fs.get_full_name(), fs.volumes))
                         self.activate_master_service(fs)
