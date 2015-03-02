@@ -387,9 +387,14 @@ class ConsoleManager(BaseConsoleManager):
         # Check if a previously existing cluster is being recreated or if it is a new one
         if not self.initial_cluster_type:  # this can get set by _handle_old_cluster_conf_format
             self.initial_cluster_type = self.app.config.get('cluster_type', None)
+            self.userdata_cluster_type = self.app.config.get('initial_cluster_type', None)
             if self.initial_cluster_type is not None:
                 cc_detail = "Configuring a previously existing cluster of type {0}"\
                     .format(self.initial_cluster_type)
+            elif self.userdata_cluster_type:
+                cc_detail = "Configuring a predefined cluster of type {0}"\
+                    .format(self.userdata_cluster_type)
+                self.init_cluster_from_user_data()
             else:
                 cc_detail = "This is a new cluster; waiting to configure the type."
                 self.cluster_status = cluster_status.WAITING
@@ -1192,6 +1197,69 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Exception adding a live instance (tried ID: %s): %s" %
                       (instance_id, e))
         return False
+
+    @TestFlag({})
+    def initialize_cluster_with_custom_settings(self, startup_opt, galaxy_data_option="custom-size", pss=None, shared_bucket=None):
+        """
+        Call this method if the current cluster has not yet been initialized to
+        initialize it. This method should be called only once.
+
+        For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
+        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
+        an integer value for the ``pss`` argument, which will set the initial size
+        of the persistent storage associated with this cluster. If ``Shared_cluster``
+        ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
+        must be provided, which will then be used to derive this cluster from
+        the shared one.
+        """
+        if self.app.manager.initial_cluster_type is None:
+            if startup_opt == "Test":
+                self.app.manager.init_cluster(startup_opt)
+                return None
+            if startup_opt == "Galaxy" or startup_opt == "Data":
+                # Initialize form on the main UI contains two fields named ``pss``,
+                # which arrive as a list so pull out the actual storage size value
+                if galaxy_data_option == "transient":
+                    storage_type = "transient"
+                    pss = 0
+                elif galaxy_data_option == "custom-size":
+                    storage_type = "volume"
+                    if isinstance(pss, list):
+                        ss = None
+                        for x in pss:
+                            if x:
+                                ss = x
+                        pss = ss
+                else:
+                    storage_type = "volume"
+                    pss = str(self.app.manager.get_default_data_size())
+                if storage_type == "transient" or (pss and pss.isdigit()):
+                    pss_int = int(pss)
+                    self.app.manager.init_cluster(startup_opt, pss_int, storage_type=storage_type)
+                    return None
+                else:
+                    msg = "Wrong or no value provided for the persistent "\
+                        "storage size: '{0}'".format(pss)
+            elif startup_opt == "Shared_cluster":
+                if shared_bucket:
+                    # TODO: Check the format of the share string
+                    self.app.manager.init_shared_cluster(shared_bucket.strip())
+                    return None
+                else:
+                    msg = "For a shared cluster, you must provide shared bucket "\
+                        "name; cluster configuration not set."
+        else:
+            msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
+        log.warning(msg)
+        return msg
+
+    def init_cluster_from_user_data(self):
+        cluster_type = self.app.config.get("initial_cluster_type", None)
+        if cluster_type:
+            self.app.manager.initialize_cluster_with_custom_settings(cluster_type,
+                                                                     galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
+                                                                     pss=self.app.config.get("pss", None),
+                                                                     shared_bucket=self.app.config.get("shared_bucket", None))
 
     @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0, storage_type='volume'):

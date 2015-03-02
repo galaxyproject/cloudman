@@ -57,46 +57,14 @@ class CM(BaseController):
         must be provided, which will then be used to derive this cluster from
         the shared one.
         """
-        if self.app.manager.initial_cluster_type is None:
-            if startup_opt == "Test":
-                self.app.manager.init_cluster(startup_opt)
-                return self.instance_state_json(trans)
-            if startup_opt == "Galaxy" or startup_opt == "Data":
-                # Initialize form on the main UI contains two fields named ``pss``,
-                # which arrive as a list so pull out the actual storage size value
-                if galaxy_data_option == "transient":
-                    storage_type = "transient"
-                    pss = 0
-                elif galaxy_data_option == "custom-size":
-                    storage_type = "volume"
-                    if isinstance(pss, list):
-                        ss = None
-                        for x in pss:
-                            if x:
-                                ss = x
-                        pss = ss
-                else:
-                    storage_type = "volume"
-                    pss = str(self.app.manager.get_default_data_size())
-                if storage_type == "transient" or (pss and pss.isdigit()):
-                    pss_int = int(pss)
-                    self.app.manager.init_cluster(startup_opt, pss_int, storage_type=storage_type)
-                    return self.instance_state_json(trans)
-                else:
-                    msg = "Wrong or no value provided for the persistent "\
-                        "storage size: '{0}'".format(pss)
-            elif startup_opt == "Shared_cluster":
-                if shared_bucket:
-                    # TODO: Check the format of the share string
-                    self.app.manager.init_shared_cluster(shared_bucket.strip())
-                    return self.instance_state_json(trans)
-                else:
-                    msg = "For a shared cluster, you must provide shared bucket "\
-                        "name; cluster configuration not set."
+
+        error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, pss, shared_bucket)
+
+        if error:
+            log.warning(error)
+            return error
         else:
-            msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
-        log.warning(msg)
-        return msg
+            return self.instance_state_json(trans)
 
     @expose
     def cloudman_version(self, trans):
