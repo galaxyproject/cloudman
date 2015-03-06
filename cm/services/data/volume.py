@@ -301,7 +301,7 @@ class Volume(BlockStorage):
         # creating a new one)
         try:
             self.app.cloud_interface.add_tag(
-                self.volume, 'clusterName', self.app.config.config['cluster_name'])
+                self.volume, 'clusterName', self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.config['bucket_cluster'])
             if filesystem:
