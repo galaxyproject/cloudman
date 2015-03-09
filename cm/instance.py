@@ -407,9 +407,9 @@ class Instance(object):
                             for i in range(3):
                                 instance = self.get_cloud_instance_object()
                                 if instance:
-                                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.ud['cluster_name'])
+                                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.config['cluster_name'])
                                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
-                                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
+                                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
                                     break
                                 time.sleep(5)
             except EC2ResponseError, e:
@@ -577,6 +577,8 @@ class Instance(object):
                     f = open("/etc/hosts", 'a')
                     f.write("%s\tworker-%s\n" % (self.private_ip, self.id))
                     f.close()
+                # log.debug("Update /etc/hosts through master")
+                # self.app.manager.update_etc_host()
             elif msg_type == "WORKER_H_CERT":
                 log.debug("Got WORKER_H_CERT message")
                 self.is_alive = True  # This is for the case that an existing worker is added to a new master.
@@ -607,10 +609,10 @@ class Instance(object):
                 # Make sure the instace is tagged (this is also necessary to do
                 # here for OpenStack because it does not allow tags to be added
                 # until an instance is 'running')
-                self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.ud['cluster_name'])
+                self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.config['cluster_name'])
                 self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
                 self.app.cloud_interface.add_tag(self.inst, 'alias', self.alias)
-                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.ud['cluster_name']))
+                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
 
                 self.app.manager.update_condor_host(self.public_ip)
             elif msg_type == "NODE_STATUS":

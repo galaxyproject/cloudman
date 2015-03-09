@@ -127,7 +127,7 @@ class OSInterface(EC2Interface):
                 try:
                     log.debug('Gathering instance public IP, attempt %s' % i)
                     # This is not only nectar specific but I left nectar for backward compatibility
-                    if self.use_private_ip or self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
+                    if self.use_private_ip or self.app.config.cloud_name == 'nectar':
                         self.self_public_ip = self.get_private_ip()
                     else:
                         fp = urllib.urlopen(

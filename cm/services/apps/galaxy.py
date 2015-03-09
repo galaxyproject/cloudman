@@ -224,7 +224,7 @@ class GalaxyService(ApplicationService):
                     % datetime.utcnow().strftime('%H_%M'), shell=True)
 
     def multiple_processes(self):
-        return self.app.ud.get("configure_multiple_galaxy_processes", False)
+        return self.app.config.multiple_processes
 
     def galaxy_run_command(self, args):
         env_exports = "; ".join(["export %s='%s'" % (

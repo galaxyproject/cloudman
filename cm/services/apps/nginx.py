@@ -88,7 +88,7 @@ class NginxService(ApplicationService):
             if not galaxy_svc.multiple_processes():
                 galaxy_server = "server 127.0.0.1:8080;"
             else:
-                web_thread_count = int(self.app.ud.get("web_thread_count", 3))
+                web_thread_count = int(self.app.config.web_thread_count)
                 galaxy_server = 'ip_hash;'
                 if web_thread_count > 9:
                     log.warning("Current code supports max 9 web threads. "

@@ -29,8 +29,7 @@ class TestApp(object):
             setattr(self, key, value)
         self.manager = TestManager()
         self.cloud_interface = TestCloudInterface()
-        self.config = Configuration(**kwargs)
-        self.config.init_with_user_data(ud)
+        self.config = Configuration(kwargs, self.ud)
 
 
 class TestCloudInterface(object):

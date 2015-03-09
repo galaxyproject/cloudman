@@ -34,8 +34,8 @@ class Bucket(object):
         self.bucket_name = bucket_name
         self.mount_point = self.fs.mount_point
         if a_key is None:
-            self.a_key = self.app.ud.get('access_key', None)
-            self.s_key = self.app.ud.get('secret_key', None)
+            self.a_key = self.app.config.get('access_key', None)
+            self.s_key = self.app.config.get('secret_key', None)
         else:
             self.a_key = a_key
             self.s_key = s_key

@@ -146,8 +146,8 @@ class Migrate1to2:
             return False
 
     def _update_user_data(self):
-        if 'filesystems' in self.app.ud:
-            old_fs_list = self.app.ud.get('filesystems') or []
+        if 'filesystems' in self.app.config.user_data:
+            old_fs_list = self.app.config.user_data.get('filesystems') or []
             new_fs_list = []
             # clear 'services' and replace with the new format
             for fs in old_fs_list:
@@ -166,9 +166,9 @@ class Migrate1to2:
                         new_fs_list.append(fs)
                     else:
                         new_fs_list.append(fs)
-            self.app.ud['filesystems'] = new_fs_list
-        self.app.ud['deployment_version'] = 2
-        self.app.ud.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
+            self.app.config.user_data['filesystems'] = new_fs_list
+        self.app.config.user_data['deployment_version'] = 2
+        self.app.config.user_data.pop('galaxy_home', None)  # TODO: Galaxy home is always reset to default. Discuss implications
         return True
 
     def _migrate1_prereqs_satisfied(self):
@@ -213,7 +213,7 @@ class Migrate1to2:
     def migrate_1to2(self):
         # First set the current ``deployment_version``, in case it's empty.
         # This is to prevent it from being set to the latest version when empty
-        self.app.ud['deployment_version'] = 1
+        self.app.config.user_data['deployment_version'] = 1
 
         if not self._migrate1_prereqs_satisfied():
             msg = "Cannot migrate from version 1 to 2. Pre-requisites not satisfied!"
@@ -263,8 +263,8 @@ class MigrationService(ApplicationService, Migrate1to2):
         self.svc_type = ServiceType.CM_SERVICE
         self.dependencies = []
 
-        if 'filesystems' in self.app.ud:
-            for fs in self.app.ud.get('filesystems') or []:
+        if 'filesystems' in self.app.config.user_data:
+            for fs in self.app.config.user_data.get('filesystems') or []:
                 # Wait for galaxy data, indices and tools to come up before attempting migration
                 if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs['roles']):
                     self.dependencies.append(ServiceDependency(self, ServiceRole.GALAXY_DATA))
@@ -324,7 +324,7 @@ class MigrationService(ApplicationService, Migrate1to2):
 
     def _get_old_version(self):
         # TODO: Need old version discovery. Where do we get that from?
-        version = self.app.ud.get('deployment_version', None)
+        version = self.app.config.user_data.get('deployment_version', None)
         if not version:
             version = 1  # A version prior to version number being introduced
         log.debug("Old deployment version: {0}".format(version))

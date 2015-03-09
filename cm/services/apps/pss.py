@@ -28,8 +28,8 @@ class PSSService(ApplicationService):
         # Name of the default script to run
         self.pss_filename = 'post_start_script' if self.instance_role == 'master' \
             else 'worker_post_start_script'
-        self.pss_url = self.app.ud.get('post_start_script_url', None) if self.instance_role == 'master' \
-            else self.app.ud.get('worker_post_start_script_url', None)
+        self.pss_url = self.app.config.get('post_start_script_url', None) if self.instance_role == 'master' \
+            else self.app.config.get('worker_post_start_script_url', None)
 
     def _prime_data(self):
         """ Some data is slow to obtain because a call to the cloud middleware
@@ -103,7 +103,7 @@ class PSSService(ApplicationService):
         self.state = service_states.RUNNING
         log.debug("%s service prerequisites OK (i.e., all other services running), "
                   "checking if %s was provided..." % (self.name, self.pss_filename))
-        local_pss_file = os.path.join(self.app.ud['cloudman_home'], self.pss_filename)
+        local_pss_file = os.path.join(self.app.config['cloudman_home'], self.pss_filename)
         # Check user data first to allow overwriting of a potentially existing
         # script
         if self.pss_url:
@@ -118,8 +118,8 @@ class PSSService(ApplicationService):
         else:
             s3_conn = self.app.cloud_interface.get_s3_connection()
             b = None
-            if s3_conn and 'bucket_cluster' in self.app.ud:
-                b = misc.get_bucket(s3_conn, self.app.ud['bucket_cluster'])
+            if s3_conn and 'bucket_cluster' in self.app.config:
+                b = misc.get_bucket(s3_conn, self.app.config['bucket_cluster'])
             if b is not None:  # Check if the existing cluster has a stored PSS
                 log.debug("Cluster bucket '%s' found; looking for post start "
                           "script '%s'" % (b.name, self.pss_filename))
@@ -129,9 +129,9 @@ class PSSService(ApplicationService):
                 log.debug("No s3_conn or the cluster bucket not found.")
         if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this may take a while)"
-                     % (self.pss_filename, os.path.join(self.app.ud['cloudman_home'], self.pss_filename)))
+                     % (self.pss_filename, os.path.join(self.app.config['cloudman_home'], self.pss_filename)))
             os.chmod(local_pss_file, 0755)  # Ensure the script is executable
-            misc.run('cd %s;./%s' % (self.app.ud[
+            misc.run('cd %s;./%s' % (self.app.config[
                      'cloudman_home'], self.pss_filename))
             self.save_to_bucket()
             log.info("Done running {0}".format(self.pss_filename))
@@ -159,21 +159,21 @@ class PSSService(ApplicationService):
         if not s3_conn:
             return
         pss_file = os.path.join(
-            self.app.ud['cloudman_home'], self.pss_filename)
+            self.app.config['cloudman_home'], self.pss_filename)
         if misc.file_in_bucket_older_than_local(s3_conn,
-                                                self.app.ud['bucket_cluster'],
+                                                self.app.config['bucket_cluster'],
                                                 self.pss_filename,
                                                 pss_file):
             if os.path.exists(pss_file):
                 log.debug("Saving current instance post start script (%s) to cluster bucket '%s' as '%s'"
-                          % (pss_file, self.app.ud['bucket_cluster'], self.pss_filename))
+                          % (pss_file, self.app.config['bucket_cluster'], self.pss_filename))
                 misc.save_file_to_bucket(
-                    s3_conn, self.app.ud['bucket_cluster'], self.pss_filename, pss_file)
+                    s3_conn, self.app.config['bucket_cluster'], self.pss_filename, pss_file)
             else:
                 log.debug("No instance post start script (%s)" % pss_file)
         else:
             log.debug("A current post start script {0} already exists in bucket {1}; not updating it"
-                      .format(self.pss_filename, self.app.ud['bucket_cluster']))
+                      .format(self.pss_filename, self.app.config['bucket_cluster']))
 
     def remove(self, synchronous=False):
         super(PSSService, self).remove(synchronous)
