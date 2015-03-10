@@ -787,7 +787,8 @@ def getoutput(cmd, quiet=False):
     out = None
     try:
         out = commands.getoutput(cmd)
-        log.debug("Executing command {0} and got output: {1}".format(cmd, out))
+        if not quiet:
+            log.debug("Executed command '{0}' and got output: {1}".format(cmd, out))
     except Exception, e:
         if not quiet:
             log.error("Exception executing command {0}: {1}".format(cmd, e))
