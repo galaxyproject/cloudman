@@ -404,10 +404,10 @@ class ConsoleManager(BaseConsoleManager):
         # Add master's private IP to /etc/hosts (workers need it and
         # master's /etc/hosts is being synced to the workers)
         misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
-                              ['master',
-                               self.app.cloud_interface.get_local_hostname(),
-                               misc.get_hostname()])
-        misc.run("hostname master")  # Set the default hostname to `master`
+                              [misc.get_hostname(),
+                              self.app.cloud_interface.get_local_hostname(),
+                              'master'])
+        # misc.run("hostname master")  # Set the default hostname to `master`
         misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended for Cloudera Manager
         log.info("Completed the initial cluster startup process. {0}".format(
             cc_detail))
