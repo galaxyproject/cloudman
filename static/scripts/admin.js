@@ -69,6 +69,7 @@ function update(repeat_update){
                 update_application_status("#pss_status", data.PSS);
                 update_application_status("#clouderamanager_status", data.ClouderaManager);
                 update_application_status("#nginx_status", data.Nginx);
+                update_application_status("#cloudgene_status", data.Cloudgene);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking

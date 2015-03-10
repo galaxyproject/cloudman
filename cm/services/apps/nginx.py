@@ -22,7 +22,8 @@ class NginxService(ApplicationService):
         self.conf_file = self.app.path_resolver.nginx_conf_file  # Main conf file
         self.ssl_is_on = False
         # The list of services that Nginx service proxies
-        self.proxied_services = ['Galaxy', 'GalaxyReports', 'Pulsar', 'ClouderaManager']
+        self.proxied_services = ['Galaxy', 'GalaxyReports', 'Pulsar',
+                                 'ClouderaManager', 'Cloudgene']
         # A list of currently active CloudMan services being proxied
         self.active_proxied = []
 
@@ -184,6 +185,7 @@ class NginxService(ApplicationService):
                 conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'default.locations')
                 self._write_template_file(default_tmplt, {}, conf_file)
                 # Now add running services
+                # Galaxy Reports
                 reports_svc = self.app.manager.service_registry.get_active('GalaxyReports')
                 reports_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'reports.locations')
                 if reports_svc:
@@ -192,6 +194,7 @@ class NginxService(ApplicationService):
                     self._write_template_file(reports_tmplt, params, reports_conf_file)
                 else:
                     misc.delete_file(reports_conf_file)
+                # Galaxy
                 galaxy_svc = self.app.manager.service_registry.get_active('Galaxy')
                 gxy_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'galaxy.locations')
                 if galaxy_svc:
@@ -203,6 +206,7 @@ class NginxService(ApplicationService):
                     self._write_template_file(galaxy_tmplt, params, gxy_conf_file)
                 else:
                     misc.delete_file(gxy_conf_file)
+                # Cloudera Manager
                 cmf_svc = self.app.manager.service_registry.get_active('ClouderaManager')
                 cmf_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'cmf.locations')
                 if cmf_svc:
@@ -210,6 +214,14 @@ class NginxService(ApplicationService):
                     self._write_template_file(cmf_tmplt, {}, cmf_conf_file)
                 else:
                     misc.delete_file(cmf_conf_file)
+                # Cloudgene
+                cg_svc = self.app.manager.service_registry.get_active('Cloudgene')
+                cg_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'cloudgene.locations')
+                if cg_svc:
+                    cg_tmplt = conf_manager.NGINX_CLOUDGENE
+                    self._write_template_file(cg_tmplt, {}, cg_conf_file)
+                else:
+                    misc.delete_file(cg_conf_file)
             self.reload()
         else:
             log.warning("Cannot find nginx executable to reload nginx config (got"
