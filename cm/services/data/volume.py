@@ -270,17 +270,6 @@ class Volume(BlockStorage):
 
         if self.status == volume_status.NONE:
             try:
-                # Temp code (Dec 2012) - required by the NeCTAR Research Cloud
-                # until general volumes arrive
-                if self.app.config.cloud_name == 'nectar':
-                    zone = self.app.cloud_interface.get_zone()
-                    if zone in ['sa']:
-                        msg = ("It seems you're running on the NeCTAR cloud and in "
-                               "zone 'SA'. However, volumes do not currently"
-                               "work in that zone. Will attempt to continue but failure"
-                               "is likely")
-                        log.warning(msg)
-                        self.app.msgs.warning(msg)
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
                           % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size,
