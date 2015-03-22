@@ -14,6 +14,8 @@ import time
 import yaml
 import string
 import random
+import grp
+import pwd
 
 from boto.exception import S3CreateError, S3ResponseError
 from boto.s3.acl import ACL
@@ -877,7 +879,7 @@ def get_hostname():
         return ""
 
 
-def make_dir(path):
+def make_dir(path, owner=None):
     """
     Check if a directory under ``path`` exists and create it if it does not.
     """
@@ -887,6 +889,9 @@ def make_dir(path):
             log.debug("Creating directory '%s'" % path)
             os.makedirs(path, 0755)
             log.debug("Directory '%s' successfully created." % path)
+            if owner:
+                os.chown(path, pwd.getpwnam(owner)[2], grp.getgrnam(owner)[2])
+                log.debug("Set dir '{0}' owner to {1}.".format(path, owner))
         except OSError, e:
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
@@ -1161,6 +1166,7 @@ def which(program, additional_paths=[]):
                 return exec_file
     return None
 
+
 def run_psql_command(sql_command, user, psql_path, port=5432):
     """
     Given an `sql_command`, run the command using `psql` at `psql_path` for the
@@ -1170,6 +1176,7 @@ def run_psql_command(sql_command, user, psql_path, port=5432):
               port, user, sql_command))
     return run('/bin/su - postgres -c "{0} -p {1} {2} -c \\\"{3}\\\" "'.format
                (psql_path, port, user, sql_command))
+
 
 def random_string_generator(size=10, chars=string.ascii_uppercase + string.digits):
     """

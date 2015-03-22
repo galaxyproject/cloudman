@@ -55,6 +55,7 @@ class GalaxyReportsService(ApplicationService):
                                                               conf_file_name='reports_wsgi.ini')
         reports_option_manager.setup()
         file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
+        misc.make_dir(file_path, owner='galaxy')
         new_file_path = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
         main_props = {
             'database_connection': "postgres://galaxy@localhost:{0}/galaxy"
