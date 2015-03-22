@@ -1327,16 +1327,13 @@ class ConsoleManager(BaseConsoleManager):
                                 log.debug("Attaching a volume based on an archive named {0}".format(fs_template['name']))
                                 if storage_type == 'volume':
                                     if 'size' in fs_template:
-                                        size = fs_template['size']
+                                        size = fs_template.get('size', 10)  # Default to 10GB
                                         if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
-                                            if pss > fs_template['size']:
+                                            if pss > size:
                                                 size = pss
                                         from_archive = {'url': fs_template['archive_url'],
                                                         'md5_sum': fs_template.get('archive_md5', None)}
                                         fs.add_volume(size=size, from_archive=from_archive)
-                                    else:
-                                        log.error("Format error in snaps.yaml file. No size specified for volume based on archive {0}"
-                                                  .format(fs_template['name']))
                                 elif storage_type == 'transient':
                                     from_archive = {'url': fs_template['archive_url'],
                                                     'md5_sum': fs_template.get('archive_md5', None)}
@@ -1379,7 +1376,7 @@ class ConsoleManager(BaseConsoleManager):
             # ``start`` method)
             pass
             # self.activate_master_service(self.service_registry.get('Pulsar'))
-            self.activate_master_service(self.service_registry.get('ClouderaManager'))
+            # self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
