@@ -11,7 +11,7 @@ logging.getLogger('boto').setLevel(logging.INFO)
 
 
 class CMLogHandler(logging.Handler):
-    def __init__(self, app):
+    def __init__(self):
         logging.Handler.__init__(self)
         self.formatter = logging.Formatter(
             "%(asctime)s - %(message)s", "%H:%M:%S")
@@ -52,7 +52,7 @@ class UniverseApplication(object):
 #         self.config.init_with_user_data(self.ud)
         self.config.validate()
         # Setup logging
-        self.logger = CMLogHandler(self)
+        self.logger = CMLogHandler()
         if "testflag" in self.config:
             self.TESTFLAG = bool(self.config['testflag'])
             self.logger.setLevel(logging.DEBUG)
