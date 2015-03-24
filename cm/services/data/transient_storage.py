@@ -60,14 +60,18 @@ class TransientStorage(BlockStorage):
                 os.mkdir(self.fs.mount_point)
             os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2],
                      grp.getgrnam("ubuntu")[2])
-            self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk '{print $1}'"
-                                             % self.fs.mount_point)
-
-            # If based on bucket, extract bucket contents onto new volume
+            self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk "
+                                             "'{print $1}'" % self.fs.mount_point)
+            # If based on an archive, extract archive contents to the mount point
             try:
                 if self.from_archive:
-                    log.info("Extracting archive url: {0} to mount point: {1}. This could take a while...".format(self.from_archive['url'], self.fs.mount_point))
-                    misc.extract_archive_content_to_path(self.from_archive['url'], self.fs.mount_point, self.from_archive['md5_sum'])
+                    log.info("Extracting archive url {0} to mount point {1}. "
+                             "This could take a while...".format(self.from_archive['url'],
+                             self.fs.mount_point))
+                    self.state = service_states.CONFIGURING
+                    misc.extract_archive_content_to_path(self.from_archive['url'],
+                                                         self.fs.mount_point,
+                                                         self.from_archive['md5_sum'])
                     self.fs.persistent = True
             except Exception, e:
                 log.error("Error while extracting archive: {0}".format(e))
@@ -107,8 +111,8 @@ class TransientStorage(BlockStorage):
             # starting".format(self.fs.get_full_name()))
             pass
         elif not os.path.exists(self.fs.mount_point):
-            # log.debug("Data service {0} dir {1} not there?".format(self.fs.get_full_name(),\
-            #        self.fs.mount_point))
+            # log.debug("Data service {0} dir {1} not there?".format(
+            #           self.fs.get_full_name(), self.fs.mount_point))
             self.fs.state = service_states.UNSTARTED
         else:
             ee_file = '/etc/exports'
@@ -123,7 +127,8 @@ class TransientStorage(BlockStorage):
                         # Transient storage needs to be special-cased because
                         # it's not a mounted disk per se but a disk on an
                         # otherwise default device for an instance (i.e., /mnt)
-                        update_size_cmd = "df --block-size 1 | grep /mnt$ | awk '{print $2, $3, $5}'"
+                        update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
+                                           "awk '{print $2, $3, $5}'")
                         self.fs._update_size(cmd=update_size_cmd)
                         return
                 # Or should this set it to UNSTARTED? Because this FS is just an

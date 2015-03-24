@@ -51,12 +51,13 @@ class Filesystem(DataService):
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
         self.mount_point = mount_point if mount_point is not None else os.path.join(
             self.app.path_resolver.mount_root, self.name)
-        self.grow = None  # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
-                         # the file system; use following dict structure:
-                         # {'new_size': <size>, 'snap_desc': <snapshot description>}
-        self.started_starting = datetime.utcnow()  # A time stamp when the state changed to
-                                                   # STARTING; it is used to avoid brief ERROR
-                                                   # states during the system configuration.
+        # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
+        # the file system; use following dict structure:
+        # {'new_size': <size>, 'snap_desc': <snapshot description>}
+        self.grow = None
+        # A time stamp when the state changed to STARTING; it is used to
+        # avoid brief ERROR states during system configuration.
+        self.started_starting = datetime.utcnow()
 
     def __repr__(self):
         return self.get_full_name()
@@ -254,10 +255,7 @@ class Filesystem(DataService):
 
             # Create a new volume based on just created snapshot and add the
             # file system
-            self.state = service_states.SHUT_DOWN  # So it gets started again w/o monitor
-                                                  # adding it as a new service;
-                                                  # TOOD: define a set of stats for
-                                                  # file system services
+            self.state = service_states.SHUT_DOWN
             self.add()
 
             # Grow the file system
@@ -471,10 +469,10 @@ class Filesystem(DataService):
         If so, return ``True``, else return ``False``.
         """
         if self.state == service_states.SHUTTING_DOWN or \
-            self.state == service_states.SHUT_DOWN or \
-            self.state == service_states.UNSTARTED or \
-            self.state == service_states.WAITING_FOR_USER_ACTION or \
-                self.state == service_states.CONFIGURING:
+           self.state == service_states.SHUT_DOWN or \
+           self.state == service_states.UNSTARTED or \
+           self.state == service_states.WAITING_FOR_USER_ACTION or \
+           self.state == service_states.CONFIGURING:
             return True
         return False
 
