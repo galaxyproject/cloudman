@@ -65,8 +65,8 @@ class TransientStorage(BlockStorage):
             # If based on an archive, extract archive contents to the mount point
             try:
                 if self.from_archive:
-                    log.info("Extracting archive url {0} to mount point {1}. "
-                             "This could take a while...".format(self.from_archive['url'],
+                    log.info("Extracting archive url {0} to mount point {1}. This"
+                             "could take a while...".format(self.from_archive['url'],
                              self.fs.mount_point))
                     self.state = service_states.CONFIGURING
                     misc.extract_archive_content_to_path(self.from_archive['url'],

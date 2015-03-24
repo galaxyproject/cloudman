@@ -31,7 +31,11 @@ class CMLogHandler(logging.Handler):
 
 
 class UniverseApplication(object):
-    """Encapsulates the state of a Universe application"""
+
+    """
+    Encapsulates the state of a Universe application
+    """
+
     def __init__(self, **kwargs):
         print "Python version: ", sys.version_info[:2]
         self.PERSISTENT_DATA_VERSION = 3  # Current expected and generated PD version

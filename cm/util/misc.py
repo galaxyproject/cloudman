@@ -1,4 +1,5 @@
 #!/usr/bin/python
+"""A number of utility functions useful throughout the framework."""
 import commands
 import contextlib
 import datetime as dt
@@ -31,18 +32,14 @@ log = logging.getLogger('cloudman')
 
 
 def load_yaml_file(filename):
-    """
-    Load ``filename`` in YAML format and return it as a dict
-    """
+    """Load ``filename`` in YAML format and return it as a dict"""
     with open(filename) as ud_file:
         ud = yaml.load(ud_file)
     return ud
 
 
 def dump_yaml_to_file(data, filename):
-    """
-    Dump (i.e., store) ``data`` dict into a YAML file ``filename``
-    """
+    """Dump (i.e., store) ``data`` dict into a YAML file ``filename``"""
     with open(filename, 'w') as f:
         yaml.dump(data, f, default_flow_style=False)
 
@@ -50,8 +47,9 @@ def dump_yaml_to_file(data, filename):
 def merge_yaml_objects(user, default):
     """
     Merge fields from user data ``user`` YAML object and default data ``default``
-    YAML object. If there are conflicts, value from the user data object are
-    kept.
+    YAML object.
+
+    If there are conflicts, value from the user data object are kept.
     """
     if isinstance(user, dict) and isinstance(default, dict):
         for k, v in default.iteritems():
@@ -65,6 +63,7 @@ def merge_yaml_objects(user, default):
 def normalize_user_data(app, ud):
     """
     Normalize user data format to a consistent representation used within CloudMan.
+
     This is useful as user data and also persistent data evolve over time and thus
     calling this method at app start enables any necessary translation to happen.
     """
@@ -134,25 +133,6 @@ def normalize_user_data(app, ud):
     return ud
 
 
-def shellVars2Dict(filename):
-    '''Reads a file containing lines with <KEY>=<VALUE> pairs and turns it into a dict'''
-    f = None
-    try:
-        f = open(filename, 'r')
-    except IOError:
-        return {}
-    lines = f.readlines()
-    result = {}
-
-    for line in lines:
-        parts = line.strip().partition('=')
-        key = parts[0].strip()
-        val = parts[2].strip()
-        if key:
-            result[key] = val
-    return result
-
-
 @contextlib.contextmanager
 def flock(path, wait_delay=1):
     """
@@ -180,14 +160,21 @@ def flock(path, wait_delay=1):
         os.unlink(path)
 
 
-def formatSeconds(delta):
-    # Python 2.7 defines this function but in the mean time...
+def format_seconds(delta):
+    """
+    Given a time delta object, calculate the total number of seconds and return
+    it as a string.
+    """
     def _total_seconds(td):
         return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10 ** 6
     return '%s' % (_total_seconds(delta))
 
 
-def formatDelta(delta):
+def format_time_delta(delta):
+    """
+    Given a time delta object, convert it into a nice, human readable string.
+    For example, given 290 seconds, return 4m 50s.
+    """
     d = delta.days
     h = delta.seconds / 3600
     m = (delta.seconds % 3600) / 60
@@ -202,6 +189,7 @@ def formatDelta(delta):
 
 
 def bucket_exists(s3_conn, bucket_name):
+    """Check if bucket `bucket_name` exists."""
     if s3_conn is None:
         log.debug("Checking if S3 bucket exists, but no S3 connection provided!?")
         return False
@@ -227,6 +215,7 @@ def bucket_exists(s3_conn, bucket_name):
 
 
 def create_bucket(s3_conn, bucket_name):
+    """Create a bucket called `bucket_name`."""
     try:
         log.debug("Creating bucket '%s'." % bucket_name)
         s3_conn.create_bucket(bucket_name)
@@ -238,7 +227,10 @@ def create_bucket(s3_conn, bucket_name):
 
 
 def get_bucket(s3_conn, bucket_name, validate=False):
-    """Get handle to bucket"""
+    """
+    Get handle to bucket `bucket_name`, optionally validating that the bucket
+    actually exists by issuing a HEAD request.
+    """
     b = None
     if bucket_exists(s3_conn, bucket_name):
         for i in range(0, 5):
@@ -255,6 +247,10 @@ def get_bucket(s3_conn, bucket_name, validate=False):
 
 
 def make_bucket_public(s3_conn, bucket_name, recursive=False):
+    """
+    Make bucket `bucket_name` public, meaning anyone can read its contents. If
+    `recursive` is set, do so for all objects contained in the bucket.
+    """
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
@@ -268,6 +264,10 @@ def make_bucket_public(s3_conn, bucket_name, recursive=False):
 
 
 def make_key_public(s3_conn, bucket_name, key_name):
+    """
+    Set the ACL setting for `key_name` in `bucket_name` so anyone can read the
+    contents of the key.
+    """
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
@@ -471,7 +471,7 @@ def get_users_with_grant_on_only_this_folder(s3_conn, bucket_name, folder_name):
     return users_with_grant
 
 
-def adjust_bucket_ACL(s3_conn, bucket_name, users_whose_grant_to_remove):
+def adjust_bucket_acl(s3_conn, bucket_name, users_whose_grant_to_remove):
     """
     Adjust the ACL on given bucket and remove grants for all the mentioned users.
 
@@ -544,7 +544,9 @@ def file_exists_in_bucket(s3_conn, bucket_name, remote_filename):
 
 
 def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local_filename):
-    """ Check if the file in bucket has been modified before the local file.
+    """
+    Check if the file in bucket has been modified before the local file.
+
     :rtype: bool
     :return: True of file in bucket is older than the local file or an error
              while checking the time occurs. False otherwise.
@@ -574,6 +576,14 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
 
 
 def get_file_from_bucket(conn, bucket_name, remote_filename, local_file, validate=False):
+    """
+    Retrieve a file `remote_filename` form bucket `bucket_name` to `local_file`.
+
+    If `validate` is set, make sure the bucket exists by issuing a HEAD request
+    before attempting to retrieve a file. Return `True` if the file was
+    successfully retrieved. If an exception occurs or a zero size file is
+    retrieved, return `False`.
+    """
     if bucket_exists(conn, bucket_name):
         b = get_bucket(conn, bucket_name, validate)
         k = Key(b, remote_filename)
@@ -620,7 +630,15 @@ def save_file_to_bucket(conn, bucket_name, remote_filename, local_file):
         return False
 
 
-def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename, copy_filename, preserve_acl=True, validate=True):
+def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filename,
+                        copy_filename, preserve_acl=True, validate=True):
+    """
+    Create a copy of an object `orig_filename` in `src_bucket_name` as
+    `copy_filename` in `dest_bucket_name`, preserving the access control list
+    settings by default. If `validate` is provided, the existence of source
+    bucket will be validated before proceeding.
+    Return `True` if the copy was successful; `False` otherwise.
+    """
     b = get_bucket(s3_conn, src_bucket_name, validate)
     if b:
         try:
@@ -639,6 +657,7 @@ def copy_file_in_bucket(s3_conn, src_bucket_name, dest_bucket_name, orig_filenam
 
 
 def delete_file_from_bucket(conn, bucket_name, remote_filename):
+    """Delete an object from a bucket"""
     b = get_bucket(conn, bucket_name)
     if b:
         try:
@@ -721,7 +740,6 @@ def get_file_from_public_bucket(config, bucket_name, remote_filename, local_file
     the S3 REST API.
     """
     import urlparse
-    import requests
 
     s3_host = config.get('s3_host', 's3.amazonaws.com')
     s3_port = config.get('s3_port', 443)
@@ -852,6 +870,7 @@ def append_to_file(file_name, line):
 def _if_not_installed(prog_name):
     """
     Decorator that checks if a callable program is installed.
+
     If not, the decorated method is called. If the program is
     installed, returns ``False``.
     """
@@ -872,9 +891,7 @@ def _if_not_installed(prog_name):
 
 
 def get_hostname():
-    """
-    Return the output from ``hostname -s`` command
-    """
+    """Return the output from ``hostname -s`` command."""
     try:
         return subprocess.check_output(["hostname", "-s"]).strip()
     except Exception:
@@ -882,9 +899,7 @@ def get_hostname():
 
 
 def make_dir(path, owner=None):
-    """
-    Check if a directory under ``path`` exists and create it if it does not.
-    """
+    """Check if a directory under ``path`` exists and create it if it does not."""
     log.debug("Checking existence of directory '%s'" % path)
     if not os.path.exists(path):
         try:
@@ -904,6 +919,7 @@ def add_to_etc_hosts(ip_address, hosts=[]):
     """
     Add a line with the list of ``hosts`` for the given ``ip_address`` to
     ``/etc/hosts``.
+
     If a line with the provided ``ip_address`` already exist in the file, keep
     any existing hostnames and also add the otherwise not found new ``hosts``
     to the given line.
@@ -951,9 +967,7 @@ def add_to_etc_hosts(ip_address, hosts=[]):
 
 
 def remove_from_etc_hosts(host):
-    """
-    Remove ``host`` (hostname or IP) from ``/etc/hosts``
-    """
+    """Remove ``host`` (hostname or IP) from ``/etc/hosts``."""
     if not host:
         log.debug("Cannot remove empty host from /etc/hosts")
         return
@@ -978,19 +992,19 @@ def remove_from_etc_hosts(host):
 
 
 def delete_file(path):
-    """
-    Check if a file at `path` exists and delete it.
-    """
+    """Check if a file at `path` exists and delete it."""
     if os.path.exists(path):
         log.debug("Deleting file {0}".format(path))
         os.remove(path)
 
 
 class Sleeper(object):
+
     """
     Provides a 'sleep' method that sleeps for a number of seconds *unless*
     the notify method is called (from a different thread).
     """
+
     def __init__(self):
         self.condition = threading.Condition()
 
@@ -1052,7 +1066,7 @@ def nice_size(size):
     words = ['bytes', 'KB', 'MB', 'GB', 'TB']
     try:
         size = float(size)
-    except:
+    except Exception:
         return 'N/A'
     for ind, word in enumerate(words):
         step = 1024 ** (ind + 1)
@@ -1071,8 +1085,8 @@ def size_to_bytes(size):
     # Assume input in bytes if we can convert directly to an int
     try:
         return int(size)
-    except:
-        pass
+    except Exception:
+        return -1
     # Otherwise it must have non-numeric characters
     size_re = re.compile('([\d\.]+)\s*([tgmk]b?|b|bytes?)$')
     size_match = re.match(size_re, size.lower())
@@ -1166,7 +1180,8 @@ def _extract_archive_content_to_path(archive_url, path):
 
 def get_a_number():
     """
-    This generator will yield a new integer each time it is called, starting at 1.
+    This generator will yield a new integer each time it is called, starting
+    at 1.
     """
     number = 1
     while True:
@@ -1181,6 +1196,7 @@ def which(program, additional_paths=[]):
     the ``program`` was not found, return ``None``.
     """
     def _is_exec(fpath):
+        """Check if a file at `fpath` has the executable bit set."""
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
     fpath, fname = os.path.split(program)
@@ -1215,12 +1231,14 @@ def random_string_generator(size=10, chars=string.ascii_uppercase + string.digit
 
 
 class MD5TransparentFilter:
+
     """
     Calculate an md5 checksum of the contents read from a stream
     without making an extra copy.
 
     http://stackoverflow.com/questions/14014854/python-on-the-fly-md5-as-one-reads-a-stream
     """
+
     def __init__(self, fp):
         self._md5 = hashlib.md5()
         self._fp = fp
@@ -1235,28 +1253,33 @@ class MD5TransparentFilter:
 
 
 class RingBuffer(object):
+
     """
     A class that implements a buffer with a fixed size, so that, when it fills
     up, adding another element overwrites the first (oldest) one.
+
     http://www.onlamp.com/lpt/a/5828
     """
+
     def __init__(self, size_max):
         self.max = size_max
         self.data = []
 
     class __Full(object):
-        """ class that implements a full buffer """
+
+        """Class that implements a full buffer."""
+
         def append(self, x):
-            """ Append an element overwriting the oldest one. """
+            """Append an element overwriting the oldest one."""
             self.data[self.cur] = x
             self.cur = (self.cur + 1) % self.max
 
         def tolist(self):
-            """ return list of elements in correct order. """
+            """Return list of elements in correct order."""
             return self.data[self.cur:] + self.data[:self.cur]
 
     def append(self, x):
-        """ append an element at the end of the buffer. """
+        """Append an element at the end of the buffer."""
         self.data.append(x)
         if len(self.data) == self.max:
             self.cur = 0
@@ -1264,5 +1287,5 @@ class RingBuffer(object):
             self.__class__ = self.__Full
 
     def tolist(self):
-        """ Return a list of elements from the oldest to the newest. """
+        """Return a list of elements from the oldest to the newest."""
         return self.data

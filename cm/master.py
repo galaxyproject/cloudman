@@ -1729,7 +1729,7 @@ class ConsoleManager(BaseConsoleManager):
             # access to any other shared instances.
             # users_whose_grant_to_remove = misc.get_users_with_grant_on_only_this_folder(s3_conn, self.app.config['bucket_cluster'], shared_instance_folder)
             # if len(users_whose_grant_to_remove) > 0:
-            #     misc.adjust_bucket_ACL(s3_conn, self.app.config['bucket_cluster'], users_whose_grant_to_remove)
+            #     misc.adjust_bucket_acl(s3_conn, self.app.config['bucket_cluster'], users_whose_grant_to_remove)
             # Remove keys and folder associated with the given shared instance
             b = misc.get_bucket(s3_conn, self.app.config['bucket_cluster'])
             key_list = b.list(prefix=shared_instance_folder)
@@ -2156,7 +2156,7 @@ class ConsoleManager(BaseConsoleManager):
                 # Debug only, this should never happen.  If the interface is
                 # able to display this, there is load.
                 load = "0 0 0"
-        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.formatSeconds(Time.now() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
+        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.format_seconds(Time.now() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
 
 
 class ConsoleMonitor(object):

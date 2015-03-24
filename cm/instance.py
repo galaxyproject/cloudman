@@ -179,7 +179,7 @@ class Instance(object):
         toret = {'id': self.id,
                  'alias': self.alias,
                  'ld': self.load,
-                 'time_in_state': misc.formatSeconds(Time.now() - self.last_m_state_change),
+                 'time_in_state': misc.format_seconds(Time.now() - self.last_m_state_change),
                  'nfs_data': self.nfs_data,
                  'nfs_tools': self.nfs_tools,
                  'nfs_indices': self.nfs_indices,
@@ -218,13 +218,13 @@ class Instance(object):
                     ld = self.load
             elif self.worker_status == "Ready":
                 ld = "Running"
-            return [self.id, ld, misc.formatSeconds(
+            return [self.id, ld, misc.format_seconds(
                 Time.now() - self.last_m_state_change),
                 self.nfs_data, self.nfs_tools, self.nfs_indices, self.nfs_sge, self.get_cert,
                 self.sge_started, self.worker_status]
         else:
             return [self.id, self.m_state,
-                    misc.formatSeconds(Time.now() - self.last_m_state_change),
+                    misc.format_seconds(Time.now() - self.last_m_state_change),
                     self.nfs_data, self.nfs_tools, self.nfs_indices,
                     self.nfs_sge, self.get_cert, self.sge_started,
                     self.worker_status]
