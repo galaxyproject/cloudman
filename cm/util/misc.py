@@ -16,6 +16,8 @@ import string
 import random
 import grp
 import pwd
+import requests
+import tarfile
 
 from boto.exception import S3CreateError, S3ResponseError
 from boto.s3.acl import ACL
@@ -1022,6 +1024,18 @@ def meminfo():
     return ret
 
 
+def get_dir_size(path):
+    """
+    Return the size of directory at `path` (and it's subdirectories), in bytes.
+    """
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_size += os.path.getsize(fp)
+    return total_size
+
+
 def nice_size(size):
     """
     Returns a readably formatted string with the size
@@ -1108,31 +1122,46 @@ def detect_symlinks(dir_path, link_name=None, symlink_as_file=True):
 
 
 def extract_archive_content_to_path(archive_url, path, md5_sum=None):
+    """
+    Extracts an archive from `archive_url` to a specified `path`, optionally
+    checking if the md5 sum of the downloaded file matches `md5_sum`. If md5
+    sum does not match, one retry will be attempted after which an Exception
+    will be raised.
+    Note: currently only tar files are supported for the archive.
+    """
     try:
         digest = _extract_archive_content_to_path(archive_url, path)
         if md5_sum and not digest == md5_sum:
-            raise Exception("Invalid md5 sum for archive. Expected: {0} but found {1}".format(md5_sum, digest))
+            raise Exception("Invalid md5 sum for archive {0}. Expected: {1} but "
+                            "found {2}".format(archive_url, md5_sum, digest))
         log.info("Successfully downloaded archive with md5_sum: {0}".format(digest))
     except Exception, e:
-        log.warn("Error while downloading archive: {0}\nRetrying archive download...".format(e))
+        log.warn("Error while downloading archive: {0}\nRetrying archive "
+                 "download...".format(e))
         digest = _extract_archive_content_to_path(archive_url, path)
         if md5_sum and not digest == md5_sum:
-            raise Exception("Archive download failed. Still getting invalid md5 sum. Expected: {0} but found {1}".format(md5_sum, digest))
+            raise Exception("Archive download failed. Still getting invalid md5 sum."
+                            "Expected {0} but found {1}".format(md5_sum, digest))
 
 
 def _extract_archive_content_to_path(archive_url, path):
     """
-    Extracts an archive from a given url to a specified path.
-    Currently supports only tar files
+    Do the actual extraction a tar archive from `archive_url` to a specified
+    `path`. The data is streamed. Currently supports only tar files.
     """
-    import requests
-    import tarfile
+    start = dt.datetime.utcnow()
     r = requests.get(archive_url, stream=True)
     stream = MD5TransparentFilter(r.raw)
     archive = tarfile.open(fileobj=stream, mode='r|*')
     archive.extractall(path=path)
     archive.close()
-    return stream.hexdigest()
+    hexdigest = stream.hexdigest()
+    r2 = requests.head(archive_url)
+    archive_size = r2.headers.get('content-length', -1)
+    log.debug("Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
+              .format(archive_url, nice_size(archive_size), path,
+              nice_size(get_dir_size(path)), dt.datetime.utcnow() - start))
+    return hexdigest
 
 
 def get_a_number():
@@ -1186,6 +1215,12 @@ def random_string_generator(size=10, chars=string.ascii_uppercase + string.digit
 
 
 class MD5TransparentFilter:
+    """
+    Calculate an md5 checksum of the contents read from a stream
+    without making an extra copy.
+
+    http://stackoverflow.com/questions/14014854/python-on-the-fly-md5-as-one-reads-a-stream
+    """
     def __init__(self, fp):
         self._md5 = hashlib.md5()
         self._fp = fp
