@@ -6,15 +6,13 @@ storage over NFS to the rest of the cluster.
     The file system behind this device is transient, meaning that it will
     dissapear at instance termination and it cannot be recovered.
 """
-import commands
-import grp
 import logging
 import os
-import pwd
 
 from cm.services import ServiceRole, service_states
 from cm.services.data import BlockStorage
 from cm.util import misc
+from cm.util import ExtractArchive
 
 log = logging.getLogger('cloudman')
 
@@ -54,47 +52,31 @@ class TransientStorage(BlockStorage):
         Add this file system by creating a dedicated path (i.e., self.fs.mount_point)
         and exporting it over NFS. Set the owner of the repo as ``ubuntu`` user.
         """
-        try:
-            log.debug("Adding transient file system at {0}".format(self.fs.mount_point))
-            if not os.path.exists(self.fs.mount_point):
-                os.mkdir(self.fs.mount_point)
-            os.chown(self.fs.mount_point, pwd.getpwnam("ubuntu")[2],
-                     grp.getgrnam("ubuntu")[2])
-            self.device = commands.getoutput("df -h %s | grep -v Filesystem | awk "
-                                             "'{print $1}'" % self.fs.mount_point)
-            # If based on an archive, extract archive contents to the mount point
-            try:
-                if self.from_archive:
-                    log.info("Extracting archive url {0} to mount point {1}. This"
-                             "could take a while...".format(self.from_archive['url'],
-                             self.fs.mount_point))
-                    self.state = service_states.CONFIGURING
-                    misc.extract_archive_content_to_path(self.from_archive['url'],
-                                                         self.fs.mount_point,
-                                                         self.from_archive['md5_sum'])
-                    self.fs.persistent = True
-            except Exception, e:
-                log.error("Error while extracting archive: {0}".format(e))
-                return False
-
-            if self.fs.add_nfs_share(self.fs.mount_point):
-                self.fs.state = service_states.RUNNING
-            else:
-                log.warning('Trouble sharing {0} over NFS?'.format(
-                    self.fs.mount_point))
-        except OSError, e:
-            log.debug("Trouble adding transient file system: {0}".format(e))
+        log.debug("Adding a transient FS at {0}".format(self.fs.mount_point))
+        misc.make_dir(self.fs.mount_point, owner='ubuntu')
+        # Set the device ID
+        cmd = "df %s | grep -v Filesystem | awk '{print $1}'" % self.fs.mount_point
+        self.device = misc.getoutput(cmd)
+        # If based on an archive, extract archive contents to the mount point
+        if self.from_archive:
+            self.fs.persistent = True
+            # Extract the FS archive in a separate thread
+            ExtractArchive(self.from_archive['url'], self.fs.mount_point,
+                           self.from_archive['md5_sum'],
+                           callback=self.fs.nfs_share_and_set_state).start()
+        else:
+            self.fs.nfs_share_and_set_state()
 
     def remove(self):
         """
         Initiate removal of this file system from the system.
-        Because the backend storage will be gone after an instance is terminated,
-        here we just need to remove the NFS share point.
+
+        Because the backend storage will be gone after an instance is
+        terminated, here we just need to remove the NFS share point.
         """
-        log.debug("Removing transient instance storage from {0}".format(
-            self.fs.mount_point))
+        log.debug("Removing transient file system {0}".format(self.fs.mount_point))
         self.fs.remove_nfs_share()
-        self.state = service_states.SHUT_DOWN
+        self.fs.state = service_states.SHUT_DOWN
 
     def status(self):
         """

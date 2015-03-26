@@ -17,7 +17,7 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
-from cm.util import misc
+from cm.util import ExtractArchive
 
 import logging
 log = logging.getLogger('cloudman')
@@ -688,7 +688,6 @@ class Volume(BlockStorage):
                         if self.snapshot and self.volume.size > self.snapshot.volume_size:
                             run('/usr/sbin/xfs_growfs %s' % mount_point)
                             log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
-                    log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
                 except Exception, e:
                     log.error("Exception mounting {0} at {1}".format(
                               self.fs.get_full_name(), mount_point))
@@ -718,22 +717,20 @@ class Volume(BlockStorage):
                 except OSError, e:
                     log.debug(
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
-
-                # If based on bucket, extract bucket contents onto new volume
-                try:
-                    if self.from_archive:
-                        log.info("Extracting archive url: {0} to mount point: {1}. This could take a while...".format(self.from_archive['url'], mount_point))
-                        misc.extract_archive_content_to_path(self.from_archive['url'], mount_point, self.from_archive['md5_sum'])
-                except Exception, e:
-                    log.error("Error while extracting archive: {0}".format(e))
-                    return False
-
-                # Lastly, share the newly mounted file system over NFS
-                if self.fs.add_nfs_share(mount_point):
-                    return True
-            log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)."
-                        % (self.volume_id, self.status, counter))
-            time.sleep(2)
+                # If based on an archive, extract archive contents to the mount point
+                if self.from_archive:
+                    self.fs.state = service_states.CONFIGURING
+                    # Extract the FS archive in a separate thread
+                    ExtractArchive(self.from_archive['url'], mount_point,
+                                   self.from_archive['md5_sum'],
+                                   callback=self.fs.nfs_share_and_set_state).start()
+                else:
+                    self.fs.nfs_share_and_set_state()
+                return True
+            else:
+                log.warning("Cannot mount volume '%s' in state '%s'. Waiting "
+                            "(%s/30)." % (self.volume_id, self.status, counter))
+                time.sleep(2)
 
     def unmount(self, mount_point):
         """

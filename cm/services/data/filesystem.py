@@ -371,11 +371,31 @@ class Filesystem(DataService):
                         "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(),
                         device, self.name, vols))
 
-    def add_nfs_share(self, mount_point=None, permissions='rw'):
+    def nfs_share_and_set_state(self, ok_state=service_states.RUNNING,
+                                err_state=service_states.ERROR, mount_point=None):
         """
-        Share the given/current file system/mount point over NFS. Note that
-        if the given mount point already exists in /etc/exports, replace
-        the existing line with the line composed within this method.
+        Share the current file system/mount point over NFS and set the
+        state of the file system to `ok_state` if the NFS sharing went OK.
+        Otherwise, set the file system state to `err_state`.
+        """
+        log.debug("Exporting FS {0} over NFS".format(mount_point))
+        previous_state = self.state
+        if not mount_point:
+            mount_point = self.mount_point
+        if self._add_nfs_share(mount_point):
+            self.state = ok_state
+        else:
+            self.state = err_state
+        log.debug("Set state for FS {0} to: {1} (was: {2})".format(mount_point,
+                  self.state, previous_state))
+
+    def _add_nfs_share(self, mount_point=None, permissions='rw'):
+        """
+        Do the actual work to share this file system/mount point over NFS.
+
+        Note that if the given mount point already exists in `/etc/exports`,
+        the existing line will be replaced with the line composed within this
+        method.
 
         :type mount_point: string
         :param mount_point: The mount point to add to the NFS share
@@ -596,7 +616,7 @@ class Filesystem(DataService):
                         self.state = service_states.ERROR
                 except Exception, e:
                     log.error("STATUS CHECK: Exception checking status of FS "
-                              "'{0}': {0}".format(self.name, e))
+                              "'{0}': {1}".format(self.name, e))
                     self.state = service_states.ERROR
                     log.debug(mnt_location)
             else:
