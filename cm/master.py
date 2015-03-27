@@ -2445,11 +2445,13 @@ class ConsoleMonitor(object):
     def __stop_services(self):
         """
         Initiate stopping of any services that have been marked as not `active`
-        yet are still running.
+        yet are not already UNSTARTED, COMPLETED, or SHUT_DOWN.
         """
         config_changed = False  # Flag to indicate if cluster conf was changed
         for service in self.app.manager.service_registry.itervalues():
-            if not service.activated and service.state == service_states.RUNNING:
+            if not service.activated and service.state not in [
+               service_states.UNSTARTED, service_states.COMPLETED,
+               service_states.SHUT_DOWN]:
                 log.debug("Monitor stopping service '%s'" % service.get_full_name())
                 self.last_system_change_time = Time.now()
                 service.remove()
