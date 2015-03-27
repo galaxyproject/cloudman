@@ -2,6 +2,7 @@ import os
 
 from cm.util import paths
 from cm.util import misc
+from cm.util import ExtractArchive
 from cm.util.galaxy_conf import attempt_chown_galaxy_if_exists
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -14,7 +15,7 @@ log = logging.getLogger('cloudman')
 INVOKE_SUCCESS = "Successfully invoked Pulsar"
 INVOKE_FAILURE = "Error invoking Pulsar"
 DEFAULT_PULSAR_PORT = 8913
-DEFAULT_DOWNLOAD_URL = 'https://cloudman.s3.amazonaws.com/files/pulsar/pulsar-20141219.tar.gz'
+DEFAULT_DOWNLOAD_URL = 'http://cloudman.s3.amazonaws.com/files/pulsar/pulsar-20141219.tar.gz'
 
 
 class PulsarService(ApplicationService):
@@ -47,11 +48,6 @@ class PulsarService(ApplicationService):
         self.status()
         if not self.state == service_states.RUNNING:
             self._download()
-            # self._setup()
-            started = self._run("--daemon")
-            if not started:
-                log.warn("Failed to setup or run Pulsar server.")
-                self.state = service_states.ERROR
 
     def _download(self):
         """
@@ -59,8 +55,8 @@ class PulsarService(ApplicationService):
         run in the CloudMan environment.
         """
         url = self.app.config.get('pulsar_download_url', DEFAULT_DOWNLOAD_URL)
-        misc.extract_archive_content_to_path(url, os.path.dirname(self.pulsar_home))
-        attempt_chown_galaxy_if_exists(self.pulsar_home)
+        ExtractArchive(url, os.path.dirname(self.pulsar_home),
+                       callback=self._run).start()
 
     def _setup(self):
         log.debug("Setting up Pulsar")
@@ -70,10 +66,18 @@ class PulsarService(ApplicationService):
         # TODO: Configure Pulsar.
 
     def remove(self, synchronous=False):
+        """
+        Remove Pulsar service by stopping the application and setting it's
+        state to `SHUT_DOWN`. If the app cannot be shut down, set state to
+        `ERROR`.
+        """
         log.info("Removing '%s' service" % self.name)
         super(PulsarService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        if self.pulsar_home and self._run("--stop-daemon"):
+        if not self._running():
+            log.debug("Pulsar is already not running.")
+            self.state = service_states.SHUT_DOWN
+        elif self.pulsar_home and self._run("--stop-daemon"):
             log.info("Shutting down Pulsar service...")
             self.state = service_states.SHUT_DOWN
             # TODO: Handle log files.
@@ -81,10 +85,20 @@ class PulsarService(ApplicationService):
             log.info("Failed to shutdown down Pulsar service...")
             self.state = service_states.ERROR
 
-    def _run(self, args):
+    def _run(self, args="--daemon"):
+        attempt_chown_galaxy_if_exists(self.pulsar_home)
         command = '%s - galaxy -c "bash %s/run.sh %s"' % (
             paths.P_SU, self.pulsar_home, args)
         return misc.run(command, INVOKE_FAILURE, INVOKE_SUCCESS)
+
+    def _running(self):
+        """
+        Check if the app is running and return `True` if so; `False` otherwise.
+        """
+        if self._check_daemon('pulsar'):
+            if self._check_pulsar_running():
+                return True
+        return False
 
     def status(self):
         if self.state == service_states.SHUTTING_DOWN or \
@@ -92,8 +106,7 @@ class PulsarService(ApplicationService):
             self.state == service_states.UNSTARTED or \
                 self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif self._check_daemon('pulsar'):
-            if self._check_pulsar_running():
+        elif self._running():
                 self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:
             log.error("Pulsar error; Pulsar not runnnig")
