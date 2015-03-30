@@ -794,8 +794,9 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
             return True
     else:
         if not quiet:
-            log.error("%s, running command '%s' returned code '%s' and following stderr: '%s'"
-                      % (err, cmd, process.returncode, stderr))
+            log.error("%s, running command '%s' returned code '%s', the "
+                      "following stderr: '%s' and stdout: '%s'"
+                      % (err, cmd, process.returncode, stderr, stdout))
         return False
 
 
@@ -886,6 +887,20 @@ def _if_not_installed(prog_name):
                 return False
         return decorator
     return argcatcher
+
+
+def set_hostname(hostname):
+    """
+    Set the instance hostname in `/etc/hostname`.
+
+    :type hostname: string
+    :param hostname: The value the hostname should be set to.
+    """
+    try:
+        with open('/etc/hostname', 'w') as file_handle:
+            file_handle.write("{0}\n".format(hostname))
+    except IOError, ioe:
+        log.error("IOError wirting out /etc/hostname: {0}".format(ioe))
 
 
 def get_hostname():
