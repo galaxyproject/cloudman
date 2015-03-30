@@ -15,7 +15,7 @@ NGINX_SERVER_PULSAR = "nginx_server_pulsar"
 NGINX_GALAXY_REPORTS = "nginx_galaxy_reports_locations"
 NGINX_GALAXY = "nginx_galaxy_locations"
 NGINX_CLOUDERA_MANAGER = "nginx_cloudera_manager_locations"
-NGINX_CLOUGENE = "nginx_cloudgene_locations"
+NGINX_CLOUDGENE = "nginx_cloudgene_locations"
 
 PROFTPD_CONF_TEMPLATE = "proftpd.conf"
 SGE_INSTALL_TEMPLATE = "sge_install_template"

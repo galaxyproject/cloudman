@@ -116,11 +116,18 @@ class NginxService(ApplicationService):
         write out the file to the `conf_file` path.
         """
         template = conf_manager.load_conf_template(template_file)
-        t = template.substitute(parameters)
-        # Write out the file
-        with open(conf_file, 'w') as f:
-            print >> f, t
-        log.debug("Wrote Nginx config file {0}".format(conf_file))
+        try:
+            t = template.substitute(parameters)
+            # Write out the file
+            with open(conf_file, 'w') as f:
+                print >> f, t
+            log.debug("Wrote Nginx config file {0}".format(conf_file))
+        except KeyError, kexc:
+            log.error("KeyError filling template {0}: {1}".format(template_file,
+                      kexc))
+        except IOError, ioexc:
+            log.error("IOError writing template file {0}: {1}".format(conf_file,
+                      ioexc))
 
     def reconfigure(self, setup_ssl):
         """
@@ -219,7 +226,8 @@ class NginxService(ApplicationService):
                 cg_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'cloudgene.locations')
                 if cg_svc:
                     cg_tmplt = conf_manager.NGINX_CLOUDGENE
-                    self._write_template_file(cg_tmplt, {}, cg_conf_file)
+                    params = {'cg_port': cg_svc.port}
+                    self._write_template_file(cg_tmplt, params, cg_conf_file)
                 else:
                     misc.delete_file(cg_conf_file)
             self.reload()

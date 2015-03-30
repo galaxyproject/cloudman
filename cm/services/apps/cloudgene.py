@@ -20,7 +20,7 @@ class CloudgeneService(ApplicationService):
         self.svc_roles = [ServiceRole.CLOUDGENE]
         self.name = ServiceRole.to_string(ServiceRole.CLOUDGENE)
         self.dependencies = [ServiceDependency(self, ServiceRole.CLOUDERA_MANAGER)]
-        self.port = 8082
+        self.port = 8085
         self.cg_url = "http://cloudgene.uibk.ac.at/downloads/cloudgene-cloudman.tar.gz"
         self.cg_base_dir = '/mnt/galaxy/cloudgene/'
         self.cg_home = os.path.join(self.cg_base_dir, 'cloudgene-cloudman')
@@ -80,7 +80,7 @@ class CloudgeneService(ApplicationService):
         ``port`` class field.
         """
         log.debug("Starting Cloudgene server")
-        if self.__run_as_clougene_user("cd {1}; sh start.sh".format(self.cg_home)):
+        if self.__run_as_clougene_user("cd {0}; sh start.sh".format(self.cg_home)):
             self.state = service_states.RUNNING
 
     def status(self):
@@ -93,7 +93,7 @@ class CloudgeneService(ApplicationService):
            self.state == service_states.SHUT_DOWN or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif 'NOT running' in misc.getoutput("cd {1}; sh state.sh".format(
+        elif 'NOT running' in misc.getoutput("cd {0}; sh state.sh".format(
              self.cg_home), quiet=True):
             log.error("Cloudgene server not running!")
             self.state == service_states.ERROR
