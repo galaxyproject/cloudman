@@ -33,6 +33,7 @@ class ClouderaManagerService(ApplicationService):
         """
         log.debug("Starting Cloudera Manager service")
         self.state = service_states.STARTING
+        misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended by Cloudera
         self.configure_db()
         self.start_webserver()
 

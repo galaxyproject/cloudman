@@ -404,11 +404,11 @@ class ConsoleManager(BaseConsoleManager):
         # Add master's private IP to /etc/hosts (workers need it and
         # master's /etc/hosts is being synced to the workers)
         misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
-                              [misc.get_hostname(),
-                              self.app.cloud_interface.get_local_hostname(),
-                              'master'])
-        # misc.run("hostname master")  # Set the default hostname to `master`
-        misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended for Cloudera Manager
+                              [self.app.cloud_interface.get_local_hostname(),
+                               misc.get_hostname(),
+                               'master'])
+        # Set the default hostname
+        misc.set_hostname(self.app.cloud_interface.get_local_hostname())
         log.info("Completed the initial cluster startup process. {0}".format(
             cc_detail))
         return True
@@ -1376,7 +1376,7 @@ class ConsoleManager(BaseConsoleManager):
             # ``start`` method)
             pass
             # self.activate_master_service(self.service_registry.get('Pulsar'))
-            # self.activate_master_service(self.service_registry.get('ClouderaManager'))
+            self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
