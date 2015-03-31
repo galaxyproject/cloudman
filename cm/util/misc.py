@@ -899,6 +899,7 @@ def set_hostname(hostname):
     try:
         with open('/etc/hostname', 'w') as file_handle:
             file_handle.write("{0}\n".format(hostname))
+        run('service hostname restart')
     except IOError, ioe:
         log.error("IOError wirting out /etc/hostname: {0}".format(ioe))
 
