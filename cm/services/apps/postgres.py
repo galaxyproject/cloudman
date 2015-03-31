@@ -1,4 +1,3 @@
-import commands
 import os
 import pwd
 import grp
@@ -33,8 +32,11 @@ class PostgresService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(PostgresService, self).remove(synchronous)
         # Stop only if currently running
-        if self.state == service_states.RUNNING or \
-           self.state == service_states.ERROR:
+        if not self.check_postgres():
+            log.debug("Postgres is already not running.")
+            self.state = service_states.SHUT_DOWN
+        elif (self.state == service_states.RUNNING or
+              self.state == service_states.ERROR):
             self.state = service_states.SHUTTING_DOWN
             self.manage_postgres(False)
         elif self.state == service_states.UNSTARTED:
@@ -42,7 +44,7 @@ class PostgresService(ApplicationService):
         else:
             log.debug("{0} service is not running (state: {1}) so not stopping it."
                       .format(self.name, self.state))
-        # TODO: Should we completely remove self?
+            self.state = service_states.SHUT_DOWN
 
     @TestFlag(None)
     def manage_postgres(self, to_be_started=True):
@@ -56,7 +58,7 @@ class PostgresService(ApplicationService):
                 "Successfully set ownership of Postgres data directory %s" % psql_data_dir)
         # Check on the status of PostgreSQL server
         self.status()
-        if to_be_started and not self.state == service_states.RUNNING:
+        if to_be_started and self.state is not service_states.RUNNING:
             to_be_configured = False
 
             # Check if 'psql_data_dir' exists first; it not, configure
@@ -147,7 +149,7 @@ class PostgresService(ApplicationService):
 
             # Check on the status of PostgreSQL server
             self.status()
-            if to_be_started and not self.state == service_states.RUNNING:
+            if to_be_started and self.state is not service_states.RUNNING:
                 # Start PostgreSQL database
                 log.debug("Starting PostgreSQL...")
                 if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' %
@@ -170,41 +172,28 @@ class PostgresService(ApplicationService):
         return True
 
     def check_postgres(self):
-        """Check if PostgreSQL server is running and if 'galaxy' database exists.
+        """
+        Check if PostgreSQL server is running and if `galaxy` database exists.
 
         :rtype: bool
-        :return: True if the server is running and 'galaxy' database exists,
-                 False otherwise.
+        :return: ``True`` if the server is running and `galaxy` database exists,
+                 ``False`` otherwise.
         """
         # log.debug("\tChecking PostgreSQL")
-        if self.state == service_states.SHUTTING_DOWN or \
-                self.state == service_states.SHUT_DOWN:
-            return None
-        elif self._check_daemon('postgres'):
+        if self._check_daemon('postgres'):
             # log.debug("\tPostgreSQL daemon running. Trying to connect and
             # select tables.")
-            dbs = commands.getoutput(
-                '%s - postgres -c "%s/psql -p %s -c \\\"SELECT datname FROM PG_DATABASE;\\\" "'
-                % (paths.P_SU, self.app.path_resolver.pg_home, self.psql_port))
+            cmd = ('%s - postgres -c "%s/psql -p %s -c \\\"SELECT datname FROM PG_DATABASE;\\\" "'
+                   % (paths.P_SU, self.app.path_resolver.pg_home, self.psql_port))
+            dbs = misc.getoutput(cmd, quiet=True)
             if dbs.find('galaxy') > -1:
                 # log.debug("\tPostgreSQL daemon on port {0} OK, 'galaxy' database exists."
                 #     .format(self.psql_port))
                 return True
-            else:
-                log.warning(
-                    "PostgreSQL daemon OK, 'galaxy' database does NOT exist: %s" % dbs)
-                return False
-        elif not os.path.exists(self.app.path_resolver.psql_dir):
-            log.warning("PostgreSQL data directory '%s' does not exist (yet?)" %
-                        self.app.path_resolver.psql_dir)
-            # Assume this is because user data dir has not been setup yet,
-            # mark service as not-attempted yet (i.e., status: None)
-            return None
-        else:
-            log.error("PostgreSQL daemon NOT running.")
-            return False
+        return False
 
     def status(self):
+        """Set the status of the service based on the state of the app process."""
         if self.state != service_states.SHUT_DOWN:
             if self.check_postgres():
                 self.state = service_states.RUNNING
