@@ -356,15 +356,17 @@ class Instance(object):
         self.app.manager.console_monitor.conn.send('ALIVE_REQUEST', self.id)
 
     def send_sync_etc_host(self, msg):
+        """
+        Send a message to instructing the worker to sync it's /etc/hosts file.
+        """
         # Because the hosts file is synced over the transientFS, give the FS
         # some time to become available before sending the msg
-        for i in range(3):
-            if int(self.nfs_tfs):
-                self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' + msg, self.id)
-                break
-            log.debug("Transient FS on instance {0} not available (code {1}); "
-                      "waiting a bit...".format(self.get_desc(), self.nfs_tfs))
-            time.sleep(7)
+        if int(self.nfs_tfs):
+            self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | '
+                                                       + msg, self.id)
+        else:
+            log.debug("Transient FS on instance {0} not available (code {1}); not "
+                      "syncing /etc/hosts".format(self.get_desc(), self.nfs_tfs))
 
     def update_spot(self, force=False):
         """ Get an update on the state of a Spot request. If the request has entered
@@ -549,13 +551,26 @@ class Instance(object):
                 # Add instance IP/name to /etc/hosts
                 misc.add_to_etc_hosts(self.private_ip, [self.alias, self.local_hostname,
                                       self.hostname])
-                self.app.manager.sync_etc_hosts()
                 # Instance is alive and responding.
                 self.send_mount_points()
             elif msg_type == "GET_MOUNTPOINTS":
                 self.send_mount_points()
             elif msg_type == "MOUNT_DONE":
                 log.debug("Got MOUNT_DONE message")
+                # Update the list of mount points that have mounted
+                if len(msg.split(' | ')) > 1:
+                    msg_body = msg.split(' | ')[1]
+                    try:
+                        body = json.loads(msg_body)
+                        mounted_fs = body.get('mounted_fs', {})
+                        # Currently, only interested in the transient FS
+                        self.nfs_tfs = mounted_fs.get('transient_nfs', 0)
+                        log.debug("Got transient_nfs state on {0}: {1}".format(
+                                  self.alias, self.nfs_tfs))
+                    except ValueError, vexc:
+                        log.warning('ValueError trying to decode msg: {0}'
+                                    .format(vexc))
+                self.app.manager.sync_etc_hosts()
                 self.send_master_pubkey()
                 # Add hostname to /etc/hosts (for SGE config)
                 if self.app.cloud_type in ('openstack', 'eucalyptus'):

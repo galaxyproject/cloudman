@@ -2107,12 +2107,13 @@ class ConsoleManager(BaseConsoleManager):
     # ========================================================================
     def sync_etc_hosts(self):
         """
-        This method is for syncing hosts files in all workers with the master.
-        It will copy the master etc hosts into a shared folder and send a message
-        to the workers to inform them of the change.
+        Instruct all workers to sync their ``/etc/hosts`` file with master's.
+
+        Copy the master's `/etc/hosts` into an NFS shared folder and send a
+        message to the workers to inform them of the change.
         """
+        log.debug("Instructing all workers to sync /etc/hosts w/ master")
         try:
-            log.debug("Instructing all workers to sync /etc/hosts w/ master")
             shutil.copy("/etc/hosts", paths.P_ETC_TRANSIENT_PATH)
             for wrk in self.worker_instances:
                 wrk.send_sync_etc_host(paths.P_ETC_TRANSIENT_PATH)

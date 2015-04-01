@@ -517,7 +517,10 @@ class ConsoleMonitor(object):
             # If the instance is not ``READY``, it means it's still being configured
             # so send a message to continue the handshake
             if self.app.manager.worker_status != worker_states.READY:
-                self.app.manager.console_monitor.conn.send("MOUNT_DONE")
+                mounted = {'transient_nfs': self.app.manager.nfs_tfs}
+                jmounted = json.dumps({'mounted_fs': mounted})
+                msg = "MOUNT_DONE | {0}".format(jmounted)
+                self.app.manager.console_monitor.conn.send(msg)
         elif message.startswith("START_SLURMD"):
             alias = message.split(' | ')[1]
             log.debug("Setting hostname to {0}".format(alias))
