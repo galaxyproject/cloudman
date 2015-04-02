@@ -23,6 +23,8 @@ class ClouderaManagerService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.CLOUDERA_MANAGER)
         self.dependencies = []
         self.db_pwd = misc.random_string_generator()
+        # Indicate if the web server has been configured and started
+        self.started = False
         self.port = 7180
 
     def start(self):
@@ -31,6 +33,7 @@ class ClouderaManagerService(ApplicationService):
         """
         log.debug("Starting Cloudera Manager service")
         self.state = service_states.STARTING
+        misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended by Cloudera
         self.configure_db()
         self.start_webserver()
 
@@ -134,11 +137,13 @@ class ClouderaManagerService(ApplicationService):
             cm = api.get_cloudera_manager()
             config = {u'REFERER_CHECK': u'false'}
             done = False
+            self.state = service_states.CONFIGURING
             while not done:
                 try:
                     cm.update_config(config)
                     log.debug("Succesfully disabled referer check")
                     done = True
+                    self.started = True
                 except Exception:
                     log.debug("Still have not disabled referer check...")
                     time.sleep(5)
@@ -146,14 +151,22 @@ class ClouderaManagerService(ApplicationService):
         if misc.run("service cloudera-scm-server start"):
             # This method may take a while so spawn it off
             threading.Thread(target=_disable_referer_check).start()
-            self.state = service_states.RUNNING
 
     def status(self):
         """
         Check and update the status of the service.
         """
-        # TODO: Add actual logic
-        if self.state == service_states.RUNNING:
-            return service_states.RUNNING
-        else:
+        if self.state == service_states.UNSTARTED or \
+           self.state == service_states.STARTING or \
+           self.state == service_states.SHUTTING_DOWN or \
+           self.state == service_states.SHUT_DOWN or \
+           self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
+        elif 'running' not in misc.getoutput('service cloudera-scm-server status',
+           quiet=True):
+            log.error("Cloudera server not running!")
+            self.state = service_states.ERROR
+        elif not self.started:
+            pass
+        else:
+            self.state = service_states.RUNNING

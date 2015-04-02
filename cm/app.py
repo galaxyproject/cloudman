@@ -11,7 +11,7 @@ logging.getLogger('boto').setLevel(logging.INFO)
 
 
 class CMLogHandler(logging.Handler):
-    def __init__(self, app):
+    def __init__(self):
         logging.Handler.__init__(self)
         self.formatter = logging.Formatter(
             "%(asctime)s - %(message)s", "%H:%M:%S")
@@ -31,7 +31,11 @@ class CMLogHandler(logging.Handler):
 
 
 class UniverseApplication(object):
-    """Encapsulates the state of a Universe application"""
+
+    """
+    Encapsulates the state of a Universe application
+    """
+
     def __init__(self, **kwargs):
         print "Python version: ", sys.version_info[:2]
         self.PERSISTENT_DATA_VERSION = 3  # Current expected and generated PD version
@@ -41,35 +45,33 @@ class UniverseApplication(object):
         self.cloud_type = cc.get_cloud_type()
         # Create an appropriate cloud connection
         self.cloud_interface = cc.get_cloud_interface(self.cloud_type)
-        # Load user data into a local field through a cloud interface
-        self.ud = self.cloud_interface.get_user_data()
+        # Read config file and check for errors
+        self.config = config.Configuration(self, kwargs, self.cloud_interface.get_user_data())
         # From user data determine if object store (S3) should be used.
-        self.use_object_store = self.ud.get("use_object_store", True)
+        self.use_object_store = self.config.get("use_object_store", True)
         # From user data determine if block storage (EBS/nova-volume) should be used.
         # (OpenNebula and dummy clouds do not support volumes yet so skip those)
-        self.use_volumes = self.ud.get(
+        self.use_volumes = self.config.get(
             "use_volumes", self.cloud_type not in ['opennebula', 'dummy'])
-        # Read config file and check for errors
-        self.config = config.Configuration(**kwargs)
-        self.config.init_with_user_data(self.ud)
-        self.config.check()
+#         self.config.init_with_user_data(self.ud)
+        self.config.validate()
         # Setup logging
-        self.logger = CMLogHandler(self)
-        if "testflag" in self.ud:
-            self.TESTFLAG = bool(self.ud['testflag'])
+        self.logger = CMLogHandler()
+        if "testflag" in self.config:
+            self.TESTFLAG = bool(self.config['testflag'])
             self.logger.setLevel(logging.DEBUG)
         else:
             self.TESTFLAG = False
             self.logger.setLevel(logging.INFO)
 
-        if "localflag" in self.ud:
-            self.LOCALFLAG = bool(self.ud['localflag'])
+        if "localflag" in self.config:
+            self.LOCALFLAG = bool(self.config['localflag'])
             self.logger.setLevel(logging.DEBUG)
         else:
             self.LOCALFLAG = False
             self.logger.setLevel(logging.INFO)
         log.addHandler(self.logger)
-        config.configure_logging(self.config, self.ud)
+        config.configure_logging(self.config)
         log.debug("Initializing app")
         log.debug("Running on '{0}' type of cloud in zone '{1}' using image '{2}'."
                   .format(self.cloud_type, self.cloud_interface.get_zone(),
@@ -87,36 +89,36 @@ class UniverseApplication(object):
         self.number_generator = misc.get_a_number()
 
         # Check that we actually got user creds in user data and inform user
-        if not ('access_key' in self.ud or 'secret_key' in self.ud):
+        if not ('access_key' in self.config or 'secret_key' in self.config):
             self.msgs.error("No access credentials provided in user data. "
                             "You will not be able to add any services.")
         # Update user data to include persistent data stored in cluster's bucket, if it exists
         # This enables cluster configuration to be recovered on cluster re-
         # instantiation
         self.manager = None
-        if self.use_object_store and 'bucket_cluster' in self.ud:
+        if self.use_object_store and 'bucket_cluster' in self.config:
             log.debug("Getting pd.yaml")
             validate = True if self.cloud_type == 'ec2' else False
             if not self.TESTFLAG and misc.get_file_from_bucket(
                     self.cloud_interface.get_s3_connection(),
-                    self.ud['bucket_cluster'],
+                    self.config['bucket_cluster'],
                     'persistent_data.yaml', 'pd.yaml',
                     validate=validate):
                 pd = misc.load_yaml_file('pd.yaml')
-                self.ud = misc.merge_yaml_objects(self.ud, pd)
-                self.ud = misc.normalize_user_data(self, self.ud)
+                self.config.user_data = misc.merge_yaml_objects(self.config.user_data, pd)
+                self.config.user_data = misc.normalize_user_data(self, self.config.user_data)
             else:
                 log.debug("Setting deployment_version to {0}".format(self.DEPLOYMENT_VERSION))
                 # This is a new cluster so default to the current version
-                self.ud['deployment_version'] = self.DEPLOYMENT_VERSION
+                self.config.user_data['deployment_version'] = self.DEPLOYMENT_VERSION
 
     def startup(self):
-        if 'role' in self.ud:
-            if self.ud['role'] == 'master':
+        if 'role' in self.config:
+            if self.config['role'] == 'master':
                 log.info("Master starting")
                 from cm import master
                 self.manager = master.ConsoleManager(self)
-            elif self.ud['role'] == 'worker':
+            elif self.config['role'] == 'worker':
                 log.info("Worker starting")
                 from cm import worker
                 self.manager = worker.ConsoleManager(self)

@@ -17,7 +17,7 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import BlockStorage
 from cm.services.data import volume_status
-from cm.util import misc
+from cm.util import ExtractArchive
 
 import logging
 log = logging.getLogger('cloudman')
@@ -270,17 +270,6 @@ class Volume(BlockStorage):
 
         if self.status == volume_status.NONE:
             try:
-                # Temp code (Dec 2012) - required by the NeCTAR Research Cloud
-                # until general volumes arrive
-                if self.app.ud.get('cloud_name', 'ec2').lower() == 'nectar':
-                    zone = self.app.cloud_interface.get_zone()
-                    if zone in ['sa']:
-                        msg = ("It seems you're running on the NeCTAR cloud and in "
-                               "zone 'SA'. However, volumes do not currently"
-                               "work in that zone. Will attempt to continue but failure"
-                               "is likely")
-                        log.warning(msg)
-                        self.app.msgs.warning(msg)
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
                           % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
                 self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size,
@@ -301,9 +290,9 @@ class Volume(BlockStorage):
         # creating a new one)
         try:
             self.app.cloud_interface.add_tag(
-                self.volume, 'clusterName', self.app.ud['cluster_name'])
+                self.volume, 'clusterName', self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
-                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+                self.volume, 'bucketName', self.app.config['bucket_cluster'])
             if filesystem:
                 self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
                 self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
@@ -353,8 +342,8 @@ class Volume(BlockStorage):
 
         # AWS-specific munging
         # Perhaps should be moved to the interface anyway does not work for openstack
-        log.debug("Cloud type is: %s", self.app.ud.get('cloud_type', 'ec2').lower())
-        if self.app.ud.get('cloud_type', 'ec2').lower() == 'ec2':
+        log.debug("Cloud type is: %s", self.app.config.cloud_type)
+        if self.app.config.cloud_type == 'ec2':
             log.debug('Applying AWS-specific munging to next device id calculation')
             if base == '/dev/xvd':
                 base = '/dev/sd'
@@ -555,9 +544,9 @@ class Volume(BlockStorage):
             log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
                      % (self.volume_id, snapshot.id))
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
-                                             self.app.ud['cluster_name'])
+                                             self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
-                self.volume, 'bucketName', self.app.ud['bucket_cluster'])
+                self.volume, 'bucketName', self.app.config['bucket_cluster'])
             self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
             self.snapshot_progress = None  # Reset because of the UI
             self.snapshot_status = None  # Reset because of the UI
@@ -699,7 +688,6 @@ class Volume(BlockStorage):
                         if self.snapshot and self.volume.size > self.snapshot.volume_size:
                             run('/usr/sbin/xfs_growfs %s' % mount_point)
                             log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
-                    log.info("Successfully mounted file system {0} from {1}".format(mount_point, self.device))
                 except Exception, e:
                     log.error("Exception mounting {0} at {1}".format(
                               self.fs.get_full_name(), mount_point))
@@ -729,22 +717,20 @@ class Volume(BlockStorage):
                 except OSError, e:
                     log.debug(
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
-
-                # If based on bucket, extract bucket contents onto new volume
-                try:
-                    if self.from_archive:
-                        log.info("Extracting archive url: {0} to mount point: {1}. This could take a while...".format(self.from_archive['url'], mount_point))
-                        misc.extract_archive_content_to_path(self.from_archive['url'], mount_point, self.from_archive['md5_sum'])
-                except Exception, e:
-                    log.error("Error while extracting archive: {0}".format(e))
-                    return False
-
-                # Lastly, share the newly mounted file system over NFS
-                if self.fs.add_nfs_share(mount_point):
-                    return True
-            log.warning("Cannot mount volume '%s' in state '%s'. Waiting (%s/30)."
-                        % (self.volume_id, self.status, counter))
-            time.sleep(2)
+                # If based on an archive, extract archive contents to the mount point
+                if self.from_archive:
+                    self.fs.state = service_states.CONFIGURING
+                    # Extract the FS archive in a separate thread
+                    ExtractArchive(self.from_archive['url'], mount_point,
+                                   self.from_archive['md5_sum'],
+                                   callback=self.fs.nfs_share_and_set_state).start()
+                else:
+                    self.fs.nfs_share_and_set_state()
+                return True
+            else:
+                log.warning("Cannot mount volume '%s' in state '%s'. Waiting "
+                            "(%s/30)." % (self.volume_id, self.status, counter))
+                time.sleep(2)
 
     def unmount(self, mount_point):
         """

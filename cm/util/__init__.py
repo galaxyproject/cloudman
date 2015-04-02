@@ -2,13 +2,17 @@
 Utility functions used systemwide.
 
 """
+from datetime import datetime
+import hashlib
 import logging
 import threading
 import re
+import requests
 import os
 import sys
-from datetime import datetime
+import tarfile
 
+from cm.util import misc
 from cm.util.bunch import Bunch
 
 # Define available states for various services
@@ -156,3 +160,93 @@ class Time:
 if __name__ == '__main__':
     import doctest
     doctest.testmod(sys.modules[__name__], verbose=False)
+
+
+class ExtractArchive(threading.Thread):
+
+    """
+    Extracts an archive from `archive_url` to a specified `path`, optionally
+    checking if the MD5 sum of the downloaded file matches `md5_sum`. If MD5
+    sum does not match, keep retrying while `num_retries` is greated than 0.
+    This is intended to be invoked in a separate thread. After the thread
+    finishes execution, `callback` method will be called.
+
+    Note: currently only tar files are supported for the archive.
+    """
+
+    def __init__(self, archive_url, path, md5_sum=None, callback=None, num_retries=1):
+        threading.Thread.__init__(self)
+        self.archive_url = archive_url
+        self.path = path
+        self.md5_sum = md5_sum
+        self.callback = callback
+        self.num_retries = num_retries
+
+    def _md5_check_ok(self, digest):
+        """Do the MD5 checksum. Return `True` if OK; `False` otherwise."""
+        if self.md5_sum and not digest == self.md5_sum:
+            log.debug("Invalid MD5 sum for archive {0}. Expected: {1} but "
+                      "found {2}".format(self.archive_url, self.md5_sum, digest))
+            return False
+        if self.md5_sum:
+            log.info("MD5 checksum for archive {0} is OK: {1}=={2}".format(
+                     self.archive_url, self.md5_sum, digest))
+        return True
+
+    def _extract(self):
+        """
+        Do the extraction of a tar archive from `archive_url` to a specified
+        `path`. The data is streamed. Currently supports only tar files.
+        """
+        try:
+            start = datetime.utcnow()
+            r = requests.get(self.archive_url, stream=True)
+            stream = MD5TransparentFilter(r.raw)
+            archive = tarfile.open(fileobj=stream, mode='r|*')
+            archive.extractall(path=self.path)
+            archive.close()
+            hexdigest = stream.hexdigest()
+            head_response = requests.head(self.archive_url)
+            archive_size = head_response.headers.get('content-length', -1)
+            log.debug("Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
+                      .format(self.archive_url, misc.nice_size(archive_size),
+                      self.path, misc.nice_size(misc.get_dir_size(self.path)),
+                      datetime.utcnow() - start))
+            return hexdigest
+        except Exception, e:
+            log.error("Exception extracting archive {0} to {1}: {2}".format(
+                      self.archive_url, self.path, e))
+            return None
+
+    def run(self):
+        log.info("Extracting archive url {0} to {1}. This could take a while..."
+                 .format(self.archive_url, self.path))
+        digest = self._extract()
+        while not self._md5_check_ok(digest) and self.num_retries > 0:
+            digest = self._extract()
+            self.num_retries -= 1
+        if self.callback:
+            log.debug("Callback method defined; calling it now.")
+            self.callback()
+
+
+class MD5TransparentFilter:
+
+    """
+    Calculate an md5 checksum of the contents read from a stream
+    without making an extra copy.
+
+    http://stackoverflow.com/questions/14014854/python-on-the-fly-md5-as-one-reads-a-stream
+    """
+
+    def __init__(self, fp):
+        self._md5 = hashlib.md5()
+        self._fp = fp
+
+    def read(self, size):
+        buf = self._fp.read(size)
+        self._md5.update(buf)
+        return buf
+
+    def hexdigest(self):
+        return self._md5.hexdigest()

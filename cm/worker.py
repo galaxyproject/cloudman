@@ -138,7 +138,7 @@ class ConsoleManager(BaseConsoleManager):
             mount_points.append(('extra_mount_%d' % i, extra_mount, 'nfs', master_ip, ''))
         # For each main mount point, mount it and set status based on label
         for (label, path, fs_type, server, mount_options) in mount_points:
-            do_mount = self.app.ud.get('mount_%s' % label, True)
+            do_mount = self.app.config.get('mount_%s' % label, True)
             if not do_mount:
                 log.debug("Skipping FS mount for {0}".format(label))
                 continue
@@ -372,7 +372,7 @@ class ConsoleManager(BaseConsoleManager):
                         % sync_path)
 
     def _get_extra_nfs_mounts(self):
-        return self.app.ud.get('extra_nfs_mounts', [])
+        return self.app.config.get('extra_nfs_mounts', [])
 
 
 class ConsoleMonitor(object):
@@ -383,7 +383,7 @@ class ConsoleMonitor(object):
         # Helper for interruptible sleep
         self.sleeper = misc.Sleeper()
         self.conn = comm.CMWorkerComm(self.app.cloud_interface.get_instance_id(
-        ), self.app.ud['master_ip'])
+        ), self.app.config['master_ip'])
         if not self.app.TESTFLAG:
             self.conn.setup()
         self.monitor_thread = threading.Thread(target=self.__monitor)
@@ -402,11 +402,11 @@ class ConsoleMonitor(object):
                 with open("/etc/hostname", 'w') as f:
                     f.write(self.app.manager.local_hostname)
                 # Augment /etc/hosts w/ the custom local hostname
-                misc.add_to_etc_hosts(self.app.ud['master_ip'],
-                                      [self.app.ud['master_hostname']])
+                misc.add_to_etc_hosts(self.app.config['master_ip'],
+                                      [self.app.config['master_hostname']])
                 misc.add_to_etc_hosts(self.app.cloud_interface.get_private_ip(),
                                       [self.app.manager.local_hostname])
-                misc.add_to_etc_hosts(self.app.ud['master_ip'], ['ubuntu'])  # For opennebula
+                misc.add_to_etc_hosts(self.app.config['master_ip'], ['ubuntu'])  # For opennebula
                 # Restart hostname process or the node process?
                 # ret_code = subprocess.call( "/etc/init.d/hostname restart",
                 # shell=True )
@@ -478,9 +478,9 @@ class ConsoleMonitor(object):
         if message.startswith("RESTART"):
             m_ip = message.split(' | ')[1]
             log.info("Master at %s requesting RESTART" % m_ip)
-            self.app.ud['master_ip'] = m_ip
+            self.app.config['master_ip'] = m_ip
             self.app.manager.unmount_filesystems()
-            self.app.manager.mount_nfs(self.app.ud['master_ip'])
+            self.app.manager.mount_nfs(self.app.config['master_ip'])
             self.send_alive_message()
 
         elif message.startswith("MASTER_PUBKEY"):
@@ -508,16 +508,19 @@ class ConsoleMonitor(object):
                 log.error("Starting SGE daemon did not go smoothly; process returned code: %s" % ret_code)
                 self.app.manager.worker_status = worker_states.ERROR
                 self.last_state_change_time = dt.datetime.utcnow()
-            # self.app.manager.start_condor(self.app.ud['master_public_ip'])
+            # self.app.manager.start_condor(self.app.config['master_public_ip'])
             # self.app.manager.start_hadoop()
         elif message.startswith("MOUNT"):
             # MOUNT everything in json blob.
-            self.app.manager.mount_nfs(self.app.ud['master_ip'],
+            self.app.manager.mount_nfs(self.app.config['master_ip'],
                                        mount_json=message.split(' | ')[1])
             # If the instance is not ``READY``, it means it's still being configured
             # so send a message to continue the handshake
             if self.app.manager.worker_status != worker_states.READY:
-                self.app.manager.console_monitor.conn.send("MOUNT_DONE")
+                mounted = {'transient_nfs': self.app.manager.nfs_tfs}
+                jmounted = json.dumps({'mounted_fs': mounted})
+                msg = "MOUNT_DONE | {0}".format(jmounted)
+                self.app.manager.console_monitor.conn.send(msg)
         elif message.startswith("START_SLURMD"):
             alias = message.split(' | ')[1]
             log.debug("Setting hostname to {0}".format(alias))

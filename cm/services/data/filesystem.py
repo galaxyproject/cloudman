@@ -51,12 +51,13 @@ class Filesystem(DataService):
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
         self.mount_point = mount_point if mount_point is not None else os.path.join(
             self.app.path_resolver.mount_root, self.name)
-        self.grow = None  # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
-                         # the file system; use following dict structure:
-                         # {'new_size': <size>, 'snap_desc': <snapshot description>}
-        self.started_starting = datetime.utcnow()  # A time stamp when the state changed to
-                                                   # STARTING; it is used to avoid brief ERROR
-                                                   # states during the system configuration.
+        # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
+        # the file system; use following dict structure:
+        # {'new_size': <size>, 'snap_desc': <snapshot description>}
+        self.grow = None
+        # A time stamp when the state changed to STARTING; it is used to
+        # avoid brief ERROR states during system configuration.
+        self.started_starting = datetime.utcnow()
 
     def __repr__(self):
         return self.get_full_name()
@@ -254,10 +255,7 @@ class Filesystem(DataService):
 
             # Create a new volume based on just created snapshot and add the
             # file system
-            self.state = service_states.SHUT_DOWN  # So it gets started again w/o monitor
-                                                  # adding it as a new service;
-                                                  # TOOD: define a set of stats for
-                                                  # file system services
+            self.state = service_states.SHUT_DOWN
             self.add()
 
             # Grow the file system
@@ -361,7 +359,7 @@ class Filesystem(DataService):
                     # filesystem), add those
                     if not self.app.cloud_interface.get_tag(att_vol, 'clusterName'):
                         self.app.cloud_interface.add_tag(
-                            att_vol, 'clusterName', self.app.ud['cluster_name'])
+                            att_vol, 'clusterName', self.app.config['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
                         self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
                     self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
@@ -373,11 +371,31 @@ class Filesystem(DataService):
                         "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(),
                         device, self.name, vols))
 
-    def add_nfs_share(self, mount_point=None, permissions='rw'):
+    def nfs_share_and_set_state(self, ok_state=service_states.RUNNING,
+                                err_state=service_states.ERROR, mount_point=None):
         """
-        Share the given/current file system/mount point over NFS. Note that
-        if the given mount point already exists in /etc/exports, replace
-        the existing line with the line composed within this method.
+        Share the current file system/mount point over NFS and set the
+        state of the file system to `ok_state` if the NFS sharing went OK.
+        Otherwise, set the file system state to `err_state`.
+        """
+        log.debug("Exporting FS {0} over NFS".format(mount_point))
+        previous_state = self.state
+        if not mount_point:
+            mount_point = self.mount_point
+        if self._add_nfs_share(mount_point):
+            self.state = ok_state
+        else:
+            self.state = err_state
+        log.debug("Set state for FS {0} to: {1} (was: {2})".format(mount_point,
+                  self.state, previous_state))
+
+    def _add_nfs_share(self, mount_point=None, permissions='rw'):
+        """
+        Do the actual work to share this file system/mount point over NFS.
+
+        Note that if the given mount point already exists in `/etc/exports`,
+        the existing line will be replaced with the line composed within this
+        method.
 
         :type mount_point: string
         :param mount_point: The mount point to add to the NFS share
@@ -471,10 +489,10 @@ class Filesystem(DataService):
         If so, return ``True``, else return ``False``.
         """
         if self.state == service_states.SHUTTING_DOWN or \
-            self.state == service_states.SHUT_DOWN or \
-            self.state == service_states.UNSTARTED or \
-            self.state == service_states.WAITING_FOR_USER_ACTION or \
-                self.state == service_states.CONFIGURING:
+           self.state == service_states.SHUT_DOWN or \
+           self.state == service_states.UNSTARTED or \
+           self.state == service_states.WAITING_FOR_USER_ACTION or \
+           self.state == service_states.CONFIGURING:
             return True
         return False
 
@@ -598,7 +616,7 @@ class Filesystem(DataService):
                         self.state = service_states.ERROR
                 except Exception, e:
                     log.error("STATUS CHECK: Exception checking status of FS "
-                              "'{0}': {0}".format(self.name, e))
+                              "'{0}': {1}".format(self.name, e))
                     self.state = service_states.ERROR
                     log.debug(mnt_location)
             else:

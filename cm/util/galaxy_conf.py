@@ -52,7 +52,7 @@ def populate_admin_users(option_manager, admins_list=[]):
         admin_users:
          - user@example.com
          - user2@anotherexample.edu """
-    for admin in option_manager.app.ud.get('admin_users', []):
+    for admin in option_manager.app.config.get('admin_users', []):
         if admin not in admins_list:
                 admins_list.append(admin)
     if len(admins_list) == 0:
@@ -70,7 +70,7 @@ def populate_dynamic_options(option_manager):
                             "galaxy_tool_runner_": "galaxy:tool_runners",
                             }
     for option_prefix, section in dynamic_option_types.iteritems():
-        for key, value in option_manager.app.ud.iteritems():
+        for key, value in option_manager.app.config.iteritems():
             if key.startswith(option_prefix):
                 key = key[len(option_prefix):]
                 option_manager.set_properties({key: value}, section=section)
@@ -84,8 +84,8 @@ def populate_process_options(option_manager):
     for Galaxy.
     """
     app = option_manager.app
-    web_thread_count = int(app.ud.get("web_thread_count", 3))
-    handler_thread_count = int(app.ud.get("handler_thread_count", 1))
+    web_thread_count = int(app.config.web_thread_count)
+    handler_thread_count = int(app.config.get("handler_thread_count", 1))
     # Setup web threads
     [__add_server_process(option_manager, i, "web", 8080)
         for i in range(web_thread_count)]
@@ -102,7 +102,7 @@ def populate_process_options(option_manager):
 def __add_server_process(option_manager, index, prefix, initial_port):
     app = option_manager.app
     port = initial_port + index
-    threads = app.ud.get("threadpool_workers", "7")
+    threads = app.config.get("threadpool_workers", "7")
     server_options = {"use": "egg:Paste#http",
                       "port": port,
                       "use_threadpool": True,
@@ -123,8 +123,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
 def galaxy_option_manager(app):
     """ Returns a high-level class for managing Galaxy options.
     """
-    ud = app.ud
-    if "galaxy_conf_dir" in ud:
+    if "galaxy_conf_dir" in app.config:
         option_manager = DirectoryGalaxyOptionManager(app)
     else:
         option_manager = FileGalaxyOptionManager(app)
@@ -216,7 +215,7 @@ class DirectoryGalaxyOptionManager(object):
     def __init__(self, app, conf_dir=None, conf_file_name=OPTIONS_FILE_NAME):
         self.app = app
         if not conf_dir:
-            conf_dir = app.ud["galaxy_conf_dir"]
+            conf_dir = app.config["galaxy_conf_dir"]
         self.conf_dir = conf_dir
         self.conf_file_name = conf_file_name
 
@@ -249,7 +248,7 @@ class DirectoryGalaxyOptionManager(object):
         if not properties:
             return
 
-        priority = int(self.app.ud.get("galaxy_option_priority", "400")) + priority_offset
+        priority = int(self.app.config.get("galaxy_option_priority", "400")) + priority_offset
         conf_dir = self.conf_dir
         if description is None:
             description = properties.keys()[0]

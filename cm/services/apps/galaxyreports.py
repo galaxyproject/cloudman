@@ -55,6 +55,7 @@ class GalaxyReportsService(ApplicationService):
                                                               conf_file_name='reports_wsgi.ini')
         reports_option_manager.setup()
         file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
+        misc.make_dir(file_path, owner='galaxy')
         new_file_path = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
         main_props = {
             'database_connection': "postgres://galaxy@localhost:{0}/galaxy"
@@ -74,12 +75,21 @@ class GalaxyReportsService(ApplicationService):
                                               description='proxy_prefix_props')
 
     def remove(self, synchronous=False):
+        """
+        Remove Galaxy Reports service by stopping the application and setting
+        it's state to `SHUT_DOWN`. If the app cannot be shut down, set state
+        to `ERROR`.
+        """
+
         if self.state in [service_states.RUNNING, service_states.STARTING, service_states.ERROR]:
             log.info("Removing '%s' service" % self.name)
             super(GalaxyReportsService, self).remove(synchronous)
             self.state = service_states.SHUTTING_DOWN
             log.info("Shutting down Galaxy Reports...")
-            if self._run("stop"):
+            if not self._running():
+                log.debug("Galaxy Reports is already not running.")
+                self.state = service_states.SHUT_DOWN
+            elif self._run("stop"):
                 self.state = service_states.SHUT_DOWN
                 # Move all log files
                 subprocess.call("bash -c 'for f in $GALAXY_HOME/reports_webapp.log; do mv \"$f\" \"$f.%s\"; done'" %
@@ -98,15 +108,23 @@ class GalaxyReportsService(ApplicationService):
             paths.P_SU, self.conf_dir, args)
         return misc.run(command)
 
+    def _running(self):
+        """
+        Check if the app is running and return `True` if so; `False` otherwise.
+        """
+        if self._check_daemon('galaxyreports'):
+            if self._check_galaxy_reports_running():
+                return True
+        return False
+
     def status(self):
         if self.state == service_states.SHUTTING_DOWN or \
            self.state == service_states.SHUT_DOWN or \
            self.state == service_states.UNSTARTED or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif self._check_daemon('galaxyreports'):
-            if self._check_galaxy_reports_running():
-                self.state = service_states.RUNNING
+        elif self._running():
+            self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:
             log.error("Galaxy reports error; Galaxy reports not runnnig")
             self.state = service_states.ERROR
