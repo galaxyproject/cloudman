@@ -141,7 +141,7 @@ class ClouderaManagerService(ApplicationService):
                     done = True
                 except Exception:
                     log.debug("Still have not disabled referer check...")
-                    time.sleep(15)
+                    time.sleep(5)
 
         if misc.run("service cloudera-scm-server start"):
             # This method may take a while so spawn it off
