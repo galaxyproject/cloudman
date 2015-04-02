@@ -1,10 +1,25 @@
 import os
 import time
 import threading
+# import subprocess
+import socket
+# import re
 
 from ansible.runner import Runner
 from ansible.inventory import Inventory
 from cm_api.api_client import ApiResource  # Cloudera Manager API
+# from cm_api.endpoints.clusters import ApiCluster
+# from cm_api.endpoints.clusters import create_cluster
+# from cm_api.endpoints.parcels import ApiParcel
+from cm_api.endpoints.parcels import get_parcel
+# from cm_api.endpoints.cms import ClouderaManager
+from cm_api.endpoints.services import ApiServiceSetupInfo
+# from cm_api.endpoints.services import ApiService, create_service
+# from cm_api.endpoints.types import ApiCommand, ApiRoleConfigGroupRef
+# from cm_api.endpoints.role_config_groups import get_role_config_group
+# from cm_api.endpoints.role_config_groups import ApiRoleConfigGroup
+# from cm_api.endpoints.roles import ApiRole
+from time import sleep
 
 from cm.util import misc
 import cm.util.paths as paths
@@ -17,6 +32,7 @@ log = logging.getLogger('cloudman')
 
 
 class ClouderaManagerService(ApplicationService):
+
     def __init__(self, app):
         super(ClouderaManagerService, self).__init__(app)
         self.svc_roles = [ServiceRole.CLOUDERA_MANAGER]
@@ -25,7 +41,35 @@ class ClouderaManagerService(ApplicationService):
         self.db_pwd = misc.random_string_generator()
         # Indicate if the web server has been configured and started
         self.started = False
-        self.port = 7180
+        self.cm_port = 7180
+
+        # Default cluster configuration
+        self.cm_host = socket.gethostname()
+        self.host_list = [self.cm_host]
+        self.cluster_name = "Cluster 1"
+        self.cdh_version = "CDH5"
+        self.cdh_version_number = "5"
+        self.cm_username = "admin"
+        self.cm_password = "admin"
+        self.cm_service_name = "ManagementService"
+        self.host_username = "ubuntu"
+	# Read the password from the system!
+        self.host_password = self.app.config.get('password')
+        self.cm_repo_url = None
+        self.service_types_and_names = {
+            "HDFS": "HDFS",
+            "YARN": "YARN",
+            "ZOOKEEPER": "ZooKeeper"
+        }
+
+    @property
+    def cm_api_resource(self):
+        return ApiResource(self.cm_host, self.cm_port,
+                           self.cm_username, self.cm_password)
+
+    @property
+    def cm_manager(self):
+        return self.cm_api_resource.get_cloudera_manager()
 
     def start(self):
         """
@@ -34,8 +78,21 @@ class ClouderaManagerService(ApplicationService):
         log.debug("Starting Cloudera Manager service")
         self.state = service_states.STARTING
         misc.run('/sbin/sysctl vm.swappiness=0')  # Recommended by Cloudera
-        self.configure_db()
-        self.start_webserver()
+        threading.Thread(target=self.__start).start()
+
+    def __start(self):
+        """
+        Start all the service components.
+
+        Intended to be called in a dedicated thread.
+        """
+        try:
+            self.configure_db()
+            self.start_webserver()
+            self.create_default_cluster()
+            self.setup_cluster()
+        except Exception, exc:
+            log.error("Exception creating a cluster: {0}".format(exc))
 
     def remove(self, synchronous=False):
         """
@@ -133,24 +190,162 @@ class ClouderaManagerService(ApplicationService):
         """
         def _disable_referer_check():
             log.debug("Disabling refered check")
-            api = ApiResource("127.0.0.1", username="admin", password="admin")
-            cm = api.get_cloudera_manager()
             config = {u'REFERER_CHECK': u'false'}
             done = False
             self.state = service_states.CONFIGURING
             while not done:
                 try:
-                    cm.update_config(config)
+                    self.cm_manager.update_config(config)
                     log.debug("Succesfully disabled referer check")
                     done = True
                     self.started = True
                 except Exception:
-                    log.debug("Still have not disabled referer check...")
+                    log.debug("Still have not disabled referer check... ")
                     time.sleep(5)
 
         if misc.run("service cloudera-scm-server start"):
-            # This method may take a while so spawn it off
-            threading.Thread(target=_disable_referer_check).start()
+            _disable_referer_check()
+
+    def create_default_cluster(self):
+        """
+        Create a default cluster and Cloudera Manager Service on master host
+        """
+        log.info("Creating a new Cloudera Cluster")
+        # create the management service
+        # first check if mamagement service already exists
+        service_setup = ApiServiceSetupInfo(name=self.cm_service_name, type="MGMT")
+        self.cm_manager.create_mgmt_service(service_setup)
+
+        # install hosts on this CM instance
+        cmd = self.cm_manager.host_install(self.host_username, self.host_list,
+                                           password=self.host_password,
+                                           cm_repo_url=self.cm_repo_url)
+        log.debug("Installing hosts. This might take a while...")
+        while cmd.success is None:
+            sleep(5)
+            cmd = cmd.fetch()
+
+        if cmd.success is not True:
+            log.error("Adding hosts to Cloudera Manager failed: {0}".format(cmd.resultMessage))
+
+        log.info("Host added to Cloudera Manager")
+
+        # first auto-assign roles and auto-configure the CM service
+        self.cm_manager.auto_assign_roles()
+        self.cm_manager.auto_configure()
+
+        # create a cluster on that instance
+        cluster = self.cm_api_resource.create_cluster(self.cluster_name, self.cdh_version)
+        log.info("Cloudera cluster: {0} created".format(self.cluster_name))
+
+        # add all hosts on the cluster
+        cluster.add_hosts(self.host_list)
+
+        cluster = self.cm_api_resource.get_cluster(self.cluster_name)
+
+        # get and list all available parcels
+        parcels_list = []
+        log.debug("Installing parcels...")
+        for p in cluster.get_all_parcels():
+            print '\t' + p.product + ' ' + p.version
+            if p.version.startswith(self.cdh_version_number) and p.product == "CDH":
+                parcels_list.append(p)
+
+        if len(parcels_list) == 0:
+            log.error("No {0} parcel found!".format(self.cdh_version))
+
+        cdh_parcel = parcels_list[0]
+        for p in parcels_list:
+            if p.version > cdh_parcel.version:
+                cdh_parcel = p
+
+        # download the parcel
+        log.debug("Starting parcel downloading...")
+        cmd = cdh_parcel.start_download()
+        if cmd.success is not True:
+            log.error("Parcel download failed!")
+
+        # make sure the download finishes
+        while cdh_parcel.stage != 'DOWNLOADED':
+            sleep(5)
+            cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
+
+        log.info("Parcel: {0} {1} downloaded".format(cdh_parcel.product, cdh_parcel.version))
+
+        # distribute the parcel
+        log.info("Distributing parcels...")
+        cmd = cdh_parcel.start_distribution()
+        if cmd.success is not True:
+            log.error("Parcel distribution failed!")
+
+        # make sure the distribution finishes
+        while cdh_parcel.stage != "DISTRIBUTED":
+            sleep(5)
+            cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
+
+        log.info("Parcel: {0} {1} distributed".format(cdh_parcel.product, cdh_parcel.version))
+
+        # activate the parcel
+        log.info("Activating parcels...")
+        cmd = cdh_parcel.activate()
+        if cmd.success is not True:
+            log.error("Parcel activation failed!")
+
+        # make sure the activation finishes
+        while cdh_parcel.stage != "ACTIVATED":
+            cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
+
+        log.info("Parcel: {0} {1} activated".format(cdh_parcel.product, cdh_parcel.version))
+
+        # inspect hosts and print the result
+        log.info("Inspecting hosts. This might take a few minutes")
+
+        cmd = self.cm_manager.inspect_hosts()
+        while cmd.success is None:
+            sleep(5)
+            cmd = cmd.fetch()
+
+        if cmd.success is not True:
+            log.error("Host inpsection failed!")
+
+        log.info("Hosts successfully inspected:\n".format(cmd.resultMessage))
+        log.info("Cluster {0} installed".format(self.cluster_name))
+
+    def setup_cluster(self):
+        """
+        Setup the default cluster and start basic services (HDFS, YARN and ZOOKEEPER)
+        """
+        log.info("Setting up Cloudera cluster services")
+        # get the cluster
+        cluster = self.cm_api_resource.get_cluster(self.cluster_name)
+
+        # create all the services we want to add; we will only create one instance of each
+        for s in self.service_types_and_names.keys():
+            service_name = self.service_types_and_names[s]
+            cluster.create_service(service_name, s)
+            log.debug("Service: {0} added".format(service_name))
+
+        # auto-assign roles
+        cluster.auto_assign_roles()
+        cluster.auto_configure()
+
+        # start the management service
+        cm_service = self.cm_manager.get_service()
+        # create_CM_roles(master_node, cm_service)
+        cm_service.start().wait()
+
+        # execute the first run command
+        log.debug("Executing first run command. This might take a while...")
+        cmd = cluster.first_run()
+
+        while cmd.success is None:
+            sleep(5)
+            cmd = cmd.fetch()
+
+        if cmd.success is not True:
+            log.error("The first run command failed: {0}".format(cmd.resultMessage()))
+
+        log.info("First run successfully executed. Your cluster has been set up!")
 
     def status(self):
         """
