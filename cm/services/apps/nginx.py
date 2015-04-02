@@ -100,7 +100,7 @@ class NginxService(ApplicationService):
             servers.append(('galaxy', galaxy_server))
         cmf_svc = self.app.manager.service_registry.get_active('ClouderaManager')
         if cmf_svc:
-            servers.append(('cmf', 'server 127.0.0.1:{0};'.format(cmf_svc.port)))
+            servers.append(('cmf', 'server 127.0.0.1:{0};'.format(cmf_svc.cm_port)))
         # Format the active servers
         for server in servers:
             upstream_servers += '''

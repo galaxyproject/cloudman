@@ -53,7 +53,7 @@ class ClouderaManagerService(ApplicationService):
         self.cm_password = "admin"
         self.cm_service_name = "ManagementService"
         self.host_username = "ubuntu"
-	# Read the password from the system!
+        # Read the password from the system!
         self.host_password = self.app.config.get('password')
         self.cm_repo_url = None
         self.service_types_and_names = {
