@@ -236,7 +236,8 @@ class Volume(BlockStorage):
                 wait_forever = False
             while wait_forever or time.time() <= end_time:
                 if self.status == status:
-                    log.debug("Volume {0} ({1}) has reached status '{2}'".format(self.volume_id, self.fs.get_full_name(), status))
+                    log.debug("Volume {0} ({1}) has reached status '{2}'"
+                              .format(self.volume_id, self.fs.get_full_name(), status))
                     return True
                 else:
                     log.debug('Waiting for volume {0} (status "{1}"; {2}) to reach status "{3}". '
@@ -272,9 +273,10 @@ class Volume(BlockStorage):
             try:
                 log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
                           % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
-                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(self.size,
-                                                                                          self.app.cloud_interface.get_zone(),
-                                                                                          snapshot=self.from_snapshot_id)
+                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(
+                    self.size,
+                    self.app.cloud_interface.get_zone(),
+                    snapshot=self.from_snapshot_id)
                 self.size = int(self.volume.size or 0)
                 # when creating from a snapshot in Euca, volume.size may be None
                 log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'"
@@ -637,7 +639,7 @@ class Volume(BlockStorage):
                         log.warning("Mount point {0} already exists and is not "
                                     "empty!? ({2}) Will attempt to mount volume {1}"
                                     .format(mount_point, self.volume_id,
-                                    os.listdir(mount_point)))
+                                            os.listdir(mount_point)))
                         # return False
                 else:
                     log.debug("Creating mount point directory {0} for {1}"

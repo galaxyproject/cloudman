@@ -39,7 +39,7 @@ class SlurmdService(BaseJobManager):
             self.state = service_states.SHUT_DOWN
         else:
             log.debug("Tried to remove {0} service but no deamon running?"
-                .format(self.name))
+                      .format(self.name))
 
     def _setup_slurm(self):
         """
