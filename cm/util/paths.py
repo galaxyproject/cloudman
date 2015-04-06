@@ -81,6 +81,7 @@ except Exception, e:
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_CONF to '{1}'"\
         .format(e, P_PG_CONF)
 
+
 def get_path(name, default_path):
     """
     Get a file system path where a service with the given ``name`` resides/runs

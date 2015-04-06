@@ -93,7 +93,7 @@ class WebApplication(object):
         # Map url using routes
         path_info = environ.get('PATH_INFO', '')
         map = self.mapper.match(path_info)
-        if map == None:
+        if map is None:
             raise httpexceptions.HTTPNotFound("No route for " + path_info)
         # Setup routes
         rc = routes.request_config()
@@ -245,7 +245,7 @@ class FieldStorage(cgi.FieldStorage):
         return tempfile.NamedTemporaryFile()
 
     def read_lines(self):
-    # Always make a new file
+        # Always make a new file
         self.file = self.make_file()
         self.__file = None
         if self.outerboundary:
@@ -263,7 +263,7 @@ class Request(webob.Request):
         """
         Create a new request wrapping the WSGI environment `environ`
         """
-        ## self.environ = environ
+        # self.environ = environ
         webob.Request.__init__(self, environ, charset='utf-8')
     # Properties that are computed and cached on first use
 
@@ -288,9 +288,9 @@ class Request(webob.Request):
     @lazy_property
     def base(self):
         return (self.scheme + "://" + self.host)
-    ## @lazy_property
-    ## def params( self ):
-    ##     return parse_formvars( self.environ )
+    # @lazy_property
+    # def params( self ):
+    #     return parse_formvars( self.environ )
 
     @lazy_property
     def path(self):
@@ -299,15 +299,8 @@ class Request(webob.Request):
     @lazy_property
     def browser_url(self):
         return self.base + self.path
-    # Descriptors that map properties to the associated environment
-    ## scheme = WSGIEnvironmentProperty( 'wsgi.url_scheme' )
-    ## remote_addr = WSGIEnvironmentProperty( 'REMOTE_ADDR' )
     remote_port = WSGIEnvironmentProperty('REMOTE_PORT')
-    ## method = WSGIEnvironmentProperty( 'REQUEST_METHOD' )
-    ## script_name = WSGIEnvironmentProperty( 'SCRIPT_NAME' )
     protocol = WSGIEnvironmentProperty('SERVER_PROTOCOL')
-    ## query_string = WSGIEnvironmentProperty( 'QUERY_STRING' )
-    ## path_info = WSGIEnvironmentProperty( 'PATH_INFO' )
 
 
 class Response(object):
@@ -398,7 +391,7 @@ def flatten(seq):
     """
     for x in seq:
         if isinstance(x, (types.GeneratorType, list, tuple)):
-            for y in flatten(x, encoding):
+            for y in flatten(x):
                 yield y
         else:
             yield x

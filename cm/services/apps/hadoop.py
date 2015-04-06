@@ -108,7 +108,7 @@ class HadoopService(ApplicationService):
             serv_hdp_ver = "0.0"
             serv_intg_ver = "0.0"
 
-            if m != None:
+            if m is not None:
                 serv_hdp_ver, serv_intg_ver = self.get_file_version(srv_hdp)
                 m = re.search(paths.P_HADOOP_INTEGRATION_TAR, s)
                 srv_hdp_intg = m.group(0)
