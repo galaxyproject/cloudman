@@ -44,6 +44,7 @@ class ClouderaManagerService(ApplicationService):
         self.cm_port = 7180
 
         # Default cluster configuration
+        # TODO - read local cloud host name!
         self.cm_host = socket.gethostname()
         self.host_list = [self.cm_host]
         self.cluster_name = "Cluster 1"
@@ -53,7 +54,6 @@ class ClouderaManagerService(ApplicationService):
         self.cm_password = "admin"
         self.cm_service_name = "ManagementService"
         self.host_username = "ubuntu"
-	# Read the password from the system!
         self.host_password = self.app.config.get('password')
         self.cm_repo_url = None
         self.service_types_and_names = {
@@ -210,7 +210,14 @@ class ClouderaManagerService(ApplicationService):
         """
         Create a default cluster and Cloudera Manager Service on master host
         """
-        log.info("Creating a new Cloudera Cluster")
+        log.info("Creating Cloudera cluster: '{0}'. Please wait...".format(self.cluster_name))
+
+        self.cm_host = socket.gethostname()
+        self.host_list = [self.cm_host]
+
+        # api = self.cm_api_resource()
+        # api = ApiResource(self.cm_host, self.cm_port, self.cm_username, self.cm_password)
+        # manager = ClouderaManager(self.cm_api_resource)
         # create the management service
         # first check if mamagement service already exists
         service_setup = ApiServiceSetupInfo(name=self.cm_service_name, type="MGMT")
@@ -228,7 +235,7 @@ class ClouderaManagerService(ApplicationService):
         if cmd.success is not True:
             log.error("Adding hosts to Cloudera Manager failed: {0}".format(cmd.resultMessage))
 
-        log.info("Host added to Cloudera Manager")
+        log.debug("Host added to Cloudera Manager")
 
         # first auto-assign roles and auto-configure the CM service
         self.cm_manager.auto_assign_roles()
@@ -236,7 +243,7 @@ class ClouderaManagerService(ApplicationService):
 
         # create a cluster on that instance
         cluster = self.cm_api_resource.create_cluster(self.cluster_name, self.cdh_version)
-        log.info("Cloudera cluster: {0} created".format(self.cluster_name))
+        log.debug("Cloudera cluster: {0} created".format(self.cluster_name))
 
         # add all hosts on the cluster
         cluster.add_hosts(self.host_list)
@@ -270,10 +277,10 @@ class ClouderaManagerService(ApplicationService):
             sleep(5)
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} downloaded".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} downloaded".format(cdh_parcel.product, cdh_parcel.version))
 
         # distribute the parcel
-        log.info("Distributing parcels...")
+        log.debug("Distributing parcels...")
         cmd = cdh_parcel.start_distribution()
         if cmd.success is not True:
             log.error("Parcel distribution failed!")
@@ -283,10 +290,10 @@ class ClouderaManagerService(ApplicationService):
             sleep(5)
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} distributed".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} distributed".format(cdh_parcel.product, cdh_parcel.version))
 
         # activate the parcel
-        log.info("Activating parcels...")
+        log.debug("Activating parcels...")
         cmd = cdh_parcel.activate()
         if cmd.success is not True:
             log.error("Parcel activation failed!")
@@ -295,10 +302,10 @@ class ClouderaManagerService(ApplicationService):
         while cdh_parcel.stage != "ACTIVATED":
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} activated".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} activated".format(cdh_parcel.product, cdh_parcel.version))
 
         # inspect hosts and print the result
-        log.info("Inspecting hosts. This might take a few minutes")
+        log.debug("Inspecting hosts. This might take a few minutes")
 
         cmd = self.cm_manager.inspect_hosts()
         while cmd.success is None:
@@ -308,14 +315,14 @@ class ClouderaManagerService(ApplicationService):
         if cmd.success is not True:
             log.error("Host inpsection failed!")
 
-        log.info("Hosts successfully inspected:\n".format(cmd.resultMessage))
-        log.info("Cluster {0} installed".format(self.cluster_name))
+        log.debug("Hosts successfully inspected:\n".format(cmd.resultMessage))
+        log.info("Cluster '{0}' installed".format(self.cluster_name))
 
     def setup_cluster(self):
         """
         Setup the default cluster and start basic services (HDFS, YARN and ZOOKEEPER)
         """
-        log.info("Setting up Cloudera cluster services")
+        log.info("Setting up cluster services...")
         # get the cluster
         cluster = self.cm_api_resource.get_cluster(self.cluster_name)
 
