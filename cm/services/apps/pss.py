@@ -158,8 +158,9 @@ class PSSService(ApplicationService):
             log.debug("No PSS provided or obtained; continuing.")
         # Prime the object with instance data
         self._prime_data()
+        # self.activated = False
+        self.remove()
         self.state = service_states.COMPLETED
-        self.activated = False
         log.debug("%s service done and marked as '%s'" % (self.name, self.state))
 
     def save_to_bucket(self):
