@@ -99,7 +99,8 @@ class PSSService(ApplicationService):
                 # Reset state so it gets picked up by the monitor thread again
                 self.state = service_states.UNSTARTED
                 return False
-            self.start()
+            # Running the pss may take a while, so do it in its own thread.
+            threading.Thread(target=self.start).start()
             return True
         else:
             log.debug("Not adding {0} svc; it completed ({1}) or the cluster was "
@@ -110,23 +111,20 @@ class PSSService(ApplicationService):
 
     def start(self):
         """
-        Start this service by running the 'post start script'.
+        Start this service by running the 'Post Start Script'.
 
-        Attempt to download post_start_script from `post_start_script_url`
+        Attempt to download `post_start_script` from `post_start_script_url`
         (for master) or `worker_post_start_script_url` (for worker)
         as they are defined in user data. If these URL's are not defined in the
         user data, look if files `post_start_script` or
-        `worker_post_start_script` for master and worker respectivley in the
-        cluster bucket and download those. Then run the script, else mark the
-        service as COMPLETED and mark it as 'not active'.
+        `worker_post_start_script` for master and worker respectivley exist in
+        the cluster bucket and download those. If obtained, run the script(s),
+        else mark the service as COMPLETED and as 'not active'.
         """
         log.debug("Starting %s service" % self.name)
-        # All other services OK, start this one now
         self.state = service_states.RUNNING
-        log.debug("Checking if %s was provided..." % (self.name, self.pss_filename))
         local_pss_file = os.path.join(self.app.config['cloudman_home'], self.pss_filename)
-        # Check user data first to allow overwriting of a potentially existing
-        # script
+        # Check user data first to allow overwriting of potentially existing pss
         if self.pss_url:
             # This assumes the provided URL is readable to anyone w/o authentication
             # First check if the file actually exists
@@ -134,20 +132,18 @@ class PSSService(ApplicationService):
                 misc.run('wget --output-document=%s %s' % (
                     local_pss_file, self.pss_url))
             else:
-                log.error(
-                    "Specified post_start_script url (%s) does not exist" % self.pss_url)
+                log.error("Specified post_start_script_url (%s) does not exist."
+                          % self.pss_url)
         else:
+            # Try to download the pss from the cluster's bucket
+            cluster_bucket_name = self.app.config['bucket_cluster']
+            log.debug("post_start_script_url not provided, will check if file "
+                      "{0} exists in the cluster bucket ({1})."
+                      .format(self.pss_filename, cluster_bucket_name))
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            b = None
-            if s3_conn and 'bucket_cluster' in self.app.config:
-                b = misc.get_bucket(s3_conn, self.app.config['bucket_cluster'])
-            if b is not None:  # Check if the existing cluster has a stored PSS
-                log.debug("Cluster bucket '%s' found; looking for post start "
-                          "script '%s'" % (b.name, self.pss_filename))
-                misc.get_file_from_bucket(s3_conn, b.name, self.pss_filename,
-                                          local_pss_file)
-            else:
-                log.debug("No s3_conn or the cluster bucket not found.")
+            misc.get_file_from_bucket(s3_conn, cluster_bucket_name,
+                                      self.pss_filename, local_pss_file)
+        # If we got a script, run it
         if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this "
                      "may take a while)" % (self.pss_filename, os.path.join(
@@ -157,21 +153,14 @@ class PSSService(ApplicationService):
             misc.run('cd %s;./%s' % (self.app.config[
                      'cloudman_home'], self.pss_filename))
             self.save_to_bucket()
-            log.info("Done running {0}".format(self.pss_filename))
+            log.info("Done running PSS {0}".format(self.pss_filename))
         else:
-            log.debug("%s does not exist or could not be downloaded; continuing "
-                      "without running it." % self.name)
-        # Prime the object with instance data (because this may take a while
-        # on some clouds, do so in a separate thread)
-        threading.Thread(target=self._prime_data).start()
-        self.state = service_states.SHUT_DOWN
-        log.debug("%s service done and marked as '%s'" % (self.name, self.state))
-        if self.instance_role == 'master':
-            # On master, remove the service upon completion (PSS runs only
-            # once)
-            self.remove()
+            log.debug("No PSS provided or obtained; continuing.")
+        # Prime the object with instance data
+        self._prime_data()
         self.state = service_states.COMPLETED
         self.activated = False
+        log.debug("%s service done and marked as '%s'" % (self.name, self.state))
 
     def save_to_bucket(self):
         """
@@ -181,7 +170,10 @@ class PSSService(ApplicationService):
         and it not older than the local one.
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
-        if not s3_conn:
+        cluster_bucket_name = self.app.config['bucket_cluster']
+        if not s3_conn or not misc.bucket_exists(s3_conn, cluster_bucket_name):
+            log.debug("No s3_conn or cluster bucket {0} does not exist; not "
+                      "saving the pss in the bucket".format(cluster_bucket_name))
             return
         pss_file = os.path.join(
             self.app.config['cloudman_home'], self.pss_filename)
