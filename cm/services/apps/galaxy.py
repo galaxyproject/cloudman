@@ -160,8 +160,9 @@ class GalaxyService(ApplicationService):
                 self.state = service_states.SHUT_DOWN
                 self.last_state_change_time = datetime.utcnow()
                 # Move all log files
-                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; do mv \"$f\" \"$f.%s\"; done'"
-                    % datetime.utcnow().strftime('%H_%M'), shell=True)
+                subprocess.call("bash -c 'for f in $GALAXY_HOME/{main,handler,manager,web}*.log; "
+                                "do mv \"$f\" \"$f.%s\"; done'" % datetime.utcnow()
+                                .strftime('%H_%M'), shell=True)
 
     def multiple_processes(self):
         return self.app.config.multiple_processes
@@ -207,8 +208,8 @@ class GalaxyService(ApplicationService):
             else:
                 log.error("Galaxy daemon not running.")
                 if self.remaining_start_attempts > 0:
-                    log.debug("Remaining Galaxy start attempts: {0}; setting svc state to UNSTARTED"
-                        .format(self.remaining_start_attempts))
+                    log.debug("Remaining Galaxy start attempts: {0}; setting svc state "
+                              "to UNSTARTED".format(self.remaining_start_attempts))
                     self.state = service_states.UNSTARTED
                     self.last_state_change_time = datetime.utcnow()
                 else:

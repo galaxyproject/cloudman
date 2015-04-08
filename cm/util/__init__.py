@@ -210,8 +210,8 @@ class ExtractArchive(threading.Thread):
             archive_size = head_response.headers.get('content-length', -1)
             log.debug("Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
                       .format(self.archive_url, misc.nice_size(archive_size),
-                      self.path, misc.nice_size(misc.get_dir_size(self.path)),
-                      datetime.utcnow() - start))
+                              self.path, misc.nice_size(misc.get_dir_size(self.path)),
+                              datetime.utcnow() - start))
             return hexdigest
         except Exception, e:
             log.error("Exception extracting archive {0} to {1}: {2}".format(

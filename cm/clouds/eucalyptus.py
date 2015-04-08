@@ -12,7 +12,7 @@ from boto.ec2.connection import EC2Connection
 from boto.ec2.regioninfo import RegionInfo
 from boto.exception import EC2ResponseError
 
-## debugging
+# Debugging
 import traceback
 
 

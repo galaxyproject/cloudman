@@ -76,8 +76,8 @@ def populate_dynamic_options(option_manager):
                 option_manager.set_properties({key: value}, section=section)
 
 
-## High-level functions that utilize option_manager interface (defined below)
-## to configure Galaxy's options.
+# High-level functions that utilize option_manager interface (defined below)
+# to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
     Use `option_manager` to populate process (handler, manager, web) sections
@@ -88,10 +88,10 @@ def populate_process_options(option_manager):
     handler_thread_count = int(app.config.get("handler_thread_count", 1))
     # Setup web threads
     [__add_server_process(option_manager, i, "web", 8080)
-        for i in range(web_thread_count)]
+     for i in range(web_thread_count)]
     # Setup handler threads
     handlers = [__add_server_process(option_manager, i, "handler", 9080)
-        for i in range(handler_thread_count)]
+                for i in range(handler_thread_count)]
     # Setup manager thread
     __add_server_process(option_manager, 0, "manager", 8079)
     process_properties = {"job_manager": "manager0",
@@ -119,7 +119,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
     return server_name
 
 
-## Abstraction for interacting with Galaxy's options
+# Abstraction for interacting with Galaxy's options
 def galaxy_option_manager(app):
     """ Returns a high-level class for managing Galaxy options.
     """

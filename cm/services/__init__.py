@@ -312,7 +312,8 @@ class Service(object):
             # List of service prerequisites that have not been satisfied
             for dependency in self.dependencies:
                 # log.debug("'%s' service checking its prerequisite '%s:%s'"
-                #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role), dependency.owning_service.name))
+                #   % (self.get_full_name(), ServiceRole.to_string(dependency.service_role),
+                #      dependency.owning_service.name))
                 no_services_satisfy_dependency = True
                 remove_dependency = False
                 for svc in self.app.manager.service_registry.itervalues():
@@ -362,7 +363,7 @@ class Service(object):
         for dependent_service in dependent_services:
             log.debug("Initiating removal of service {0} because it "
                       "depends on {1}".format(dependent_service.get_full_name(),
-                      self.name))
+                                              self.name))
             dependent_service.remove()
             log.debug("Setting dependent service {0} as not `activated`"
                       .format(dependent_service.get_full_name()))

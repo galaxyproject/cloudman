@@ -22,7 +22,7 @@ class PostgresService(ApplicationService):
         self.svc_roles = [ServiceRole.GALAXY_POSTGRES]
         self.psql_port = app.path_resolver.psql_db_port
         self.dependencies = [ServiceDependency(self, ServiceRole.GALAXY_DATA),
-                     ServiceDependency(self, ServiceRole.MIGRATION)]
+                             ServiceDependency(self, ServiceRole.MIGRATION)]
 
     def start(self):
         self.state = service_states.STARTING
@@ -109,8 +109,9 @@ class PostgresService(ApplicationService):
                         "Starting PostgreSQL on port {0} as part of the initial setup..."
                         .format(self.psql_port))
                     cmd = ('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o \\\"-p %s\\\" start"'
-                        % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port))
-                    cont = misc.run(cmd,
+                           % (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port))
+                    cont = misc.run(
+                        cmd,
                         "Error starting postgres server as part of the initial configuration",
                         "Successfully started Postgres on port {0} as part of the initial configuration."
                         .format(self.psql_port))
@@ -153,7 +154,7 @@ class PostgresService(ApplicationService):
                 # Start PostgreSQL database
                 log.debug("Starting PostgreSQL...")
                 if misc.run('%s - postgres -c "%s/pg_ctl -w -D %s -l /tmp/pgSQL.log -o\\\"-p %s\\\" start"' %
-                           (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
+                            (paths.P_SU, self.app.path_resolver.pg_home, psql_data_dir, self.psql_port)):
                     self.status()
             else:
                 log.debug("PostgreSQL already running (%s, %s)" % (

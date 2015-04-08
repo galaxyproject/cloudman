@@ -30,8 +30,9 @@ class SlurmctldService(BaseJobManager):
         self.slurm_info = SlurmInfo()
         self.num_restarts = 0
         self.max_restarts = 3
+        # This must be the same on the workers
         self.slurm_lock_file = os.path.join(self.app.path_resolver.slurm_root_nfs,
-            'slurm.lockfile')  # This must be the same on the workers
+                                            'slurm.lockfile')
         # Following a cluster reboot, this file may have been left over so
         # clean it up before starting the service
         if os.path.exists(self.slurm_lock_file):
@@ -60,7 +61,7 @@ class SlurmctldService(BaseJobManager):
             self.state = service_states.SHUT_DOWN
         else:
             log.debug("Tried to remove {0} service but no deamon running?"
-                .format(self.name))
+                      .format(self.name))
 
     def _setup_munge(self):
         """
@@ -87,7 +88,7 @@ class SlurmctldService(BaseJobManager):
         Setup ``slurmctld`` process.
         """
         log.debug("Setting up Slurmctld... (if stuck here for a while, check {0})"
-            .format(self.slurm_lock_file))
+                  .format(self.slurm_lock_file))
         if not os.path.exists('/etc/slurm-llnl'):
             # Slurm package not installed so grab it
             misc.run("apt-get install slurm-llnl -y")
@@ -114,7 +115,7 @@ class SlurmctldService(BaseJobManager):
                 if w.worker_status in ['Ready', 'Startup']:
                     wnc += ('NodeName={0} NodeAddr={1} CPUs={2} RealMemory={3} Weight=5 State=UNKNOWN\n'
                             .format(w.alias, w.private_ip, w.num_cpus,
-                            max(1, w.total_memory / 1024)))
+                                    max(1, w.total_memory / 1024)))
                     wnn += ',{0}'.format(w.alias)
             log.debug("Worker node names to include in slurm.conf: {0}".format(wnn[1:]))
             return wnc, wnn
@@ -124,7 +125,7 @@ class SlurmctldService(BaseJobManager):
             # Make sure the slurm root dir exists and is owned by slurm user
             misc.make_dir(self.app.path_resolver.slurm_root_tmp)
             os.chown(self.app.path_resolver.slurm_root_tmp,
-                pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
+                     pwd.getpwnam("slurm")[2], grp.getgrnam("slurm")[2])
             worker_nodes, worker_names = _worker_nodes_conf()
             slurm_conf_template = conf_manager.load_conf_template(conf_manager.SLURM_CONF_TEMPLATE)
             slurm_conf_params = {

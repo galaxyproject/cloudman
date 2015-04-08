@@ -56,7 +56,7 @@ def cluster_ready(func):
         if current_status != cluster_status.READY:
             log.debug("Cluster not yet ready ({0}), skipping method {1}->{2}.{3}"
                       .format(current_status, cl.__module__, cl.__class__.__name__,
-                      func.func_name))
+                              func.func_name))
         else:
             # The cluster is READY, call the method
             func(*args, **kwargs)
@@ -79,7 +79,8 @@ def delay(func):
         if delta < cl.delay:
             log.debug("Delay trigger not met (delta: {0}; delay: {1}. skipping "
                       "method {2}->{3}.{4}".format(delta, cl.delay, cl.__module__,
-                      cl.__class__.__name__, func.func_name))
+                                                   cl.__class__.__name__,
+                                                   func.func_name))
         else:
             # The delay has passed, call the method
             return func(*args, **kwargs)

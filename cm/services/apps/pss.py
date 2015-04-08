@@ -92,8 +92,9 @@ class PSSService(ApplicationService):
             return True
         else:
             log.debug("Not adding {0} svc; it completed ({1}) or the cluster was "
-                "not yet initialized ({2})".format(self.name,
-                self.state == service_states.COMPLETED, self.app.manager.initial_cluster_type))
+                      "not yet initialized ({2})"
+                      .format(self.name, self.state == service_states.COMPLETED,
+                              self.app.manager.initial_cluster_type))
             return False
 
     def start(self):

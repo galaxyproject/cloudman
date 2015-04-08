@@ -58,12 +58,12 @@ class ProFTPdService(ApplicationService):
         # Check if galaxtftp role already exists
         cmd = ('{0} - postgres -c"{1} -p {2} -tAc\\\"SELECT 1 FROM pg_roles WHERE rolname=\'galaxyftp\'\\\""'
                .format(paths.P_SU, self.app.path_resolver.psql_cmd,
-               self.app.path_resolver.psql_db_port))
+                       self.app.path_resolver.psql_db_port))
         role = 'ALTER' if misc.getoutput(cmd) == '1' else 'CREATE'
         # Now either CREATE or ALTER the galaxyftp role to set the permissions
         cmd = ('{0} - postgres -c"{1} -p {4} -c\\\"{2} ROLE galaxyftp LOGIN PASSWORD \'{3}\'\\\""'
                .format(paths.P_SU, self.app.path_resolver.psql_cmd, role,
-               gftp_pwd, self.app.path_resolver.psql_db_port))
+                       gftp_pwd, self.app.path_resolver.psql_db_port))
         misc.run(cmd)
         # Update the config to match the current environment
         proftpd_tmplt = conf_manager.PROFTPD_CONF_TEMPLATE

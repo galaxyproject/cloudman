@@ -144,7 +144,9 @@ class Filesystem(DataService):
             self.status()
             log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4}, {5})"
                       .format(self.get_full_name(), self.volumes, self.buckets,
-                      self.transient_storage, self.nfs_fs.device if self.nfs_fs else '-', self.gluster_fs.device if self.gluster_fs else '-'))
+                              self.transient_storage,
+                              self.nfs_fs.device if self.nfs_fs else '-',
+                              self.gluster_fs.device if self.gluster_fs else '-'))
             return True
         else:
             log.debug("Data service {0} in {2} state instead of {1} state; cannot add it"
@@ -165,11 +167,12 @@ class Filesystem(DataService):
 
         """
         log.info("Initiating removal of '{0}' data service with: volumes {1}, buckets {2}, "
-                 "transient storage {3}, nfs server {4} and gluster fs {5}".format(self.get_full_name(),
-                 self.volumes, self.buckets, self.transient_storage, self.nfs_fs, self.gluster_fs))
+                 "transient storage {3}, nfs server {4} and gluster fs {5}"
+                 .format(self.get_full_name(), self.volumes, self.buckets,
+                         self.transient_storage, self.nfs_fs, self.gluster_fs))
         self.state = service_states.SHUTTING_DOWN
         r_thread = threading.Thread(target=self.__remove, kwargs={'delete_devices':
-            delete_devices})
+                                                                  delete_devices})
         r_thread.start()
         if synchronous:
             r_thread.join()
@@ -369,7 +372,7 @@ class Filesystem(DataService):
         else:
             log.warning("Did not find a volume attached to instance '%s' as device '%s', file system "
                         "'%s' (vols=%s)" % (self.app.cloud_interface.get_instance_id(),
-                        device, self.name, vols))
+                                            device, self.name, vols))
 
     def nfs_share_and_set_state(self, ok_state=service_states.RUNNING,
                                 err_state=service_states.ERROR, mount_point=None):
@@ -511,9 +514,10 @@ class Filesystem(DataService):
         """
         if self.state == service_states.STARTING and \
                 (datetime.utcnow() - self.started_starting).seconds < wait_period:
-            log.debug(
-                "{0} in '{2}' state for {1} seconds".format(self.get_full_name(),
-                (datetime.utcnow() - self.started_starting).seconds, service_states.STARTING))
+            log.debug("{0} in '{2}' state for {1} seconds"
+                      .format(self.get_full_name(),
+                              (datetime.utcnow() - self.started_starting).seconds,
+                              service_states.STARTING))
             return True
         return False
 

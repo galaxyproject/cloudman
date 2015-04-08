@@ -63,7 +63,7 @@ def test_populate_process_options():
         assert "server:%s" % name in options
     for name in ["web3", "handler2"]:
         assert "server:%s" % name not in options
-    ## TODO: Actually test configuration of sections, thread count, etc...
+    # TODO: Actually test configuration of sections, thread count, etc...
 
 
 def test_populate_dynamic_options():
@@ -120,7 +120,7 @@ class TestOptionManager(object):
         self.options = {}
 
     def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
-        if not section in self.options:
+        if section not in self.options:
             self.options[section] = {}
         self.options[section].update(properties)
 

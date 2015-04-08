@@ -53,8 +53,8 @@ def _which(log, program, additional_paths=[]):
     the ``program`` was not found, return ``None``.
     """
     def _is_exec(fpath):
-        log.debug("%s is file: %s; it's executable: %s" % (fpath, os.path.isfile(fpath),
-                    os.access(fpath, os.X_OK)))
+        log.debug("%s is file: %s; it's executable: %s" % (fpath,
+                  os.path.isfile(fpath), os.access(fpath, os.X_OK)))
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
     fpath, fname = os.path.split(program)
@@ -76,7 +76,7 @@ def _nginx_executable(log):
     Get the path of the nginx executable
     """
     possible_paths = ['/usr/sbin', '/usr/nginx/sbin',
-                     '/opt/galaxy/pkg/nginx/sbin']
+                      '/opt/galaxy/pkg/nginx/sbin']
     return _which(log, 'nginx', possible_paths)
 
 

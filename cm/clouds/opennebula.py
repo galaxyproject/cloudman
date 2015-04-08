@@ -19,7 +19,8 @@ log = logging.getLogger('cloudman')
 
 class ONInterface(CloudInterface):
 
-    def __init__(self, aws_access_key=None, aws_secret_key=None, app=None, on_username=None, on_password=None, on_host=None, on_proxy=None):
+    def __init__(self, aws_access_key=None, aws_secret_key=None, app=None,
+                 on_username=None, on_password=None, on_host=None, on_proxy=None):
         super(ONInterface, self).__init__()
         self.app = app
         self.bridge = 72
@@ -102,7 +103,7 @@ class ONInterface(CloudInterface):
 
     def get_ec2_connection(self):
         log.debug('Getting OpenNebula connection')
-        if self.ec2_conn == None:
+        if self.ec2_conn is None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
                 self.ec2_conn = Client("%s:%s" % (
@@ -128,7 +129,7 @@ class ONInterface(CloudInterface):
         # Note: S3 = storage (bucket)
         # Opennebula cloud has no storage
         log.debug('Getting OpenNebula connection')
-        if self.s3_conn == None:
+        if self.s3_conn is None:
             log.debug("No OpenNebula Connection, creating a new one.")
             try:
                 self.s3_conn = Client("%s:%s" % (
@@ -153,9 +154,7 @@ class ONInterface(CloudInterface):
                 # local machine hwaddr = 00:22:64:ae:3d:fd
                 # TODO
                 if self._getMacAddress('eth0') != '00:22:64:ae:3d:fd':
-                # if int(self.get_private_ip().split('.')[2]) ==
-                # int(self.bridge):
-                    ret_code = subprocess.call('sudo telinit 6', shell=True)
+                    subprocess.call('sudo telinit 6', shell=True)
 
             except Exception, e:
                 log.error(e)
@@ -163,11 +162,6 @@ class ONInterface(CloudInterface):
         # return None
 
     def run_instances(self, num, instance_type, **kwargs):
-
-        # TODO: Change this!!
-        username = 'mdhollander'
-        diskimage = 'vm-lucid-amd64-serial-galaxy-worker.img'
-        vmname = "Cloudman_Node"
 
         log.debug("Adding {0} OpenNebula Worker nodes".format(num))
         # TODO: Remove public NIC? Save disk?
@@ -177,7 +171,7 @@ class ONInterface(CloudInterface):
 # DISK=[TYPE=\"disk\", SOURCE=\"/home/%s/images/%s\", TARGET=\"hda\", CLONE=\"yes\", SAVE=\"no\", READONLY=\"n\" ]
 # NIC=[NETWORK=\"%s\", MODEL=\"virtio\"]
 # NIC=[NETWORK=\"public\", MODEL=\"virtio\"]
-#""" % (vmname, username, diskimage, username)
+# """ % (vmname, username, diskimage, username)
 
         vmtemplatestring = """
 CPU=1
@@ -206,7 +200,7 @@ VCPU=1
 """
         r = Reservations()
         for i in range(1, num + 1):
-            new_vm_id = VirtualMachine.allocate(self.s3_conn, vmtemplatestring)
+            VirtualMachine.allocate(self.s3_conn, vmtemplatestring)
 
             # Get the just initiated instances
             # TODO: Is there another way to retrieve it? Using new_vm_id?

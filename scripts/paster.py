@@ -1,13 +1,12 @@
 """
-Bootstrap the Galaxy framework.
+Bootstrap the CloudMan framework.
 
-This should not be called directly!  Use the run.sh script in Galaxy's
-top level directly.
+This should not be called directly! Use the `run.sh` script in CloudMan's
+top level directory.
 """
 
 import os
 import sys
-import paste
 
 # ensure supported version
 from check_python import check_python

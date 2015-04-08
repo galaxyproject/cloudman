@@ -136,7 +136,9 @@ class UniverseWebTransaction(base.DefaultWebTransaction):
         `refresh_frames`: names of frames in the interface that should be
                           refreshed when the message is displayed
         """
-        return self.fill_template("message.mako", status=type, message=message, refresh_frames=refresh_frames, cont=cont, use_panels=use_panels, active_view=active_view)
+        return self.fill_template("message.mako", status=type, message=message,
+                                  refresh_frames=refresh_frames, cont=cont,
+                                  use_panels=use_panels, active_view=active_view)
 
     def show_error_message(self, message, refresh_frames=[], use_panels=False, active_view=""):
         """
@@ -172,7 +174,11 @@ class UniverseWebTransaction(base.DefaultWebTransaction):
         else:
             template = mako.template.Template(
                 file=os.path.join(self.app.config.template_path, filename),
-                searchList=[kwargs, self.template_context, dict(caller=self, t=self, h=helpers, util=util, request=self.request, response=self.response, app=self.app)])
+                searchList=[kwargs, self.template_context, dict(caller=self, t=self,
+                                                                h=helpers, util=util,
+                                                                request=self.request,
+                                                                response=self.response,
+                                                                app=self.app)])
             return str(template)
 
     def fill_template_mako(self, filename, **kwargs):
@@ -191,7 +197,6 @@ class UniverseWebTransaction(base.DefaultWebTransaction):
                     request=self.request, response=self.response, app=self.app)
         data.update(self.template_context)
         data.update(kwargs)
-        ## return template.render( **data )
 
         def render(environ, start_response):
             response_write = start_response(self.response.wsgi_status(

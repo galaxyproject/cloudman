@@ -1,5 +1,4 @@
 """Galaxy CM worker manager"""
-
 import commands
 import datetime as dt
 import grp
@@ -24,7 +23,6 @@ from cm.util.bunch import Bunch
 from cm.util.decorators import TestFlag
 from cm.util.manager import BaseConsoleManager
 from cm.util.misc import flock
-from cm.conftemplates import conf_manager
 
 log = logging.getLogger('cloudman')
 
@@ -122,8 +120,9 @@ class ConsoleManager(BaseConsoleManager):
                 for mp in mount_points_dict['mount_points']:
                     # TODO use the actual filesystem name for accounting/status
                     # updates
-                    mount_points.append(
-                        (mp['fs_name'], mp['shared_mount_path'], mp['fs_type'], mp['server'], mp.get('mount_options', None)))
+                    mount_points.append(mp['fs_name'], mp['shared_mount_path'],
+                                        mp['fs_type'], mp['server'],
+                                        mp.get('mount_options', None))
             else:
                 raise Exception("Mount point parsing failure.")
         except Exception, e:
@@ -569,10 +568,6 @@ class ConsoleMonitor(object):
                 if self.app.manager.worker_status == worker_states.WAKE:
                     self.send_alive_message()
                     self.app.manager.worker_status = worker_states.INITIAL_STARTUP
-                # elif (dt.datetime.utcnow() - self.last_state_change_time).seconds > 720 and self.app.manager.worker_status != worker_states.ERROR:
-                #         log.info( "Stuck in state '%s' too long, reseting and trying again..." % self.app.manager.worker_status )
-                #         self.app.manager.worker_status = worker_states.INITIAL_STARTUP
-                #         self.last_state_change_time = dt.datetime.utcnow()
                 try:
                     m = self.conn.recv()
                 except IOError, e:

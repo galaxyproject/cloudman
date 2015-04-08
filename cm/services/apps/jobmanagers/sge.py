@@ -316,7 +316,7 @@ class SGEService(BaseJobManager):
         else:
             ok = False
             log.error("Process encountered problems adding instance {0} as administrative "
-                   "host. Process returned code {1}".format(inst_alias, proc.returncode))
+                      "host. Process returned code {1}".format(inst_alias, proc.returncode))
             stdout, stderr = proc.communicate()
             log.debug("Adding instance {0} SGE administrative host stdout (private IP: {1}): {2}"
                       .format(inst_alias, inst_private_ip, stdout))
@@ -493,8 +493,9 @@ class SGEService(BaseJobManager):
         log.debug("Removing instance {0} from SGE administrative host list".format(
             inst_alias))
         return misc.run('export SGE_ROOT=%s; . $SGE_ROOT/default/common/settings.sh; '
-                        '%s/bin/lx24-amd64/qconf -dh %s' % (self.app.path_resolver.sge_root,
-                            self.app.path_resolver.sge_root, inst_private_ip))
+                        '%s/bin/lx24-amd64/qconf -dh %s' %
+                        (self.app.path_resolver.sge_root,
+                         self.app.path_resolver.sge_root, inst_private_ip))
 
     def _remove_instance_from_exec_list(self, inst_alias, inst_private_ip):
         """
@@ -551,8 +552,10 @@ class SGEService(BaseJobManager):
         Run the ``qstat [args]`` command (as root user) and return the output
         """
         cmd = ('export SGE_ROOT={0};. {1}/default/common/settings.sh;'
-               '{2}/bin/lx24-amd64/qstat {3}'.format(self.app.path_resolver.sge_root,
-               self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, args))
+               '{2}/bin/lx24-amd64/qstat {3}'
+               .format(self.app.path_resolver.sge_root,
+                       self.app.path_resolver.sge_root,
+                       self.app.path_resolver.sge_root, args))
         return misc.run(cmd, quiet=True)
 
     def add_node(self, instance):
@@ -618,8 +621,9 @@ class SGEService(BaseJobManager):
         """
         log.debug("Suspending SGE queue {0}".format(queue_name))
         misc.run('export SGE_ROOT={0}; . $SGE_ROOT/default/common/settings.sh; '
-                 '{1}/bin/lx24-amd64/qmod -sq {2}'.format(self.app.path_resolver.sge_root,
-                 self.app.path_resolver.sge_root, queue_name))
+                 '{1}/bin/lx24-amd64/qmod -sq {2}'
+                 .format(self.app.path_resolver.sge_root,
+                         self.app.path_resolver.sge_root, queue_name))
 
     def unsuspend_queue(self, queue_name='all.q'):
         """
@@ -627,8 +631,9 @@ class SGEService(BaseJobManager):
         """
         log.debug("Unsuspending SGE queue {0}".format(queue_name))
         misc.run('export SGE_ROOT={0}; . $SGE_ROOT/default/common/settings.sh; '
-                 '{1}/bin/lx24-amd64/qmod -usq {2}'.format(self.app.path_resolver.sge_root,
-                 self.app.path_resolver.sge_root, queue_name))
+                 '{1}/bin/lx24-amd64/qmod -usq {2}'
+                 .format(self.app.path_resolver.sge_root,
+                         self.app.path_resolver.sge_root, queue_name))
 
     def jobs(self):
         """
@@ -642,10 +647,12 @@ class SGEService(BaseJobManager):
         (assuming one should be available based on the current state of the
         cluster). If so, return ``True``, ``False`` otherwise.
         """
-        qstat_out = commands.getoutput('%s - galaxy -c "export SGE_ROOT=%s;\
+        qstat_out = commands.getoutput(
+            '%s - galaxy -c "export SGE_ROOT=%s;\
             . %s/default/common/settings.sh; \
-            %s/bin/lx24-amd64/qstat -f | grep all.q"'
-                                       % (paths.P_SU, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root, self.app.path_resolver.sge_root))
+            %s/bin/lx24-amd64/qstat -f | grep all.q"' %
+            (paths.P_SU, self.app.path_resolver.sge_root,
+             self.app.path_resolver.sge_root, self.app.path_resolver.sge_root))
         qstat_out = qstat_out.split('\n')
         cleaned_qstat_out = []
         for line in qstat_out:

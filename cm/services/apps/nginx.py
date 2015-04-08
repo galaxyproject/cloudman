@@ -93,14 +93,14 @@ class NginxService(ApplicationService):
                 galaxy_server = 'ip_hash;'
                 if web_thread_count > 9:
                     log.warning("Current code supports max 9 web threads. "
-                        "Setting the web thread count to 9.")
+                                "Setting the web thread count to 9.")
                     web_thread_count = 9
                 for i in range(web_thread_count):
                     galaxy_server += "server 127.0.0.1:808%s;" % i
             servers.append(('galaxy', galaxy_server))
         cmf_svc = self.app.manager.service_registry.get_active('ClouderaManager')
         if cmf_svc:
-            servers.append(('cmf', 'server 127.0.0.1:{0};'.format(cmf_svc.port)))
+            servers.append(('cmf', 'server 127.0.0.1:{0};'.format(cmf_svc.cm_port)))
         # Format the active servers
         for server in servers:
             upstream_servers += '''
@@ -147,7 +147,7 @@ class NginxService(ApplicationService):
                 certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
                 keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
                 misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
-                    "rsa:1024 -keyout " + keyfile + " -out " + certfile)
+                         "rsa:1024 -keyout " + keyfile + " -out " + certfile)
                 misc.run("chmod 440 " + keyfile)
                 server_tmplt = conf_manager.NGINX_SERVER_SSL
                 log.debug("Using Nginx v1.4+ template w/ SSL")

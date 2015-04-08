@@ -35,7 +35,7 @@ class MasterInstanceTestCase(TestCase):
         assert instance.get_cloud_instance_object(deep=True) is fresh_instance
 
     def test_get_m_state(self):
-        assert self.instance.m_state == None
+        assert self.instance.m_state is None
         self.__seed_fresh_instance(state=instance_states.RUNNING)
         assert self.instance.get_m_state() == instance_states.RUNNING
         assert self.instance.m_state == instance_states.RUNNING
@@ -65,7 +65,7 @@ class MasterInstanceTestCase(TestCase):
         thread.join()
         assert self.instance.inst is None
         assert self.instance.terminate_attempt_count == 1
-        assert not self.instance in self.app.manager.worker_instances
+        assert self.instance not in self.app.manager.worker_instances
 
     def test_terminate_failure(self):
         self.__expect_terminatation(success=False)
@@ -242,7 +242,7 @@ class MasterInstanceTestCase(TestCase):
         return inst
 
     def __expect_terminatation(self, success):
-        self.app.cloud_interface.expect_terminatation( \
+        self.app.cloud_interface.expect_terminatation(
             DEFAULT_MOCK_BOTO_INSTANCE_ID, spot_request_id=None, success=success)
 
     def __seed_fresh_instance(self, state=None):

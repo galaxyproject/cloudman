@@ -73,7 +73,7 @@ class HTCondorService(ApplicationService):
                 self.state = service_states.RUNNING
             else:
                 log.error("HTCondor config file {0} not found!"
-                    .format(paths.P_HTCONDOR_CONFIG_PATH))
+                          .format(paths.P_HTCONDOR_CONFIG_PATH))
         except Exception, e:
             log.debug("Error while configuring HTCondor: {0}".format(e))
             self.state = service_states.ERROR
@@ -139,7 +139,6 @@ class HTCondorService(ApplicationService):
             return -1
         default_val = ""
         for line in fileinput.input(file):
-            #log.debug(line)
             if not line.strip():  # skip empty or space padded lines
                 continue
 

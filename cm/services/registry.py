@@ -171,7 +171,7 @@ class ServiceRegistry(object):
                 elif service and service.name in self.services:
                     # Reload instead of skip?
                     log.warning('Service with name {0} already exists. Skipping.'
-                        .format(service.name))
+                                .format(service.name))
                 else:
                     log.warning('Could not load service at {0}'.format(service_path))
             except Exception, e:

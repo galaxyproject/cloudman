@@ -258,10 +258,10 @@ class ConsoleManager(BaseConsoleManager):
            'snaps.yaml', snaps_file, validate=validate):
             pass
         elif misc.get_file_from_public_bucket(self.app.config, self.app.config['bucket_default'],
-             'snaps.yaml', snaps_file):
+                                              'snaps.yaml', snaps_file):
             log.warn("Couldn't get snaps.yaml from bucket: {0}. However, managed "
-                     "to retrieve it from public S3 bucket {0} instead.".format(
-                     self.app.config['bucket_default']))
+                     "to retrieve it from public S3 bucket {0} instead."
+                     .format(self.app.config['bucket_default']))
         else:
             log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
             return []
@@ -822,10 +822,10 @@ class ConsoleManager(BaseConsoleManager):
                 job_manager_svc.enable_node(node_alias, node_address)
         if self.master_exec_host:
             log.info("The master instance is set to execute jobs. "
-                "To manually change this, use the CloudMan Admin panel.")
+                     "To manually change this, use the CloudMan Admin panel.")
         else:
             log.info("The master instance is set to *not* execute jobs. "
-                "To manually change this, use the CloudMan Admin panel.")
+                     "To manually change this, use the CloudMan Admin panel.")
         return self.master_exec_host
 
     @TestFlag([])
@@ -1180,7 +1180,7 @@ class ConsoleManager(BaseConsoleManager):
                     # Default to 'worker' role tag
                     self.app.cloud_interface.add_tag(instance, 'role', 'worker')
                     self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}"
-                        .format(self.app.config['cluster_name']))
+                                                     .format(self.app.config['cluster_name']))
                     self.worker_instances.append(i)
                     # Make sure info like ip-address and hostname are updated
                     i.send_alive_request()
@@ -1779,7 +1779,7 @@ class ConsoleManager(BaseConsoleManager):
             # Create a snapshot of the given volume/file system
             snap_desc = ("Created by CloudMan ({0}; {1}) from file system '{2}'"
                          .format(self.app.config['cluster_name'],
-                         self.app.config['bucket_cluster'], file_system_name))
+                                 self.app.config['bucket_cluster'], file_system_name))
             snap_ids = fs_service.create_snapshot(snap_description=snap_desc)
             # Start things back up
             self._start_app_level_services()
@@ -1886,7 +1886,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Master done adding {0}-based FS {1}".format(fs_kind, fs_name))
         else:
             log.error("Wanted to add a volume-based file system but no file "
-                       "system name provided; skipping.")
+                      "system name provided; skipping.")
 
     @TestFlag(None)
     def add_fs_gluster(self, gluster_server, fs_name,
@@ -1908,7 +1908,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Master done adding FS from Gluster server {0}".format(gluster_server))
         else:
             log.error("Wanted to add a volume-based file system but no file "
-                       "system name provided; skipping.")
+                      "system name provided; skipping.")
 
     @TestFlag(None)
     def add_fs_nfs(self, nfs_server, fs_name, username=None, pwd=None,
@@ -1931,7 +1931,7 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Master done adding FS from NFS server {0}".format(nfs_server))
         else:
             log.error("Wanted to add a volume-based file system but no file "
-                       "system name provided; skipping.")
+                      "system name provided; skipping.")
 
     def stop_worker_instances(self):
         """

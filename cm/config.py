@@ -1,12 +1,8 @@
 """Universe configuration builder."""
-import ConfigParser
 import logging
 import logging.config
 import os
 import sys
-from cm.util import string_as_bool
-from cm.util import misc
-from cm.util import paths
 import hoover
 
 log = logging.getLogger('cloudman')
@@ -17,7 +13,7 @@ DEFAULT_INSTANCE_STATE_CHANGE_WAIT = 400
 DEFAULT_INSTANCE_REBOOT_ATTEMPTS = 4
 DEFAULT_INSTANCE_TERMINATE_ATTEMPTS = 4
 DEFAULT_INSTANCE_TYPES = {
-    "amazon" : [
+    "amazon": [
         ("", "Same as Master"),
         ("", "-------------"),
         ("c3.large", "Compute optimized Large (2 vCPU/4GB RAM)"),
@@ -31,8 +27,7 @@ DEFAULT_INSTANCE_TYPES = {
         ("", "-------------"),
         ("custom_instance_type", "Custom instance type")
     ],
-
-    "nectar" : [
+    "nectar": [
         ("", "Same as Master"),
         ("m1.small", "Small"),
         ("m1.medium", "Medium"),
@@ -41,8 +36,7 @@ DEFAULT_INSTANCE_TYPES = {
         ("m1.xxlarge", "Extra Extra Large"),
         ("custom_instance_type", "Custom instance type")
     ],
-
-    "hpcloud" : [
+    "hpcloud": [
         ("", "Same as Master"),
         ("standard.xsmall", "Extra Small"),
         ("standard.small", "Small"),
@@ -51,8 +45,7 @@ DEFAULT_INSTANCE_TYPES = {
         ("standard.xlarge", "Extra Large"),
         ("standard.2xlarge", "Extra Extra Large"),
     ],
-
-    "ict-tas" : [
+    "ict-tas": [
         ("", "Same as Master"),
         ("m1.small", "Small"),
         ("m1.medium", "Medium"),
@@ -85,7 +78,7 @@ class Configuration(dict):
         self.update(self._extract_env_vars())
 
     def _extract_env_vars(self):
-        return { key.upper() : os.environ[key.upper()] for key in os.environ if key.startswith("CM_") }
+        return {key.upper(): os.environ[key.upper()] for key in os.environ if key.startswith("CM_")}
 
 # A debug version of __contains__, in case you need to trace the provenance of a variable """
 #     def __dontains__(self, value):
@@ -109,7 +102,9 @@ class Configuration(dict):
         """
         Resolves configuration variables hierarchically.
         The order of resolution is:
-        1. Environment variables ("CM_" is prepended to key if required, to avoid conflict with general environment variables. Env vars are expected to be in upper case)
+        1. Environment variables ("CM_" is prepended to key if required, to
+           avoid conflict with general environment variables. Env vars are
+           expected to be in upper case)
         2. User Data
         3. cm_wsgi.ini
         """
@@ -140,7 +135,7 @@ class Configuration(dict):
 
     @property
     def filesystem_templates(self):
-        if not 'filesystem_templates' in self:
+        if 'filesystem_templates' not in self:
             self['filesystem_templates'] = self.app.manager.load_legacy_snapshot_data()
         return self.get('filesystem_templates')
 
@@ -203,7 +198,7 @@ class Configuration(dict):
     @property
     def instance_types(self):
         if self.get("instance_types"):
-            ## Manually specified instance types
+            # Manually specified instance types
             user_data_instance_types = self.get("instance_types")
             instance_types = [(type_def["key"], type_def["name"]) for type_def in user_data_instance_types]
             return instance_types

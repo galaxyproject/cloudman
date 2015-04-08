@@ -215,9 +215,6 @@ class ClouderaManagerService(ApplicationService):
         self.cm_host = socket.gethostname()
         self.host_list = [self.cm_host]
 
-        # api = self.cm_api_resource()
-        # api = ApiResource(self.cm_host, self.cm_port, self.cm_username, self.cm_password)
-        # manager = ClouderaManager(self.cm_api_resource)
         # create the management service
         # first check if mamagement service already exists
         service_setup = ApiServiceSetupInfo(name=self.cm_service_name, type="MGMT")
