@@ -1,3 +1,4 @@
+"""Post Start Script service implementation."""
 import os
 import threading
 from cm.util import misc
@@ -28,15 +29,19 @@ class PSSService(ApplicationService):
         # Name of the default script to run
         self.pss_filename = 'post_start_script' if self.instance_role == 'master' \
             else 'worker_post_start_script'
-        self.pss_url = self.app.config.get('post_start_script_url', None) if self.instance_role == 'master' \
-            else self.app.config.get('worker_post_start_script_url', None)
+        self.pss_url = (self.app.config.get('post_start_script_url', None)
+                        if self.instance_role == 'master' else
+                        self.app.config.get('worker_post_start_script_url', None))
 
     def _prime_data(self):
-        """ Some data is slow to obtain because a call to the cloud middleware
-            is required. When such data is required to complete a user request,
-            the request may be slow to complete. In an effort to alleviate some
-            of those delays, prime the data into local variables (particularly
-            the ones that do not change over a lifetime of a cluster).
+        """
+        Cache some of the instance-specific cloud variables.
+
+        Some data is slow to obtain because a call to the cloud middleware
+        is required. When such data is required to complete a user request,
+        the request may be slow to complete. In an effort to alleviate some
+        of those delays, prime the data into local variables (particularly
+        the ones that do not change over a lifetime of a cluster).
         """
         log.debug("Priming local data variables...")
         self.app.cloud_interface.get_ami()
@@ -50,8 +55,12 @@ class PSSService(ApplicationService):
     def add(self):
         """
         Check if prerequisites for running this service are satisfied and, if so,
-        start the service and return ``True``, else set its state to ``UNSTARTED``
-        and return ``False``.
+        start the service.
+
+        The prerequisites for this service are satisfied only after all other
+        'active' CloudMan services are in state `RUNNING`. Return ``True`` if
+        the service was started, else set its state to ``UNSTARTED`` and return
+        ``False``.
         """
         if (self.state != service_states.COMPLETED and
            self.app.manager.initial_cluster_type is not None):
@@ -84,9 +93,11 @@ class PSSService(ApplicationService):
                 else:
                     log.debug("Galaxy service OK for PSS")
             if not prereqs_ok:
-                log.debug("%s not running (%s), %s service prerequisites not met afterall,"
-                          "not starting the service yet" % (srvc.get_full_name(), srvc.state, self.name))
-                self.state = service_states.UNSTARTED  # Reset state so it gets picked up by monitor again
+                log.debug("%s not running (%s), %s service prerequisites not "
+                          "met afterall, not starting the service yet" %
+                          (srvc.get_full_name(), srvc.state, self.name))
+                # Reset state so it gets picked up by the monitor thread again
+                self.state = service_states.UNSTARTED
                 return False
             self.start()
             return True
@@ -98,12 +109,21 @@ class PSSService(ApplicationService):
             return False
 
     def start(self):
-        """ Wait until all other services are running before starting this one."""
+        """
+        Start this service by running the 'post start script'.
+
+        Attempt to download post_start_script from `post_start_script_url`
+        (for master) or `worker_post_start_script_url` (for worker)
+        as they are defined in user data. If these URL's are not defined in the
+        user data, look if files `post_start_script` or
+        `worker_post_start_script` for master and worker respectivley in the
+        cluster bucket and download those. Then run the script, else mark the
+        service as COMPLETED and mark it as 'not active'.
+        """
         log.debug("Starting %s service" % self.name)
         # All other services OK, start this one now
         self.state = service_states.RUNNING
-        log.debug("%s service prerequisites OK (i.e., all other services running), "
-                  "checking if %s was provided..." % (self.name, self.pss_filename))
+        log.debug("Checking if %s was provided..." % (self.name, self.pss_filename))
         local_pss_file = os.path.join(self.app.config['cloudman_home'], self.pss_filename)
         # Check user data first to allow overwriting of a potentially existing
         # script
@@ -129,16 +149,18 @@ class PSSService(ApplicationService):
             else:
                 log.debug("No s3_conn or the cluster bucket not found.")
         if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
-            log.info("%s found and saved to '%s'; running it now (note that this may take a while)"
-                     % (self.pss_filename, os.path.join(self.app.config['cloudman_home'], self.pss_filename)))
+            log.info("%s found and saved to '%s'; running it now (note that this "
+                     "may take a while)" % (self.pss_filename, os.path.join(
+                                            self.app.config['cloudman_home'],
+                                            self.pss_filename)))
             os.chmod(local_pss_file, 0755)  # Ensure the script is executable
             misc.run('cd %s;./%s' % (self.app.config[
                      'cloudman_home'], self.pss_filename))
             self.save_to_bucket()
             log.info("Done running {0}".format(self.pss_filename))
         else:
-            log.debug("%s does not exist or could not be downloaded; continuing without running it."
-                      % self.name)
+            log.debug("%s does not exist or could not be downloaded; continuing "
+                      "without running it." % self.name)
         # Prime the object with instance data (because this may take a while
         # on some clouds, do so in a separate thread)
         threading.Thread(target=self._prime_data).start()
@@ -152,9 +174,11 @@ class PSSService(ApplicationService):
         self.activated = False
 
     def save_to_bucket(self):
-        """ Save the current post start script file to the cluster's
-            bucket. Do so only if the file does not already exist there
-            and it not older than the local one.
+        """
+        Save the current post start script file to the cluster's bucket.
+
+        The script is saved only if the file does not already exist there
+        and it not older than the local one.
         """
         s3_conn = self.app.cloud_interface.get_s3_connection()
         if not s3_conn:
@@ -166,27 +190,28 @@ class PSSService(ApplicationService):
                                                 self.pss_filename,
                                                 pss_file):
             if os.path.exists(pss_file):
-                log.debug("Saving current instance post start script (%s) to cluster bucket '%s' as '%s'"
-                          % (pss_file, self.app.config['bucket_cluster'], self.pss_filename))
-                misc.save_file_to_bucket(
-                    s3_conn, self.app.config['bucket_cluster'], self.pss_filename, pss_file)
+                log.debug("Saving current instance post start script (%s) to "
+                          "cluster bucket '%s' as '%s'" %
+                          (pss_file, self.app.config['bucket_cluster'],
+                           self.pss_filename))
+                misc.save_file_to_bucket(s3_conn,
+                                         self.app.config['bucket_cluster'],
+                                         self.pss_filename, pss_file)
             else:
                 log.debug("No instance post start script (%s)" % pss_file)
         else:
-            log.debug("A current post start script {0} already exists in bucket {1}; not updating it"
-                      .format(self.pss_filename, self.app.config['bucket_cluster']))
+            log.debug("A current post start script {0} already exists in bucket "
+                      "{1}; not updating it".format(self.pss_filename,
+                                                    self.app.config['bucket_cluster']))
 
     def remove(self, synchronous=False):
+        """Mark this service as 'not active' within CloudMan."""
         super(PSSService, self).remove(synchronous)
         if self.state == service_states.UNSTARTED:
             self.state = service_states.SHUT_DOWN
-        if self.state == service_states.SHUT_DOWN:
-            log.debug(
-                "Removing %s service from master list of services" % self.name)
-            self.app.manager.deactivate_master_service(self)
-        else:
-            log.debug("Tried removing %s service but it's not in state %s"
-                      % (self.name, service_states.SHUT_DOWN))
+        log.debug("Removing service %s" % self.name)
+        self.app.manager.deactivate_master_service(self)
 
     def status(self):
+        """Do nothing: PSS runs once so there's no daemon to keep checking on."""
         pass
