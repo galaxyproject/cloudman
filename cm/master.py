@@ -1214,7 +1214,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         if self.app.manager.initial_cluster_type is None:
             if startup_opt == "Test":
-                self.app.manager.init_cluster(startup_opt)
+                self.app.manager.init_cluster(startup_opt, storage_type='transient')
                 return None
             if startup_opt == "Galaxy" or startup_opt == "Data":
                 # Initialize form on the main UI contains two fields named ``pss``,
@@ -2329,6 +2329,11 @@ class ConsoleMonitor(object):
         In addition, store the local Galaxy configuration files to the cluster's
         bucket (do so only if they are not already there).
         """
+        if self.app.manager.initial_cluster_type == 'Test':
+            log.debug("This is cluster type '{0}'; we do not create a cluster "
+                      "bucket or store cluster configuration for this type."
+                      .format(self.app.manager.initial_cluster_type))
+            return
         log.debug("Storing cluster configuration to cluster's bucket")
         s3_conn = self.app.cloud_interface.get_s3_connection()
         if not s3_conn:
@@ -2499,6 +2504,7 @@ class ConsoleMonitor(object):
            self.app.manager.cluster_status != cluster_status.TERMINATED and \
            cluster_ready_flag:
             self.app.manager.cluster_status = cluster_status.READY
+            self.store_cluster_config()  # Always save config on cluster_ready
             msg = "All cluster services started; the cluster is ready for use."
             log.info(msg)
             self.app.msgs.info(msg)
@@ -2572,6 +2578,7 @@ class ConsoleMonitor(object):
                         log.debug("Instance {0} has been quiet for a while (last check "
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
+            # Store cluster configuraiton if the configuration has changed
             config_changed = self.__start_services()
             config_changed = config_changed or self.__stop_services()
             self.__check_if_cluster_ready()
