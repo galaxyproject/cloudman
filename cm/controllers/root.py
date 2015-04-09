@@ -455,6 +455,7 @@ class CM(BaseController):
         status_dict['snapshot'] = {'status': str(snap_status[0]),
                                    'progress': str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
+        status_dict['ignore_deps_framework'] = self.app.config.ignore_unsatisfiable_dependencies
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
         return json.dumps(status_dict)
@@ -746,6 +747,20 @@ class CM(BaseController):
         if nginx_service:
             nginx_service.reconfigure(setup_ssl=(not nginx_service.ssl_is_on))
             return "SSL toggled"
+
+    @expose
+    def toggle_dependency_framework(self, trans):
+        """
+        Toggle config option ``ignore_unsatisfiable_dependencies``.
+
+        With ``ignore_unsatisfiable_dependencies`` set, Cloudman's service
+        dependency framework is disabled a service can be started without its
+        dependencies being met.
+        """
+        self.app.config.ignore_unsatisfiable_dependencies = (
+            not self.app.config.ignore_unsatisfiable_dependencies)
+        return "Ignore dependencies set to {0}".format(
+            self.app.config.ignore_unsatisfiable_dependencies)
 
     @expose
     def admin(self, trans):

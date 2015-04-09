@@ -215,6 +215,10 @@ class Configuration(dict):
     def ignore_unsatisfiable_dependencies(self):
         return self.get("ignore_unsatisfiable_dependencies", False)
 
+    @ignore_unsatisfiable_dependencies.setter
+    def ignore_unsatisfiable_dependencies(self, value):
+        self['ignore_unsatisfiable_dependencies'] = value
+
     @property
     def web_thread_count(self):
         return self.get("web_thread_count", 3)

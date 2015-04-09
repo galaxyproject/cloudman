@@ -84,6 +84,13 @@ function update(repeat_update){
                 } else {
                     $('#master_is_exec_host').html("Switch master to run jobs");
                 }
+                if (data.ignore_deps_framework === true) {
+                    $('#dependency_framework').html(
+                        "Switch to using service dependencies framework");
+                } else {
+                    $('#dependency_framework').html(
+                        "Switch to not using service dependencies framework");
+                }
                 $('#dummy').html(data.dummy);
             }
     });
@@ -130,6 +137,9 @@ function handle_clicks() {
     $('body').on('click', 'div.overlay', function() { hidebox();});
     // Force an update of the field on click
     $('#master_is_exec_host').click(function(){
+        update();
+    });
+    $('#ignore_deps_framework').click(function(){
         update();
     });
 }

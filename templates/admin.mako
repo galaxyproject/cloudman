@@ -139,6 +139,17 @@
             <li><a class="action" id='toggle_ssl' href="${h.url_for(controller='root', action='toggle_ssl')}">Toggle use of SSL on this instance</a></li>
             <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
             </li>
+            <li><a class="action" id='dependency_framework' href="${h.url_for(controller='root', action='toggle_dependency_framework')}">&nbsp;</a>
+                <span class="help_info">
+                    <span class="help_link">What will this do?</span>
+                    <div class="help_content" style="display: none">
+                        CloudMan implements a service dependency framework that
+                        ensures services are started in order. This functionality
+                        can be toggled here. In a vast majority of scenarios,
+                        this should not be disabled.
+                    </div>
+                </span>
+            </li>
             <li>
                 <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a>
                 <span class="help_info">
