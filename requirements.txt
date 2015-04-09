@@ -18,3 +18,4 @@ hoover>=0.5.3
 requests>=0.13.1
 cm-api==8.0.0
 ansible==1.8.2
+gitpython>=1.0.0

@@ -36,11 +36,16 @@ function update(repeat_update){
             if (data){
                 // Get any message data
                 update_messages(data.messages);
-                if (data.galaxy_rev !== 'N/A') {
-                    // This will always point to galaxy-central but better than nothing?
-                    var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-dist/changesets/" +
-                      data.galaxy_rev.split(':')[1] + "' target='_blank'>" +
-                      data.galaxy_rev + '</a>';
+                if (!$.isEmptyObject(data.galaxy_rev)) {
+                    var commit_url = (data.galaxy_rev.repo_url + '/commit/' +
+                               data.galaxy_rev.hexsha);
+                    var branch_url = (data.galaxy_rev.repo_url + '/tree/' +
+                                data.galaxy_rev.active_branch);
+                    var rev_html = ("<a href='" + commit_url +"' target='_blank'>" +
+                                    data.galaxy_rev.hexsha.substr(0,10) + "</a>"
+                                    + " (" + "<a href='" + branch_url + "' target='_blank'>"
+                                    + data.galaxy_rev.active_branch + " branch</a>) "
+                                    + data.galaxy_rev.authored_date);
                 } else {
                     var rev_html = "N/A";
                 }

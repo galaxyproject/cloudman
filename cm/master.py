@@ -9,6 +9,8 @@ import subprocess
 import threading
 import time
 
+from git import Repo
+
 from cm.instance import Instance
 from cm.services import ServiceRole
 from cm.services import ServiceType
@@ -733,21 +735,43 @@ class ConsoleManager(BaseConsoleManager):
 
     def get_galaxy_rev(self):
         """
-        Get the Mercurial revision of the Galaxy instance that's running as a
+        Get the Git revision of the Galaxy instance that's running as a
         CloudMan-managed service.
-        Return a string with either the revision (e.g., ``5757:963e73d40e24``)
-        or ``N/A`` if unable to get the revision number.
+
+        :rtype: dict
+        :return: The following information about the repo: `hexsha`,
+                 `authored_date`, `active_branch`, `repo_url`. If repo info
+                 cannot be obtained, return an empty dict.
         """
-        cmd = "%s - galaxy -c \"cd %s; hg tip | grep -m 1 changeset | cut -d':' -f2,3\"" % (
-            paths.P_SU, self.app.path_resolver.galaxy_home)
-        process = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out = process.communicate()
-        if out[1] != '':
-            rev = 'N/A'
-        else:
-            rev = out[0].strip()
-        return rev
+        def _get_remote_url(repo):
+            """
+            Extract the URL for the `repo`'s 'origin' remote.
+            """
+            remote_url = None
+            for remote in repo.remotes:
+                if remote.name == 'origin':
+                    remote_url = remote.config_reader.get('url')
+                    if remote_url.find('git@') == 0:
+                        remote_url = remote_url[4:]
+                    if remote_url.find('.git') > -1:
+                        remote_url = remote_url[0:-4]
+                    remote_url = remote_url.replace(':', '/').rstrip('/')
+                    remote_url = u'https://{0}'.format(remote_url)
+            return remote_url
+
+        repo = None
+        repo_path = self.app.path_resolver.galaxy_home
+        if os.path.exists(repo_path):
+            repo = Repo(repo_path)
+        if repo and not repo.bare:
+            hexsha = repo.head.commit.hexsha
+            authored_date = time.strftime("%d %b %Y", time.gmtime(
+                repo.head.commit.authored_date))
+            active_branch = repo.active_branch.name
+            repo_url = _get_remote_url(repo)
+            return {'hexsha': hexsha, 'authored_date': authored_date,
+                    'active_branch': active_branch, 'repo_url': repo_url}
+        return {}
 
     def get_galaxy_admins(self):
         admins = 'None'
