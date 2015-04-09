@@ -549,8 +549,9 @@ class Instance(object):
                              self.type, self.ami, self.local_hostname,
                              self.num_cpus, self.hostname))
                 # Add instance IP/name to /etc/hosts
-                misc.add_to_etc_hosts(self.private_ip, [self.alias, self.local_hostname,
-                                      self.hostname])
+                # misc.add_to_etc_hosts(self.private_ip, [self.alias, self.local_hostname,
+                #                      self.hostname])
+                misc.add_to_etc_hosts(self.private_ip, [self.alias])
                 # Instance is alive and responding.
                 self.send_mount_points()
             elif msg_type == "GET_MOUNTPOINTS":

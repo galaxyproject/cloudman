@@ -161,7 +161,7 @@ class ClouderaManagerService(ApplicationService):
                            sudo_user='postgres',
                            module_name="postgresql_db",
                            module_args=("name={0} owner={1} encoding='UTF-8'"
-                                    .format(db, owner))
+                                        .format(db, owner))
                            ).run()
                 if r.get('contacted', {}).get('localhost', {}).get('failed'):
                     msg = r.get('contacted', {}).get('localhost', {}).get('msg', 'N/A')
@@ -211,6 +211,15 @@ class ClouderaManagerService(ApplicationService):
         Create a default cluster and Cloudera Manager Service on master host
         """
         log.info("Creating Cloudera cluster: '{0}'. Please wait...".format(self.cluster_name))
+
+        # Create new admin user (use 'ubuntu' and password provided at cloudman startup)
+        # and delete the default 'admin' user in Cloudera Manager Service
+        self.cm_api_resource.create_user(self.host_username, self.host_password, ['ROLE_ADMIN'])
+        old_admin = self.cm_username
+        self.cm_username = self.host_username
+        self.cm_password = self.host_password
+        log.debug("Deleting the default user 'admin'...")
+        self.cm_api_resource.delete_user(old_admin)
 
         self.cm_host = socket.gethostname()
         self.host_list = [self.cm_host]
@@ -362,7 +371,7 @@ class ClouderaManagerService(ApplicationService):
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
         elif 'running' not in misc.getoutput('service cloudera-scm-server status',
-           quiet=True):
+                                             quiet=True):
             log.error("Cloudera server not running!")
             self.state = service_states.ERROR
         elif not self.started:
