@@ -259,11 +259,11 @@ class ConsoleManager(BaseConsoleManager):
         if s3_conn and misc.get_file_from_bucket(s3_conn, self.app.config['bucket_default'],
            'snaps.yaml', snaps_file, validate=validate):
             pass
-        elif misc.get_file_from_public_location(self.app.ud, 'snaps.yaml', snaps_file):
+        elif misc.get_file_from_public_location(self.app.config, 'snaps.yaml', snaps_file):
             log.warn("Couldn't get snaps.yaml from bucket: {0}. However, managed "
                      "to retrieve it from public location '{1}' instead.".format(
-                     self.app.ud['bucket_default'],
-                     self.app.ud.get('default_bucket_url') or self.app.ud['bucket_default']))
+                     self.app.config['bucket_default'],
+                     self.app.config.get('default_bucket_url') or self.app.config['bucket_default']))
         else:
             log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
             return []
