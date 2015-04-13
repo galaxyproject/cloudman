@@ -751,12 +751,12 @@ class ConsoleManager(BaseConsoleManager):
             for remote in repo.remotes:
                 if remote.name == 'origin':
                     remote_url = remote.config_reader.get('url')
-                    if remote_url.find('git@') == 0:
-                        remote_url = remote_url[4:]
                     if remote_url.find('.git') > -1:
                         remote_url = remote_url[0:-4]
-                    remote_url = remote_url.replace(':', '/').rstrip('/')
-                    remote_url = u'https://{0}'.format(remote_url)
+                    if remote_url.find('git@') == 0:
+                        remote_url = remote_url[4:]
+                        remote_url = remote_url.replace(':', '/').rstrip('/')
+                        remote_url = u'https://{0}'.format(remote_url)
             return remote_url
 
         repo = None
