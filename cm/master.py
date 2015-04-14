@@ -58,7 +58,8 @@ class ConsoleManager(BaseConsoleManager):
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
         # This initialization is applicable only when restarting a cluster.
-        self.worker_instances = self.get_worker_instances() if (self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
+        self.worker_instances = self.get_worker_instances() if (
+            self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
         self.disk_total = "0"
         self.disk_used = "0"
         self.disk_pct = "0%"
@@ -154,14 +155,18 @@ class ConsoleManager(BaseConsoleManager):
             if action == "ADD":
                 for req in new_service.dependencies:
                     if req.is_satisfied_by(svc):
-                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                        #     req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. "
+                        #           "Dependency updated during service action: {2}"
+                        #           .format(req.owning_service.name, new_service.name,
+                        #                   action))
                         req.assigned_service = svc
             elif action == "REMOVE":
                 for req in svc.dependencies:
                     if req.is_satisfied_by(new_service):
-                        # log.debug("Service {0} has a dependency on role {1}. Dependency updated during service action: {2}".format(
-                        #     req.owning_service.name, new_service.name, action))
+                        # log.debug("Service {0} has a dependency on role {1}. "
+                        #           "Dependency updated during service action: {2}"
+                        #           .format(req.owning_service.name, new_service.name,
+                        #                   action))
                         req.assigned_service = None
 
     def _stop_app_level_services(self):
@@ -304,7 +309,8 @@ class ConsoleManager(BaseConsoleManager):
                         self.default_galaxy_data_size = fs_template['size']
                     elif 'snap_id' in fs_template:
                         try:
-                            self.snapshot = (self.app.cloud_interface.get_ec2_connection().get_all_snapshots([fs_template['snap_id']])[0])
+                            self.snapshot = (self.app.cloud_interface.get_ec2_connection()
+                                             .get_all_snapshots([fs_template['snap_id']])[0])
                             self.default_galaxy_data_size = self.snapshot.volume_size
                         except EC2ResponseError, e:
                             log.warning("Could not get snapshot {0} size (setting the "
@@ -321,8 +327,10 @@ class ConsoleManager(BaseConsoleManager):
         and start available cluster services (as provided in the cluster's
         configuration and persistent data).
         """
-        log.debug("Config Data at manager start, with secret_key and password filtered out: %s"
-                  % dict((k, self.app.config[k]) for k in self.app.config.keys() if k not in ['password', 'secret_key']))
+        log.debug("Config Data at manager start, with secret_key and password "
+                  "filtered out: %s" % dict((k, self.app.config[k])
+                                            for k in self.app.config.keys()
+                                            if k not in ['password', 'secret_key']))
 
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
@@ -803,9 +811,8 @@ class ConsoleManager(BaseConsoleManager):
             fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
             if len(fs_arr) > 0:
                 fs_name = fs_arr[0].name
-                # NGTODO: Definite security issue here. After discussion with Enis, clients are considered trusted for now.
-                # We may later have to think about sanitizing/securing/escaping user input if the issue arises.
-                disk_usage = commands.getoutput("df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name)
+                cmd = "df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name
+                disk_usage = commands.getoutput(cmd)
                 disk_usage = disk_usage.split(' ')
                 if len(disk_usage) == 3:
                     self.disk_total = disk_usage[0]
@@ -1223,7 +1230,8 @@ class ConsoleManager(BaseConsoleManager):
         return False
 
     @TestFlag({})
-    def initialize_cluster_with_custom_settings(self, startup_opt, galaxy_data_option="custom-size", pss=None, shared_bucket=None):
+    def initialize_cluster_with_custom_settings(self, startup_opt, galaxy_data_option="custom-size",
+                                                pss=None, shared_bucket=None):
         """
         Call this method if the current cluster has not yet been initialized to
         initialize it. This method should be called only once.
@@ -1280,10 +1288,11 @@ class ConsoleManager(BaseConsoleManager):
     def init_cluster_from_user_data(self):
         cluster_type = self.app.config.get("initial_cluster_type", None)
         if cluster_type:
-            self.app.manager.initialize_cluster_with_custom_settings(cluster_type,
-                                                                     galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
-                                                                     pss=self.app.config.get("pss", None),
-                                                                     shared_bucket=self.app.config.get("shared_bucket", None))
+            self.app.manager.initialize_cluster_with_custom_settings(
+                cluster_type,
+                galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
+                pss=self.app.config.get("pss", None),
+                shared_bucket=self.app.config.get("shared_bucket", None))
 
     @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0, storage_type='volume'):
@@ -1319,7 +1328,8 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
         self.cluster_storage_type = storage_type
-        msg = "Initializing '{0}' cluster type with storage type '{1}'. Please wait...".format(cluster_type, storage_type)
+        msg = ("Initializing '{0}' cluster type with storage type '{1}'. "
+               "Please wait...".format(cluster_type, storage_type))
         log.info(msg)
         self.app.msgs.info(msg)
         if cluster_type == 'Galaxy':
@@ -1348,11 +1358,13 @@ class ConsoleManager(BaseConsoleManager):
                             # snap_size = snap.get('size', 0)
                         elif 'type' in fs_template:
                             if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                                log.debug("Attaching a volume based on an archive named {0}".format(fs_template['name']))
+                                log.debug("Attaching a volume based on an archive named {0}"
+                                          .format(fs_template['name']))
                                 if storage_type == 'volume':
                                     if 'size' in fs_template:
                                         size = fs_template.get('size', 10)  # Default to 10GB
-                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
+                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
+                                           fs_template['roles']):
                                             if pss > size:
                                                 size = pss
                                         from_archive = {'url': fs_template['archive_url'],
@@ -1368,15 +1380,20 @@ class ConsoleManager(BaseConsoleManager):
                             elif 'gluster' == fs_template['type'] and 'server' in fs_template:
                                 log.debug("Attaching a glusterfs based filesystem named {0}"
                                           .format(fs_template['name']))
-                                fs.add_glusterfs(fs_template['server'], mount_options=fs_template.get('mount_options', None))
+                                fs.add_glusterfs(fs_template['server'],
+                                                 mount_options=fs_template.get('mount_options', None))
                             elif 'nfs' == fs_template['type'] and 'server' in fs_template:
                                 log.debug("Attaching an nfs based filesystem named {0}"
                                           .format(fs_template['name']))
-                                fs.add_nfs(fs_template['server'], None, None, mount_options=fs_template.get('mount_options', None))
-                            elif 's3fs' == fs_template['type'] and 'bucket_name' in fs_template and 'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template:
-                                fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'], fs_template['bucket_s_key'])
+                                fs.add_nfs(fs_template['server'], None, None,
+                                           mount_options=fs_template.get('mount_options', None))
+                            elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
+                                            'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
+                                fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'],
+                                              fs_template['bucket_s_key'])
                             else:
-                                log.error("Format error in snaps.yaml file. Unrecognised or improperly configured type '{0}' for fs named: {1}"
+                                log.error("Format error in snaps.yaml file. Unrecognised or "
+                                          "improperly configured type '{0}' for fs named: {1}"
                                           .format(fs_template['type]'], fs_template['name']))
                         log.debug("Adding a filesystem '{0}' with volumes '{1}'"
                                   .format(fs.get_full_name(), fs.volumes))
@@ -1400,7 +1417,7 @@ class ConsoleManager(BaseConsoleManager):
             # ``start`` method)
             pass
             # self.activate_master_service(self.service_registry.get('Pulsar'))
-            self.activate_master_service(self.service_registry.get('ClouderaManager'))
+            # self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
@@ -1646,13 +1663,12 @@ class ConsoleManager(BaseConsoleManager):
             # This allows a given user to list the contents of a bucket but not
             # access any of the keys other than the ones granted the permission
             # next (i.e., keys required to bootstrap the shared instance)
-            # misc.add_bucket_user_grant(s3_conn, self.app.config['bucket_cluster'], 'READ', canonical_ids, recursive=False)
             # Grant READ permissions for the keys required to bootstrap the
             # shared instance
             for k_name in copied_key_names:
-                if not misc.add_key_user_grant(s3_conn, self.app.config['bucket_cluster'], k_name, 'READ', canonical_ids):
-                    log.error(
-                        "Error adding READ permission for key '%s'" % k_name)
+                if not misc.add_key_user_grant(s3_conn, self.app.config['bucket_cluster'],
+                                               k_name, 'READ', canonical_ids):
+                    log.error("Error adding READ permission for key '%s'" % k_name)
                     err = True
         else:  # If no canonical_ids are provided, means to set the permissions to public-read
             # See above, but in order to access keys, the bucket root must be given read permissions
@@ -1744,23 +1760,17 @@ class ConsoleManager(BaseConsoleManager):
         :type snap_id: str
         :param snap_id: Snapshot ID to be deleted (e.g., ``snap-04c01768``)
         """
-        log.debug("Calling delete shared instance for folder '%s' and snap '%s'" % (shared_instance_folder, snap_id))
+        log.debug("Calling delete shared instance for folder '%s' and snap '%s'"
+                  % (shared_instance_folder, snap_id))
         ok = True  # Mark if encountered error but try to delete as much as possible
         try:
             s3_conn = self.app.cloud_interface.get_s3_connection()
-            # Revoke READ grant for users associated with the instance
-            # being deleted but do so only if the given users do not have
-            # access to any other shared instances.
-            # users_whose_grant_to_remove = misc.get_users_with_grant_on_only_this_folder(s3_conn, self.app.config['bucket_cluster'], shared_instance_folder)
-            # if len(users_whose_grant_to_remove) > 0:
-            #     misc.adjust_bucket_acl(s3_conn, self.app.config['bucket_cluster'], users_whose_grant_to_remove)
             # Remove keys and folder associated with the given shared instance
             b = misc.get_bucket(s3_conn, self.app.config['bucket_cluster'])
             key_list = b.list(prefix=shared_instance_folder)
             for key in key_list:
-                log.debug(
-                    "As part of shared cluster instance deletion, deleting key '%s' from bucket '%s'" % (key.name,
-                                                                                                         self.app.config['bucket_cluster']))
+                log.debug("As part of shared cluster instance deletion, deleting "
+                          "key '%s' from bucket '%s'" % (key.name, self.app.config['bucket_cluster']))
                 key.delete()
         except S3ResponseError, e:
             log.error("Problem deleting keys in '%s': %s" % (
@@ -1771,11 +1781,11 @@ class ConsoleManager(BaseConsoleManager):
         try:
             ec2_conn = self.app.cloud_interface.get_ec2_connection()
             ec2_conn.delete_snapshot(snap_id)
-            log.debug(
-                "As part of shared cluster instance deletion, deleted snapshot '%s'" % snap_id)
+            log.debug("As part of shared cluster instance deletion, deleted "
+                      "snapshot '%s'" % snap_id)
         except EC2ResponseError, e:
-            log.error(
-                "As part of shared cluster instance deletion, problem deleting snapshot '%s': %s" % (snap_id, e))
+            log.error("As part of shared cluster instance deletion, problem "
+                      "deleting snapshot '%s': %s" % (snap_id, e))
             ok = False
         return ok
 
@@ -1845,10 +1855,10 @@ class ConsoleManager(BaseConsoleManager):
             if svc.name == file_system_name:
                 found_fs_name = True
                 # Create a snapshot of the given volume/file system
-                snap_ids = svc.create_snapshot(snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s"
-                                               % (file_system_name,
-                                                  self.app.config['cluster_name'],
-                                                  self.app.config['bucket_cluster']))
+                snap_ids = svc.create_snapshot(
+                    snap_description="File system '%s' from CloudMan instance '%s'; bucket: %s"
+                    % (file_system_name, self.app.config['cluster_name'],
+                       self.app.config['bucket_cluster']))
                 # Remove the old volume by removing the entire service
                 if len(snap_ids) > 0:
                     log.debug("Removing file system '%s' service as part of the file system update"
@@ -2091,7 +2101,8 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug(
                         "Successfully retrieved root user's public key from file.")
                 else:
-                    log.error("Encountered a problem while creating root user's public key, process returned error code '%s'." % ret_code)
+                    log.error("Encountered a problem while creating root user's "
+                              "public key, process returned error code '%s'." % ret_code)
             else:  # This is master restart, so
                 f = open('id_rsa.pub')
                 self.root_pub_key = f.readline()
@@ -2171,7 +2182,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         public_ip = self.app.cloud_interface.get_public_ip()
         num_cpus = int(commands.getoutput("cat /proc/cpuinfo | grep processor | wc -l"))
-        load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()  # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
+        # Returns system load in format "0.00 0.02 0.39" for the past 1, 5, and 15 minutes, respectively
+        load = (commands.getoutput("cat /proc/loadavg | cut -d' ' -f1-3")).strip()
         if load != 0:
             lds = load.split(' ')
             if len(lds) == 3:
@@ -2181,7 +2193,9 @@ class ConsoleManager(BaseConsoleManager):
                 # Debug only, this should never happen.  If the interface is
                 # able to display this, there is load.
                 load = "0 0 0"
-        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load, 'time_in_state': misc.format_seconds(Time.now() - self.startup_time), 'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
+        return {'id': self.app.cloud_interface.get_instance_id(), 'ld': load,
+                'time_in_state': misc.format_seconds(Time.now() - self.startup_time),
+                'instance_type': self.app.cloud_interface.get_type(), 'public_ip': public_ip}
 
 
 class ConsoleMonitor(object):
@@ -2284,7 +2298,8 @@ class ConsoleMonitor(object):
             fss = []  # list of filesystems
             if addl_data:
                 cc = addl_data
-            cc['tags'] = self.app.cloud_interface.tags  # save cloud tags, in case the cloud doesn't support them natively
+            # Save cloud tags, in case the cloud doesn't support them natively
+            cc['tags'] = self.app.cloud_interface.tags
             for srvc in self.app.manager.service_registry.active():
                 if srvc.svc_type == ServiceType.FILE_SYSTEM:
                     if srvc.persistent:
@@ -2385,34 +2400,30 @@ class ConsoleMonitor(object):
                                'shed_tool_conf.xml',
                                'datatypes_conf.xml']:
                     if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_config_dir, f_name))) or \
-                       (misc.file_in_bucket_older_than_local(s3_conn, self.app.config['bucket_cluster'], '%s.cloud' % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
-                        log.debug(
-                            "Saving current Galaxy configuration file '%s' to cluster bucket '%s' as '%s.cloud'" % (f_name,
-                                                                                                                    self.app.config['bucket_cluster'], f_name))
+                       (misc.file_in_bucket_older_than_local(
+                            s3_conn, self.app.config['bucket_cluster'], '%s.cloud'
+                            % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
+                        log.debug("Saving current Galaxy configuration file '%s' "
+                                  "to cluster bucket '%s' as '%s.cloud'"
+                                  % (f_name, self.app.config['bucket_cluster'], f_name))
                         misc.save_file_to_bucket(
                             s3_conn, self.app.config[
                                 'bucket_cluster'], '%s.cloud' % f_name,
                             os.path.join(self.app.path_resolver.galaxy_home, f_name))
         except:
             pass
-        # If not existent, save current boot script cm_boot.py to cluster's bucket
-        # BUG: workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
-        # if not misc.file_exists_in_bucket(s3_conn,
-        # self.app.ud['bucket_cluster'], self.app.ud['boot_script_name']) and
-        # os.path.exists(os.path.join(self.app.ud['boot_script_path'],
-        # self.app.ud['boot_script_name'])):
-        log.debug("Saving current instance boot script (%s) to cluster bucket '%s' as '%s'" % (os.path.join(self.app.config['boot_script_path'], self.app.config['boot_script_name']
-                                                                                                            ), self.app.config['bucket_cluster'], self.app.config['boot_script_name']))
-        misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'], self.app.config['boot_script_name'], os.path.join(self.app.config[
-                                 'boot_script_path'], self.app.config['boot_script_name']))
-        # If not existent, save CloudMan source to cluster's bucket, including file's metadata
-        # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
-        # if not misc.file_exists_in_bucket(s3_conn,
-        # self.app.ud['bucket_cluster'], 'cm.tar.gz') and
-        # os.path.exists(os.path.join(self.app.ud['cloudman_home'],
-        # 'cm.tar.gz')):
+        log.debug("Saving current instance boot script (%s) to cluster bucket "
+                  "'%s' as '%s'" % (os.path.join(self.app.config['boot_script_path'],
+                                    self.app.config['boot_script_name']),
+                                    self.app.config['bucket_cluster'],
+                                    self.app.config['boot_script_name']))
+        misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
+                                 self.app.config['boot_script_name'],
+                                 os.path.join(self.app.config['boot_script_path'],
+                                 self.app.config['boot_script_name']))
         log.debug("Saving CloudMan source (%s) to cluster bucket '%s' as '%s'" % (
-            os.path.join(self.app.config['cloudman_home'], self.app.config.cloudman_source_file_name), self.app.config['bucket_cluster'], self.app.config.cloudman_source_file_name))
+            os.path.join(self.app.config['cloudman_home'], self.app.config.cloudman_source_file_name),
+            self.app.config['bucket_cluster'], self.app.config.cloudman_source_file_name))
         misc.save_file_to_bucket(
             s3_conn, self.app.config['bucket_cluster'], self.app.config.cloudman_source_file_name,
             os.path.join(self.app.config['cloudman_home'], self.app.config.cloudman_source_file_name))
@@ -2424,16 +2435,12 @@ class ConsoleMonitor(object):
                 misc.set_file_metadata(s3_conn, self.app.config[
                     'bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision', rev)
         except Exception, e:
-            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s" % (self.app.config[
-                      'bucket_cluster'], e))
+            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s"
+                      % (self.app.config['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful
         # as a reference)
         cn_file = os.path.join(self.app.config['cloudman_home'],
                                "%s.clusterName" % self.app.config['cluster_name'])
-        # BUG : workaround eucalyptus Walrus, which hangs on returning saved file status if misc.file_exists_in_bucket() called first
-        # if not misc.file_exists_in_bucket(s3_conn,
-        # self.app.ud['bucket_cluster'], "%s.clusterName" %
-        # self.app.ud['cluster_name']):
         with open(cn_file, 'w'):
             pass
         if os.path.exists(cn_file):
