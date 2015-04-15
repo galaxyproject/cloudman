@@ -45,8 +45,9 @@ class ClouderaManagerService(ApplicationService):
 
         # Default cluster configuration
         # TODO - read local cloud host name!
-        self.cm_host = socket.gethostname()
-        self.host_list = [self.cm_host]
+        # self.cm_host = socket.gethostname()
+        self.cm_host = self.app.cloud_interface.get_local_hostname()
+        self.host_list = []
         self.cluster_name = "Cluster 1"
         self.cdh_version = "CDH5"
         self.cdh_version_number = "5"
@@ -221,8 +222,9 @@ class ClouderaManagerService(ApplicationService):
         log.debug("Deleting the default user 'admin'...")
         self.cm_api_resource.delete_user(old_admin)
 
-        self.cm_host = socket.gethostname()
-        self.host_list = [self.cm_host]
+        # self.cm_host = socket.gethostname()
+        log.debug("Cloudera adding host: {0}".format(self.cm_host))
+        self.host_list.append(self.cm_host)
 
         # create the management service
         # first check if mamagement service already exists
