@@ -732,7 +732,7 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
-def get_file_from_public_location(ud, remote_filename, local_file):
+def get_file_from_public_location(config, remote_filename, local_file):
     """
     A fallback method which does the equivalent of a wget from
     the location specified in user data by (in order) default_bucket_url
@@ -740,19 +740,19 @@ def get_file_from_public_location(ud, remote_filename, local_file):
     """
     import urlparse
 
-    url = ud.get('default_bucket_url', None)
-    bucket = ud.get('bucket_default', None)
+    url = config.get('default_bucket_url', None)
+    bucket = config.get('bucket_default', None)
 
     if not url and bucket:
-        s3_host = ud.get('s3_host', 's3.amazonaws.com')
-        s3_port = ud.get('s3_port', 443)
-        s3_conn_path = ud.get('s3_conn_path', '/')
+        s3_host = config.get('s3_host', 's3.amazonaws.com')
+        s3_port = config.get('s3_port', 443)
+        s3_conn_path = config.get('s3_conn_path', '/')
 
         s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
         s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
 
         # TODO: assume openstack public bucket with specific access rights. Fix later
-        if 'nectar' in ud.get('cloud_name', '').lower():
+        if 'nectar' in config.get('cloud_name', '').lower():
             url = urlparse.urljoin(s3_base_url, '/V1/AUTH_377/')
         else:
             url = s3_base_url
