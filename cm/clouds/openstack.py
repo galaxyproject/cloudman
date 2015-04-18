@@ -205,12 +205,12 @@ class OSInterface(EC2Interface):
                     self.app.manager.worker_instances.append(i)
                 log.debug("Started %s instance(s)" % num)
                 return True
-        except BotoServerError, e:
-            log.error("boto server error when starting an instance: %s" % str(e))
-            return False
         except EC2ResponseError, e:
             err = "EC2 response error when starting worker nodes: %s" % str(e)
             log.error(err)
+            return False
+        except BotoServerError, bse:
+            log.error("boto server error when starting an instance: %s" % str(bse))
             return False
         except Exception, ex:
             err = "Error when starting worker nodes: %s" % str(ex)
