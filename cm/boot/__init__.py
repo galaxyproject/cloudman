@@ -423,18 +423,6 @@ def _system_message(message_contents):
     #                         '/usr/nginx/html/errdoc/gc2_502.html']
 
 
-def migrate_1():
-    pass
-    # mount file systems from persistent_data.yaml
-    # Upgrade DB
-    # copy tools FS to the data FS
-    # adjust directory names/paths to match the new FS structure
-    # sed for predefined full old paths (eg, Galaxy's env.sh files, EMBOSS tools?)
-    # create new directory structure with any missing dirs
-    # unmount file systems from persistent_data.yaml
-    # update persistent_data.yaml
-
-
 def main():
     global log
     log = _setup_global_logger()
