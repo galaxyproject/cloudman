@@ -211,7 +211,6 @@ SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'
-PRS_FILENAME = 'post_start_script'
 AMAZON_S3_URL = 'http://s3.amazonaws.com/'
 DEFAULT_BUCKET_NAME = 'cloudman'
 log = None
@@ -465,26 +464,6 @@ def _restart_cm(ud, clean=False):
     _stop_cm(clean=clean)
     _start(ud)
 
-def _post_start_hook(ud):
-    log.info('<<Checking for post start script>>')
-    local_prs_file = os.path.join(CM_HOME, PRS_FILENAME)
-    use_object_store = ud.get('use_object_store', True)
-    if ('post_start_script_url' in ud):
-        _run(log, ('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url'])))
-    elif use_object_store:
-        s3_conn = _get_s3connection(ud)
-        b = None
-        if ('bucket_cluster' in ud):
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if (b is not None):
-            log.info(("Cluster bucket '%s' found; getting post start script '%s'" % (b.name, PRS_FILENAME)))
-            _get_file_from_bucket(log, s3_conn, b.name, PRS_FILENAME, local_prs_file)
-    if os.path.exists(local_prs_file):
-        os.chmod(local_prs_file, 493)
-        return _run(log, ('cd %s;./%s' % (CM_HOME, PRS_FILENAME)))
-    else:
-        log.debug('Post start script does not exist; continuing.')
-        return True
 
 def _fix_etc_hosts():
     ' Without editing /etc/hosts, there are issues with hostname command\n        on NeCTAR (and consequently with setting up SGE).\n    '
