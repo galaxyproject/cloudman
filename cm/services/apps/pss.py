@@ -27,11 +27,6 @@ class PSSService(ApplicationService):
         self.instance_role = instance_role
         log.debug("Configured PSS as {0}".format(self.instance_role))
         # Name of the default script to run
-        self.pss_filename = 'post_start_script' if self.instance_role == 'master' \
-            else 'worker_post_start_script'
-        self.pss_url = (self.app.config.get('post_start_script_url', None)
-                        if self.instance_role == 'master' else
-                        self.app.config.get('worker_post_start_script_url', None))
 
     def _prime_data(self):
         """
@@ -51,6 +46,7 @@ class PSSService(ApplicationService):
         self.app.cloud_interface.get_private_ip()
         self.app.cloud_interface.get_public_ip()
         self.app.cloud_interface.get_local_hostname()
+
 
     def add(self):
         """
@@ -113,47 +109,82 @@ class PSSService(ApplicationService):
         """
         Start this service by running the 'Post Start Script'.
 
-        Attempt to download `post_start_script` from `post_start_script_url`
+        Post start scripts are resolved in the following order:
+        1. Attempt to download `post_start_script` from `post_start_script_url`
         (for master) or `worker_post_start_script_url` (for worker)
-        as they are defined in user data. If these URL's are not defined in the
-        user data, look if files `post_start_script` or
-        `worker_post_start_script` for master and worker respectivley exist in
-        the cluster bucket and download those. If obtained, run the script(s),
-        else mark the service as COMPLETED and as 'not active'.
+        as they are defined in user data.
+        2. If these URL's are not defined in the user data, look if files
+        `post_start_script` or `worker_post_start_script` for master and worker
+        respectively exist in the cluster bucket and download those.
+        If obtained, run the script(s).
+        3. If neither are defined, look for `post_start_script_local` (for master)
+        or `worker_post_start_script_local` (for worker) in user data. These
+        can refer to a single file or an entire directory. If it's a directory,
+        all scripts in the directory will be executed (using the run-parts utility.
+        Refer to Ubuntu man pages for documentation on run-parts).
+        Otherwise, the single script pointed to by `post_start_script_local`, is
+        executed.
+
+        Finally, the service is marked as COMPLETED and as 'not active'.
+
+        Note that, if both `post_start_script_url` and `post_script_script_local`
+        are defined, only `post_start_script_url` will be executed. Therefore,
+        it is up to the `post_start_script_url` script to execute
+        `post_script_script_local` using run-parts, at its own discretion.
         """
         log.debug("Starting %s service" % self.name)
         self.state = service_states.RUNNING
-        local_pss_file = os.path.join(self.app.config['cloudman_home'], self.pss_filename)
+        default_pss_filename = 'post_start_script' if self.instance_role == 'master' \
+            else 'worker_post_start_script'
+        pss_url = (self.app.config.get('post_start_script_url', None)
+                   if self.instance_role == 'master' else
+                   self.app.config.get('worker_post_start_script_url', None))
+        user_local_pss = (self.app.config.get('post_start_script_local', None)
+                   if self.instance_role == 'master' else
+                   self.app.config.get('worker_post_start_script_local', None))
+        default_local_pss_file = os.path.join(self.app.config['cloudman_home'], default_pss_filename)
         # Check user data first to allow overwriting of potentially existing pss
-        if self.pss_url:
+        if pss_url:
             # This assumes the provided URL is readable to anyone w/o authentication
             # First check if the file actually exists
-            if misc.run('wget --server-response %s' % self.pss_url):
+            if misc.run('wget --server-response %s' % pss_url):
                 misc.run('wget --output-document=%s %s' % (
-                    local_pss_file, self.pss_url))
+                    default_local_pss_file, pss_url))
             else:
                 log.error("Specified post_start_script_url (%s) does not exist."
-                          % self.pss_url)
+                          % pss_url)
         else:
             # Try to download the pss from the cluster's bucket
             cluster_bucket_name = self.app.config['bucket_cluster']
             log.debug("post_start_script_url not provided, will check if file "
                       "{0} exists in the cluster bucket ({1})."
-                      .format(self.pss_filename, cluster_bucket_name))
+                      .format(default_pss_filename, cluster_bucket_name))
             s3_conn = self.app.cloud_interface.get_s3_connection()
             misc.get_file_from_bucket(s3_conn, cluster_bucket_name,
-                                      self.pss_filename, local_pss_file)
+                                      default_pss_filename, default_local_pss_file)
         # If we got a script, run it
-        if os.path.exists(local_pss_file) and os.path.getsize(local_pss_file) > 0:
+        if os.path.exists(default_local_pss_file) and os.path.getsize(default_local_pss_file) > 0:
             log.info("%s found and saved to '%s'; running it now (note that this "
-                     "may take a while)" % (self.pss_filename, os.path.join(
+                     "may take a while)" % (default_pss_filename, os.path.join(
                                             self.app.config['cloudman_home'],
-                                            self.pss_filename)))
-            os.chmod(local_pss_file, 0755)  # Ensure the script is executable
+                                            default_pss_filename)))
+            os.chmod(default_local_pss_file, 0755)  # Ensure the script is executable
             misc.run('cd %s;./%s' % (self.app.config[
-                     'cloudman_home'], self.pss_filename))
-            self.save_to_bucket()
-            log.info("Done running PSS {0}".format(self.pss_filename))
+                     'cloudman_home'], default_pss_filename))
+            misc.update_file_in_bucket(self.app.cloud_interface.get_s3_connection(), cluster_bucket_name, default_local_pss_file)
+            log.info("Done running PSS {0}".format(default_pss_filename))
+        # Script urls get priority. But if one is not provided, attempt to execute a local script provided by user
+        elif user_local_pss:
+            if os.path.isdir(user_local_pss):
+                log.info("Found local directory %s'; executing all scripts therein (note that this "
+                     "may take a while)" % (user_local_pss))
+            elif os.path.isfile(user_local_pss):
+                log.info("Found local file %s'; executing all scripts therein (note that this "
+                     "may take a while)" % (user_local_pss))
+                misc.run('cd %s;./%s' % (self.app.config[
+                     'cloudman_home'], user_local_pss))
+            else:
+                log.debug("Specified local PSS file or directory (%s) does not exist; continuing." % user_local_pss)
         else:
             log.debug("No PSS provided or obtained; continuing.")
         # Prime the object with instance data
@@ -162,40 +193,6 @@ class PSSService(ApplicationService):
         self.remove()
         self.state = service_states.COMPLETED
         log.debug("%s service done and marked as '%s'" % (self.name, self.state))
-
-    def save_to_bucket(self):
-        """
-        Save the current post start script file to the cluster's bucket.
-
-        The script is saved only if the file does not already exist there
-        and it not older than the local one.
-        """
-        s3_conn = self.app.cloud_interface.get_s3_connection()
-        cluster_bucket_name = self.app.config['bucket_cluster']
-        if not s3_conn or not misc.bucket_exists(s3_conn, cluster_bucket_name):
-            log.debug("No s3_conn or cluster bucket {0} does not exist; not "
-                      "saving the pss in the bucket".format(cluster_bucket_name))
-            return
-        pss_file = os.path.join(
-            self.app.config['cloudman_home'], self.pss_filename)
-        if misc.file_in_bucket_older_than_local(s3_conn,
-                                                self.app.config['bucket_cluster'],
-                                                self.pss_filename,
-                                                pss_file):
-            if os.path.exists(pss_file):
-                log.debug("Saving current instance post start script (%s) to "
-                          "cluster bucket '%s' as '%s'" %
-                          (pss_file, self.app.config['bucket_cluster'],
-                           self.pss_filename))
-                misc.save_file_to_bucket(s3_conn,
-                                         self.app.config['bucket_cluster'],
-                                         self.pss_filename, pss_file)
-            else:
-                log.debug("No instance post start script (%s)" % pss_file)
-        else:
-            log.debug("A current post start script {0} already exists in bucket "
-                      "{1}; not updating it".format(self.pss_filename,
-                                                    self.app.config['bucket_cluster']))
 
     def remove(self, synchronous=False):
         """Mark this service as 'not active' within CloudMan."""

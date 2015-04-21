@@ -669,6 +669,37 @@ def delete_file_from_bucket(conn, bucket_name, remote_filename):
                 remote_filename, bucket_name, e))
     return False
 
+def update_file_in_bucket(conn, bucket_name, local_filepath):
+    """
+    Updates file in bucket from its local counterpart.
+
+    The script is saved only if the file does not already exist there
+    and it is not older than the local one.
+    """
+    filename = os.path.basename(local_filepath)
+    if not conn or not bucket_exists(conn, bucket_name):
+        log.debug("No s3_conn or cluster bucket {0} does not exist; not "
+                  "saving the pss in the bucket".format(bucket_name))
+        return
+    if file_in_bucket_older_than_local(conn,
+                                       bucket_name,
+                                       filename,
+                                       local_filepath):
+        if os.path.exists(local_filepath):
+            log.debug("Saving current instance post start script (%s) to "
+                      "cluster bucket '%s' as '%s'" %
+                      (local_filepath, bucket_name,
+                       filename))
+            save_file_to_bucket(conn,
+                                     bucket_name,
+                                     filename, local_filepath)
+        else:
+            log.debug("No instance post start script (%s)" % local_filepath)
+    else:
+        log.debug("A current post start script {0} already exists in bucket "
+                  "{1}; not updating it".format(filename,
+                                                bucket_name))
+
 
 def delete_bucket(conn, bucket_name):
     """
