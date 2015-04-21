@@ -12,12 +12,12 @@ log = logging.getLogger('cloudman')
 
 class PSSService(ApplicationService):
     """ post_start_script service - this service runs once at the end of the
-        configuration of all services defined in CloudMan. It runs a predefined
-        script.
-        Defining a service for something simple like this may be an overkill
+        configuration of all services defined in CloudMan. It runs a user-defined
+        script or script directory.
+        Defining a service for something simple like this may be overkill
         but it's also the simplest way to ensure this runs only after all other
-        servces have been configured and are running. Plus, it can eventually
-        be extended to run arbitrary script when a condition is met."""
+        services have been configured and are running. Plus, it can eventually
+        be extended to run an arbitrary script when a condition is met."""
 
     def __init__(self, app, instance_role='master'):
         super(PSSService, self).__init__(app)
@@ -178,6 +178,7 @@ class PSSService(ApplicationService):
             if os.path.isdir(user_local_pss):
                 log.info("Found local directory %s'; executing all scripts therein (note that this "
                      "may take a while)" % (user_local_pss))
+                misc.run('cd %s; run-parts %s' % (user_local_pss, user_local_pss))
             elif os.path.isfile(user_local_pss):
                 log.info("Found local file %s'; executing all scripts therein (note that this "
                      "may take a while)" % (user_local_pss))
