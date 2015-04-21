@@ -182,8 +182,7 @@ class PSSService(ApplicationService):
             elif os.path.isfile(user_local_pss):
                 log.info("Found local file %s'; executing all scripts therein (note that this "
                      "may take a while)" % (user_local_pss))
-                misc.run('cd %s;./%s' % (self.app.config[
-                     'cloudman_home'], user_local_pss))
+                misc.run('cd %s;./%s' % (os.path.dirname(user_local_pss), user_local_pss))
             else:
                 log.debug("Specified local PSS file or directory (%s) does not exist; continuing." % user_local_pss)
         else:
