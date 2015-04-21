@@ -173,7 +173,7 @@ class PSSService(ApplicationService):
                     else:
                         self._execute_local_script(local_pss)
         else:
-            log.debug("post_start_script_url not provided, will check if file "
+            log.debug("post_start_script_url not provided, will check if default script "
                       "{0} exists in the cluster bucket.".format(default_pss_filename))
             if self._fetch_script_from_bucket(default_pss_filename, default_local_pss_file):
                 self._execute_local_script(default_local_pss_file)
