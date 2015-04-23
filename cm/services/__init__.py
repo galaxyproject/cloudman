@@ -57,6 +57,7 @@ class ServiceRole(object):
                         'name': "Cloudera Manager Service"}
     NGINX = {'type': ServiceType.APPLICATION, 'name': "Nginx Service"}
     CLOUDGENE = {'type': ServiceType.APPLICATION, 'name': "Cloudgene Service"}
+    SUPERVISOR = {'type': ServiceType.APPLICATION, 'name': "Supervisor Service"}
 
     @staticmethod
     def get_type(role):
@@ -136,6 +137,8 @@ class ServiceRole(object):
             return ServiceRole.NGINX
         elif val == "Cloudgene":
             return ServiceRole.CLOUDGENE
+        elif val == "Supervisor":
+            return ServiceRole.SUPERVISOR
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -201,6 +204,8 @@ class ServiceRole(object):
             return "Nginx"
         elif svc_role == ServiceRole.CLOUDGENE:
             return "Cloudgene"
+        elif svc_role == ServiceRole.SUPERVISOR:
+            return "Supervisor"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))

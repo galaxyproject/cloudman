@@ -26,6 +26,8 @@ SGE_MPI_PE = "sge_mpi_pe"
 SGE_REQUEST_TEMPLATE = "sge_request_template"
 SLURM_CONF_TEMPLATE = "slurm.conf"
 
+SUPERVISOR_TEMPLATE = "supervisord.conf"
+
 
 def load_conf_template(conf_file_name):
     """Loads and returns the given text file as a string Template.
@@ -36,6 +38,7 @@ def load_conf_template(conf_file_name):
     conf_file_name -- The name of the conf template
     """
     filepath = os.path.join(CONF_TEMPLATE_PATH, conf_file_name)
-    if not os.path.exists(filepath):  # Allow user to use a custom template if they wish, or fall back to sample template
+    # Allow use of a custom template or fall back to the default template
+    if not os.path.exists(filepath):
         filepath = os.path.join(CONF_TEMPLATE_PATH, conf_file_name + ".default")
     return Template(open(filepath, 'r').read())

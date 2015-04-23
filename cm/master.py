@@ -345,6 +345,9 @@ class ConsoleManager(BaseConsoleManager):
         # Activate Nginx service
         self.activate_master_service(self.service_registry.get('Nginx'))
 
+        # Activate Supervisor service
+        self.activate_master_service(self.service_registry.get('Supervisor'))
+
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
         cmd = "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -f2 -d'='"
