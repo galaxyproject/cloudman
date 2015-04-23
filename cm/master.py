@@ -1412,6 +1412,8 @@ class ConsoleManager(BaseConsoleManager):
             self.activate_master_service(self.service_registry.get('Galaxy'))
             # Add Galaxy Reports service
             self.activate_master_service(self.service_registry.get('GalaxyReports'))
+            # Add Galaxy NodeJSProxy service
+            self.activate_master_service(self.service_registry.get('NodeJSProxy'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs(fs_name='galaxy')

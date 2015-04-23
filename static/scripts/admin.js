@@ -75,6 +75,7 @@ function update(repeat_update){
                 update_application_status("#clouderamanager_status", data.ClouderaManager);
                 update_application_status("#nginx_status", data.Nginx);
                 update_application_status("#cloudgene_status", data.Cloudgene);
+                update_application_status("#nodejsproxy_status", data.NodeJSProxy);
                 update_application_status("#supervisor_status", data.Supervisor);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
