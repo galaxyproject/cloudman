@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from git import Repo
+from git import Repo, InvalidGitRepositoryError
 
 from cm.instance import Instance
 from cm.services import ServiceRole
@@ -122,19 +122,26 @@ class ConsoleManager(BaseConsoleManager):
         else:
             log.warning("Did not activate service {0}".format(new_service))
 
-    def deactivate_master_service(self, service_to_remove):
+    def deactivate_master_service(self, service_to_remove, immediately=False):
         """
         Deactivate the `service_to_remove`, updating its dependencies in the
         process.
 
         :type   service_to_remove: object
         :param  service_to_remove: an instance object of the service to remove
+
+        :type   immediately: bool
+        :param  immediately: If set, initiate the service removal process
+                             right away. Otherwise, the monitor thread will
+                             initiate it the next time it runs.
         """
         service = self.service_registry.get(service_to_remove.name)
         if service:
             log.debug("Deactivating service {0}".format(service_to_remove.name))
             service.activated = False
             self._update_dependencies(service_to_remove, "REMOVE")
+            if immediately:
+                self.console_monitor._stop_services()
         else:
             log.debug("Could not find service {0} to deactivate?!".format(
                       service_to_remove.name))
@@ -772,16 +779,19 @@ class ConsoleManager(BaseConsoleManager):
 
         repo = None
         repo_path = self.app.path_resolver.galaxy_home
-        if os.path.exists(repo_path):
-            repo = Repo(repo_path)
-        if repo and not repo.bare:
-            hexsha = repo.head.commit.hexsha
-            authored_date = time.strftime("%d %b %Y", time.gmtime(
-                repo.head.commit.authored_date))
-            active_branch = repo.active_branch.name
-            repo_url = _get_remote_url(repo)
-            return {'hexsha': hexsha, 'authored_date': authored_date,
-                    'active_branch': active_branch, 'repo_url': repo_url}
+        try:
+            if os.path.exists(repo_path):
+                repo = Repo(repo_path)
+            if repo and not repo.bare:
+                hexsha = repo.head.commit.hexsha
+                authored_date = time.strftime("%d %b %Y", time.gmtime(
+                    repo.head.commit.authored_date))
+                active_branch = repo.active_branch.name
+                repo_url = _get_remote_url(repo)
+                return {'hexsha': hexsha, 'authored_date': authored_date,
+                        'active_branch': active_branch, 'repo_url': repo_url}
+        except InvalidGitRepositoryError:
+            log.debug("No git repository at {0}?".format(repo_path))
         return {}
 
     def get_galaxy_admins(self):
@@ -2454,7 +2464,7 @@ class ConsoleMonitor(object):
             misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                      "%s.clusterName" % self.app.config['cluster_name'], cn_file)
 
-    def __start_services(self):
+    def _start_services(self):
         config_changed = False  # Flag to indicate if cluster conf was changed
         # Check and add any new services
         for service in self.app.manager.service_registry.active():
@@ -2484,7 +2494,7 @@ class ConsoleMonitor(object):
                 self.expand_user_data_volume()
         return config_changed
 
-    def __stop_services(self):
+    def _stop_services(self):
         """
         Initiate stopping of any services that have been marked as not `active`
         yet are not already UNSTARTED, COMPLETED, or SHUT_DOWN.
@@ -2615,8 +2625,8 @@ class ConsoleMonitor(object):
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
             # Store cluster configuraiton if the configuration has changed
-            config_changed = self.__start_services()
-            config_changed = config_changed or self.__stop_services()
+            config_changed = self._start_services()
+            config_changed = config_changed or self._stop_services()
             self.__check_if_cluster_ready()
             # Opennebula has no object storage, so this is not working (yet)
             if config_changed and self.app.cloud_type != 'opennebula':
