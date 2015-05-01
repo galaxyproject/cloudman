@@ -63,6 +63,7 @@ class TransientStorage(BlockStorage):
         # If based on an archive, extract archive contents to the mount point
         if self.from_archive:
             self.fs.persistent = True
+            self.fs.state = service_states.CONFIGURING
             # Extract the FS archive in a separate thread
             log.debug("Extracting transient FS {0} from an archive in a "
                       "dedicated thread.".format(self.get_full_name()))
