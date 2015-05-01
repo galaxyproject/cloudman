@@ -61,6 +61,7 @@ class Volume(BlockStorage):
         if (vol_id):  # get the volume object immediately, if id is passed
             self.update(vol_id)
         elif from_snapshot_id or from_archive:
+            log.debug("Volume service object created; creating the actual volume.")
             self.create()
 
     def __str__(self):

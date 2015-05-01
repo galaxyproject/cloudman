@@ -1360,7 +1360,6 @@ class ConsoleManager(BaseConsoleManager):
                                 fs_template['name']))
                             fs.add_volume(vol_id=att_vol.id,
                                           size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                            # snap_size = att_vol.size
                         elif 'snap_id' in fs_template:
                             log.debug("There are no volumes already attached for file system {0}"
                                       .format(fs_template['name']))
@@ -1368,11 +1367,10 @@ class ConsoleManager(BaseConsoleManager):
                             if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
                                 size = pss
                             fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
-                            # snap_size = snap.get('size', 0)
                         elif 'type' in fs_template:
                             if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                                log.debug("Attaching a volume based on an archive named {0}"
-                                          .format(fs_template['name']))
+                                log.debug("Creating an archive-based ({0}) file system named '{1}'"
+                                          .format(fs_template.get('archive_url'), fs_template['name']))
                                 if storage_type == 'volume':
                                     if 'size' in fs_template:
                                         size = fs_template.get('size', 10)  # Default to 10GB
@@ -1391,25 +1389,25 @@ class ConsoleManager(BaseConsoleManager):
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))
                             elif 'gluster' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Attaching a glusterfs based filesystem named {0}"
+                                log.debug("Creating a glusterfs-based filesystem named {0}"
                                           .format(fs_template['name']))
                                 fs.add_glusterfs(fs_template['server'],
                                                  mount_options=fs_template.get('mount_options', None))
                             elif 'nfs' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Attaching an nfs based filesystem named {0}"
+                                log.debug("Creating an NFS-based filesystem named {0}"
                                           .format(fs_template['name']))
                                 fs.add_nfs(fs_template['server'], None, None,
                                            mount_options=fs_template.get('mount_options', None))
                             elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
                                             'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
+                                log.debug("Creating a bucket-based filesystem named {0}"
+                                          .format(fs_template['name']))
                                 fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'],
                                               fs_template['bucket_s_key'])
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or "
                                           "improperly configured type '{0}' for fs named: {1}"
                                           .format(fs_template['type]'], fs_template['name']))
-                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"
-                                  .format(fs.get_full_name(), fs.volumes))
                         self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:

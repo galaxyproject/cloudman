@@ -61,6 +61,8 @@ class TransientStorage(BlockStorage):
         if self.from_archive:
             self.fs.persistent = True
             # Extract the FS archive in a separate thread
+            log.debug("Extracting transient FS {0} from an archive in a "
+                      "dedicated thread.".format(self.get_full_name()))
             ExtractArchive(self.from_archive['url'], self.fs.mount_point,
                            self.from_archive['md5_sum'],
                            callback=self.fs.nfs_share_and_set_state).start()

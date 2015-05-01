@@ -142,7 +142,8 @@ class Filesystem(DataService):
                     self.get_full_name(), e))
                 return False
             self.status()
-            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4}, {5})"
+            log.debug("Done adding devices to {0}. Vols: {1}; buckets: {2}; "
+                      "transient: {3}; NFS device: {4}; Gluster devices: {5})"
                       .format(self.get_full_name(), self.volumes, self.buckets,
                               self.transient_storage,
                               self.nfs_fs.device if self.nfs_fs else '-',
@@ -542,7 +543,7 @@ class Filesystem(DataService):
                     self.size_used = disk_usage[1]
                     self.size_pct = disk_usage[2]
             else:
-                log.warning("Empty disk usage for FS {0}".format(self.name))
+                log.warning("Empty disk usage for FS '{0}'".format(self.name))
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
