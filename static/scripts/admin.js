@@ -61,6 +61,8 @@ function update(repeat_update){
                 $('#galaxy_dns').html(galaxy_dns);
                 $('#galaxy_admins').html(data.galaxy_admins);
                 $('#galaxy_rev').html(rev_html);
+                cluster_runtime = data.cluster_uptime + " (since " + data.cluster_startup_time + " UTC)";
+                $('#cluster_runtime').html(cluster_runtime);
                 update_application_status("#galaxy_status", data.Galaxy);
                 update_application_status("#postgres_status", data.Postgres);
                 update_application_status("#slurmctld_status", data.Slurmctld);
