@@ -768,17 +768,21 @@ class ConsoleManager(BaseConsoleManager):
             return remote_url
 
         repo = None
-        repo_path = self.app.path_resolver.galaxy_home
-        if os.path.exists(repo_path):
-            repo = Repo(repo_path)
-        if repo and not repo.bare:
-            hexsha = repo.head.commit.hexsha
-            authored_date = time.strftime("%d %b %Y", time.gmtime(
-                repo.head.commit.authored_date))
-            active_branch = repo.active_branch.name
-            repo_url = _get_remote_url(repo)
-            return {'hexsha': hexsha, 'authored_date': authored_date,
-                    'active_branch': active_branch, 'repo_url': repo_url}
+        try:
+            repo_path = self.app.path_resolver.galaxy_home
+            if os.path.exists(repo_path):
+                repo = Repo(repo_path)
+            if repo and not repo.bare:
+                hexsha = repo.head.commit.hexsha
+                authored_date = time.strftime("%d %b %Y", time.gmtime(
+                    repo.head.commit.authored_date))
+                active_branch = repo.active_branch.name
+                repo_url = _get_remote_url(repo)
+                return {'hexsha': hexsha, 'authored_date': authored_date,
+                        'active_branch': active_branch, 'repo_url': repo_url}
+        except Exception as e:
+            log.debug("Could not get galaxy revision! Exception: {0}".format(e))
+            return {}
         return {}
 
     def get_galaxy_admins(self):
