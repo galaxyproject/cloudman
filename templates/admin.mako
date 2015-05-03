@@ -44,7 +44,7 @@
                     <input type="submit" value="Set admin users">
                 </form>
             </li>
-            <li>Running Galaxy at revision: <span id="galaxy_rev">N/A</span></li>
+            <li>Galaxy is at revision: <span id="galaxy_rev">N/A</span></li>
             <li>Update Galaxy from a provided repository
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
@@ -80,8 +80,9 @@
         <h3>Services controls</h3>
         <div class="help_text">
             Use these controls to administer individual application services managed by CloudMan.
-            Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
-            target='_blank'>${initial_cluster_type}</a>' type of cluster.
+            Currently running a '<a href="https://wiki.galaxyproject.org/CloudMan?action=show&redirect=Admin%2FCloud#Detailed_steps"
+            target='_blank'>${initial_cluster_type}</a>' type of cluster with
+            '${cluster_storage_type}' storage type.
         </div>
         <table width="700px" style="margin:10px 0;">
             <tr style="text-align:left">
@@ -115,6 +116,7 @@
             Use these controls to administer CloudMan itself as well as the underlying system.
         </div>
         <ul class='services_list'>
+            <li>Cluster uptime: <span id="cluster_runtime">N/A</span></li>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li>Name of this cluster's bucket: ${bucket_cluster}
                 %if cloud_type == 'ec2':

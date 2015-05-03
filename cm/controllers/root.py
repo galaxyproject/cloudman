@@ -5,7 +5,8 @@ import subprocess
 import time
 
 import cm.util.paths as paths
-
+from cm.util import Time
+from cm.util import misc
 from cm.base.controller import BaseController
 from cm.framework import expose
 from cm.services import ServiceRole, ServiceType, service_states
@@ -457,7 +458,11 @@ class CM(BaseController):
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
         status_dict['ignore_deps_framework'] = self.app.config.ignore_unsatisfiable_dependencies
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
+        status_dict['cluster_startup_time'] = self.app.manager.startup_time.strftime("%b %d %Y %H:%M:%S")
+        cluster_uptime = misc.format_time_delta(Time.now() - self.app.manager.startup_time)
+        status_dict['cluster_uptime'] = cluster_uptime
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
+        # print "status_dict: %s" % status_dict
         return json.dumps(status_dict)
 
     @expose
@@ -786,7 +791,8 @@ class CM(BaseController):
                                    cloud_type=self.app.config.cloud_type,
                                    initial_cluster_type=self.app.manager.initial_cluster_type,
                                    cluster_name=self.app.config['cluster_name'],
-                                   app_services=sorted(app_services))
+                                   app_services=sorted(app_services),
+                                   cluster_storage_type=self.app.manager.cluster_storage_type)
 
     @expose
     def cluster_status(self, trans):

@@ -185,11 +185,11 @@ class ExtractArchive(threading.Thread):
     def _md5_check_ok(self, digest):
         """Do the MD5 checksum. Return `True` if OK; `False` otherwise."""
         if self.md5_sum and not digest == self.md5_sum:
-            log.debug("Invalid MD5 sum for archive {0}. Expected: {1} but "
+            log.debug(" (X) Invalid MD5 sum for archive {0}. Expected: {1} but "
                       "found {2}".format(self.archive_url, self.md5_sum, digest))
             return False
         if self.md5_sum:
-            log.info("MD5 checksum for archive {0} is OK: {1}=={2}".format(
+            log.info(" (X) MD5 checksum for archive {0} is OK: {1}=={2}".format(
                      self.archive_url, self.md5_sum, digest))
         return True
 
@@ -208,25 +208,25 @@ class ExtractArchive(threading.Thread):
             hexdigest = stream.hexdigest()
             head_response = requests.head(self.archive_url)
             archive_size = head_response.headers.get('content-length', -1)
-            log.debug("Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
+            log.debug(" (X) Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
                       .format(self.archive_url, misc.nice_size(archive_size),
                               self.path, misc.nice_size(misc.get_dir_size(self.path)),
                               datetime.utcnow() - start))
             return hexdigest
         except Exception, e:
-            log.error("Exception extracting archive {0} to {1}: {2}".format(
+            log.error(" (X) Exception extracting archive {0} to {1}: {2}".format(
                       self.archive_url, self.path, e))
             return None
 
     def run(self):
-        log.info("Extracting archive url {0} to {1}. This could take a while..."
+        log.info(" (X) Extracting archive url {0} to {1}. This could take a while..."
                  .format(self.archive_url, self.path))
         digest = self._extract()
         while not self._md5_check_ok(digest) and self.num_retries > 0:
             digest = self._extract()
             self.num_retries -= 1
         if self.callback:
-            log.debug("Callback method defined; calling it now.")
+            log.debug(" (X) Callback method defined; calling it now.")
             self.callback()
 
 

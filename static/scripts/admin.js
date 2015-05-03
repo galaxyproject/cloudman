@@ -44,7 +44,7 @@ function update(repeat_update){
                     var rev_html = ("<a href='" + commit_url +"' target='_blank'>" +
                                     data.galaxy_rev.hexsha.substr(0,10) + "</a>"
                                     + " (" + "<a href='" + branch_url + "' target='_blank'>"
-                                    + data.galaxy_rev.active_branch + " branch</a>) "
+                                    + data.galaxy_rev.active_branch + " branch</a>) from "
                                     + data.galaxy_rev.authored_date);
                 } else {
                     var rev_html = "N/A";
@@ -61,6 +61,8 @@ function update(repeat_update){
                 $('#galaxy_dns').html(galaxy_dns);
                 $('#galaxy_admins').html(data.galaxy_admins);
                 $('#galaxy_rev').html(rev_html);
+                cluster_runtime = data.cluster_uptime + " (since " + data.cluster_startup_time + " UTC)";
+                $('#cluster_runtime').html(cluster_runtime);
                 update_application_status("#galaxy_status", data.Galaxy);
                 update_application_status("#postgres_status", data.Postgres);
                 update_application_status("#slurmctld_status", data.Slurmctld);
@@ -75,6 +77,8 @@ function update(repeat_update){
                 update_application_status("#clouderamanager_status", data.ClouderaManager);
                 update_application_status("#nginx_status", data.Nginx);
                 update_application_status("#cloudgene_status", data.Cloudgene);
+                update_application_status("#nodejsproxy_status", data.NodeJSProxy);
+                update_application_status("#supervisor_status", data.Supervisor);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking

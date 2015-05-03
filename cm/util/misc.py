@@ -25,7 +25,6 @@ from tempfile import mkstemp, NamedTemporaryFile
 
 from cm.services import ServiceRole
 
-
 log = logging.getLogger('cloudman')
 
 
@@ -809,7 +808,7 @@ def get_file_from_public_location(config, remote_filename, local_file):
         return False
 
 
-def run(cmd, err=None, ok=None, quiet=False, cwd=None):
+def run(cmd, err=None, ok=None, quiet=False, user=None):
     """
     Convenience method for executing a shell command ``cmd``. Returns
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
@@ -818,13 +817,17 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     include ``ok`` output if command ran fine. If ``quiet`` is set to ``True``,
     do not log any messages.
 
-    `cwd` argument is not used.
+    If `user` is set, run the command as the specified system user. Note that
+    this may not work as expected if the command depends on embedded escaping
+    of quotes or other special characters.
     """
     # Predefine err and ok mesages to include the command being run
     if err is None:
         err = "---> PROBLEM"
     if ok is None:
         ok = "'%s' command OK" % cmd
+    if user:
+        cmd = '/bin/su - {0} -c "{1}"'.format(user, cmd)
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
@@ -843,13 +846,19 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
         return False
 
 
-def getoutput(cmd, quiet=False):
+def getoutput(cmd, quiet=False, user=None):
     """
-    Execute the shell command `cmd` and return the output. If `quiet` is set,
-    do not log any messages. If there is an exception, return `None`.
+    Execute the shell command `cmd` and return the output.
+
+    If `quiet` is set, do not log any messages. If there is an exception,
+    return `None`. If `user` is set, run the command as the specified system
+    user. Note that this may not work as expected if the command depends on
+    embedded escaping of quotes or other special characters.
     """
     out = None
     try:
+        if user:
+            cmd = '/bin/su - {0} -c "{1}"'.format(user, cmd)
         out = commands.getoutput(cmd)
         if not quiet:
             log.debug("Executed command '{0}' and got output: {1}".format(cmd, out))
@@ -1242,6 +1251,29 @@ def random_string_generator(size=10, chars=string.ascii_uppercase + string.digit
     Generate a random string of `size` consisting of `chars`
     """
     return ''.join(random.choice(chars) for _ in range(size))
+
+
+def write_template_file(template, parameters, conf_file):
+    """
+    Write out a file base on a string template.
+
+    Given a `string.template` and appropriate `parameters` as a
+    dict, load the file as a `string.Template`, substitute the `parameters` and
+    write out the file to the `conf_file` path. Return `True` if successful,
+    `False` otherwise.
+    """
+    try:
+        t = template.substitute(parameters)
+        # Write out the file
+        with open(conf_file, 'w') as f:
+            print >> f, t
+        log.debug("Wrote template file {0}".format(conf_file))
+        return True
+    except KeyError, kexc:
+        log.error("KeyError filling template {0}: {1}".format(template, kexc))
+    except IOError, ioexc:
+        log.error("IOError writing template file {0}: {1}".format(conf_file, ioexc))
+    return False
 
 
 class RingBuffer(object):

@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from git import Repo
+from git import Repo, InvalidGitRepositoryError
 
 from cm.instance import Instance
 from cm.services import ServiceRole
@@ -122,19 +122,26 @@ class ConsoleManager(BaseConsoleManager):
         else:
             log.warning("Did not activate service {0}".format(new_service))
 
-    def deactivate_master_service(self, service_to_remove):
+    def deactivate_master_service(self, service_to_remove, immediately=False):
         """
         Deactivate the `service_to_remove`, updating its dependencies in the
         process.
 
         :type   service_to_remove: object
         :param  service_to_remove: an instance object of the service to remove
+
+        :type   immediately: bool
+        :param  immediately: If set, initiate the service removal process
+                             right away. Otherwise, the monitor thread will
+                             initiate it the next time it runs.
         """
         service = self.service_registry.get(service_to_remove.name)
         if service:
             log.debug("Deactivating service {0}".format(service_to_remove.name))
             service.activated = False
             self._update_dependencies(service_to_remove, "REMOVE")
+            if immediately:
+                self.console_monitor._stop_services()
         else:
             log.debug("Could not find service {0} to deactivate?!".format(
                       service_to_remove.name))
@@ -344,6 +351,9 @@ class ConsoleManager(BaseConsoleManager):
 
         # Activate Nginx service
         self.activate_master_service(self.service_registry.get('Nginx'))
+
+        # Activate Supervisor service
+        self.activate_master_service(self.service_registry.get('Supervisor'))
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
@@ -768,8 +778,8 @@ class ConsoleManager(BaseConsoleManager):
             return remote_url
 
         repo = None
+        repo_path = self.app.path_resolver.galaxy_home
         try:
-            repo_path = self.app.path_resolver.galaxy_home
             if os.path.exists(repo_path):
                 repo = Repo(repo_path)
             if repo and not repo.bare:
@@ -780,9 +790,8 @@ class ConsoleManager(BaseConsoleManager):
                 repo_url = _get_remote_url(repo)
                 return {'hexsha': hexsha, 'authored_date': authored_date,
                         'active_branch': active_branch, 'repo_url': repo_url}
-        except Exception as e:
-            log.debug("Could not get galaxy revision! Exception: {0}".format(e))
-            return {}
+        except InvalidGitRepositoryError:
+            log.debug("No git repository at {0}?".format(repo_path))
         return {}
 
     def get_galaxy_admins(self):
@@ -1362,8 +1371,8 @@ class ConsoleManager(BaseConsoleManager):
                             # snap_size = snap.get('size', 0)
                         elif 'type' in fs_template:
                             if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                                log.debug("Attaching a volume based on an archive named {0}"
-                                          .format(fs_template['name']))
+                                log.debug("Creating an archive-based ({0}) file system named '{1}'"
+                                          .format(fs_template.get('archive_url'), fs_template['name']))
                                 if storage_type == 'volume':
                                     if 'size' in fs_template:
                                         size = fs_template.get('size', 10)  # Default to 10GB
@@ -1382,25 +1391,25 @@ class ConsoleManager(BaseConsoleManager):
                                     log.error("Unknown storage type {0} for archive extraction."
                                               .format(storage_type))
                             elif 'gluster' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Attaching a glusterfs based filesystem named {0}"
+                                log.debug("Creating a glusterfs-based filesystem named {0}"
                                           .format(fs_template['name']))
                                 fs.add_glusterfs(fs_template['server'],
                                                  mount_options=fs_template.get('mount_options', None))
                             elif 'nfs' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Attaching an nfs based filesystem named {0}"
+                                log.debug("Creating an NFS-based filesystem named {0}"
                                           .format(fs_template['name']))
                                 fs.add_nfs(fs_template['server'], None, None,
                                            mount_options=fs_template.get('mount_options', None))
                             elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
                                             'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
+                                log.debug("Creating a bucket-based filesystem named {0}"
+                                          .format(fs_template['name']))
                                 fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'],
                                               fs_template['bucket_s_key'])
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or "
                                           "improperly configured type '{0}' for fs named: {1}"
                                           .format(fs_template['type]'], fs_template['name']))
-                        log.debug("Adding a filesystem '{0}' with volumes '{1}'"
-                                  .format(fs.get_full_name(), fs.volumes))
                         self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
@@ -1413,6 +1422,8 @@ class ConsoleManager(BaseConsoleManager):
             self.activate_master_service(self.service_registry.get('Galaxy'))
             # Add Galaxy Reports service
             self.activate_master_service(self.service_registry.get('GalaxyReports'))
+            # Add Galaxy NodeJSProxy service
+            self.activate_master_service(self.service_registry.get('NodeJSProxy'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
             _add_data_fs(fs_name='galaxy')
@@ -2453,7 +2464,7 @@ class ConsoleMonitor(object):
             misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                      "%s.clusterName" % self.app.config['cluster_name'], cn_file)
 
-    def __start_services(self):
+    def _start_services(self):
         config_changed = False  # Flag to indicate if cluster conf was changed
         # Check and add any new services
         for service in self.app.manager.service_registry.active():
@@ -2483,7 +2494,7 @@ class ConsoleMonitor(object):
                 self.expand_user_data_volume()
         return config_changed
 
-    def __stop_services(self):
+    def _stop_services(self):
         """
         Initiate stopping of any services that have been marked as not `active`
         yet are not already UNSTARTED, COMPLETED, or SHUT_DOWN.
@@ -2614,8 +2625,8 @@ class ConsoleMonitor(object):
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
             # Store cluster configuraiton if the configuration has changed
-            config_changed = self.__start_services()
-            config_changed = config_changed or self.__stop_services()
+            config_changed = self._start_services()
+            config_changed = config_changed or self._stop_services()
             self.__check_if_cluster_ready()
             # Opennebula has no object storage, so this is not working (yet)
             if config_changed and self.app.cloud_type != 'opennebula':
