@@ -1360,7 +1360,6 @@ class ConsoleManager(BaseConsoleManager):
                                 fs_template['name']))
                             fs.add_volume(vol_id=att_vol.id,
                                           size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                            # snap_size = att_vol.size
                         elif 'snap_id' in fs_template:
                             log.debug("There are no volumes already attached for file system {0}"
                                       .format(fs_template['name']))
@@ -1368,7 +1367,6 @@ class ConsoleManager(BaseConsoleManager):
                             if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
                                 size = pss
                             fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
-                            # snap_size = snap.get('size', 0)
                         elif 'type' in fs_template:
                             if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
                                 log.debug("Creating an archive-based ({0}) file system named '{1}'"
