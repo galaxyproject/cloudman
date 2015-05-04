@@ -181,7 +181,7 @@ class SupervisorService(ApplicationService):
     def get_program_info(self, prog_name):
         """
         Query supervisord for the info of program ``prog_name`` and return it
-        (as a dict). If the program is not found or an something unexpected
+        (as a dict). If the program is not found or something unexpected
         occurs, return an empty dict.
         """
         # log.debug("Getting program {0} info from supervisord.".format(prog_name))
