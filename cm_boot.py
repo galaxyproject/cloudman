@@ -488,9 +488,6 @@ def _system_message(message_contents):
         with open(SYSTEM_MESSAGES_FILE, 'a+') as f:
             f.write(message_contents)
 
-def migrate_1():
-    pass
-
 def main():
     global log
     log = _setup_global_logger()

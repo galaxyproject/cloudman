@@ -13,6 +13,7 @@ from cm.services import ServiceRole, service_states
 from cm.services.data import BlockStorage
 from cm.util import misc
 from cm.util import ExtractArchive
+from cm.util.nfs_export import NFSExport
 
 log = logging.getLogger('cloudman')
 
@@ -122,27 +123,21 @@ class TransientStorage(BlockStorage):
             #           self.fs.get_full_name(), self.fs.mount_point))
             self.fs.state = service_states.UNSTARTED
         else:
-            ee_file = '/etc/exports'
             try:
-                # This does read the file every time the service status is
-                # updated. Is this really necessary?
-                with open(ee_file, 'r') as f:
-                    shared_paths = f.readlines()
-                for shared_path in shared_paths:
-                    if self.fs.mount_point in shared_path:
-                        self.fs.state = service_states.RUNNING
-                        # Transient storage needs to be special-cased because
-                        # it's not a mounted disk per se but a disk on an
-                        # otherwise default device for an instance (i.e., /mnt)
-                        update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
-                                           "awk '{print $2, $3, $5}'")
-                        self.fs._update_size(cmd=update_size_cmd)
-                        return
-                # Or should this set it to UNSTARTED? Because this FS is just an
-                # NFS-exported file path...
-                log.warning("Data service {0} not found in {1}; error!"
-                            .format(self.fs.get_full_name(), ee_file))
-                self.fs.state = service_states.ERROR
+                if NFSExport.find_mount_point_entry(self.fs.mount_point) > -1:
+                    self.fs.state = service_states.RUNNING
+                    # Transient storage needs to be special-cased because
+                    # it's not a mounted disk per se but a disk on an
+                    # otherwise default device for an instance (i.e., /mnt)
+                    update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
+                                       "awk '{print $2, $3, $5}'")
+                    self.fs._update_size(cmd=update_size_cmd)
+                else:
+                    # Or should this set it to UNSTARTED? Because this FS is just an
+                    # NFS-exported file path...
+                    log.warning("Data service {0} not found in /etc/exports; error!"
+                                .format(self.fs.get_full_name()))
+                    self.fs.state = service_states.ERROR
             except Exception, e:
                 log.error("Error checking the status of {0} service: {1}".format(
                     self.fs.get_full_name(), e))
