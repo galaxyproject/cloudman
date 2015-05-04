@@ -485,7 +485,7 @@ class Filesystem(DataService):
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
         #   % (self.name, self.name, self.state))
-        NFSExport.reload_exports_if_required()
+        NFSExport.reload_nfs_exports()
         # Transient storage file system has its own process for checking status
         if len(self.transient_storage) > 0:
             for ts in self.transient_storage:
