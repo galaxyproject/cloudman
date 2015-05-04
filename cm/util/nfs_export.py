@@ -103,13 +103,15 @@ class NFSExport:
         return -1
 
     @staticmethod
-    def reload_nfs_exports():
-        with flock(NFSExport.nfs_lock_file):
-            if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server",
-                    "Successfully restarted NFS server"):
-                NFSExport.nfs_dirty = False
+    def reload_nfs_exports(force=False):
+        """
+        Reloads NFS exports if required (dirty flag is set).
 
-    @staticmethod
-    def reload_exports_if_required():
-        if NFSExport.nfs_dirty:
-            NFSExport.reload_nfs_exports()
+        :type force: bool
+        :param force: Force reload, even if dirty flag is not set. Default is False.
+        """
+        if NFSExport.nfs_dirty or force:
+            with flock(NFSExport.nfs_lock_file):
+                if run("/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server",
+                        "Successfully restarted NFS server"):
+                    NFSExport.nfs_dirty = False
