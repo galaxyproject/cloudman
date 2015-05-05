@@ -11,13 +11,13 @@ vertical-align: top;
     <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            Welcome to <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">CloudMan</a>.
             This application allows you to manage this cloud cluster and the services provided within.
             If this is your first time running this cluster, you will need to select an initial data volume
             size. Once the data store is configured, default services will start and you will be able to add
             and remove additional services as well as 'worker' nodes on which jobs are run.
         %else:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
+            Welcome to <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">CloudMan</a>.
             This application allows you to manage this instance cloud cluster and the services
             provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
             use the controls below to manage services provided by the application.
