@@ -1407,7 +1407,7 @@ class ConsoleManager(BaseConsoleManager):
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or "
                                           "improperly configured type '{0}' for fs named: {1}"
-                                          .format(fs_template['type]'], fs_template['name']))
+                                          .format(fs_template['type'], fs_template['name']))
                         self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
