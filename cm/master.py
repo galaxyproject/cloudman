@@ -273,9 +273,10 @@ class ConsoleManager(BaseConsoleManager):
             pass
         elif misc.get_file_from_public_location(self.app.config, 'snaps.yaml', snaps_file):
             log.warn("Couldn't get snaps.yaml from bucket: {0}. However, managed "
-                     "to retrieve it from public location '{1}' instead.".format(
-                     self.app.config['bucket_default'],
-                     self.app.config.get('default_bucket_url') or self.app.config['bucket_default']))
+                     "to retrieve it from public location '{1}' instead."
+                     .format(self.app.config['bucket_default'],
+                             (self.app.config.get('default_bucket_url') or
+                              self.app.config['bucket_default'])))
         else:
             log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
             return []
@@ -2381,10 +2382,10 @@ class ConsoleMonitor(object):
         In addition, store the local Galaxy configuration files to the cluster's
         bucket (do so only if they are not already there).
         """
-        if self.app.manager.initial_cluster_type == 'Test':
-            log.debug("This is cluster type '{0}'; we do not create a cluster "
-                      "bucket or store cluster configuration for this type."
-                      .format(self.app.manager.initial_cluster_type))
+        if self.app.manager.initial_cluster_type == 'Test' or \
+           self.app.manager.cluster_storage_type == 'transient':
+            log.debug("This is a transient cluster; we do not create a cluster "
+                      "bucket or store cluster configuration for this type.")
             return
         log.debug("Storing cluster configuration to cluster's bucket")
         s3_conn = self.app.cloud_interface.get_s3_connection()
