@@ -543,7 +543,7 @@ function update_ui(data){
         // DBTODO write generic services display
         $('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
         // Show volume manipulating options only after data volumes are ready
-        if (data.data_status !== 'green'){
+        if (data.cluster_storage_type == 'transient' || data.data_status !== 'green'){
             $('#expand_vol').hide();
             $('#share_a_cluster').hide();
         }else{

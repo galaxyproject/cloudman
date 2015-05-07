@@ -862,6 +862,7 @@ class CM(BaseController):
                                    'pct': str(self.app.manager.disk_pct)},
                     'data_status': self.app.manager.get_data_status(),
                     'app_status': self.app.manager.get_app_status(),
+                    'cluster_storage_type': self.app.manager.cluster_storage_type,
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': use_autoscaling,
