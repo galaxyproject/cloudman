@@ -2400,32 +2400,6 @@ class ConsoleMonitor(object):
         cc_file_name = self.create_cluster_config_file()
         misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                  'persistent_data.yaml', cc_file_name)
-        # Ensure Galaxy config files are stored in the cluster's bucket,
-        # but only after Galaxy has been configured and is running (this ensures
-        # that the configuration files get loaded from proper S3 bucket rather
-        # than potentially being overwritten by files that might exist on the
-        # snap)
-        try:
-            galaxy_svc = self.app.manager.service_registry.get_active('Galaxy')
-            if galaxy_svc and galaxy_svc.running():
-                for f_name in ['universe_wsgi.ini',
-                               'tool_conf.xml',
-                               'tool_data_table_conf.xml',
-                               'shed_tool_conf.xml',
-                               'datatypes_conf.xml']:
-                    if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_config_dir, f_name))) or \
-                       (misc.file_in_bucket_older_than_local(
-                            s3_conn, self.app.config['bucket_cluster'], '%s.cloud'
-                            % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
-                        log.debug("Saving current Galaxy configuration file '%s' "
-                                  "to cluster bucket '%s' as '%s.cloud'"
-                                  % (f_name, self.app.config['bucket_cluster'], f_name))
-                        misc.save_file_to_bucket(
-                            s3_conn, self.app.config[
-                                'bucket_cluster'], '%s.cloud' % f_name,
-                            os.path.join(self.app.path_resolver.galaxy_home, f_name))
-        except:
-            pass
         log.debug("Saving current instance boot script (%s) to cluster bucket "
                   "'%s' as '%s'" % (os.path.join(self.app.config['boot_script_path'],
                                     self.app.config['boot_script_name']),
