@@ -51,6 +51,10 @@ DEFAULT_INSTANCE_TYPES = {
         ("m1.medium", "Medium"),
         ("m1.xlarge", "Extra Large"),
         ("m1.xxlarge", "Extra Extra Large"),
+    ],
+    "default": [
+        ("", "Same as Master"),
+        ("custom_instance_type", "Custom instance type")
     ]
 }
 
@@ -206,6 +210,8 @@ class Configuration(dict):
             keys = [key for key in DEFAULT_INSTANCE_TYPES.keys() if key in self.cloud_name]
             if keys:
                 return DEFAULT_INSTANCE_TYPES.get(keys[0])
+            else:
+                return DEFAULT_INSTANCE_TYPES.get("default")
 
     @property
     def cloudman_repo_url(self):
