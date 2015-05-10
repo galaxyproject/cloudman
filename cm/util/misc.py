@@ -1001,7 +1001,7 @@ def add_to_etc_hosts(ip_address, hosts=[]):
             for hostname in hosts:
                 if hostname in l.split():
                     contained = True
-            if ip_address in l:
+            if ip_address and ip_address in l:
                 contained = True
             if not contained:
                 tmp.write(l)
