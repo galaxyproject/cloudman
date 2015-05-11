@@ -409,6 +409,7 @@ class ConsoleManager(BaseConsoleManager):
         if not self.initial_cluster_type:  # this can get set by _handle_old_cluster_conf_format
             self.initial_cluster_type = self.app.config.get('cluster_type', None)
             self.userdata_cluster_type = self.app.config.get('initial_cluster_type', None)
+            self.cluster_storage_type = self.app.config.get('cluster_storage_type', None)
             if self.initial_cluster_type is not None:
                 cc_detail = "Configuring a previously existing cluster of type {0}"\
                     .format(self.initial_cluster_type)
@@ -984,6 +985,7 @@ class ConsoleManager(BaseConsoleManager):
         # will persist so no point in poluting the list of buckets)
         if delete_cluster or (self.cluster_storage_type == 'transient' and not rebooting):
             self.delete_cluster()
+            misc.remove(self.app.INSTANCE_PD_FILE)
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
                  "manually terminate the master instance (and any remaining instances "
@@ -2357,6 +2359,7 @@ class ConsoleMonitor(object):
             cc['filesystems'] = fss
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
+            cc['cluster_storage_type'] = self.app.manager.cluster_storage_type
             cc['cluster_name'] = self.app.config['cluster_name']
             cc['placement'] = self.app.cloud_interface.get_zone()
             cc['machine_image_id'] = self.app.cloud_interface.get_ami()
@@ -2382,10 +2385,15 @@ class ConsoleMonitor(object):
         In addition, store the local Galaxy configuration files to the cluster's
         bucket (do so only if they are not already there).
         """
+        # Create a cluster configuration file
+        cc_file_name = self.create_cluster_config_file()
         if self.app.manager.initial_cluster_type == 'Test' or \
            self.app.manager.cluster_storage_type == 'transient':
+            # Place the cluster configuration file to a locaiton that lives
+            # across cluster reboots
+            misc.move(cc_file_name, self.app.INSTANCE_PD_FILE)
             log.debug("This is a transient cluster; we do not create a cluster "
-                      "bucket or store cluster configuration for this type.")
+                      "bucket to store cluster configuration for this type.")
             return
         log.debug("Storing cluster configuration to cluster's bucket")
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -2397,7 +2405,6 @@ class ConsoleMonitor(object):
             misc.create_bucket(s3_conn, self.app.config['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's
         # bucket
-        cc_file_name = self.create_cluster_config_file()
         misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                  'persistent_data.yaml', cc_file_name)
         log.debug("Saving current instance boot script (%s) to cluster bucket "

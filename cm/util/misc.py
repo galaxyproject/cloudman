@@ -491,7 +491,6 @@ def adjust_bucket_acl(s3_conn, bucket_name, users_whose_grant_to_remove):
             # through the list of grants for bucket's users and the list of users
             # whose grant to remove and create a list of bucket grants to keep
             for g in bucket.get_acl().acl.grants:
-                # log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
                 # Public (i.e., group) permissions are kept under 'type' field
                 # so check that first
                 if g.type == 'Group' and 'Group' in users_whose_grant_to_remove:
@@ -567,7 +566,8 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
                 local_filename, remote_filename, e))
             return True
     else:
-        log.debug("Checking age of file in bucket (%s) against local file (%s) but file in bucket is None; updating file in bucket."
+        log.debug("Checking age of file in bucket (%s) against local file (%s) "
+                  "but file in bucket is None; updating file in bucket."
                   % (remote_filename, local_filename))
         return True
 
@@ -668,6 +668,7 @@ def delete_file_from_bucket(conn, bucket_name, remote_filename):
                 remote_filename, bucket_name, e))
     return False
 
+
 def update_file_in_bucket(conn, bucket_name, local_filepath):
     """
     Updates file in bucket from its local counterpart.
@@ -689,9 +690,7 @@ def update_file_in_bucket(conn, bucket_name, local_filepath):
                       "cluster bucket '%s' as '%s'" %
                       (local_filepath, bucket_name,
                        filename))
-            save_file_to_bucket(conn,
-                                     bucket_name,
-                                     filename, local_filepath)
+            save_file_to_bucket(conn, bucket_name, filename, local_filepath)
         else:
             log.debug("No instance post start script (%s)" % local_filepath)
     else:
@@ -979,6 +978,34 @@ def make_dir(path, owner=None):
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
+
+
+def move(source, destination):
+    """
+    Move the ``source`` file to ``destination``.
+
+    A convenience wrapper for python's ``shutil.move`` method that simply
+    wrapps the call in a try/catch block.
+    """
+    try:
+        log.debug('Moving file {0} to {1}'.format(source, destination))
+        shutil.move(source, destination)
+    except IOError, ioe:
+        log.error("IOError moving {0} to {1}: {2}".format(source, destination, ioe))
+
+
+def remove(path):
+    """
+    Remove (delete) the file ``path``.
+
+    A convenience wrapper for python's ``os.remove`` method that simply
+    wrapps the call in a try/catch block.
+    """
+    try:
+        log.debug('Removing file {0}'.format(path))
+        os.remove(path)
+    except IOError, ioe:
+        log.error("IOError removing {0}: {2}".format(path, ioe))
 
 
 def add_to_etc_hosts(ip_address, hosts=[]):
