@@ -16,5 +16,5 @@
         ssl_certificate         /root/.ssh/instance_selfsigned_cert.pem;
         ssl_certificate_key     /root/.ssh/instance_selfsigned_key.pem;
 
-        include /etc/nginx/sites-enabled/*.locations;
+        include $nginx_conf_dir/sites-enabled/*.locations;
     }

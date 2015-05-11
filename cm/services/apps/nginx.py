@@ -118,6 +118,10 @@ class NginxService(ApplicationService):
         template = conf_manager.load_conf_template(template_file)
         try:
             t = template.substitute(parameters)
+            # create conf directory if required
+            if not os.path.exists(os.path.dirname(conf_file)):
+                log.debug("Configuration path does not exist. Creating path: {0}".format(os.path.dirname(conf_file)))
+                os.makedirs(os.path.dirname(conf_file))
             # Write out the file
             with open(conf_file, 'w') as f:
                 print >> f, t
@@ -140,24 +144,27 @@ class NginxService(ApplicationService):
             log.debug("Updating Nginx config at {0}".format(self.conf_file))
             params = {}
             # Customize the appropriate nginx template
-            if setup_ssl and "1.4" in misc.getoutput("{0} -v".format(self.exe)):
-                # Generate a self-signed certificate
-                log.info("Generating self-signed certificate for SSL encryption")
-                cert_home = "/root/.ssh/"
-                certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
-                keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
-                misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
-                         "rsa:1024 -keyout " + keyfile + " -out " + certfile)
-                misc.run("chmod 440 " + keyfile)
-                server_tmplt = conf_manager.NGINX_SERVER_SSL
-                log.debug("Using Nginx v1.4+ template w/ SSL")
-                self.ssl_is_on = True
+            if "1.4" in misc.getoutput("{0} -v".format(self.exe)):
                 nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
-            elif "1.4" in misc.getoutput("{0} -v".format(self.exe)):
-                server_tmplt = conf_manager.NGINX_SERVER
-                log.debug("Using Nginx v1.4+ template")
-                nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
-                self.ssl_is_on = False
+                params = {'galaxy_user_name': paths.GALAXY_USER_NAME,
+                          'nginx_conf_dir': self.conf_dir,
+                }
+                if setup_ssl:
+                    log.debug("Using Nginx v1.4+ template w/ SSL")
+                    # Generate a self-signed certificate
+                    log.info("Generating self-signed certificate for SSL encryption")
+                    cert_home = "/root/.ssh/"
+                    certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
+                    keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
+                    misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
+                             "rsa:1024 -keyout " + keyfile + " -out " + certfile)
+                    misc.run("chmod 440 " + keyfile)
+                    server_tmplt = conf_manager.NGINX_SERVER_SSL
+                    self.ssl_is_on = True
+                else:
+                    log.debug("Using Nginx v1.4+ template")
+                    server_tmplt = conf_manager.NGINX_SERVER
+                    self.ssl_is_on = False
             else:
                 server_tmplt = ""
                 nginx_tmplt = conf_manager.NGINX_CONF_TEMPLATE
@@ -169,14 +176,15 @@ class NginxService(ApplicationService):
                 }
                 log.debug("Using Nginx pre-v1.4 template")
             # Write out the main nginx.conf file
-            if not params:
-                params = {'galaxy_user_name': paths.GALAXY_USER_NAME}
             self._write_template_file(nginx_tmplt, params, self.conf_file)
             # Write out the default server block file
             if server_tmplt:
                 # This means we're dealing with Nginx v1.4+ & split conf files
                 upstream_servers = self._define_upstream_servers()
-                params = {'upstream_servers': upstream_servers}
+                params = {
+                    'upstream_servers': upstream_servers,
+                    'nginx_conf_dir': self.conf_dir
+                }
                 conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'default.server')
                 self._write_template_file(server_tmplt, params, conf_file)
                 # Pulsar has it's own server config
