@@ -60,9 +60,6 @@ class ConsoleManager(BaseConsoleManager):
         # This initialization is applicable only when restarting a cluster.
         self.worker_instances = self.get_worker_instances() if (
             self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
-        self.disk_total = "0"
-        self.disk_used = "0"
-        self.disk_pct = "0%"
         self.manager_started = False
         self.cluster_manipulation_in_progress = False
         # If this is set to False, the master instance will not be an execution
@@ -822,19 +819,37 @@ class ConsoleManager(BaseConsoleManager):
         return pss
 
     def check_disk(self):
-        try:
-            fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
-            if len(fs_arr) > 0:
-                fs_name = fs_arr[0].name
-                cmd = "df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name
-                disk_usage = commands.getoutput(cmd)
-                disk_usage = disk_usage.split(' ')
-                if len(disk_usage) == 3:
-                    self.disk_total = disk_usage[0]
-                    self.disk_used = disk_usage[1]
-                    self.disk_pct = disk_usage[2]
-        except Exception, e:
-            log.error("Failure checking disk usage.  %s" % e)
+        """
+        Check the usage of the main data disk and set appropriate object fields.
+
+        Depending on the cluster type, check the usage of the main disk (for the
+        'Test' cluster type, this is `/mnt/transient_nfs` dir and for the other
+        cluster types it is `/mnt/galaxy`) and return a dictionary with
+        appropriate values.
+
+        :rtype: dictionary
+        :return: A dictionary with keys `total`, `used`, and `used_percent` as
+                 strings. Also included is a bool `updated` field, which
+                 indicates if the disk status values were updated as part of
+                 this function call.
+        """
+        disk_status = {'total': "0", 'used': "0", 'used_percent': "0%",
+                       'updated': False}
+        if self.initial_cluster_type == 'Galaxy':
+            fs_svc = self.service_registry.get_active('galaxy')
+        else:
+            fs_svc = self.service_registry.get_active('transient_nfs')
+        if fs_svc:
+            cmd = ("df -h {0} | sed 1d | awk '{{print $2, $3, $5}}'"
+                   .format(fs_svc.mount_point))
+            disk_usage = misc.getoutput(cmd, quiet=True)
+            disk_usage = disk_usage.split(' ')
+            if len(disk_usage) == 3:
+                disk_status = {'total': disk_usage[0],
+                               'used': disk_usage[1],
+                               'used_percent': disk_usage[2],
+                               'updated': True}
+        return disk_status
 
     def get_cluster_status(self):
         return self.cluster_status
@@ -2559,7 +2574,6 @@ class ConsoleMonitor(object):
             self._update_frequency()
             if (Time.now() - self.last_update_time).seconds > self.update_frequency:
                 self.last_update_time = Time.now()
-                self.app.manager.check_disk()
                 for service in self.app.manager.service_registry.active():
                     service.status()
                 # Indicate migration is in progress
