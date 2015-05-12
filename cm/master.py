@@ -1589,6 +1589,7 @@ class ConsoleManager(BaseConsoleManager):
                 snap_ids = svc.create_snapshot(snap_description="CloudMan share-a-cluster %s; %s"
                                                % (self.app.config['cluster_name'],
                                                   self.app.config['bucket_cluster']))
+        self._start_app_level_services()
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1701,7 +1702,6 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Error modifying permissions for keys in bucket '%s'" %
                       self.app.config['bucket_cluster'])
 
-        self._start_app_level_services()
         self.cluster_manipulation_in_progress = False
         return True
 
