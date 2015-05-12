@@ -529,11 +529,11 @@ function update_ui(data){
         $('#du-total').text(data.disk_usage.total);
         $('#du-inc').text(data.disk_usage.total.slice(0,-1));
         $('#du-used').text(data.disk_usage.used);
-        $('#du-pct').text(data.disk_usage.pct);
+        $('#du-pct').text(data.disk_usage.used_percent);
         if($('#new_vol_size').val() == '0'){
             $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
         }
-        if (parseInt(data.disk_usage.pct) > 80){
+        if (parseInt(data.disk_usage.used_percent) > 80){
             $('#storage_warning').show();
         }else{
             $('#storage_warning').hide();
