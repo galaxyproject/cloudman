@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from git import Repo, InvalidGitRepositoryError
+import git
 
 from cm.instance import Instance
 from cm.services import ServiceRole
@@ -780,7 +780,7 @@ class ConsoleManager(BaseConsoleManager):
         repo_path = self.app.path_resolver.galaxy_home
         try:
             if os.path.exists(repo_path):
-                repo = Repo(repo_path)
+                repo = git.Repo(repo_path, odbt=git.GitCmdObjectDB)
             if repo and not repo.bare:
                 hexsha = repo.head.commit.hexsha
                 authored_date = time.strftime("%d %b %Y", time.gmtime(
@@ -789,7 +789,7 @@ class ConsoleManager(BaseConsoleManager):
                 repo_url = _get_remote_url(repo)
                 return {'hexsha': hexsha, 'authored_date': authored_date,
                         'active_branch': active_branch, 'repo_url': repo_url}
-        except InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError:
             log.debug("No git repository at {0}?".format(repo_path))
         return {}
 
