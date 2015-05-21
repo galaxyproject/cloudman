@@ -382,6 +382,8 @@ class ConsoleManager(BaseConsoleManager):
 
         if self.app.config.condor_enabled:
             self.activate_master_service(self.service_registry.get('HTCondor'))
+        else:
+            self.service_registry.remove('HTCondor')
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.config.hadoop_enabled:
             self.activate_master_service(self.service_registry.get('Hadoop'))
