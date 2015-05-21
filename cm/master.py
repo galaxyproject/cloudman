@@ -2439,16 +2439,17 @@ class ConsoleMonitor(object):
         misc.save_file_to_bucket(
             s3_conn, self.app.config['bucket_cluster'], self.app.config.cloudman_source_file_name,
             os.path.join(self.app.config['cloudman_home'], self.app.config.cloudman_source_file_name))
-        try:
-            # Currently, metadata only works on ec2 so set it only there
-            if self.app.cloud_type == 'ec2':
-                with open(os.path.join(self.app.config['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
-                    rev = rev_file.read()
-                misc.set_file_metadata(s3_conn, self.app.config[
-                    'bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision', rev)
-        except Exception, e:
-            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s"
-                      % (self.app.config['bucket_cluster'], e))
+        # [May 2015] Not being used for the time being so disable
+        # try:
+        #     # Currently, metadata only works on ec2 so set it only there
+        #     if self.app.cloud_type == 'ec2':
+        #         with open(os.path.join(self.app.config['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+        #             rev = rev_file.read()
+        #         misc.set_file_metadata(s3_conn, self.app.config[
+        #             'bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision', rev)
+        # except Exception, e:
+        #     log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s"
+        #               % (self.app.config['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful
         # as a reference)
         cn_file = os.path.join(self.app.config['cloudman_home'],
