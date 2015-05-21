@@ -26,10 +26,6 @@
             alias $galaxy_home/static/robots.txt;
         }
 
-        location /favicon.ico {
-            alias $galaxy_home/static/favicon.ico;
-        }
-
         location /admin/jobs {
             proxy_pass  http://127.0.0.1:8079;
         }
