@@ -7,7 +7,7 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
-    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space. <span id="storage_warning_plus" style="display:none;">Use the disk icon below to increase your disk size.</span></div>
     <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
@@ -535,8 +535,12 @@ function update_ui(data){
         }
         if (parseInt(data.disk_usage.used_percent) > 80){
             $('#storage_warning').show();
+            if (data.cluster_storage_type != 'transient'){
+                $('#storage_warning_plus').show();
+            }
         }else{
             $('#storage_warning').hide();
+            $('#storage_warning_plus').hide();
         }
         $('#snap-progress').text(data.snapshot.progress);
         $('#snap-status').text(data.snapshot.status);
