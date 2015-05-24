@@ -730,11 +730,21 @@ class Volume(BlockStorage):
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
                 # If based on an archive, extract archive contents to the mount point
                 if self.from_archive:
-                    self.fs.state = service_states.CONFIGURING
-                    # Extract the FS archive in a separate thread
-                    ExtractArchive(self.from_archive['url'], mount_point,
-                                   self.from_archive['md5_sum'],
-                                   callback=self.fs.nfs_share_and_set_state).start()
+                    # Do not overwrite an existing dir structure w/ the archive
+                    # content. This happens when a cluster is rebooted.
+                    if self.fs.name == 'galaxy' and \
+                       os.path.exists(self.app.path_resolver.galaxy_home):
+                        log.debug("Galaxy home dir ({0}) already exists; not "
+                                  "extracting the archive ({1}) so not to "
+                                  "overwrite it.".format(self.app.path_resolver.galaxy_home,
+                                                         self.from_archive['url']))
+                        self.fs.nfs_share_and_set_state()
+                    else:
+                        self.fs.state = service_states.CONFIGURING
+                        # Extract the FS archive in a separate thread
+                        ExtractArchive(self.from_archive['url'], mount_point,
+                                       self.from_archive['md5_sum'],
+                                       callback=self.fs.nfs_share_and_set_state).start()
                 else:
                     self.fs.nfs_share_and_set_state()
                 return True
