@@ -188,6 +188,10 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
+            njssn = ServiceRole.to_string(ServiceRole.NODEJSPROXY)
+            njss = self.service_registry.get(njssn)
+            if njss:
+                njss.remove()
             # Remove Postgres service, which will (via dependency management)
             # remove higher-level services
             pgsn = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
@@ -201,7 +205,7 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do outer-most for-loop.
         als = []
         if self.initial_cluster_type == 'Galaxy':
-            als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
+            als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports', 'NodeJSProxy']
         log.debug("Activating app-level services: {0}".format(als))
         for svc_name in als:
             svc = self.service_registry.get(svc_name)
