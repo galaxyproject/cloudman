@@ -21,7 +21,7 @@ class CloudgeneService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.CLOUDGENE)
         self.dependencies = [ServiceDependency(self, ServiceRole.CLOUDERA_MANAGER)]
         self.port = 8085
-        self.cg_url = "http://cloudgene.uibk.ac.at/downloads/cloudgene-cloudman.tar.gz"
+        self.cg_url = "http://cloudgene.uibk.ac.at/downloads/cloudgene-cloudman-daemon.tar.gz"
         self.cg_base_dir = '/mnt/galaxy/cloudgene/'
         self.cg_home = os.path.join(self.cg_base_dir, 'cloudgene-cloudman')
 
@@ -67,7 +67,7 @@ class CloudgeneService(ApplicationService):
         # Extract the source
         with tarfile.open(cg_source, 'r:gz') as tar:
             tar.extractall(self.cg_base_dir)
-        misc.run("cd {0}; chmod +x start.sh state.sh stop.sh".format(self.cg_home))
+        misc.run("cd {0}; chmod +x cloudgene".format(self.cg_home))
         misc.run("chown -R -c cloudgene {0}".format(self.cg_base_dir))
         # Create Cloudgene home folder in HDFS
         if not misc.run("sudo -u hdfs hadoop fs -test -e /user/cloudgene", quiet=True):
@@ -80,7 +80,8 @@ class CloudgeneService(ApplicationService):
         ``port`` class field.
         """
         log.debug("Starting Cloudgene server")
-        if self.__run_as_clougene_user("cd {0}; sh start.sh".format(self.cg_home)):
+        if self.__run_as_clougene_user("cd {0};./cloudgene -a start -p {1}"
+                                       .format(self.cg_home, self.port)):
             self.state = service_states.RUNNING
 
     def status(self):
