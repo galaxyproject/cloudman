@@ -363,10 +363,12 @@ class Service(object):
         """
         # Assemble a list of dependent services to remove
         dependent_services = []
-        for service in self.app.manager.service_registry.active():
-            for dependency in service.dependencies:
-                if dependency.is_satisfied_by(self):
-                    dependent_services.append(service)
+        # Workers do not have service_registry field implemented yet
+        if hasattr(self.app.manager, 'service_registry'):
+            for service in self.app.manager.service_registry.active():
+                for dependency in service.dependencies:
+                    if dependency.is_satisfied_by(self):
+                        dependent_services.append(service)
         if dependent_services:
             log.debug("Removing all services depending on {0}: {1}".format(
                       self.name, dependent_services))
