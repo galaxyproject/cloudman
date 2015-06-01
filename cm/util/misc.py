@@ -1002,10 +1002,13 @@ def remove(path):
     wrapps the call in a try/catch block.
     """
     try:
-        log.debug('Removing file {0}'.format(path))
-        os.remove(path)
+        if os.path.exists(path):
+            log.debug('Removing file {0}'.format(path))
+            os.remove(path)
     except IOError, ioe:
         log.error("IOError removing {0}: {2}".format(path, ioe))
+    except OSError, ioe:
+        log.error("OSError removing {0}: {2}".format(path, ioe))
 
 
 def add_to_etc_hosts(ip_address, hosts=[]):
