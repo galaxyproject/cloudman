@@ -8,6 +8,7 @@ import socket
 from ansible.runner import Runner
 from ansible.inventory import Inventory
 from cm_api.api_client import ApiResource  # Cloudera Manager API
+from cm_api.api_client import ApiException
 # from cm_api.endpoints.clusters import ApiCluster
 # from cm_api.endpoints.clusters import create_cluster
 # from cm_api.endpoints.parcels import ApiParcel
@@ -58,18 +59,36 @@ class ClouderaManagerService(ApplicationService):
         self.cm_repo_url = None
         self.service_types_and_names = {
             "HDFS": "HDFS",
-            "YARN": "YARN",
-            "ZOOKEEPER": "ZooKeeper"
+            "YARN": "YARN"
         }
 
     @property
     def cm_api_resource(self):
-        return ApiResource(self.cm_host, self.cm_port,
-                           self.cm_username, self.cm_password)
+        ar = None
+        try:
+            ar = ApiResource(self.cm_host, self.cm_port,
+                             self.cm_username, self.cm_password)
+            ar.echo('Authenticated')  # Issue a sample request to test the conn
+        except ApiException, aexc:
+            if aexc.code == 401:
+                log.debug("Changing default API username to {0}".format(self.cm_username))
+                self.cm_username = self.host_username
+                self.cm_password = self.host_password
+                ar = ApiResource(self.cm_host, self.cm_port,
+                                 self.cm_username, self.cm_password)
+            else:
+                log.error("Api Exception connecting to ClouderaManager: {0}".format(aexc))
+        except Exception, exc:
+            log.debug("Exception connecting to ClouderaManager: {0}".format(exc))
+        return ar
 
     @property
     def cm_manager(self):
-        return self.cm_api_resource.get_cloudera_manager()
+        if self.cm_api_resource:
+            return self.cm_api_resource.get_cloudera_manager()
+        else:
+            log.debug("No cm_api_resource; cannot get cm_manager")
+            return None
 
     def start(self):
         """
@@ -89,8 +108,9 @@ class ClouderaManagerService(ApplicationService):
         try:
             self.configure_db()
             self.start_webserver()
-            self.create_default_cluster()
-            self.setup_cluster()
+            self.set_default_user()
+            # self.create_default_cluster()
+            # self.setup_cluster()
         except Exception, exc:
             log.error("Exception creating a cluster: {0}".format(exc))
 
@@ -101,7 +121,14 @@ class ClouderaManagerService(ApplicationService):
         log.info("Stopping Cloudera Manager service")
         super(ClouderaManagerService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        self.state = service_states.SHUT_DOWN
+        try:
+            if self.cm_api_resource:
+                cluster = self.cm_api_resource.get_cluster(self.cluster_name)
+                cluster.stop()
+        except Exception, exc:
+            log.error("Exception stopping cluster {0}: {1}".format(self.cluster_name, exc))
+        if misc.run("service cloudera-scm-server stop"):
+            self.state = service_states.SHUT_DOWN
 
     def configure_db(self):
         """
@@ -161,7 +188,7 @@ class ClouderaManagerService(ApplicationService):
                            sudo_user='postgres',
                            module_name="postgresql_db",
                            module_args=("name={0} owner={1} encoding='UTF-8'"
-                                    .format(db, owner))
+                                        .format(db, owner))
                            ).run()
                 if r.get('contacted', {}).get('localhost', {}).get('failed'):
                     msg = r.get('contacted', {}).get('localhost', {}).get('msg', 'N/A')
@@ -190,7 +217,8 @@ class ClouderaManagerService(ApplicationService):
         """
         def _disable_referer_check():
             log.debug("Disabling refered check")
-            config = {u'REFERER_CHECK': u'false'}
+            config = {u'REFERER_CHECK': u'false',
+                      u'REMOTE_PARCEL_REPO_URLS': u'http://archive.cloudera.com/cdh5/parcels/5.4.1/'}
             done = False
             self.state = service_states.CONFIGURING
             while not done:
@@ -202,15 +230,52 @@ class ClouderaManagerService(ApplicationService):
                 except Exception:
                     log.debug("Still have not disabled referer check... ")
                     time.sleep(5)
+                    if self.state in [service_states.SHUTTING_DOWN,
+                                      service_states.SHUT_DOWN,
+                                      service_states.ERROR]:
+                        log.debug("Service state {0}; not configuring ClouderaManager."
+                                  .format(self.state))
+                        done = True
 
         if misc.run("service cloudera-scm-server start"):
             _disable_referer_check()
+
+    def set_default_user(self):
+        """
+        Replace the default 'admin' user with a default system one (generally
+        ``ubuntu``) and it's password.
+        """
+        host_username_exists = default_username_exists = False
+        existing_users = self.cm_api_resource.get_all_users().to_json_dict().get('items', [])
+        for existing_user in existing_users:
+            if existing_user.get('name', None) == self.host_username:
+                host_username_exists = True
+            if existing_user.get('name', None) == 'admin':
+                default_username_exists = True
+        if not host_username_exists:
+            log.debug("Setting default user to {0}".format(self.host_username))
+            # Create new admin user (use 'ubuntu' and password provided at cloudman startup)
+            self.cm_api_resource.create_user(self.host_username, self.host_password, ['ROLE_ADMIN'])
+        else:
+            log.debug("Admin user {0} exists.".format(self.host_username))
+        if default_username_exists:
+            # Delete the default 'admin' user
+            old_admin = self.cm_username
+            self.cm_username = self.host_username
+            self.cm_password = self.host_password
+            log.debug("Deleting the old default user 'admin'...")
+            self.cm_api_resource.delete_user(old_admin)
 
     def create_default_cluster(self):
         """
         Create a default cluster and Cloudera Manager Service on master host
         """
         log.info("Creating a new Cloudera Cluster")
+
+        # self.cm_host = socket.gethostname()
+        log.debug("Cloudera adding host: {0}".format(self.cm_host))
+        self.host_list.append(self.cm_host)
+
         # create the management service
         # first check if mamagement service already exists
         service_setup = ApiServiceSetupInfo(name=self.cm_service_name, type="MGMT")
@@ -356,12 +421,18 @@ class ClouderaManagerService(ApplicationService):
            self.state == service_states.SHUTTING_DOWN or \
            self.state == service_states.SHUT_DOWN or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
+            return
+        # Capture possible status messages from /etc/init.d/cloudera-scm-server
+        status_output = ['is dead and pid file exists',
+                         'is dead and lock file exists',
+                         'is not running',
+                         'status is unknown']
+        svc_status = misc.getoutput('service cloudera-scm-server status', quiet=True)
+        for so in status_output:
+            if so in svc_status:
+                log.error("Cloudera server not running: {0}.".format(so))
+                self.state = service_states.ERROR
+        if not self.started:
             pass
-        elif 'running' not in misc.getoutput('service cloudera-scm-server status',
-           quiet=True):
-            log.error("Cloudera server not running!")
-            self.state = service_states.ERROR
-        elif not self.started:
-            pass
-        else:
+        elif 'is running' in svc_status:
             self.state = service_states.RUNNING
