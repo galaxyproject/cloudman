@@ -311,18 +311,10 @@ div.form-row-input > input{max-width:300px;}
 
 #expand_vol{
     cursor: pointer;
-    background-image:url(/cloud/static/images/disc_plus.png);
-    background-repeat:no-repeat;
-    display:inline-block;
-    width:20px;
 }
 
 #share_a_cluster{
     cursor: pointer;
-    background-image:url(/cloud/static/images/fugue/share.png);
-    background-repeat:no-repeat;
-    display:inline-block;
-    width:20px;
 }
 .del_scf{
     cursor: pointer;
@@ -452,22 +444,6 @@ div#instance_status_icons {
     text-align: center;
 }
 
-div.status_green{
-    background-image: url(../images/fugue/status.png);
-}
-
-div.status_red{
-    background-image: url(../images/fugue/status-busy.png);
-}
-
-div.status_yellow{
-    background-image: url(../images/fugue/status-away.png);
-}
-
-div.status_nodata{
-    background-image: url(../images/fugue/status-offline.png);
-}
-
 ul li div#instance_status_icons img#instance_reboot_icon {
     height: 10px;
 }
@@ -544,13 +520,10 @@ ul li div#instance_status_icons img#instance_terminate_icon {
 }
 
 #log_container_header_img {
-    width:16px;
-    height:16px;
-    border: none;
     float: right;
-    background:transparent url(/cloud/static/images/plus_minus.png) no-repeat top left;
+    margin-top: 2px;
+    margin-right: 2px;
 }
-
 
 #log_container_body {
     padding: 0 5px;
@@ -1196,6 +1169,9 @@ p.disabled {
 .fs-td-20pct{
     width: 20%;
 }
+.fs-td-25pct{
+    width: 25%;
+}
 .fs-td-spacer{
     width: 15%;
 }
@@ -1586,4 +1562,9 @@ fieldset {
         color-stop(0.85, rgb(245,245,245))
     );
     border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+/*Font-awesome tweks*/
+.fa-plus-square:hover, .fa-share-alt-square:hover {
+    color: #54B251;
 }

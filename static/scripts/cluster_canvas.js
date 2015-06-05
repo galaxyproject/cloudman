@@ -1,4 +1,3 @@
-COLORING_ARR = ['red', 'green', 'nodata']
 var cluster_view_tooltip_base = "";
 var cluster_view_tooltip_base = '<div class="legendrow"><img src="/cloud/static/images/bluebox.png">Pending</div><div class="legendrow"><img src="/cloud/static/images/yellowbox.png">Starting</div><div class="legendrow"><img src="/cloud/static/images/greenbox.png">Ready</div><div class="legendrow"><img src="/cloud/static/images/redbox.png">Error</div>';
 var TESTING = false;
@@ -73,17 +72,17 @@ if (TESTING == true){
                  'slurmd_running' : 0,
                  'worker_status' : 'Starting',
                  'instance_state' : 'running'},
-                 {'id' : 'instance-5',
-                  'ld' : 0,
-                  'time_in_state' : 2,
-                  'nfs_data' : 0,
-                  'nfs_tools' : 0,
-                  'nfs_indices' : 0,
-                  'nfs_sge' : 0,
-                  'get_cert' : 0,
-                  'slurmd_running' : 0,
-                  'worker_status' : 'Pending',
-                  'instance_state' : 'pending'},
+                 {'id': 'instance-5',
+                  'ld': '0.88 1.20 0.50',
+                  'time_in_state': 2,
+                  'nfs_data': 1,
+                  'nfs_tools': 1,
+                  'nfs_indices': 1,
+                  'nfs_sge': 1,
+                  'get_cert': 1,
+                  'slurmd_running': 1,
+                  'worker_status': 'Running',
+                  'instance_state': 'running'},
                   {'id' : 'instance-1',
                   'ld' : '0.38 0.20 0.50',
                   'time_in_state' : 2,
@@ -137,17 +136,17 @@ if (TESTING == true){
                      'nfs_indices' : 0,
                      'nfs_sge' : 0,
                      'get_cert' : 0,
-                     'slurmd_running' : 0,
+                     'slurmd_running' : -1,
                      'worker_status' : 'Error',
                      'instance_state' : 'running'},
-                  {'id' : 'instance-6',
+                  {'id' : 'instance-7',
                     'ld' : '0.38 0.20 0.50',
                     'time_in_state' : 2,
                     'nfs_data' : 0,
                     'nfs_tools' : 0,
                     'nfs_indices' : 0,
                     'nfs_sge' : 0,
-                    'get_cert' : 0,
+                    'get_cert' : -1,
                     'slurmd_running' : 0,
                     'worker_status' : 'Error',
                     'instance_state' : 'running'}
@@ -329,19 +328,33 @@ function renderGraph(){
 	}
 }
 
-ARRAY_COLORS = ['red', 'nodata', 'green', 'yellow'];
-
 function get_vol_ind(inst){
     if ((inst.nfs_data == "1")&&(inst.nfs_tools == "1")&&(inst.nfs_indices=="1")&&(inst.nfs_sge=="1")){
-        return 1;
+        return 'green';
     }
     if ((inst.nfs_data == "0")&&(inst.nfs_tools == "0")&&(inst.nfs_indices=="0")&&(inst.nfs_sge=="0")){
-        return 0;
+        return 'orange';
     }
     if ((inst.nfs_data == "-1")&&(inst.nfs_tools == "-1")&&(inst.nfs_indices=="-1")&&(inst.nfs_sge=="-1")){
-        return -1;
+        return 'red';
     }
-    return 2;
+    return 'gray';
+}
+
+function state_to_color(state){
+  // Map a service state to a color with the following keys:
+  // State -> Color
+  //   0   -> gray
+  //   1   -> green
+  //   -1  -> red
+  // other -> gray
+  if (state == 1) {
+    return 'green';
+  }
+  if (state == -1) {
+    return 'red';
+  }
+  return 'gray';
 }
 
 // Build the HTML for the instance details panel/canvas
@@ -370,24 +383,24 @@ function buildWorkerInstanceDetails() {
         // Instance load
         worker_details += getLoadForDisplay(instances[selected_instance].ld);
         // Blank line
-        worker_details += "<li>&nbsp;</li>";
+        // worker_details += "<li>&nbsp;</li>";
         worker_details += "<li>";
         worker_details += "<div id='instance_status_icons'>";
         if (instances[selected_instance].worker_status == "Creating") {
-                // The instance is being created so indicate that there is no status data (yet)
-                // Filesystem status
-                worker_details += "<div title=\"Filesystems\" class='status_nodata'>&nbsp;</div>";
-                // Permissions status
-    	        worker_details += "<div title=\"Permissions\" class='status_nodata'>&nbsp;</div>";
-                // Scheduler status
-    	        worker_details += "<div title=\"Scheduler\" class='status_nodata'>&nbsp;</div>";
+          // The instance is being created so indicate that there is no status data (yet)
+          // Filesystem status
+          worker_details += "<div title=\"Filesystems\"><i class='fa fa-circle' style='color: gray'></i></div>";
+          // Permissions status
+    	    worker_details += "<div title=\"Permissions\"><i class='fa fa-circle' style='color: gray'></div>";
+          // Scheduler status
+    	    worker_details += "<div title=\"Scheduler\"><i class='fa fa-circle' style='color: gray'></div>";
         } else {
-                // Filesystem status
-                worker_details += "<div title=\"Filesystems\" class='status_" + ARRAY_COLORS[1 + get_vol_ind(instances[selected_instance])] + "'>&nbsp;</div>";
-                // Permissions status
-    	        worker_details += "<div title=\"Permissions\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].get_cert)] + "'>&nbsp;</div>";
-                // Scheduler status
-    	        worker_details += "<div title=\"Scheduler\" class='status_" + ARRAY_COLORS[1 + parseInt(instances[selected_instance].slurmd_running)] + "'>&nbsp;</div>";
+          // Filesystem status
+          worker_details += "<div title=\"Filesystems\"><i class='fa fa-circle' style='color: " + get_vol_ind(instances[selected_instance]) + "'></i></div>";
+          // Permissions status
+    	    worker_details += "<div title=\"Permissions\"><i class='fa fa-circle' style='color: " + state_to_color(parseInt(instances[selected_instance].get_cert)) + "'></i></div>";
+          // Scheduler status
+    	    worker_details += "<div title=\"Scheduler\"><i class='fa fa-circle' style='color: " + state_to_color(parseInt(instances[selected_instance].slurmd_running)) + "'></i></div>";
         }
         // Reboot button
         worker_details += "<img src=\"/cloud/static/images/reboot.png\" id=\"instance_reboot_icon\" title=\"Reboot instance\" alt=\"Reboot instance\" onclick=\"return rebootInstance('" + instances[selected_instance].id + "')\">&nbsp;";

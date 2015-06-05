@@ -7,7 +7,7 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
-    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space. <span id="storage_warning_plus" style="display:none;">Use the disk icon below to increase your disk size.</span></div>
+    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space. <span id="storage_warning_plus" style="display:none;">Use the icon next to the disk status below to increase your disk size.</span></div>
     <%include file="bits/messages.html" />
     <div id="main_text">
         %if initial_cluster_type is None:
@@ -106,10 +106,10 @@ vertical-align: top;
     <table cellpadding="0" cellspacing="10">
             %if cluster_name:
                 <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span>&nbsp;
-                <span><a id="share_a_cluster" title="Share this cluster instance">&nbsp;</a></span></td></tr>
+                <span><a id="share_a_cluster" title="Share this cluster instance"><i class="fa fa-share-alt-square fa-lg"></i></a></span></td></tr>
             %endif
         <tr><td><h4>Disk status: </h4></td><td>
-            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' title="Expand disk size">&nbsp;</span>
+            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' title="Expand disk size"><i class="fa fa-plus-square fa-lg"></i></span>
             ##<span id="snap-status"></span><span id="snap-progress"></span>
         </td></tr>
         <tr><td><h4>Worker status: </h4></td><td>
@@ -118,8 +118,8 @@ vertical-align: top;
             <b>Requested</b>: <span id="status-total">0</span>
         </td></tr>
         <tr><td><h4>Service status: </h4></td><td>
-            Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
-            Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+            Applications <span id="app-status"><i class="fa fa-circle"></i></span>
+            Data <span id="data-status"><i class="fa fa-circle"></i></span>
         </td></tr>
 ##      <tr><td colspan=2>
 ##      </td></tr>
@@ -448,7 +448,7 @@ vertical-align: top;
 <div id="log_container">
     <div id="log_container_header">
         <h3>Cluster status log</h3>
-        <div id="log_container_header_img"></div>
+        <div id="log_container_header_img"><i class="fa fa-plus-circle fa-lg"></i></div>
     </div>
     <div id="log_container_body">
     <ul>
@@ -545,7 +545,8 @@ function update_ui(data){
         $('#snap-progress').text(data.snapshot.progress);
         $('#snap-status').text(data.snapshot.status);
         // DBTODO write generic services display
-        $('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+        $('#app-status').attr('style', 'color: ' + data.app_status);
+        $('#data-status').attr('style', 'color: ' + data.data_status);
         // Show volume manipulating options only after data volumes are ready
         if (data.cluster_storage_type == 'transient' || data.data_status !== 'green'){
             $('#expand_vol').hide();
@@ -554,7 +555,6 @@ function update_ui(data){
             $('#expand_vol').show();
             $('#share_a_cluster').show();
         }
-        $('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUTTING_DOWN"){
             shutting_down();
@@ -711,8 +711,8 @@ function get_shared_instances(){
 }
 
 function show_log_container_body() {
-    // Show the containter box for CloudMan log on the main page
-    $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
+    $('#log_container_header_img i').removeClass('fa-plus-circle');
+    $('#log_container_header_img i').addClass('fa-minus-circle');
     $('#log_container_header').addClass('clicked');
     $('#log_container_body').slideDown('fast');
 }
@@ -837,7 +837,8 @@ $(document).ready(function() {
         if ($('#log_container_body').is(":hidden")){
             show_log_container_body();
         } else {
-            $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
+            $('#log_container_header_img i').addClass('fa-plus-circle');
+            $('#log_container_header_img i').removeClass('fa-minus-circle');
             $('#log_container_body').slideUp('fast', function(){
                 $('#log_container_header').removeClass('clicked');
             });

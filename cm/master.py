@@ -603,7 +603,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Cannot adjust autoscaling because autoscaling is not on.")
 
     # DBTODO For now this is a quick fix to get a status.
-    # Define what 'yellow' would be, and don't just count on "Filesystem"
+    # Define what 'orange' would be, and don't just count on "Filesystem"
     # being the only data service.
     def get_data_status(self):
         fses = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
@@ -612,10 +612,10 @@ class ConsoleManager(BaseConsoleManager):
                 if fs.state == service_states.ERROR:
                     return "red"
                 elif fs.state != service_states.RUNNING:
-                    return "yellow"
+                    return "orange"
             return "green"
         else:
-            return "nodata"
+            return "gray"
 
     def get_app_status(self):
         count = 0
@@ -624,11 +624,11 @@ class ConsoleManager(BaseConsoleManager):
             if svc.state == service_states.ERROR:
                 return "red"
             elif not (svc.state == service_states.RUNNING or svc.state == service_states.COMPLETED):
-                return "yellow"
+                return "orange"
         if count != 0:
             return "green"
         else:
-            return "nodata"
+            return "gray"
 
     def get_services(self, svc_type=None, svc_role=None, svc_name=None):
         """

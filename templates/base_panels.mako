@@ -18,6 +18,7 @@ from routes import url_for
 <%def name="stylesheets()">
   <link href="${h.url_for('/static/style/base.css')}" rel="stylesheet" type="text/css" />
   <link href="${h.url_for('/static/style/masthead.css')}" rel="stylesheet" type="text/css" />
+  <link href="${h.url_for('/static/style/font-awesome.min.css')}" rel="stylesheet" type="text/css" />
 </%def>
 
 ## Default javascripts
@@ -42,7 +43,7 @@ from routes import url_for
     <tr valign="middle">
       <td width="26px">
         <a href="${h.url_for(controller='root', action='index')}">
-        <img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}"></a>
+        <img border="0" style="height: 29px;" src="${h.url_for('/static/images/cloudmanIcon_noText.png')}"></a>
       </td>
       <td align="left" valign="middle">
         <div class="pageTitle">
