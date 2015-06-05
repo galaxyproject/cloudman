@@ -1,8 +1,8 @@
         # This file is maintained my CloudMan.
         # Changes will be overwritten!
 
-        location /clougene {
-            proxy_pass  http://127.0.0.1:$cg_port;
+        location /cloudgene {
+            proxy_pass  http://127.0.0.1:$cg_port/cloudgene;
             proxy_set_header   X-Forwarded-Host $$host;
             proxy_set_header   X-Forwarded-For  $$proxy_add_x_forwarded_for;
         }
