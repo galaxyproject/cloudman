@@ -210,7 +210,7 @@ class PSSService(ApplicationService):
                      "may take a while)" % (script))
             os.chmod(script, 0755)  # Ensure the script is executable
             working_dir = os.path.dirname(script) or self.app.config['cloudman_home']
-            misc.run('cd %s;./%s' % (working_dir, script))
+            misc.run('cd %s; %s' % (working_dir, script))
             log.info("Done running PSS {0}".format(script))
         else:
             log.debug("Specified local PSS file or directory (%s) does not exist; continuing." % script)
