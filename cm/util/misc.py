@@ -808,7 +808,7 @@ def get_file_from_public_location(config, remote_filename, local_file):
             log.warn("Could not fetch file from s3 public url: %s" % url)
             return False
     except Exception as e:
-        log.warn("Could not fetch file from s3 public url: {0} due to exception: {1}".forrmat(url, e))
+        log.warn("Could not fetch file from s3 public url: {0} due to exception: {1}".format(url, e))
         return False
 
 
