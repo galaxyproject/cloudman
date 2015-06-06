@@ -797,14 +797,18 @@ def get_file_from_public_location(config, remote_filename, local_file):
         url += '/'
     url = urlparse.urljoin(url, remote_filename)
     log.debug("Fetching file {0} and saving it as {1}".format(url, local_file))
-    r = requests.get(url)
-    if r.status_code == requests.codes.ok:
-        f = open(local_file, 'w')
-        f.write(r.content)
-        f.close()
-        return True
-    else:
-        log.warn("Could not fetch file from s3 public url: %s" % url)
+    try:
+        r = requests.get(url)
+        if r.status_code == requests.codes.ok:
+            f = open(local_file, 'w')
+            f.write(r.content)
+            f.close()
+            return True
+        else:
+            log.warn("Could not fetch file from s3 public url: %s" % url)
+            return False
+    except Exception as e:
+        log.warn("Could not fetch file from s3 public url: {0} due to exception: {1}".forrmat(url, e))
         return False
 
 
