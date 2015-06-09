@@ -21,9 +21,9 @@ class CloudgeneService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.CLOUDGENE)
         self.dependencies = [ServiceDependency(self, ServiceRole.CLOUDERA_MANAGER)]
         self.port = 8085
-        self.cg_url = "http://cloudgene.uibk.ac.at/downloads/cloudgene-cloudman.tar.gz"
+        self.cg_url = "https://cloudman.s3.amazonaws.com/files/cloudgene-cloudman-daemon.tar.gz"
         self.cg_base_dir = '/mnt/galaxy/cloudgene/'
-        self.cg_home = os.path.join(self.cg_base_dir, 'cloudgene-cloudman')
+        self.cg_home = os.path.join(self.cg_base_dir, 'cloudgene-daemon')
 
     def start(self):
         """
@@ -41,11 +41,11 @@ class CloudgeneService(ApplicationService):
         log.info("Stopping Cloudgene service")
         super(CloudgeneService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
-        if misc.run('{0} - cloudgene -c "cd {1}; sh stop.sh"'.format(paths.P_SU,
-                    self.cg_base_dir)):
+        if misc.run("cd {0};./cloudgene -u cloudgene -a stop -p {1} -j /usr/lib/jvm/java-7-oracle"
+                    .format(self.cg_home, self.port)):
             self.state = service_states.SHUT_DOWN
 
-    def __run_as_clougene_user(self, cmd):
+    def __run_as_cloudgene_user(self, cmd):
         """
         Convenience method that wrapps `cmd` to be run as `cloudgene` system
         user.
@@ -65,11 +65,13 @@ class CloudgeneService(ApplicationService):
         log.debug("Downloading Clougene...")
         misc.run("wget --output-document='{0}' {1}".format(cg_source, self.cg_url))
         # Extract the source
+        log.debug("Extracting Clougene source...")
         with tarfile.open(cg_source, 'r:gz') as tar:
             tar.extractall(self.cg_base_dir)
-        misc.run("cd {0}; chmod +x start.sh state.sh stop.sh".format(self.cg_home))
+        misc.run("cd {0}; chmod +x cloudgene".format(self.cg_home))
         misc.run("chown -R -c cloudgene {0}".format(self.cg_base_dir))
         # Create Cloudgene home folder in HDFS
+        log.debug("Setting up HDFS for cloudgene user")
         if not misc.run("sudo -u hdfs hadoop fs -test -e /user/cloudgene", quiet=True):
             misc.run("sudo -u hdfs hadoop fs -mkdir /user/cloudgene")
         misc.run("sudo -u hdfs hadoop fs -chown cloudgene /user/cloudgene")
@@ -80,7 +82,8 @@ class CloudgeneService(ApplicationService):
         ``port`` class field.
         """
         log.debug("Starting Cloudgene server")
-        if self.__run_as_clougene_user("cd {0}; sh start.sh".format(self.cg_home)):
+        if misc.run("cd {0};./cloudgene -u cloudgene -a start -p {1} -j /usr/lib/jvm/java-7-oracle"
+                    .format(self.cg_home, self.port)):
             self.state = service_states.RUNNING
 
     def status(self):
@@ -93,9 +96,9 @@ class CloudgeneService(ApplicationService):
            self.state == service_states.SHUT_DOWN or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif 'NOT running' in misc.getoutput("cd {0}; sh state.sh".format(
+        elif 'not running' in misc.getoutput("cd {0};./clougene -a status".format(
              self.cg_home), quiet=True):
-            log.error("Cloudgene server not running!")
+            log.error("Cloudgene server not running.")
             self.state == service_states.ERROR
         else:
             self.state = service_states.RUNNING

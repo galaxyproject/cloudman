@@ -240,6 +240,10 @@ class Volume(BlockStorage):
                     log.debug("Volume {0} ({1}) has reached status '{2}'"
                               .format(self.volume_id, self.fs.get_full_name(), status))
                     return True
+                elif not self.volume_id:
+                    log.debug("No volume ID; not waiting for desired status ({0})"
+                              .format(status))
+                    return False
                 else:
                     log.debug('Waiting for volume {0} (status "{1}"; {2}) to reach status "{3}". '
                               'Remaining checks: {4}'.format(self.volume_id, self.status,
@@ -309,10 +313,13 @@ class Volume(BlockStorage):
         Delete this volume.
         """
         try:
-            volume_id = self.volume_id
-            self.volume.delete()
-            log.debug("Deleted volume '%s'" % volume_id)
-            self.volume = None
+            if self.volume:
+                volume_id = self.volume_id
+                self.volume.delete()
+                log.debug("Deleted volume '%s'" % volume_id)
+                self.volume = None
+            else:
+                log.debug("No volume object so cannot delete it; ignoring.")
         except EC2ResponseError, e:
             log.error("Error deleting volume '%s' - you should delete it manually "
                       "after the cluster has shut down: %s" % (self.volume_id, e))
@@ -496,7 +503,8 @@ class Volume(BlockStorage):
         Detach EBS volume from an instance.
         Try it for some time.
         """
-        if self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE:
+        if (self.status == volume_status.ATTACHED or self.status == volume_status.IN_USE) \
+           and self.volume:
             try:
                 self.volume.detach()
             except EC2ResponseError, e:
@@ -504,7 +512,7 @@ class Volume(BlockStorage):
                           % (self.volume_id, self.app.cloud_interface.get_instance_id(), e))
                 return False
             self.wait_for_status(volume_status.AVAILABLE, 240)
-            if self.status != volume_status.AVAILABLE:
+            if self.volume and self.status != volume_status.AVAILABLE:
                 log.debug('Attempting to detach again.')
                 try:
                     self.volume.detach()
@@ -722,11 +730,21 @@ class Volume(BlockStorage):
                         "Tried making 'galaxyData' sub-dirs but failed: %s" % e)
                 # If based on an archive, extract archive contents to the mount point
                 if self.from_archive:
-                    self.fs.state = service_states.CONFIGURING
-                    # Extract the FS archive in a separate thread
-                    ExtractArchive(self.from_archive['url'], mount_point,
-                                   self.from_archive['md5_sum'],
-                                   callback=self.fs.nfs_share_and_set_state).start()
+                    # Do not overwrite an existing dir structure w/ the archive
+                    # content. This happens when a cluster is rebooted.
+                    if self.fs.name == 'galaxy' and \
+                       os.path.exists(self.app.path_resolver.galaxy_home):
+                        log.debug("Galaxy home dir ({0}) already exists; not "
+                                  "extracting the archive ({1}) so not to "
+                                  "overwrite it.".format(self.app.path_resolver.galaxy_home,
+                                                         self.from_archive['url']))
+                        self.fs.nfs_share_and_set_state()
+                    else:
+                        self.fs.state = service_states.CONFIGURING
+                        # Extract the FS archive in a separate thread
+                        ExtractArchive(self.from_archive['url'], mount_point,
+                                       self.from_archive['md5_sum'],
+                                       callback=self.fs.nfs_share_and_set_state).start()
                 else:
                     self.fs.nfs_share_and_set_state()
                 return True

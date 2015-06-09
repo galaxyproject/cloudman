@@ -137,24 +137,25 @@ class SupervisorService(ApplicationService):
 
     def start_program(self, prog_name):
         """
-        Start program ``prog_name`` via supervisord.
+        Start program ``prog_name`` via supervisor.
 
         This will reload supervisord configuration, add the ``prog_name``
         process group and attempt to start the process. Note that the program
         configuration file already needs to have been placed into supervisord's
         configuration directory (``self.conf_dir``) before this method is called.
         """
-        log.debug("Starting program {0} via supervisord.".format(prog_name))
+        log.debug("Starting program {0} via supervisor.".format(prog_name))
         if self.reload_config():
             prog_status = self.get_program_status(prog_name)
-            if prog_status is not 'RUNNING':
+            if 'RUNNING' not in prog_status:
                 try:
                     return self.supervisor.startProcess(prog_name)
                 except xmlrpclib.Fault, flt:
                     log.error('Fault starting supervisord prog: {0}'.format(flt))
             else:
                 log.debug("Not starting {0} via supervisord because it "
-                          "is already RUNNING.")
+                          "is already RUNNING (program status: {1})."
+                          .format(prog_status))
         else:
             log.debug("Did not add {0} to supervisord because could not reload "
                       "supervisord config.".format(prog_name))
@@ -162,26 +163,28 @@ class SupervisorService(ApplicationService):
 
     def stop_program(self, prog_name):
         """
-        Stop program ``prog_name`` via supervisord.
+        Stop program ``prog_name`` via supervisor.
         """
-        log.debug("Stopping program {0} via supervisord.".format(prog_name))
+        log.debug("Stopping program {0} via supervisor.".format(prog_name))
         prog_status = self.get_program_status(prog_name)
-        if prog_status == 'STOPPED':
+        if 'STOPPED' in prog_status:
             log.debug("Program {0} already STOPPED.".format(prog_name))
             return True
-        elif self.get_program_status(prog_name) is 'RUNNING':
+        elif 'RUNNING' in self.get_program_status(prog_name):
             try:
+                log.debug("Issuing supervisor stop command for program {0}."
+                          .format(prog_name))
                 return self.supervisor.stopProcess(prog_name)
             except xmlrpclib.Fault, flt:
                 log.error('Fault stopping supervisord prog: {0}'.format(flt))
-        log.debug("Not stopping {0} via supervisord because it is not RUNNING "
+        log.debug("Not stopping {0} via supervisor because it is not RUNNING "
                   "(it's in state {1}).".format(prog_name, prog_status))
         return False
 
     def get_program_info(self, prog_name):
         """
         Query supervisord for the info of program ``prog_name`` and return it
-        (as a dict). If the program is not found or an something unexpected
+        (as a dict). If the program is not found or something unexpected
         occurs, return an empty dict.
         """
         # log.debug("Getting program {0} info from supervisord.".format(prog_name))
@@ -204,7 +207,7 @@ class SupervisorService(ApplicationService):
         occurs.
         """
         # log.debug("Getting program {0} status from supervisord.".format(prog_name))
-        return self.get_program_info(prog_name).get('statename', None)
+        return self.get_program_info(prog_name).get('statename', '').strip()
 
     def status(self):
         """

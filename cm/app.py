@@ -1,6 +1,7 @@
 import config
 import logging
 import logging.config
+import os
 import sys
 from cm.clouds.cloud_config import CloudConfig
 from cm.framework import messages
@@ -40,6 +41,10 @@ class UniverseApplication(object):
         print "Python version: ", sys.version_info[:2]
         self.PERSISTENT_DATA_VERSION = 3  # Current expected and generated PD version
         self.DEPLOYMENT_VERSION = 2
+        # Instance persistent data file. This file gets created for
+        # test/transient cluster types and stores the cluster config. In case
+        # of a reboot, read the file to automatically recreate the services.
+        self.INSTANCE_PD_FILE = '/mnt/persistent_data-current.yaml'
         cc = CloudConfig(app=self)
         # Get the type of cloud currently running on
         self.cloud_type = cc.get_cloud_type()
@@ -96,21 +101,30 @@ class UniverseApplication(object):
         # This enables cluster configuration to be recovered on cluster re-
         # instantiation
         self.manager = None
+        pd = None
         if self.use_object_store and 'bucket_cluster' in self.config:
-            log.debug("Getting pd.yaml")
+            log.debug("Looking for existing cluster persistent data (PD).")
             validate = True if self.cloud_type == 'ec2' else False
             if not self.TESTFLAG and misc.get_file_from_bucket(
                     self.cloud_interface.get_s3_connection(),
                     self.config['bucket_cluster'],
                     'persistent_data.yaml', 'pd.yaml',
                     validate=validate):
-                pd = misc.load_yaml_file('pd.yaml')
-                self.config.user_data = misc.merge_yaml_objects(self.config.user_data, pd)
-                self.config.user_data = misc.normalize_user_data(self, self.config.user_data)
-            else:
-                log.debug("Setting deployment_version to {0}".format(self.DEPLOYMENT_VERSION))
-                # This is a new cluster so default to the current version
-                self.config.user_data['deployment_version'] = self.DEPLOYMENT_VERSION
+                        log.debug("Loading bucket PD file pd.yaml")
+                        pd = misc.load_yaml_file('pd.yaml')
+        # Have not found the file in the cluster bucket, look on the instance
+        if not pd:
+            if os.path.exists(self.INSTANCE_PD_FILE):
+                log.debug("Loading instance PD file {0}".format(self.INSTANCE_PD_FILE))
+                pd = misc.load_yaml_file(self.INSTANCE_PD_FILE)
+        if pd:
+            self.config.user_data = misc.merge_yaml_objects(self.config.user_data, pd)
+            self.config.user_data = misc.normalize_user_data(self, self.config.user_data)
+        else:
+            log.debug("No PD to go by. Setting deployment_version to {0}."
+                      .format(self.DEPLOYMENT_VERSION))
+            # This is a new cluster so default to the current deployment version
+            self.config.user_data['deployment_version'] = self.DEPLOYMENT_VERSION
 
     def startup(self):
         if 'role' in self.config:

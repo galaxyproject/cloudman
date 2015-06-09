@@ -54,23 +54,28 @@ class TransientStorage(BlockStorage):
         and exporting it over NFS. Set the owner of the repo as ``ubuntu`` user.
         """
         log.debug("Adding a transient FS at {0}".format(self.fs.mount_point))
-        # transient_nfs gets created first - make sure it's on a dedicated device
-        if self.fs.name == 'transient_nfs' and self.app.cloud_type == 'ec2':
-            self._ensure_ephemeral_disk_mounted()
         misc.make_dir(self.fs.mount_point, owner='ubuntu')
         # Set the device ID
         cmd = "df %s | grep -v Filesystem | awk '{print $1}'" % self.fs.mount_point
         self.device = misc.getoutput(cmd)
         # If based on an archive, extract archive contents to the mount point
         if self.from_archive:
-            self.fs.persistent = True
-            self.fs.state = service_states.CONFIGURING
-            # Extract the FS archive in a separate thread
-            log.debug("Extracting transient FS {0} from an archive in a "
-                      "dedicated thread.".format(self.get_full_name()))
-            ExtractArchive(self.from_archive['url'], self.fs.mount_point,
-                           self.from_archive['md5_sum'],
-                           callback=self.fs.nfs_share_and_set_state).start()
+            # Do not overwrite an existing dir structure w/ the archive content.
+            # This happens when a cluster is rebooted.
+            if self.fs.name == 'galaxy' and os.path.exists(self.app.path_resolver.galaxy_home):
+                log.debug("Galaxy home dir ({0}) already exists; not extracting "
+                          "the archive ({1}) so not to overwrite it."
+                          .format(self.app.path_resolver.galaxy_home, self.from_archive['url']))
+                self.fs.nfs_share_and_set_state()
+            else:
+                self.fs.persistent = True
+                self.fs.state = service_states.CONFIGURING
+                # Extract the FS archive in a separate thread
+                log.debug("Extracting transient FS {0} from an archive in a "
+                          "dedicated thread.".format(self.get_full_name()))
+                ExtractArchive(self.from_archive['url'], self.fs.mount_point,
+                               self.from_archive['md5_sum'],
+                               callback=self.fs.nfs_share_and_set_state).start()
         else:
             self.fs.nfs_share_and_set_state()
 
@@ -84,25 +89,6 @@ class TransientStorage(BlockStorage):
         log.debug("Removing transient file system {0}".format(self.fs.mount_point))
         self.fs.remove_nfs_share()
         self.fs.state = service_states.SHUT_DOWN
-
-    def _ensure_ephemeral_disk_mounted(self):
-        """
-        Make sure `/mnt` is a mounted device vs. just being part of `/`.
-
-        At least some AWS instance types (e.g., r3) do not auto-mount what's in
-        `/ets/fstab` so make sure the ephemeral disks are in fact mounted.
-        http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#InstanceStoreTrimSupport
-        """
-        if not misc.run('mountpoint -q /mnt'):
-            device = '/dev/xvdb'  # Most of AWS instances have this device
-            if os.path.exists(device):
-                log.debug("/mnt is not a mountpoint; will try to mount it from {0}"
-                          .format(device))
-                misc.run('mkfs.xfs {0}'.format(device))
-                misc.run('mount -o discard {0} /mnt'.format(device))
-            else:
-                log.warning("Mountpoint /mnt not available and no device {0}"
-                            .format(device))
 
     def status(self):
         """

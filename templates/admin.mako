@@ -86,13 +86,20 @@
         </div>
         <table width="700px" style="margin:10px 0;">
             <tr style="text-align:left">
-                <th width="20%">Service name</th>
+                <th width="25%">Service name</th>
                 <th width="15%">Status</th>
-                <th width="65%" colspan="5"></th>
+                <th width="60%" colspan="5"></th>
             </tr>
             %for app_svc in app_services:
                 <tr>
-                    <td>${app_svc}</td>
+                    <td>
+                        ${app_svc}
+                        %if app_svc == 'ClouderaManager':
+                            (beta)
+                        %elif app_svc == 'Cloudgene':
+                            (beta)
+                        %endif
+                    </td>
                     <td><span id="${app_svc | lowercase}_status">&nbsp;</span></td>
                     <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=${app_svc}">Log</a></td>
                     <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=${app_svc}&to_be_started=False" target='_blank'>Stop</a></td>

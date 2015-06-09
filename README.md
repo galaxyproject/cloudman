@@ -26,7 +26,7 @@ Start by cloning [CloudMan source][3], installing [virtualenv][2], and adding
 Python libraries required by CloudMan. Then, run it:
 
     $ cd <project root dir>
-    $ hg clone https://bitbucket.org/galaxy/cloudman
+    $ git clone https://github.com/galaxyproject/cloudman
     $ virtualenv .
     $ source bin/activate
     $ pip install -r cloudman/requirements.txt
@@ -37,9 +37,9 @@ If you would like to deploy CloudMan and all of its dependencies on a cloud
 infrastructure where a public image does not already exist, take a look at
 [CloudBioLinux][8] scripts (`cloudman` flavor in particular).
 
-[1]: https://usecloudman.org/
+[1]: https://wiki.galaxyproject.org/CloudMan
 [2]: https://github.com/pypa/virtualenv
-[3]: https://bitbucket.org/galaxy/cloudman
+[3]: https://github.com/galaxyproject/cloudman
 [4]: http://www.nature.com/nbt/journal/v29/n11/full/nbt.2028.html
 [5]: http://cloudbiolinux.org/
 [6]: http://aws.amazon.com/ec2/

@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from git import Repo, InvalidGitRepositoryError
+import git
 
 from cm.instance import Instance
 from cm.services import ServiceRole
@@ -60,9 +60,6 @@ class ConsoleManager(BaseConsoleManager):
         # This initialization is applicable only when restarting a cluster.
         self.worker_instances = self.get_worker_instances() if (
             self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
-        self.disk_total = "0"
-        self.disk_used = "0"
-        self.disk_pct = "0%"
         self.manager_started = False
         self.cluster_manipulation_in_progress = False
         # If this is set to False, the master instance will not be an execution
@@ -191,6 +188,10 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do for-loop list (in order in which they are
         # to be removed)
         if self.initial_cluster_type == 'Galaxy':
+            njssn = ServiceRole.to_string(ServiceRole.NODEJSPROXY)
+            njss = self.service_registry.get(njssn)
+            if njss:
+                njss.remove()
             # Remove Postgres service, which will (via dependency management)
             # remove higher-level services
             pgsn = ServiceRole.to_string(ServiceRole.GALAXY_POSTGRES)
@@ -204,7 +205,7 @@ class ConsoleManager(BaseConsoleManager):
         # the should be added to do outer-most for-loop.
         als = []
         if self.initial_cluster_type == 'Galaxy':
-            als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports']
+            als = ['Postgres', 'ProFTPd', 'Galaxy', 'GalaxyReports', 'NodeJSProxy']
         log.debug("Activating app-level services: {0}".format(als))
         for svc_name in als:
             svc = self.service_registry.get(svc_name)
@@ -273,9 +274,10 @@ class ConsoleManager(BaseConsoleManager):
             pass
         elif misc.get_file_from_public_location(self.app.config, 'snaps.yaml', snaps_file):
             log.warn("Couldn't get snaps.yaml from bucket: {0}. However, managed "
-                     "to retrieve it from public location '{1}' instead.".format(
-                     self.app.config['bucket_default'],
-                     self.app.config.get('default_bucket_url') or self.app.config['bucket_default']))
+                     "to retrieve it from public location '{1}' instead."
+                     .format(self.app.config['bucket_default'],
+                             (self.app.config.get('default_bucket_url') or
+                              self.app.config['bucket_default'])))
         else:
             log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
             return []
@@ -384,6 +386,8 @@ class ConsoleManager(BaseConsoleManager):
 
         if self.app.config.condor_enabled:
             self.activate_master_service(self.service_registry.get('HTCondor'))
+        else:
+            self.service_registry.remove('HTCondor')
         # KWS: Optionally add Hadoop service based on config setting
         if self.app.config.hadoop_enabled:
             self.activate_master_service(self.service_registry.get('Hadoop'))
@@ -408,6 +412,7 @@ class ConsoleManager(BaseConsoleManager):
         if not self.initial_cluster_type:  # this can get set by _handle_old_cluster_conf_format
             self.initial_cluster_type = self.app.config.get('cluster_type', None)
             self.userdata_cluster_type = self.app.config.get('initial_cluster_type', None)
+            self.cluster_storage_type = self.app.config.get('cluster_storage_type', None)
             if self.initial_cluster_type is not None:
                 cc_detail = "Configuring a previously existing cluster of type {0}"\
                     .format(self.initial_cluster_type)
@@ -598,7 +603,7 @@ class ConsoleManager(BaseConsoleManager):
                 "Cannot adjust autoscaling because autoscaling is not on.")
 
     # DBTODO For now this is a quick fix to get a status.
-    # Define what 'yellow' would be, and don't just count on "Filesystem"
+    # Define what 'orange' would be, and don't just count on "Filesystem"
     # being the only data service.
     def get_data_status(self):
         fses = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
@@ -607,10 +612,10 @@ class ConsoleManager(BaseConsoleManager):
                 if fs.state == service_states.ERROR:
                     return "red"
                 elif fs.state != service_states.RUNNING:
-                    return "yellow"
+                    return "orange"
             return "green"
         else:
-            return "nodata"
+            return "gray"
 
     def get_app_status(self):
         count = 0
@@ -619,11 +624,11 @@ class ConsoleManager(BaseConsoleManager):
             if svc.state == service_states.ERROR:
                 return "red"
             elif not (svc.state == service_states.RUNNING or svc.state == service_states.COMPLETED):
-                return "yellow"
+                return "orange"
         if count != 0:
             return "green"
         else:
-            return "nodata"
+            return "gray"
 
     def get_services(self, svc_type=None, svc_role=None, svc_name=None):
         """
@@ -781,7 +786,7 @@ class ConsoleManager(BaseConsoleManager):
         repo_path = self.app.path_resolver.galaxy_home
         try:
             if os.path.exists(repo_path):
-                repo = Repo(repo_path)
+                repo = git.Repo(repo_path, odbt=git.GitCmdObjectDB)
             if repo and not repo.bare:
                 hexsha = repo.head.commit.hexsha
                 authored_date = time.strftime("%d %b %Y", time.gmtime(
@@ -790,7 +795,7 @@ class ConsoleManager(BaseConsoleManager):
                 repo_url = _get_remote_url(repo)
                 return {'hexsha': hexsha, 'authored_date': authored_date,
                         'active_branch': active_branch, 'repo_url': repo_url}
-        except InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError:
             log.debug("No git repository at {0}?".format(repo_path))
         return {}
 
@@ -820,19 +825,37 @@ class ConsoleManager(BaseConsoleManager):
         return pss
 
     def check_disk(self):
-        try:
-            fs_arr = self.get_services(svc_role=ServiceRole.GALAXY_DATA)
-            if len(fs_arr) > 0:
-                fs_name = fs_arr[0].name
-                cmd = "df -h | grep %s$ | awk '{print $2, $3, $5}'" % fs_name
-                disk_usage = commands.getoutput(cmd)
-                disk_usage = disk_usage.split(' ')
-                if len(disk_usage) == 3:
-                    self.disk_total = disk_usage[0]
-                    self.disk_used = disk_usage[1]
-                    self.disk_pct = disk_usage[2]
-        except Exception, e:
-            log.error("Failure checking disk usage.  %s" % e)
+        """
+        Check the usage of the main data disk and set appropriate object fields.
+
+        Depending on the cluster type, check the usage of the main disk (for the
+        'Test' cluster type, this is `/mnt/transient_nfs` dir and for the other
+        cluster types it is `/mnt/galaxy`) and return a dictionary with
+        appropriate values.
+
+        :rtype: dictionary
+        :return: A dictionary with keys `total`, `used`, and `used_percent` as
+                 strings. Also included is a bool `updated` field, which
+                 indicates if the disk status values were updated as part of
+                 this function call.
+        """
+        disk_status = {'total': "0", 'used': "0", 'used_percent': "0%",
+                       'updated': False}
+        if self.initial_cluster_type == 'Galaxy':
+            fs_svc = self.service_registry.get_active('galaxy')
+        else:
+            fs_svc = self.service_registry.get_active('transient_nfs')
+        if fs_svc:
+            cmd = ("df -h {0} | sed 1d | awk '{{print $2, $3, $5}}'"
+                   .format(fs_svc.mount_point))
+            disk_usage = misc.getoutput(cmd, quiet=True)
+            disk_usage = disk_usage.split(' ')
+            if len(disk_usage) == 3:
+                disk_status = {'total': disk_usage[0],
+                               'used': disk_usage[1],
+                               'used_percent': disk_usage[2],
+                               'updated': True}
+        return disk_status
 
     def get_cluster_status(self):
         return self.cluster_status
@@ -983,6 +1006,7 @@ class ConsoleManager(BaseConsoleManager):
         # will persist so no point in poluting the list of buckets)
         if delete_cluster or (self.cluster_storage_type == 'transient' and not rebooting):
             self.delete_cluster()
+            misc.remove(self.app.INSTANCE_PD_FILE)
         self.cluster_status = cluster_status.TERMINATED
         log.info("Cluster %s shut down at %s (uptime: %s). If not done automatically, "
                  "manually terminate the master instance (and any remaining instances "
@@ -1409,7 +1433,7 @@ class ConsoleManager(BaseConsoleManager):
                             else:
                                 log.error("Format error in snaps.yaml file. Unrecognised or "
                                           "improperly configured type '{0}' for fs named: {1}"
-                                          .format(fs_template['type]'], fs_template['name']))
+                                          .format(fs_template['type'], fs_template['name']))
                         self.activate_master_service(fs)
             # Add a file system for user's data
             if self.app.use_volumes:
@@ -1588,6 +1612,7 @@ class ConsoleManager(BaseConsoleManager):
                 snap_ids = svc.create_snapshot(snap_description="CloudMan share-a-cluster %s; %s"
                                                % (self.app.config['cluster_name'],
                                                   self.app.config['bucket_cluster']))
+        self._start_app_level_services()
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -1700,7 +1725,6 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Error modifying permissions for keys in bucket '%s'" %
                       self.app.config['bucket_cluster'])
 
-        self._start_app_level_services()
         self.cluster_manipulation_in_progress = False
         return True
 
@@ -2358,6 +2382,7 @@ class ConsoleMonitor(object):
             cc['filesystems'] = fss
             cc['services'] = svcs
             cc['cluster_type'] = self.app.manager.initial_cluster_type
+            cc['cluster_storage_type'] = self.app.manager.cluster_storage_type
             cc['cluster_name'] = self.app.config['cluster_name']
             cc['placement'] = self.app.cloud_interface.get_zone()
             cc['machine_image_id'] = self.app.cloud_interface.get_ami()
@@ -2383,10 +2408,15 @@ class ConsoleMonitor(object):
         In addition, store the local Galaxy configuration files to the cluster's
         bucket (do so only if they are not already there).
         """
-        if self.app.manager.initial_cluster_type == 'Test':
-            log.debug("This is cluster type '{0}'; we do not create a cluster "
-                      "bucket or store cluster configuration for this type."
-                      .format(self.app.manager.initial_cluster_type))
+        # Create a cluster configuration file
+        cc_file_name = self.create_cluster_config_file()
+        if self.app.manager.initial_cluster_type == 'Test' or \
+           self.app.manager.cluster_storage_type == 'transient':
+            # Place the cluster configuration file to a locaiton that lives
+            # across cluster reboots
+            misc.move(cc_file_name, self.app.INSTANCE_PD_FILE)
+            log.debug("This is a transient cluster; we do not create a cluster "
+                      "bucket to store cluster configuration for this type.")
             return
         log.debug("Storing cluster configuration to cluster's bucket")
         s3_conn = self.app.cloud_interface.get_s3_connection()
@@ -2398,35 +2428,8 @@ class ConsoleMonitor(object):
             misc.create_bucket(s3_conn, self.app.config['bucket_cluster'])
         # Save/update the current Galaxy cluster configuration to cluster's
         # bucket
-        cc_file_name = self.create_cluster_config_file()
         misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                  'persistent_data.yaml', cc_file_name)
-        # Ensure Galaxy config files are stored in the cluster's bucket,
-        # but only after Galaxy has been configured and is running (this ensures
-        # that the configuration files get loaded from proper S3 bucket rather
-        # than potentially being overwritten by files that might exist on the
-        # snap)
-        try:
-            galaxy_svc = self.app.manager.service_registry.get_active('Galaxy')
-            if galaxy_svc and galaxy_svc.running():
-                for f_name in ['universe_wsgi.ini',
-                               'tool_conf.xml',
-                               'tool_data_table_conf.xml',
-                               'shed_tool_conf.xml',
-                               'datatypes_conf.xml']:
-                    if (os.path.exists(os.path.join(self.app.path_resolver.galaxy_config_dir, f_name))) or \
-                       (misc.file_in_bucket_older_than_local(
-                            s3_conn, self.app.config['bucket_cluster'], '%s.cloud'
-                            % f_name, os.path.join(self.app.path_resolver.galaxy_home, f_name))):
-                        log.debug("Saving current Galaxy configuration file '%s' "
-                                  "to cluster bucket '%s' as '%s.cloud'"
-                                  % (f_name, self.app.config['bucket_cluster'], f_name))
-                        misc.save_file_to_bucket(
-                            s3_conn, self.app.config[
-                                'bucket_cluster'], '%s.cloud' % f_name,
-                            os.path.join(self.app.path_resolver.galaxy_home, f_name))
-        except:
-            pass
         log.debug("Saving current instance boot script (%s) to cluster bucket "
                   "'%s' as '%s'" % (os.path.join(self.app.config['boot_script_path'],
                                     self.app.config['boot_script_name']),
@@ -2442,16 +2445,17 @@ class ConsoleMonitor(object):
         misc.save_file_to_bucket(
             s3_conn, self.app.config['bucket_cluster'], self.app.config.cloudman_source_file_name,
             os.path.join(self.app.config['cloudman_home'], self.app.config.cloudman_source_file_name))
-        try:
-            # Currently, metadata only works on ec2 so set it only there
-            if self.app.cloud_type == 'ec2':
-                with open(os.path.join(self.app.config['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
-                    rev = rev_file.read()
-                misc.set_file_metadata(s3_conn, self.app.config[
-                    'bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision', rev)
-        except Exception, e:
-            log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s"
-                      % (self.app.config['bucket_cluster'], e))
+        # [May 2015] Not being used for the time being so disable
+        # try:
+        #     # Currently, metadata only works on ec2 so set it only there
+        #     if self.app.cloud_type == 'ec2':
+        #         with open(os.path.join(self.app.config['cloudman_home'], 'cm_revision.txt'), 'r') as rev_file:
+        #             rev = rev_file.read()
+        #         misc.set_file_metadata(s3_conn, self.app.config[
+        #             'bucket_cluster'], self.app.config.cloudman_source_file_name, 'revision', rev)
+        # except Exception, e:
+        #     log.debug("Error setting revision metadata on newly copied cm.tar.gz in bucket %s: %s"
+        #               % (self.app.config['bucket_cluster'], e))
         # Create an empty file whose name is the name of this cluster (useful
         # as a reference)
         cn_file = os.path.join(self.app.config['cloudman_home'],
@@ -2579,7 +2583,6 @@ class ConsoleMonitor(object):
             self._update_frequency()
             if (Time.now() - self.last_update_time).seconds > self.update_frequency:
                 self.last_update_time = Time.now()
-                self.app.manager.check_disk()
                 for service in self.app.manager.service_registry.active():
                     service.status()
                 # Indicate migration is in progress

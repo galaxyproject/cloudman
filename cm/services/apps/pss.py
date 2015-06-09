@@ -48,7 +48,6 @@ class PSSService(ApplicationService):
         self.app.cloud_interface.get_public_ip()
         self.app.cloud_interface.get_local_hostname()
 
-
     def add(self):
         """
         Check if prerequisites for running this service are satisfied and, if so,
@@ -82,10 +81,10 @@ class PSSService(ApplicationService):
                 # are there
                 galaxy_svc = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
                 if not galaxy_svc:
-                    log.debug("No Galaxy service in a Galaxy cluster; waiting.")
+                    log.debug("No Galaxy service in a Galaxy cluster; will wait.")
                     prereqs_ok = False
                 elif len(galaxy_svc) > 0 and not galaxy_svc[0].running():
-                    log.debug("Galaxy service not running yet; waiting.")
+                    log.debug("Galaxy service not running yet; will wait.")
                     prereqs_ok = False
                 else:
                     log.debug("Galaxy service OK for PSS")
@@ -193,7 +192,8 @@ class PSSService(ApplicationService):
         if self.state == service_states.UNSTARTED:
             self.state = service_states.SHUT_DOWN
         log.debug("Removing service %s" % self.name)
-        self.app.manager.deactivate_master_service(self)
+        if self.app.config['role'] == 'master':
+            self.app.manager.deactivate_master_service(self)
 
     def status(self):
         """Do nothing: PSS runs once so there's no daemon to keep checking on."""

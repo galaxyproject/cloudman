@@ -147,8 +147,7 @@ class NginxService(ApplicationService):
             if "1.4" in misc.getoutput("{0} -v".format(self.exe)):
                 nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
                 params = {'galaxy_user_name': paths.GALAXY_USER_NAME,
-                          'nginx_conf_dir': self.conf_dir,
-                }
+                          'nginx_conf_dir': self.conf_dir}
                 if setup_ssl:
                     log.debug("Using Nginx v1.4+ template w/ SSL")
                     # Generate a self-signed certificate
@@ -249,9 +248,9 @@ class NginxService(ApplicationService):
         """
         # Check if nginx config needs to be reconfigured
         aa = self.app.manager.service_registry.all_active(names=True)
-        for s in self.app.manager.service_registry.all_active(names=True):
-            if s not in self.proxied_services:
-                aa.remove(s)
+        for s in self.app.manager.service_registry.all_active():
+            if s.name not in self.proxied_services or not s.running():
+                aa.remove(s.name)
         if set(self.active_proxied) != set(aa):
             # There was a service change, run reconfigure
             self.active_proxied = aa

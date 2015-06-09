@@ -26,6 +26,10 @@
             expires 24h;
         }
 
+        location /favicon.ico {
+            alias /mnt/cm/static/favicon.ico;
+        }
+
         # VNC & noVNC settings
         location ~ /vnc {
             auth_pam    "Secure Zone";
