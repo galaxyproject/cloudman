@@ -1257,6 +1257,8 @@ class ConsoleManager(BaseConsoleManager):
         must be provided, which will then be used to derive this cluster from
         the shared one.
         """
+        pss=str(pss)
+        log.debug("initialize_cluster_with_custom_settings: cluster_type={0}, data_option={1}, initial_pss_size={2}".format(startup_opt, galaxy_data_option, pss))
         if self.app.manager.initial_cluster_type is None:
             if startup_opt == "Test":
                 self.app.manager.init_cluster(startup_opt, storage_type='transient')
