@@ -144,7 +144,7 @@ def populate_galaxy_paths(option_manager):
     properties["len_file_path"] = join(path_resolver.galaxy_config_dir, "len")
     properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
-    temp_dir = join(path_resolver.transient_nfs, "tmp")
+    temp_dir = '/mnt/galaxy/tmp'
     if not exists(temp_dir):
         makedirs(temp_dir)
     attempt_chown_galaxy(temp_dir, recursive=True)
