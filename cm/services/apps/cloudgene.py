@@ -96,7 +96,7 @@ class CloudgeneService(ApplicationService):
            self.state == service_states.SHUT_DOWN or \
            self.state == service_states.WAITING_FOR_USER_ACTION:
             pass
-        elif 'not running' in misc.getoutput("cd {0};./clougene -a status".format(
+        elif 'not running' in misc.getoutput("cd {0};./cloudgene -a status".format(
              self.cg_home), quiet=True):
             log.error("Cloudgene server not running.")
             self.state == service_states.ERROR
