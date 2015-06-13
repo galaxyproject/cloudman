@@ -57,10 +57,16 @@ class EC2Interface(CloudInterface):
         if self.instance_type is None:
             for i in range(0, 5):
                 try:
-                    log.debug('Gathering instance type, attempt %s' % i)
-                    fp = urllib.urlopen(
-                        'http://169.254.169.254/latest/meta-data/instance-type')
-                    self.instance_type = fp.read()
+                    url = 'http://169.254.169.254/latest/meta-data/instance-type'
+                    log.debug('Gathering instance type via {0}; attempt {1}/5'
+                              .format(url, i+1))
+                    fp = urllib.urlopen(url)
+                    if fp.code == 200:
+                        self.instance_type = fp.read()
+                    else:
+                        log.warning("Error (code {0}) retrieving instance type "
+                                    "from url {1}: {2}".format(fp.code, url,
+                                                               fp.read()))
                     fp.close()
                     if self.instance_type:
                         break
