@@ -11,18 +11,18 @@
       <tr valign="middle">
         <td width="26px">
           <a target="_blank" href="${wiki_url}">
-          <img border="0" src="${h.url_for('/static/images/galaxyIcon_noText.png')}"></a>
+          <img border="0" src="${h.url_for('/static/images/cloudmanIcon_noText.png')}"></a>
         </td>
         <td align="left" valign="middle"><div class="pageTitle">Galaxy${brand}</div></td>
         <td align="right" valign="middle">
           %if CM_url:
 			  There is a <span style="color:#5CBBFF">new version</span> of CloudMan:
-			  <a target="_blank" href="${CM_url}">What's New</a> | 
+			  <a target="_blank" href="${CM_url}">What's New</a> |
 			  <a target="_top" href="${h.url_for( controller='root', action='update_users_CM' )}">Update CloudMan</a>
 	          &nbsp;&nbsp;&nbsp;
 		  %endif
 		  Info: <a href="${bugs_email}">report bugs</a>
-          | <a target="_blank" href="${wiki_url}">wiki</a>                  
+          | <a target="_blank" href="${wiki_url}">wiki</a>
           | <a target="_blank" href="${screencasts_url}">screencasts</a>
           &nbsp;
         </td>

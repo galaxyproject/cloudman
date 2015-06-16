@@ -31,6 +31,8 @@ from cm.services.apps import ApplicationService
 import logging
 log = logging.getLogger('cloudman')
 
+NUM_START_ATTEMPTS = 2  # Number of times we attempt to auto-restart the service
+
 
 class ClouderaManagerService(ApplicationService):
 
@@ -39,6 +41,7 @@ class ClouderaManagerService(ApplicationService):
         self.svc_roles = [ServiceRole.CLOUDERA_MANAGER]
         self.name = ServiceRole.to_string(ServiceRole.CLOUDERA_MANAGER)
         self.dependencies = []
+        self.remaining_start_attempts = NUM_START_ATTEMPTS
         self.db_pwd = misc.random_string_generator()
         # Indicate if the web server has been configured and started
         self.started = False
@@ -111,6 +114,7 @@ class ClouderaManagerService(ApplicationService):
             self.set_default_user()
             # self.create_default_cluster()
             # self.setup_cluster()
+            self.remaining_start_attempts -= 1
         except Exception, exc:
             log.error("Exception creating a cluster: {0}".format(exc))
 
@@ -229,7 +233,7 @@ class ClouderaManagerService(ApplicationService):
                     self.started = True
                 except Exception:
                     log.debug("Still have not disabled referer check... ")
-                    time.sleep(5)
+                    time.sleep(15)
                     if self.state in [service_states.SHUTTING_DOWN,
                                       service_states.SHUT_DOWN,
                                       service_states.ERROR]:
@@ -430,9 +434,17 @@ class ClouderaManagerService(ApplicationService):
         svc_status = misc.getoutput('service cloudera-scm-server status', quiet=True)
         for so in status_output:
             if so in svc_status:
-                log.error("Cloudera server not running: {0}.".format(so))
-                self.state = service_states.ERROR
+                log.warning("Cloudera server not running: {0}.".format(so))
+                if self.remaining_start_attempts > 0:
+                    log.debug("Resetting ClouderaManager service")
+                    self.state = service_states.UNSTARTED
+                else:
+                    log.error("Exceeded number of restart attempts; "
+                              "ClouderaManager service in ERROR.")
+                    self.state = service_states.ERROR
         if not self.started:
             pass
         elif 'is running' in svc_status:
             self.state = service_states.RUNNING
+            # Once the service gets running, reset the number of start attempts
+            self.remaining_start_attempts = NUM_START_ATTEMPTS

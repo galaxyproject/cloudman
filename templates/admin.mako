@@ -45,6 +45,7 @@
                 </form>
             </li>
             <li>Galaxy is at revision: <span id="galaxy_rev">N/A</span></li>
+            <%doc>
             <li>Update Galaxy from a provided repository
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
@@ -76,6 +77,7 @@
                     <input type="submit" value="Update Galaxy">
                 </form>
             </li>
+            </%doc>
         </ul>
         <h3>Services controls</h3>
         <div class="help_text">
@@ -306,10 +308,10 @@
     <script type="text/template" id="fileSystems-template">
         <thead>
             <tr class="filesystem-tr">
-                <th class="fs-td-20pct">Name</th>
+                <th class="fs-td-25pct">Name</th>
                 <th class="fs-td-15pct">Status</th>
                 <th class="fs-td-20pct">Usage</th>
-                <th class="fs-td-15pct">Controls</td>
+                <th class="fs-td-10pct">Controls</td>
                 <th colspan="2"></th>
             </tr>
         </thead>
