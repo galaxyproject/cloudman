@@ -20,10 +20,10 @@ DEFAULT_INSTANCE_TYPES = {
         ("c3.2xlarge", "Compute optimized 2xLarge (8 vCPU/15GB RAM)"),
         ("c3.8xlarge", "Compute optimized 8xLarge (32 vCPU/60GB RAM)"),
         # R3 instance types require HVM virtualization and appropriate AMI so omit
-        # ("", "-------------"),
-        # ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
-        # ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
-        # ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
+        ("", "-------------"),
+        ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
+        ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
+        ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
         ("", "-------------"),
         ("custom_instance_type", "Custom instance type")
     ],
