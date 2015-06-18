@@ -132,7 +132,6 @@ class GalaxyService(ApplicationService):
                                  ('%s/tmp/job_working_directory' %
                                   self.app.path_resolver.galaxy_data)]:
                     misc.make_dir(dir_name, 'galaxy')
-                self.remaining_start_attempts -= 1
                 self.configured = True
             if not self._is_galaxy_running():
                 log.debug("Starting Galaxy...")
@@ -140,13 +139,14 @@ class GalaxyService(ApplicationService):
                 self.update_galaxy_config()
                 start_command = self.galaxy_run_command(
                     "%s --daemon" % self.extra_daemon_args)
-                if not misc.run(start_command):
-                    if self.remaining_start_attempts > 0:
-                        self.state = service_states.UNSTARTED
-                        self.last_state_change_time = datetime.utcnow()
-                    else:
-                        self.state = service_states.ERROR
-                        self.last_state_change_time = datetime.utcnow()
+                if misc.run(start_command):
+                    self.remaining_start_attempts -= 1
+                elif self.remaining_start_attempts > 0:
+                    self.state = service_states.UNSTARTED
+                    self.last_state_change_time = datetime.utcnow()
+                else:
+                    self.state = service_states.ERROR
+                    self.last_state_change_time = datetime.utcnow()
             else:
                 log.debug("Galaxy already running.")
         else:
