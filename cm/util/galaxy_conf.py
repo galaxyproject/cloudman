@@ -143,7 +143,7 @@ def populate_galaxy_paths(option_manager):
         .format(path_resolver.psql_db_port)
     properties["use_pbkdf2"] = "False"  # Required for FTP
     properties["tool_data_path"] = path_resolver.galaxy_indices
-    properties["len_file_path"] = join(path_resolver.galaxy_config_dir, "len")
+    properties["len_file_path"] = join(path_resolver.galaxy_home, "tool-data", "len")
     properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
     temp_dir = '/mnt/galaxy/tmp'
