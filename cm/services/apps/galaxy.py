@@ -1,3 +1,4 @@
+"""Service implementation for the Galaxy application."""
 import os
 import urllib2
 import subprocess
@@ -29,7 +30,8 @@ class GalaxyService(ApplicationService):
         self.name = ServiceRole.to_string(ServiceRole.GALAXY)
         self.svc_roles = [ServiceRole.GALAXY]
         self.remaining_start_attempts = NUM_START_ATTEMPTS
-        self.configured = False  # Indicates if the environment for running Galaxy has been configured
+        # Indicates if the environment for running Galaxy has been configured
+        self.configured = False
         self.ssl_is_on = False
         # Environment variables to set before executing galaxy's run.sh
         self.env_vars = {}
@@ -46,7 +48,7 @@ class GalaxyService(ApplicationService):
     @property
     def galaxy_home(self):
         """
-        Return the path where Galaxy application is available
+        Return the path where the Galaxy application is available
         """
         return self.app.path_resolver.galaxy_home
 
@@ -94,19 +96,22 @@ class GalaxyService(ApplicationService):
 
         if self.multiple_processes():
             self.env_vars["GALAXY_RUN_ALL"] = "TRUE"
-            # HACK: Galaxy has a known problem when starting from a fresh configuration
-            # in multiple process mode. Each process attempts to create the same directories
-            # and one or more processes can fail to start because it "failed" to create
-            # said directories (because another process created them first). This hack staggers
+            # HACK: Galaxy has a known problem when starting from a fresh
+            # configuration in multiple process mode. Each process attempts to
+            # create the same directories and one or more processes can fail to
+            # start because it "failed" to create said directories (because
+            # another process created them first). This hack staggers
             # the process starts in an attempt to circumvent this problem.
-            patch_run_sh_command = "sudo sed -i -e \"s/server.log \\$\\@$/\\0; sleep 4/\" %s/run.sh" % self.galaxy_home
+            patch_run_sh_command = ("sudo sed -i -e \"s/server.log \\$\\@$/\\0; "
+                                    "sleep 4/\" %s/run.sh" % self.galaxy_home)
             misc.run(patch_run_sh_command)
             self.extra_daemon_args = ""
         else:
-            # Instead of sticking with default paster.pid and paster.log, explicitly
-            # set pid and log file to ``main.pid`` and ``main.log`` to bring single
-            # process case inline with defaults for for multiple process case (i.e.
-            # when GALAXY_RUN_ALL is set and multiple servers are defined).
+            # Instead of sticking with default paster.pid and paster.log,
+            # explicitly set pid and log file to ``main.pid`` and ``main.log``
+            # to bring single process case inline with defaults for for multiple
+            # process case (i.e. when GALAXY_RUN_ALL is set and multiple servers
+            # are defined).
             self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
         if to_be_started and self.remaining_start_attempts > 0:
             self.status()
@@ -135,7 +140,6 @@ class GalaxyService(ApplicationService):
                 self.configured = True
             if not self._is_galaxy_running():
                 log.debug("Starting Galaxy...")
-                # Make sure admin users get added
                 self.update_galaxy_config()
                 start_command = self.galaxy_run_command(
                     "%s --daemon" % self.extra_daemon_args)
@@ -152,7 +156,8 @@ class GalaxyService(ApplicationService):
         else:
             log.info("Shutting down Galaxy...")
             self.state = service_states.SHUTTING_DOWN
-            stop_command = self.galaxy_run_command("%s --stop-daemon" % self.extra_daemon_args)
+            stop_command = self.galaxy_run_command(
+                "%s --stop-daemon" % self.extra_daemon_args)
             if self._is_galaxy_running():
                 misc.run(stop_command)
             if not self._is_galaxy_running():
@@ -165,6 +170,14 @@ class GalaxyService(ApplicationService):
                                 .strftime('%H_%M'), shell=True)
 
     def multiple_processes(self):
+        """
+        Check CloudMan's config if Galaxy should be setup to run in multiple
+        processes mode.
+
+        :rtype: bool
+        :return: ``True`` if Galaxy should be setup to use multiple processes,
+                 ``False`` otherwise.
+        """
         return self.app.config.multiple_processes
 
     def galaxy_run_command(self, args):
@@ -208,12 +221,14 @@ class GalaxyService(ApplicationService):
             else:
                 log.error("Galaxy daemon not running.")
                 if self.remaining_start_attempts > 0:
-                    log.debug("Remaining Galaxy start attempts: {0}; setting svc state "
-                              "to UNSTARTED".format(self.remaining_start_attempts))
+                    log.debug("Remaining Galaxy start attempts: {0}; setting "
+                              "svc state to UNSTARTED"
+                              .format(self.remaining_start_attempts))
                     self.state = service_states.UNSTARTED
                     self.last_state_change_time = datetime.utcnow()
                 else:
-                    log.debug("No remaining Galaxy start attempts; setting svc state to ERROR")
+                    log.debug("No remaining Galaxy start attempts; setting svc "
+                              "state to ERROR")
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
         if old_state != self.state:
@@ -223,7 +238,8 @@ class GalaxyService(ApplicationService):
             if self.state == service_states.RUNNING:
                 # Once the service gets running, reset the number of start attempts
                 self.remaining_start_attempts = NUM_START_ATTEMPTS
-                log.debug("Granting SELECT permission to galaxyftp user on 'galaxy' database")
+                log.debug("Granting SELECT permission to galaxyftp user on "
+                          "'galaxy' database")
                 misc.run('%s - postgres -c "%s -p %s galaxy -c \\\"GRANT SELECT ON galaxy_user TO galaxyftp\\\" "'
                          % (paths.P_SU, self.app.path_resolver.psql_cmd,
                             self.app.path_resolver.psql_db_port),
@@ -236,7 +252,7 @@ class GalaxyService(ApplicationService):
         """Check is Galaxy process is running and the UI is accessible."""
         if self._check_daemon('galaxy'):
             dns = "http://127.0.0.1:8080"
-            running_error_codes = [403]  # Error codes that indicate Galaxy is running
+            running_error_codes = [403]  # Error codes under which Galaxy runs
             try:
                 urllib2.urlopen(dns)
                 return True
@@ -249,6 +265,13 @@ class GalaxyService(ApplicationService):
             return False
 
     def update_galaxy_config(self):
+        """
+        Update Galaxy application configuration.
+
+        Optionally set Galaxy to use multiple processes, then populate dynamic
+        options (i.e., arbitrary options coming from user data), adjust system
+        paths and set admin users.
+        """
         if self.multiple_processes():
             populate_process_options(self.option_manager)
         populate_dynamic_options(self.option_manager)
@@ -256,4 +279,11 @@ class GalaxyService(ApplicationService):
         populate_admin_users(self.option_manager)
 
     def add_galaxy_admin_users(self, admins_list=[]):
+        """
+        Add email addresses provided as Galaxy admin users.
+
+        :type admins_list: list
+        :param admins_list: A list of email addresses corresponding to
+                            registered Galaxy users.
+        """
         populate_admin_users(self.option_manager, admins_list)

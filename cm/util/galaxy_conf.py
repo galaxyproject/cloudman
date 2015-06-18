@@ -44,14 +44,16 @@ def attempt_chown_galaxy(path, recursive=False):
 
 
 def populate_admin_users(option_manager, admins_list=[]):
-    """ Galaxy admin users can now be added by providing them in user data
-        (see below) or by calling this method and providing a user list.
-        YAML format for user data for providing admin users
-        (note that these users will still have to manually register
-        on the given Galaxy instance):
-        admin_users:
-         - user@example.com
-         - user2@anotherexample.edu """
+    """
+    Galaxy admin users can be added by providing them in user data
+    (see below) or by calling this method and providing a user list.
+    YAML format for user data for providing admin users
+    (note that these users will still have to manually register
+    on the given Galaxy instance):
+    admin_users:
+     - user@example.com
+     - user2@anotherexample.edu
+    """
     for admin in option_manager.app.config.get('admin_users', []):
         if admin not in admins_list:
                 admins_list.append(admin)
