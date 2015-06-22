@@ -383,10 +383,9 @@ vertical-align: top;
                     <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size">
                     %endif
                     <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
-                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
+                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:30px">
                     <label for="galaxy-custom-size">Volume - Custom:</label>
-                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
-                    </div>
+                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="5">GB <span id="g_pss_vtag"></span></div>
                     <div style="text-align:left;margin-left: 18px">
                     %if cloud_type == 'ec2':
                     <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient">
@@ -394,9 +393,6 @@ vertical-align: top;
                     <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
                     %endif
                     <label for="galaxy-transient">Transient Storage (${transient_fs_size} GB)</label>
-                    </div>
-                    <div style="height: 5px;">
-                        <span style="margin-left: 247px;" id="g_pss_vtag"></span>
                     </div>
                 </p>
         </div>
@@ -427,7 +423,7 @@ vertical-align: top;
                     </span>
                     </label>
                 </p>
-                <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
+                <input style="margin-left:20px" type="text" name="pss" class="LV_field" id="d_pss" value="" size="5">GB<span id="d_pss_vtag"></span>
             </div>
 
             <div class="form-row">
