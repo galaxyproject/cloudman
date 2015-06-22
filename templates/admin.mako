@@ -227,7 +227,10 @@
         ## ********************************* Overlays *********************************
         ## ****************************************************************************
         ## Overlay that prevents any future clicking, see CSS
-        <div id="snapshotoverlay" style="display:none"></div>
+        <div id="snapshotoverlay" style="display:none">
+            ## Allow the overlay to be hidden between UI updates
+            <a id="close-snapshotoverlay" href="#">Temporarily hide overlay</a>
+        </div>
         <div class="overlay" id="overlay" style="display:none"></div>
         ## Indicate an action has been recorded
         <div class="box" id="action_initiated" style="height: 90px; text-align: center;">

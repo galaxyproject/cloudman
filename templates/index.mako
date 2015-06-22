@@ -163,6 +163,8 @@ vertical-align: top;
 ## Overlay that prevents any future clicking, see CSS
 <div id="snapshotoverlay" style="display:none">
     <div id="snapshotoverlay_msg_box" style="display:none"></div>
+    ## Allow the overlay to be hidden between UI updates
+    <a id="close-snapshotoverlay" href="#">Temporarily hide overlay</a>
 </div>
 <div id="no_click_clear_overlay" style="display:none"></div>
 <div id="snapshot_status_box" class="box">
@@ -1026,6 +1028,10 @@ $(document).ready(function() {
     });
     $('#d_pss').focus(function() {
         $('#data-cluster').attr('checked', 'checked');
+    });
+    $('#close-snapshotoverlay').click(function(){
+        $('#snapshotoverlay').hide();
+        hidebox();
     });
 
     // Initiate the update calls

@@ -337,6 +337,11 @@ div.form-row-input > input{max-width:300px;}
     right:0px;
     z-index:100;
 }
+#close-snapshotoverlay {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+}
 
 #no_click_clear_overlay{
     background: none;

@@ -151,6 +151,9 @@ function handle_clicks() {
     $('#ignore_deps_framework').click(function(){
         update();
     });
+    $('#close-snapshotoverlay').click(function(){
+        $('#snapshotoverlay').hide();
+    });
 }
 function handle_forms() {
     // Handle generic forms
