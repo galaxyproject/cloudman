@@ -329,6 +329,16 @@ class ConsoleManager(BaseConsoleManager):
                         self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
+    @TestFlag(15)
+    def transient_fs_size(self):
+        """
+        Return the size of transient file system, in GBs.
+        """
+        fs_svc = self.service_registry.get_active('transient_nfs')
+        if fs_svc:
+            return fs_svc.size
+        return -1
+
     @TestFlag(False)
     def start(self):
         """

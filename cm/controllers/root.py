@@ -41,7 +41,8 @@ class CM(BaseController):
                                        cloud_type=self.app.config.cloud_type,
                                        instance_types=instance_types,
                                        system_message=system_message,
-                                       default_data_size=self.app.manager.get_default_data_size())
+                                       default_data_size=self.app.manager.get_default_data_size(),
+                                       transient_fs_size=self.app.manager.transient_fs_size())
 
     @expose
     @TestFlag({})

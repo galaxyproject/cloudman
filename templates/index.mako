@@ -393,7 +393,7 @@ vertical-align: top;
                     %else:
                     <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
                     %endif
-                    <label for="galaxy-transient">Transient Storage</label>
+                    <label for="galaxy-transient">Transient Storage (${transient_fs_size} GB)</label>
                     </div>
                     <div style="height: 5px;">
                         <span style="margin-left: 247px;" id="g_pss_vtag"></span>
