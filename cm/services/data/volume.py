@@ -545,15 +545,22 @@ class Volume(BlockStorage):
                       (self.volume_id, ex))
             raise
         if snapshot:
-            while snapshot.status != 'completed':
-                log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
-                          % (snapshot.id, snapshot.progress, snapshot.status))
-                self.snapshot_progress = snapshot.progress
-                self.snapshot_status = snapshot.status
-                time.sleep(6)
-                snapshot.update()
-            log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
-                     % (self.volume_id, snapshot.id))
+            try:
+                while snapshot.status != 'completed':
+                    log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
+                              % (snapshot.id, snapshot.progress, snapshot.status))
+                    self.snapshot_progress = snapshot.progress
+                    self.snapshot_status = snapshot.status
+                    time.sleep(6)
+                    snapshot.update()
+                log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
+                         % (self.volume_id, snapshot.id))
+            except SystemExit, exc:
+                # FIXME: this is an attempt at a 'patch' not to cripple a cluster
+                # (Paste will kill threads that run for more than 30 mins so
+                # catch an exception here and give back the control to a user)
+                log.error("SystemExit while creating snapshot {0}; ignoring: "
+                          "{1}".format(snapshot.id, exc))
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
                                              self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
