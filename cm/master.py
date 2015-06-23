@@ -349,7 +349,7 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Config Data at manager start, with secret_key and password "
                   "filtered out: %s" % dict((k, self.app.config[k])
                                             for k in self.app.config.keys()
-                                            if k not in ['password', 'secret_key']))
+                                            if k not in ['password', 'secret_key', 'freenxpass', 'access_key']))
 
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
