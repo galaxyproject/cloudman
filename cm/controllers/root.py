@@ -60,7 +60,13 @@ class CM(BaseController):
         the shared one.
         """
 
-        error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, pss, shared_bucket)
+        if galaxy_data_option == "custom-size":
+            if isinstance(pss, list):
+                pss = [x for x in pss if x][0]
+        if (pss and pss.isdigit()):
+            error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, int(pss), shared_bucket)
+        else:
+            error = "Wrong or no value provided for the persistent storage size: '{0}'".format(pss)
 
         if error:
             log.warning(error)

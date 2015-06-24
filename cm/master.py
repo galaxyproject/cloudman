@@ -1306,18 +1306,11 @@ class ConsoleManager(BaseConsoleManager):
                     pss = 0
                 elif galaxy_data_option == "custom-size":
                     storage_type = "volume"
-                    if isinstance(pss, list):
-                        ss = None
-                        for x in pss:
-                            if x:
-                                ss = x
-                        pss = ss
                 else:
                     storage_type = "volume"
-                    pss = str(self.app.manager.get_default_data_size())
-                if storage_type == "transient" or (pss and pss.isdigit()):
-                    pss_int = int(pss)
-                    self.app.manager.init_cluster(startup_opt, pss_int, storage_type=storage_type)
+                    pss = self.app.manager.get_default_data_size()
+                if storage_type == "transient" or pss:
+                    self.app.manager.init_cluster(startup_opt, pss, storage_type=storage_type)
                     return None
                 else:
                     msg = "Wrong or no value provided for the persistent "\
@@ -1406,18 +1399,17 @@ class ConsoleManager(BaseConsoleManager):
                             fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
                         elif 'type' in fs_template:
                             if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                                log.debug("Creating an archive-based ({0}) file system named '{1}'"
-                                          .format(fs_template.get('archive_url'), fs_template['name']))
+                                log.debug("Creating an archive-based ({0}) file system named '{1}' with storage type: {2} and pss: {3}"
+                                          .format(fs_template.get('archive_url'), fs_template['name'], storage_type, pss))
                                 if storage_type == 'volume':
-                                    if 'size' in fs_template:
-                                        size = fs_template.get('size', 10)  # Default to 10GB
-                                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
-                                           fs_template['roles']):
-                                            if pss > size:
-                                                size = pss
-                                        from_archive = {'url': fs_template['archive_url'],
-                                                        'md5_sum': fs_template.get('archive_md5', None)}
-                                        fs.add_volume(size=size, from_archive=from_archive)
+                                    size = fs_template.get('size', 10)  # Default to 10GB
+                                    if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
+                                       fs_template['roles']):
+                                        if pss > size:
+                                            size = pss
+                                    from_archive = {'url': fs_template['archive_url'],
+                                                    'md5_sum': fs_template.get('archive_md5', None)}
+                                    fs.add_volume(size=size, from_archive=from_archive)
                                 elif storage_type == 'transient':
                                     from_archive = {'url': fs_template['archive_url'],
                                                     'md5_sum': fs_template.get('archive_md5', None)}
