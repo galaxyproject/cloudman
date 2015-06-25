@@ -1461,7 +1461,7 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             fs.add_volume(size=size)
                     elif "transient" == fs_template['type']:
-                        log.debug("Creating a transient file system named '{1}'".format(fs_template['name']))
+                        log.debug("Creating a transient file system named '{0}'".format(fs_template['name']))
                         if 'data_source' in fs_template and 'archive' == fs_template['data_source'] and 'archive_url' in fs_template:
                             from_archive = {'url': fs_template['archive_url'],
                                             'md5_sum': fs_template.get('archive_md5', None)}
