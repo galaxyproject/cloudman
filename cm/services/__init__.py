@@ -71,6 +71,8 @@ class ServiceRole(object):
         ``ServiceRole`` objects and return that list.
         """
         svc_roles = []
+        if not roles_str:
+            return svc_roles
         roles_list = roles_str.split(",")
         for val in roles_list:
             role = ServiceRole._role_from_string(val.strip())
