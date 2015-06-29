@@ -1304,7 +1304,7 @@ class ConsoleManager(BaseConsoleManager):
                 if galaxy_data_option == "transient":
                     storage_type = "transient"
                     pss = 0
-                elif galaxy_data_option == "custom-size":
+                elif galaxy_data_option == "custom-size" or galaxy_data_option == "volume":
                     storage_type = "volume"
                 else:
                     storage_type = "volume"
@@ -1353,21 +1353,6 @@ class ConsoleManager(BaseConsoleManager):
         :param pss: Persistent Storage Size associated with data volumes being
                     created for the cluster
         """
-        def _add_data_fs(fs_name=None):
-            """
-            A local convenience method used to add a new data file system
-            """
-            if self.get_services(svc_role=ServiceRole.GALAXY_DATA):
-                log.debug("Tried to add data file system, but GALAXY_DATA service "
-                          "already exists.")
-                return
-            if not fs_name:
-                fs_name = ServiceRole.to_string(ServiceRole.GALAXY_DATA)
-            log.debug("Creating a new data filesystem: '%s'" % fs_name)
-            fs = Filesystem(self.app, fs_name, svc_roles=[ServiceRole.GALAXY_DATA])
-            fs.add_volume(size=pss)
-            self.activate_master_service(fs)
-
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
         self.cluster_storage_type = storage_type
@@ -1375,72 +1360,10 @@ class ConsoleManager(BaseConsoleManager):
                "Please wait...".format(cluster_type, storage_type))
         log.info(msg)
         self.app.msgs.info(msg)
+
+        self.process_cluster_templates(cluster_type, pss, storage_type)
+
         if cluster_type == 'Galaxy':
-            # Turn those data sources into file systems
-            if self.app.config.filesystem_templates:
-                attached_volumes = self.get_attached_volumes()
-                for fs_template in [s for s in self.app.config.filesystem_templates if 'name' in s]:
-                    if 'roles' in fs_template:
-                        fs = Filesystem(self.app, fs_template['name'],
-                                        svc_roles=ServiceRole.from_string_array(fs_template['roles']))
-                        # Check if an already attached volume maps to the current filesystem
-                        att_vol = self.get_vol_if_fs(attached_volumes, fs_template['name'])
-                        if att_vol:
-                            log.debug("{0} file system has volume(s) already attached".format(
-                                fs_template['name']))
-                            fs.add_volume(vol_id=att_vol.id,
-                                          size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
-                        elif 'snap_id' in fs_template:
-                            log.debug("There are no volumes already attached for file system {0}"
-                                      .format(fs_template['name']))
-                            size = 0
-                            if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template['roles']):
-                                size = pss
-                            fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
-                        elif 'type' in fs_template:
-                            if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                                log.debug("Creating an archive-based ({0}) file system named '{1}' with storage type: {2} and pss: {3}"
-                                          .format(fs_template.get('archive_url'), fs_template['name'], storage_type, pss))
-                                if storage_type == 'volume':
-                                    size = fs_template.get('size', 10)  # Default to 10GB
-                                    if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
-                                       fs_template['roles']):
-                                        if pss > size:
-                                            size = pss
-                                    from_archive = {'url': fs_template['archive_url'],
-                                                    'md5_sum': fs_template.get('archive_md5', None)}
-                                    fs.add_volume(size=size, from_archive=from_archive)
-                                elif storage_type == 'transient':
-                                    from_archive = {'url': fs_template['archive_url'],
-                                                    'md5_sum': fs_template.get('archive_md5', None)}
-                                    fs.add_transient_storage(from_archive=from_archive)
-                                else:
-                                    log.error("Unknown storage type {0} for archive extraction."
-                                              .format(storage_type))
-                            elif 'gluster' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Creating a glusterfs-based filesystem named {0}"
-                                          .format(fs_template['name']))
-                                fs.add_glusterfs(fs_template['server'],
-                                                 mount_options=fs_template.get('mount_options', None))
-                            elif 'nfs' == fs_template['type'] and 'server' in fs_template:
-                                log.debug("Creating an NFS-based filesystem named {0}"
-                                          .format(fs_template['name']))
-                                fs.add_nfs(fs_template['server'], None, None,
-                                           mount_options=fs_template.get('mount_options', None))
-                            elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
-                                            'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
-                                log.debug("Creating a bucket-based filesystem named {0}"
-                                          .format(fs_template['name']))
-                                fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'],
-                                              fs_template['bucket_s_key'])
-                            else:
-                                log.error("Format error in snaps.yaml file. Unrecognised or "
-                                          "improperly configured type '{0}' for fs named: {1}"
-                                          .format(fs_template['type'], fs_template['name']))
-                        self.activate_master_service(fs)
-            # Add a file system for user's data
-            if self.app.use_volumes:
-                _add_data_fs()
             # Add PostgreSQL service
             self.activate_master_service(self.service_registry.get('Postgres'))
             # Add ProFTPd service
@@ -1453,7 +1376,7 @@ class ConsoleManager(BaseConsoleManager):
             self.activate_master_service(self.service_registry.get('NodeJSProxy'))
         elif cluster_type == 'Data':
             # Add a file system for user's data if one doesn't already exist
-            _add_data_fs(fs_name='galaxy')
+            pass
         elif cluster_type == 'Test':
             # Job manager service is automatically added at cluster start (see
             # ``start`` method)
@@ -1462,6 +1385,111 @@ class ConsoleManager(BaseConsoleManager):
             # self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
+
+    def process_cluster_templates(self, cluster_type, pss, storage_type):
+        if self.app.config.cluster_templates:
+            cluster_template = None
+            for template in [template for template in self.app.config.cluster_templates if 'name' in template]:
+                if template['name'] == cluster_type:
+                    cluster_template = template
+            if not cluster_template or (not 'filesystem_templates' in cluster_template and cluster_type != "Test"):
+                log.warn("No filesystem templates defined for cluster type: {0}".format(cluster_type))
+            else:
+                self.process_filesystem_templates(cluster_type, pss, storage_type, cluster_template['filesystem_templates'])
+        elif self.app.config.filesystem_templates: # Legacy behavior - process filesystem_templates directly or snaps.yaml
+            self.process_filesystem_templates(cluster_type, pss, storage_type, self.app.config.filesystem_templates)
+        else:
+            if cluster_type != "Test":
+                log.error("No filesystem templates defined for cluster type: {0}".format(cluster_type))
+
+    # TODO: Remove special case handling for Galaxy filesystem - requires change in UI and initialisation logic
+    def process_filesystem_templates(self, cluster_type, pss, storage_type, filesystem_templates):
+        # Turn those data sources into file systems
+        if filesystem_templates:
+            attached_volumes = self.get_attached_volumes()
+            for fs_template in [s for s in filesystem_templates if 'name' in s]:
+                log.debug("Processing filesystem template: {0}".format(fs_template['name']))
+                fs = Filesystem(self.app, fs_template['name'],
+                                svc_roles=ServiceRole.from_string_array(fs_template.get('roles', None)))
+                # Check if an already attached volume maps to the current filesystem
+                att_vol = self.get_vol_if_fs(attached_volumes, fs_template['name'])
+                if att_vol:
+                    log.debug("{0} file system has volume(s) already attached".format(
+                        fs_template['name']))
+                    fs.add_volume(vol_id=att_vol.id,
+                                  size=att_vol.size, from_snapshot_id=att_vol.snapshot_id)
+                elif 'snap_id' in fs_template:
+                    log.debug("There are no volumes already attached for file system {0}"
+                              .format(fs_template['name']))
+                    size = max(fs_template.get('size', 0), fs_template.get('min_size', 0)) # always default to 0 for snaps
+                    if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template.get('roles', None)):
+                        size = pss
+                    fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
+                elif 'type' in fs_template:
+                    # TODO: This obviates the need for type archive. Instead, archive should be a volume "data_source"
+                    if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
+                        log.debug("Creating an archive-based ({0}) file system named '{1}' with storage type: {2} and pss: {3}"
+                                  .format(fs_template.get('archive_url'), fs_template['name'], storage_type, pss))
+                        if storage_type == 'volume':
+                            size = max(fs_template.get('size', 10), fs_template.get('min_size', 0))
+                            if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
+                               fs_template.get('roles', None)):
+                                if pss > size:
+                                    size = pss
+                            from_archive = {'url': fs_template['archive_url'],
+                                            'md5_sum': fs_template.get('archive_md5', None)}
+                            fs.add_volume(size=size, from_archive=from_archive)
+                        elif storage_type == 'transient':
+                            from_archive = {'url': fs_template['archive_url'],
+                                            'md5_sum': fs_template.get('archive_md5', None)}
+                            fs.add_transient_storage(from_archive=from_archive)
+                        else:
+                            log.error("Unknown storage type {0} for archive extraction."
+                                      .format(storage_type))
+                    elif "volume" == fs_template['type']:
+                        log.debug("Creating a volume based file system named '{0}' with pss: {1}"
+                                  .format(fs_template['name'], pss))
+                        size = max(fs_template.get('size', 10), fs_template.get('min_size', 0))
+                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
+                           fs_template.get('roles', None)):
+                            if pss > size:
+                                size = pss
+                        if 'data_source' in fs_template and 'archive' == fs_template['data_source'] and 'archive_url' in fs_template:
+                            from_archive = {'url': fs_template['archive_url'],
+                                            'md5_sum': fs_template.get('archive_md5', None)}
+                            fs.add_volume(size=size, from_archive=from_archive)
+                        else:
+                            fs.add_volume(size=size)
+                    elif "transient" == fs_template['type']:
+                        log.debug("Creating a transient file system named '{0}'".format(fs_template['name']))
+                        if 'data_source' in fs_template and 'archive' == fs_template['data_source'] and 'archive_url' in fs_template:
+                            from_archive = {'url': fs_template['archive_url'],
+                                            'md5_sum': fs_template.get('archive_md5', None)}
+                            fs.add_transient_storage(from_archive=from_archive)
+                        else:
+                            fs.add_transient_storage()
+                    elif 'gluster' == fs_template['type'] and 'server' in fs_template:
+                        log.debug("Creating a glusterfs-based filesystem named {0}"
+                                  .format(fs_template['name']))
+                        fs.add_glusterfs(fs_template['server'],
+                                         mount_options=fs_template.get('mount_options', None))
+                    elif 'nfs' == fs_template['type'] and 'server' in fs_template:
+                        log.debug("Creating an NFS-based filesystem named {0}"
+                                  .format(fs_template['name']))
+                        fs.add_nfs(fs_template['server'], None, None,
+                                   mount_options=fs_template.get('mount_options', None))
+                    elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
+                                    'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
+                        log.debug("Creating a bucket-based filesystem named {0}"
+                                  .format(fs_template['name']))
+                        fs.add_bucket(fs_template['bucket_name'], fs_template['bucket_a_key'],
+                                      fs_template['bucket_s_key'])
+                    else:
+                        log.error("Format error in snaps.yaml file. Unrecognised or "
+                                  "improperly configured type '{0}' for fs named: {1}"
+                                  .format(fs_template['type'], fs_template['name']))
+                self.activate_master_service(fs)
+
 
     @TestFlag(True)
     @synchronized(s3_rlock)

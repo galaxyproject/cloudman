@@ -144,6 +144,10 @@ class Configuration(dict):
         return self.get('filesystem_templates')
 
     @property
+    def cluster_templates(self):
+        return self.get('cluster_templates', None)
+
+    @property
     def root_dir(self):
         return self.get('root_dir', '.')
 
