@@ -1394,12 +1394,15 @@ class ConsoleManager(BaseConsoleManager):
             for template in [template for template in self.app.config.cluster_templates if 'name' in template]:
                 if template['name'] == cluster_type:
                     cluster_template = template
-            if not cluster_template or (not 'filesystem_templates' in cluster_template and cluster_type != "Test"):
+            if not cluster_template or ('filesystem_templates' not in cluster_template and cluster_type != "Test"):
                 log.warn("No filesystem templates defined for cluster type: {0}".format(cluster_type))
             else:
-                self.process_filesystem_templates(cluster_type, pss, storage_type, cluster_template['filesystem_templates'])
-        elif self.app.config.filesystem_templates: # Legacy behavior - process filesystem_templates directly or snaps.yaml
-            self.process_filesystem_templates(cluster_type, pss, storage_type, self.app.config.filesystem_templates)
+                self.process_filesystem_templates(cluster_type, pss, storage_type,
+                                                  cluster_template['filesystem_templates'])
+        elif self.app.config.filesystem_templates:
+            # Legacy behavior - process filesystem_templates directly or snaps.yaml
+            self.process_filesystem_templates(cluster_type, pss, storage_type,
+                                              self.app.config.filesystem_templates)
         else:
             if cluster_type != "Test":
                 log.error("No filesystem templates defined for cluster type: {0}".format(cluster_type))
@@ -1423,15 +1426,19 @@ class ConsoleManager(BaseConsoleManager):
                 elif 'snap_id' in fs_template:
                     log.debug("There are no volumes already attached for file system {0}"
                               .format(fs_template['name']))
-                    size = max(fs_template.get('size', 0), fs_template.get('min_size', 0)) # always default to 0 for snaps
+                    # Always default to 0 for snaps.yaml
+                    size = max(fs_template.get('size', 0), fs_template.get('min_size', 0))
                     if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template.get('roles', None)):
                         size = pss
                     fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
                 elif 'type' in fs_template:
                     # TODO: This obviates the need for type archive. Instead, archive should be a volume "data_source"
                     if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
-                        log.debug("Creating an archive-based ({0}) file system named '{1}' with storage type: {2} and pss: {3}"
-                                  .format(fs_template.get('archive_url'), fs_template['name'], storage_type, pss))
+                        log.debug("Creating an archive-based ({0}) file system "
+                                  "named {1} with storage type {2} and pss {3}"
+                                  .format(fs_template.get('archive_url'),
+                                          fs_template['name'],
+                                          storage_type, pss))
                         if storage_type == 'volume':
                             size = max(fs_template.get('size', 10), fs_template.get('min_size', 0))
                             if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
@@ -1456,7 +1463,9 @@ class ConsoleManager(BaseConsoleManager):
                            fs_template.get('roles', None)):
                             if pss > size:
                                 size = pss
-                        if 'data_source' in fs_template and 'archive' == fs_template['data_source'] and 'archive_url' in fs_template:
+                        if 'data_source' in fs_template and \
+                           'archive' == fs_template['data_source'] and \
+                           'archive_url' in fs_template:
                             from_archive = {'url': fs_template['archive_url'],
                                             'md5_sum': fs_template.get('archive_md5', None)}
                             fs.add_volume(size=size, from_archive=from_archive)
@@ -1464,7 +1473,9 @@ class ConsoleManager(BaseConsoleManager):
                             fs.add_volume(size=size)
                     elif "transient" == fs_template['type']:
                         log.debug("Creating a transient file system named '{0}'".format(fs_template['name']))
-                        if 'data_source' in fs_template and 'archive' == fs_template['data_source'] and 'archive_url' in fs_template:
+                        if 'data_source' in fs_template and \
+                           'archive' == fs_template['data_source'] and \
+                           'archive_url' in fs_template:
                             from_archive = {'url': fs_template['archive_url'],
                                             'md5_sum': fs_template.get('archive_md5', None)}
                             fs.add_transient_storage(from_archive=from_archive)
@@ -1491,7 +1502,6 @@ class ConsoleManager(BaseConsoleManager):
                                   "improperly configured type '{0}' for fs named: {1}"
                                   .format(fs_template['type'], fs_template['name']))
                 self.activate_master_service(fs)
-
 
     @TestFlag(True)
     @synchronized(s3_rlock)
