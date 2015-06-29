@@ -346,11 +346,13 @@ class ConsoleManager(BaseConsoleManager):
         and start available cluster services (as provided in the cluster's
         configuration and persistent data).
         """
-        log.debug("Config Data at manager start, with secret_key and password "
-                  "filtered out: %s" % dict((k, self.app.config[k])
-                                            for k in self.app.config.keys()
-                                            if k not in ['password', 'secret_key', 'freenxpass', 'access_key']))
-
+        # A list of user data keys to omit from the log
+        filtered_keys = ['password', 'freenxpass', 'access_key', 'secret_key']
+        log.debug("Config Data at manager start (with the following keys "
+                  "filtered out %s): %s" % (filtered_keys,
+                                            dict((k, self.app.config[k])
+                                                 for k in self.app.config.keys()
+                                                 if k not in filtered_keys)))
         self._handle_prestart_commands()
         # Generating public key before any worker has been initialized
         # This is required for configuring Hadoop the main Hadoop worker still needs to be
