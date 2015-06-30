@@ -19,7 +19,8 @@ class CM(BaseController):
     @expose
     def index(self, trans, **kwd):
         if self.app.config['role'] == 'worker':
-            return trans.fill_template('worker_index.mako', master_ip=self.app.config['master_public_ip'])
+            return trans.fill_template('worker_index.mako',
+                                       master_ip=self.app.config['master_public_ip'])
         else:
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
@@ -46,7 +47,8 @@ class CM(BaseController):
 
     @expose
     @TestFlag({})
-    def initialize_cluster(self, trans, startup_opt, galaxy_data_option="custom-size", pss=None, shared_bucket=None):
+    def initialize_cluster(self, trans, startup_opt, galaxy_data_option="custom-size",
+                           pss=None, shared_bucket=None):
         """
         Call this method if the current cluster has not yet been initialized to
         initialize it. This method should be called only once.
@@ -65,9 +67,11 @@ class CM(BaseController):
         elif galaxy_data_option == 'default-size':
             pss = str(self.app.manager.get_default_data_size())
         if (pss and pss.isdigit()):
-            error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, int(pss), shared_bucket)
+            error = self.app.manager.initialize_cluster_with_custom_settings(
+                startup_opt, galaxy_data_option, int(pss), shared_bucket)
         else:
-            error = "Wrong or no value provided for the persistent storage size: '{0}'".format(pss)
+            error = ("Wrong or no value provided for the persistent storage "
+                     "size: '{0}'".format(pss))
 
         if error:
             log.warning(error)
@@ -98,11 +102,13 @@ class CM(BaseController):
 
     @expose
     def instance_feed(self, trans):
-        return trans.fill_template('instance_feed.mako', instances=self.app.manager.worker_instances)
+        return trans.fill_template('instance_feed.mako',
+                                   instances=self.app.manager.worker_instances)
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] +
+                     [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -197,7 +203,8 @@ class CM(BaseController):
         """
         dot = True if dot == 'on' else False
         persist = True if persist == 'on' else False
-        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind, "persistent" if persist else "temporary"))
+        log.debug("Wanting to add a {1} file system of kind {0}"
+                  .format(fs_kind, "persistent" if persist else "temporary"))
         if fs_kind == 'bucket':
             if bucket_name != '':
                 # log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
@@ -269,9 +276,11 @@ class CM(BaseController):
         return "ACK"
 
     @expose
-    def detailed_shutdown(self, trans, galaxy=True, sge=True, postgres=True, filesystems=True, volumes=True, instances=True):
+    def detailed_shutdown(self, trans, galaxy=True, sge=True, postgres=True,
+                          filesystems=True, volumes=True, instances=True):
         self.app.shutdown(
-            sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes,
+            sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres,
+            sd_filesystems=filesystems, sd_volumes=volumes,
             sd_instances=instances, sd_volumes_delete=volumes)
 
     @expose
@@ -654,7 +663,8 @@ class CM(BaseController):
                 self.app.manager.start_autoscaling(
                     int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s).  Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, "
+                          "max: %s).  Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.service_registry.is_active('Autoscale'):
             return json.dumps({'running': True,
                                'as_min': self.app.manager.service_registry.get('Autoscale').as_min,
@@ -720,7 +730,8 @@ class CM(BaseController):
         elif visibility == 'public':
             u_ids = c_ids = None
         else:
-            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
+            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', "
+                      "canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
             return self.instance_state_json(trans)
         self.app.manager.share_a_cluster(u_ids, c_ids)
         return self.instance_state_json(trans, no_json=True)
@@ -872,8 +883,10 @@ class CM(BaseController):
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': use_autoscaling,
-                                    'as_min': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_min,
-                                    'as_max': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_max}
+                                    'as_min': 'N/A' if not use_autoscaling else
+                                    self.app.manager.service_registry.get('Autoscale').as_min,
+                                    'as_max': 'N/A' if not use_autoscaling else
+                                    self.app.manager.service_registry.get('Autoscale').as_max}
                     }
         if no_json:
             return ret_dict
@@ -894,4 +907,6 @@ class CM(BaseController):
         bugs_email = trans.app.config.info_bugs_email
         blog_url = trans.app.config.info_blog_url
         screencasts_url = trans.app.config.info_screencasts_url
-        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
+        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url,
+                                   blog_url=blog_url, bugs_email=bugs_email,
+                                   screencasts_url=screencasts_url, CM_url=CM_url)
