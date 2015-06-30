@@ -59,10 +59,11 @@ class CM(BaseController):
         must be provided, which will then be used to derive this cluster from
         the shared one.
         """
-
         if galaxy_data_option == "custom-size":
             if isinstance(pss, list):
                 pss = [x for x in pss if x][0]
+        elif galaxy_data_option == 'default-size':
+            pss = str(self.app.manager.get_default_data_size())
         if (pss and pss.isdigit()):
             error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, int(pss), shared_bucket)
         else:
