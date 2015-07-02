@@ -369,18 +369,25 @@ class EC2Interface(CloudInterface):
         object must be an instance of a cloud object and support tagging.
         """
         if self.tags_supported:
-            try:
-                log.debug("Adding tag '%s:%s' to resource '%s'" % (
-                    key, value, resource.id if resource.id else resource))
-                resource.add_tag(key, value)
-            except EC2ResponseError, e:
-                log.error(
-                    "Exception adding tag '%s:%s' to resource '%s': %s" % (key,
-                                                                           value, resource, e))
-                self.tags_supported = False
-        resource_tags = self.tags.get(resource.id, {})
-        resource_tags[key] = value
-        self.tags[resource.id] = resource_tags
+            if resource:
+                try:
+                    resource_id = None
+                    if hasattr(resource, 'id'):
+                        resource_id = resource.id
+                    log.debug("Adding tag '%s:%s' to resource '%s'" % (
+                        key, value, resource_id if resource_id else resource))
+                    resource.add_tag(key, value)
+                except EC2ResponseError, e:
+                    log.error("EC2ResponseError adding tag '%s:%s' to resource "
+                              "'%s': %s" % (key, value, resource, e))
+                    self.tags_supported = False
+                except AttributeError, ae:
+                    log.error("AttributeError adding tag '%s:%s' to resource "
+                              "'%s': %s" % (key, value, resource, ae))
+                if resource_id:
+                    resource_tags = self.tags.get(resource_id, {})
+                    resource_tags[key] = value
+                    self.tags[resource_id] = resource_tags
 
     @TestFlag(None)
     def get_tag(self, resource, key):
@@ -619,7 +626,7 @@ class EC2Interface(CloudInterface):
 
         :type filters: dict
         :param filters: Optional filters that can be used to limit
-                        the results returned.  Filters are provided
+                        the results returned. Filters are provided
                         in the form of a dictionary consisting of
                         filter names as the key and filter values
                         as the value. The set of allowable filter
