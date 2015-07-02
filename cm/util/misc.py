@@ -1153,9 +1153,11 @@ def get_dir_size(path):
     return total_size
 
 
-def nice_size(size):
+def nice_size(size, number_only=False):
     """
     Returns a readably formatted string with the size
+    If ``number_only`` is set, return the number as a string; otherwise,
+    add the unit (e.g., KB, MB). If the ``size`` cannot be parsed, return ``N/A``.
 
     >>> nice_size(100)
     '100 bytes'
@@ -1175,6 +1177,8 @@ def nice_size(size):
         step = 1024 ** (ind + 1)
         if step > size:
             size = size / float(1024 ** ind)
+            if number_only:
+                return '%.1f' % size
             if word == 'bytes':  # No decimals for bytes
                 return "%d bytes" % size
             return "%.1f %s" % (size, word)

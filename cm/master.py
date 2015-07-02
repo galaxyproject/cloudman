@@ -336,7 +336,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         fs_svc = self.service_registry.get_active('transient_nfs')
         if fs_svc:
-            return fs_svc.size
+            return misc.nice_size(fs_svc.size, number_only=True)
         return -1
 
     @TestFlag(False)
