@@ -388,6 +388,9 @@ class EC2Interface(CloudInterface):
                     resource_tags = self.tags.get(resource_id, {})
                     resource_tags[key] = value
                     self.tags[resource_id] = resource_tags
+            else:
+                log.debug("Wanted to add a tag {0}:{1} but no resource provided."
+                          .format(key, value))
 
     @TestFlag(None)
     def get_tag(self, resource, key):
