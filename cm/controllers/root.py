@@ -66,11 +66,13 @@ class CM(BaseController):
                 pss = [x for x in pss if x][0]
         elif galaxy_data_option == 'default-size':
             pss = str(self.app.manager.get_default_data_size())
-        if (pss and pss.isdigit()):
+        else:
+            pss = 0
+        if pss == 0 or pss.isdigit():
             error = self.app.manager.initialize_cluster_with_custom_settings(
                 startup_opt, galaxy_data_option, int(pss), shared_bucket)
         else:
-            error = ("Wrong or no value provided for the persistent storage "
+            error = ("Wrong value provided for the persistent storage "
                      "size: '{0}'".format(pss))
 
         if error:

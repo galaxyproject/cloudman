@@ -1319,8 +1319,8 @@ class ConsoleManager(BaseConsoleManager):
                     self.app.manager.init_cluster(startup_opt, pss, storage_type=storage_type)
                     return None
                 else:
-                    msg = "Wrong or no value provided for the persistent "\
-                        "storage size: '{0}'".format(pss)
+                    msg = "Wrong or no value provided for the persistent " \
+                          "storage size: '{0}'".format(pss)
             elif startup_opt == "Shared_cluster":
                 if shared_bucket:
                     # TODO: Check the format of the share string
@@ -1329,6 +1329,8 @@ class ConsoleManager(BaseConsoleManager):
                 else:
                     msg = "For a shared cluster, you must provide shared bucket "\
                         "name; cluster configuration not set."
+            else:
+                log.error("Unrecognized cluster type specified: {0}?".format(startup_opt))
         else:
             msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
         log.warning(msg)
