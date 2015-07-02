@@ -310,9 +310,13 @@ class ConsoleManager(BaseConsoleManager):
 
     @TestFlag(10)
     def get_default_data_size(self):
+        """
+        Inspect file system templates provided in the config to figure out the
+        default size of the ``galaxy file system``.
+        """
         if not self.default_galaxy_data_size:
             for fs_template in self.app.config.filesystem_templates:
-                roles = ServiceRole.from_string_array(fs_template['roles'])
+                roles = ServiceRole.from_string_array(fs_template.get('roles', []))
                 if ServiceRole.GALAXY_DATA in roles:
                     if 'size' in fs_template:
                         self.default_galaxy_data_size = fs_template['size']
@@ -325,7 +329,7 @@ class ConsoleManager(BaseConsoleManager):
                             log.warning("Could not get snapshot {0} size (setting the "
                                         "value to 10): {1}".format(fs_template['snap_id'], e))
                             self.default_galaxy_data_size = 10
-                    log.debug("Got default galaxy FS size as {0}GB".format(
+                    log.debug("Default galaxy FS data size set to {0}GB".format(
                         self.default_galaxy_data_size))
         return str(self.default_galaxy_data_size)
 
