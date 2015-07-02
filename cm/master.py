@@ -1389,13 +1389,47 @@ class ConsoleManager(BaseConsoleManager):
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
     def process_cluster_templates(self, cluster_type, pss, storage_type):
+        """
+        Automate the initial cluster setup if a cluster template was defined in
+        user data at cluster launch.
+
+        For the automatic initialization to work, the user data needs to
+        define ``initial_cluster_type`` and then that same name needs to be
+        defined within the ``cluster_templates`` with appropriat details.
+        Here's an example cluster template as it would be defined in user data:
+        ```
+        initial_cluster_type: Galaxy
+        galaxy_data_option: transient
+        cluster_templates:
+          - name: Galaxy
+            filesystem_templates:
+            - name: galaxy
+              type: transient
+              roles: galaxyTools,galaxyData
+              data_source: archive
+              archive_url: https://swift.rc.nectar.org.au:8888/v1/AUTH_377/cloudman-os/gvl-galaxyfs-4.0.0.tar.gz
+              archive_md5: cccf12df2cf4c9f3d9af6526fee1bbfc
+            - name: galaxyIndices
+              type: volume
+              min_size: 10
+              roles: galaxyIndices
+              data_source: archive
+              archive_url: https://swift.rc.nectar.org.au:8888/v1/AUTH_377/cloudman-dev/galaxyIndices-3.05.tar.gz
+              archive_md5: 32f7b4c896937236b7ac862090adb3df
+          - name: Data
+            filesystem_templates:
+            - name: galaxy
+              type: volume
+        ```
+        """
         if self.app.config.cluster_templates:
             cluster_template = None
             for template in [template for template in self.app.config.cluster_templates if 'name' in template]:
                 if template['name'] == cluster_type:
                     cluster_template = template
             if not cluster_template or ('filesystem_templates' not in cluster_template and cluster_type != "Test"):
-                log.warn("No filesystem templates defined for cluster type: {0}".format(cluster_type))
+                log.warn("Cluster template not defined or no filesystem templates "
+                         "defined for cluster type {0}".format(cluster_type))
             else:
                 self.process_filesystem_templates(cluster_type, pss, storage_type,
                                                   cluster_template['filesystem_templates'])
@@ -1409,7 +1443,9 @@ class ConsoleManager(BaseConsoleManager):
 
     # TODO: Remove special case handling for Galaxy filesystem - requires change in UI and initialisation logic
     def process_filesystem_templates(self, cluster_type, pss, storage_type, filesystem_templates):
-        # Turn those data sources into file systems
+        """
+        Turn data sources defined in file system templates into file systems.
+        """
         if filesystem_templates:
             attached_volumes = self.get_attached_volumes()
             for fs_template in [s for s in filesystem_templates if 'name' in s]:
