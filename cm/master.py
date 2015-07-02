@@ -431,7 +431,11 @@ class ConsoleManager(BaseConsoleManager):
             elif self.userdata_cluster_type:
                 cc_detail = "Configuring a predefined cluster of type {0}"\
                     .format(self.userdata_cluster_type)
-                self.init_cluster_from_user_data()
+                self.app.manager.initialize_cluster_with_custom_settings(
+                    self.userdata_cluster_type,
+                    galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
+                    pss=self.app.config.get("pss", None),
+                    shared_bucket=self.app.config.get("shared_bucket", None))
             else:
                 cc_detail = "This is a new cluster; waiting to configure the type."
                 self.cluster_status = cluster_status.WAITING
@@ -1329,15 +1333,6 @@ class ConsoleManager(BaseConsoleManager):
             msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
         log.warning(msg)
         return msg
-
-    def init_cluster_from_user_data(self):
-        cluster_type = self.app.config.get("initial_cluster_type", None)
-        if cluster_type:
-            self.app.manager.initialize_cluster_with_custom_settings(
-                cluster_type,
-                galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
-                pss=self.app.config.get("pss", None),
-                shared_bucket=self.app.config.get("shared_bucket", None))
 
     @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0, storage_type='volume'):
