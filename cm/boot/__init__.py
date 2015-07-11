@@ -30,7 +30,7 @@ logging.getLogger('boto').setLevel(logging.INFO)  # Only log boto messages >=INF
 
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
-CM_BOOT_PATH = '/tmp/cm'
+CM_BOOT_PATH = '/opt/cloudman/boot'
 USER_DATA_FILE = 'userData.yaml'
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
@@ -127,7 +127,7 @@ def _fix_nginx_upload(ud):
     if os.path.exists(nginx_conf_path):
         # Make sure any duplicate entries are collapsed into one (otherwise,
         # nginx won't start)
-        bkup_nginx_conf_path = "/tmp/cm/original_nginx.conf"
+        bkup_nginx_conf_path = "/opt/cloudman/boot/original_nginx.conf"
         _run(log, "cp {0} {1}".format(nginx_conf_path, bkup_nginx_conf_path))
         _run(log, "uniq {0} > {1}".format(bkup_nginx_conf_path, nginx_conf_path))
         # Check if the directive is already defined
