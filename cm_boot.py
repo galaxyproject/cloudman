@@ -205,7 +205,7 @@ def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
 logging.getLogger('boto').setLevel(logging.INFO)
 LOCAL_PATH = os.getcwd()
 CM_HOME = '/mnt/cm'
-CM_BOOT_PATH = '/tmp/cm'
+CM_BOOT_PATH = '/opt/cloudman/boot'
 USER_DATA_FILE = 'userData.yaml'
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
@@ -280,7 +280,7 @@ def _fix_nginx_upload(ud):
     nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file(log))
     log.info('Attempting to configure max_client_body_size in {0}'.format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
-        bkup_nginx_conf_path = '/tmp/cm/original_nginx.conf'
+        bkup_nginx_conf_path = '/opt/cloudman/boot/original_nginx.conf'
         _run(log, 'cp {0} {1}'.format(nginx_conf_path, bkup_nginx_conf_path))
         _run(log, 'uniq {0} > {1}'.format(bkup_nginx_conf_path, nginx_conf_path))
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
