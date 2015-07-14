@@ -1395,8 +1395,10 @@ class ConsoleManager(BaseConsoleManager):
         user data at cluster launch.
 
         For the automatic initialization to work, the user data needs to
-        define ``initial_cluster_type`` and then that same name needs to be
-        defined within the ``cluster_templates`` with appropriat details.
+        define a value for the ``initial_cluster_type`` key and then that same
+        value needs to be defined within the ``cluster_templates`` with the
+        appropriate details.
+
         Here's an example cluster template as it would be defined in user data:
         ```
         initial_cluster_type: Galaxy
@@ -1468,6 +1470,10 @@ class ConsoleManager(BaseConsoleManager):
                     if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(fs_template.get('roles', None)):
                         size = pss
                     fs.add_volume(size=size, from_snapshot_id=fs_template['snap_id'])
+                elif 'volume_id' in fs_template:
+                    log.debug("Adding a volume-based ({0}) file system."
+                              .format(fs_template['volume_id']))
+                    fs.add_volume(vol_id=fs_template['volume_id'])
                 elif 'type' in fs_template:
                     # TODO: This obviates the need for type archive. Instead, archive should be a volume "data_source"
                     if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
@@ -1605,7 +1611,7 @@ class ConsoleManager(BaseConsoleManager):
                     snap = ec2_conn.get_all_snapshots(shared_data_vol_snaps)[0]
                     # Create a volume here because we'll be dealing with a volume-based file system
                     # and for that we need a volume ID
-                    data_vol = ec2_conn.create_volume(
+                    data_vol = self.app.cloud_interface.create_volume(
                         snap.volume_size, self.app.cloud_interface.get_zone(),
                         snapshot=snap)
                     # Old style for persistent data - delete if the other method works as expected
