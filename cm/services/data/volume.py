@@ -101,12 +101,12 @@ class Volume(BlockStorage):
 
     def update(self, vol_id):
         """
-        Set or switch the local ``self.volume`` to a different boto.ec2.volume.Volume
+        Set or switch the local ``self.volume`` to a different ``boto.ec2.volume.Volume``
 
         This is primarily useful during restarts when introspecting an already
         attached volume.
         """
-        log.debug('vol_id = {0} ({1})'.format(vol_id, type(vol_id)))
+        log.debug('Getting an update on volume {0} ({1})'.format(vol_id, type(vol_id)))
         if isinstance(vol_id, basestring):
             vols = None
             try:
@@ -116,14 +116,14 @@ class Volume(BlockStorage):
                 log.error("Trouble getting volume reference for volume {0}: {1}"
                           .format(vol_id, e))
             if not vols:
-                log.error('Attempting to connect to a non-existent volume {0}'.format(vol_id))
+                log.error('Attempted to connect to a nonexistent volume {0}; '
+                          'aborting.'.format(vol_id))
                 self.volume = None
                 self.device = None
+                return
             vol = vols[0]
         else:
             vol = vol_id
-        log.debug("Updating current volume reference '%s' to a new one '%s'" % (
-            self.volume_id, vol.id))
         if (vol.attachment_state() == 'attached' and
            vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id()):
             log.error('Attempting to connect to a volume ({0} that is already attached "\
@@ -131,38 +131,40 @@ class Volume(BlockStorage):
             self.volume = None
             self.device = None
         else:
+            log.debug("Updating current `volume` object reference '%s' to a new one '%s'"
+                      % (self.volume_id, vol.id))
             self.volume = vol
             attach_device = vol.attach_data.device
-            if run('ls {0}'.format(attach_device), quiet=True):
-                self.device = attach_device
-            else:
-                # Attach device is different than the system device so figure it out
-                log.debug("Volume {0} (attached as {1}) is visible as something else???"
-                          .format(vol.id, attach_device))
-                if attach_device:
-                    try:
-                        device_id = attach_device[-1]  # Letter-only based device IDs (e.g., /dev/xvdc)
-                        if (str(device_id).isdigit()):
-                            device_id = attach_device[-2:]  # Number-based device IDs (e.g., /dev/sdg1)
-                        attach_device = '/dev/xvd' + device_id
-                        log.debug("Trying visible device {0}...".format(attach_device))
-                    except Exception, e:
-                        log.error("Attach device's ID ({0}) too short? {1}".format(
-                            attach_device, e))
-                    if run('ls {0}'.format(attach_device), quiet=True):
-                        self.device = attach_device
-                    else:
-                        log.error("Problems discovering volume {0} attach device {1} vs. system device ?"
-                                  .format(vol.id, attach_device))
-                        self.device = None
-                else:
-                    log.debug("No attach_device candidate for volume {0}".format(vol.id))
             self.size = vol.size
             self.from_snapshot_id = vol.snapshot_id
             if self.from_snapshot_id == '':
                 self.from_snapshot_id = None
             log.debug("For volume {0} ({1}) set from_snapshot_id to {2}"
                       .format(self.volume_id, self.fs.get_full_name(), self.from_snapshot_id))
+            # Check if the volume is already attached
+            if run('ls {0}'.format(attach_device), quiet=True):
+                self.device = attach_device
+            elif attach_device:
+                # Attach device is different than the system device so figure it out
+                log.debug("Volume {0} (attached as {1}) is visible a different "
+                          "device? Checking now...".format(vol.id, attach_device))
+                try:
+                    device_id = attach_device[-1]  # Letter-only based device IDs (e.g., /dev/xvdc)
+                    if (str(device_id).isdigit()):
+                        device_id = attach_device[-2:]  # Number-based device IDs (e.g., /dev/sdg1)
+                    attach_device = '/dev/xvd' + device_id
+                    log.debug("Trying visible device {0}...".format(attach_device))
+                except Exception, e:
+                    log.error("Attach device's ID ({0}) too short? {1}".format(
+                        attach_device, e))
+                if run('ls {0}'.format(attach_device), quiet=True):
+                    self.device = attach_device
+                else:
+                    log.error("Problems discovering volume {0} attach device {1} vs. system device ?"
+                              .format(vol.id, attach_device))
+                    self.device = None
+            else:
+                log.debug("Volume {0} is not attached.".format(vol.id))
 
     @property
     def volume_id(self):
@@ -258,14 +260,25 @@ class Volume(BlockStorage):
     def create(self, filesystem=None):
         """
         Create a new volume.
+
+        This can be done either from a snapshot (i.e., ``self.from_snapshot_id``)
+        or a blank one if the snapshot ID is not set. Note that ``self.size``
+        needs to be set if creating a blank volume before calling the method.
+        If creating a volume from a snapshot and ``self.size`` is not set, the
+        new volume will be of the same size as the snapshot.
         """
         if not self.size and not self.from_snapshot_id and not self.from_archive:
             log.error('Cannot add a volume without a size, snapshot ID or archive url')
             return None
-
+        # If creating the volume from a snaphost, get the expected volume size
         if self.from_snapshot_id and not self.volume:
-            self.snapshot = (self.app.cloud_interface.get_ec2_connection()
-                             .get_all_snapshots([self.from_snapshot_id])[0])
+            snap = self.app.cloud_interface.get_all_snapshots([self.from_snapshot_id])
+            if not snap:
+                log.error("Did not retrieve Snapshot object for {0}; aborting."
+                          .format(self.from_snapshot_id))
+                return None
+            else:
+                self.snapshot = snap[0]
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
             if self.size == 0:
@@ -273,25 +286,26 @@ class Volume(BlockStorage):
                     self.size = self.snapshot.volume_size
                 except EC2ResponseError, e:
                     log.error("Error retrieving snapshot %s size: %s" % (self.from_snapshot_id, e))
-
+        # If it does not already exist, create the volume
         if self.status == volume_status.NONE:
-            try:
-                log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
-                          % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
-                self.volume = self.app.cloud_interface.get_ec2_connection().create_volume(
-                    self.size,
-                    self.app.cloud_interface.get_zone(),
-                    snapshot=self.from_snapshot_id)
+            log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
+                      % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
+            self.volume = self.app.cloud_interface.create_volume(
+                self.size,
+                self.app.cloud_interface.get_zone(),
+                snapshot=self.from_snapshot_id)
+            if self.volume:
+                # When creating from a snapshot in Euca, volume.size may be None
                 self.size = int(self.volume.size or 0)
-                # when creating from a snapshot in Euca, volume.size may be None
-                log.debug("Created new volume of size '%s' from snapshot '%s' with ID '%s' in zone '%s'"
-                          % (self.size, self.from_snapshot_id, self.volume_id, self.app.cloud_interface.get_zone()))
-            except EC2ResponseError, e:
-                log.error("Error creating volume: %s" % e)
+                log.debug("Created a new volume of size '%s' from snapshot '%s' "
+                          "with ID '%s' in zone '%s'"
+                          % (self.size, self.from_snapshot_id, self.volume_id,
+                             self.app.cloud_interface.get_zone()))
+            else:
+                log.warning("No volume object - did not create a volume?")
         else:
             log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" %
                       (self.status, self.volume_id))
-
         # Add tags to newly created volumes (do this outside the inital if/else
         # to ensure the tags get assigned even if using an existing volume vs.
         # creating a new one)
@@ -404,29 +418,32 @@ class Volume(BlockStorage):
         try:
             if attach_device is not None:
                 log.debug("Attaching volume '%s' to instance '%s' as device '%s'" %
-                          (self.volume_id, self.app.cloud_interface.get_instance_id(), attach_device))
+                          (self.volume_id, self.app.cloud_interface.get_instance_id(),
+                           attach_device))
                 self.volume.attach(
                     self.app.cloud_interface.get_instance_id(), attach_device)
             else:
-                log.error("Attaching volume '%s' to instance '%s' failed because could not determine device."
+                log.error("Attaching volume '%s' to instance '%s' failed because "
+                          "could not determine device."
                           % (self.volume_id, self.app.cloud_interface.get_instance_id()))
                 return False
         except EC2ResponseError, e:
-            for er in e.errors:
-                if er[0] == 'InvalidVolume.ZoneMismatch':
-                    msg = ("Volume '{0}' is located in the wrong availability zone "
-                           "for this instance. You MUST terminate this instance "
-                           "and start a new one in zone '{1}' instead of '{2}'."
-                           .format(self.volume_id, self.volume.zone.name,
-                                   self.app.cloud_interface.get_zone()))
-                    self.app.msgs.critical(msg)
-                    log.error(msg)
-                else:
-                    log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. "
-                              "Exception: %s (%s)" % (self.volume_id,
-                                                      self.app.cloud_interface.get_instance_id(),
-                                                      attach_device, er[0],
-                                                      er[1]))
+            if e.error_code == 'InvalidVolume.ZoneMismatch':
+                msg = ("Volume '{0}' is located in the wrong availability zone "
+                       "for this instance. You MUST terminate this instance "
+                       "and start a new one in zone '{1}' instead of '{2}' "
+                       "to be able to use this volume."
+                       .format(self.volume_id, self.volume.zone,
+                               self.app.cloud_interface.get_zone()))
+                self.app.msgs.critical(msg)
+                log.error(msg)
+                self.fs.state = service_states.ERROR
+            else:
+                log.error("Attaching volume '%s' to instance '%s' as device '%s' failed. "
+                          "Exception: %s (%s)" % (self.volume_id,
+                                                  self.app.cloud_interface.get_instance_id(),
+                                                  attach_device, e.message,
+                                                  e.error_code))
             return False
         return self.status
 
@@ -525,8 +542,8 @@ class Volume(BlockStorage):
                                 .format(self.volume_id, self.status))
                     return False
         else:
-            log.warning("Cannot detach volume '%s' in state '%s'" % (
-                self.volume_id, self.status))
+            log.debug("Volume '%s' already not attached ('%s')"
+                      % (self.volume_id, self.status))
             return False
         return True
 
@@ -535,11 +552,9 @@ class Volume(BlockStorage):
         Crete a point-in-time snapshot of the current volume, optionally specifying
         a description for the snapshot.
         """
-        log.info("Initiating creation of a snapshot for the volume '%s'" %
-                 self.volume_id)
+        log.info("Initiating creation of a snapshot for volume '%s'" % self.volume_id)
         try:
-            snapshot = self.volume.create_snapshot(
-                description=snap_description)
+            snapshot = self.volume.create_snapshot(description=snap_description)
         except EC2ResponseError as ex:
             log.error("Error creating a snapshot from volume '%s': %s" %
                       (self.volume_id, ex))
@@ -553,8 +568,8 @@ class Volume(BlockStorage):
                     self.snapshot_status = snapshot.status
                     time.sleep(6)
                     snapshot.update()
-                log.info("Completed creation of a snapshot for the volume '%s', snap id: '%s'"
-                         % (self.volume_id, snapshot.id))
+                log.info("Completed creation of a snapshot for volume '%s'; "
+                         "snap id: '%s'" % (self.volume_id, snapshot.id))
             except SystemExit, exc:
                 # FIXME: this is an attempt at a 'patch' not to cripple a cluster
                 # (Paste will kill threads that run for more than 30 mins so
