@@ -237,7 +237,11 @@ class NginxService(ApplicationService):
                     self._write_template_file(cg_tmplt, params, cg_conf_file)
                 else:
                     misc.delete_file(cg_conf_file)
-            self.reload()
+            # Reload the configuration if the process is running
+            if self._check_daemon('nginx'):
+                self.reload()
+            else:
+                log.debug("nginx process not running; did not reload config.")
         else:
             log.warning("Cannot find nginx executable to reload nginx config (got"
                         " '{0}')".format(self.exe))
