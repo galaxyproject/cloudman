@@ -618,6 +618,40 @@ class EC2Interface(CloudInterface):
         worker_ud = dict(self.app.config.items() + worker_ud.items())
         return worker_ud
 
+    def create_volume(self, size, zone, snapshot=None, volume_type='gp2', iops=None):
+        """
+        Create a new EBS Volume.
+
+        :type size: int
+        :param size: The size of the new volume, in GiB
+
+        :type zone: string or :class:`boto.ec2.zone.Zone`
+        :param zone: The availability zone in which the Volume will be created.
+
+        :type snapshot: string or :class:`boto.ec2.snapshot.Snapshot`
+        :param snapshot: The snapshot from which the new Volume will be
+                         created.
+
+        :type volume_type: string
+        :param volume_type: The type of the volume. (optional).  Valid
+                            values are: standard | io1 | gp2.
+
+        :type iops: int
+        :param iops: The provisioned IOPS you want to associate with
+                     this volume. (optional)
+
+        :rtype: `None` or :class:`boto.ec2.volume.Volume`
+        :return: If the volume was created successfully, return a boto instance
+                 of the Volume object. Otherwise, return `None`.
+        """
+        try:
+            return self.get_ec2_connection().create_volume(
+                size=size, zone=zone, snapshot=snapshot, volume_type=volume_type,
+                iops=iops)
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError creating a volume: {0}".format(ec2e))
+        return None
+
     def get_all_volumes(self, volume_ids=None, filters=None):
         """
         Get all Volumes associated with the current credentials.
@@ -644,6 +678,39 @@ class EC2Interface(CloudInterface):
             volume_ids = [volume_ids]
         return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids,
                                                          filters=filters)
+
+    def get_all_snapshots(self, snapshot_ids=None, filters=None):
+        """
+        Get all Snapshots associated with the current credentials.
+
+        :type snapshot_ids: list
+        :param snapshot_ids: Optional list of snapshot IDs.  If this list
+                           is present, only the snapshots associated with
+                           these snapshot IDs will be returned.
+
+        :type filters: dict
+        :param filters: Optional filters that can be used to limit
+                        the results returned. Filters are provided
+                        in the form of a dictionary consisting of
+                        filter names as the key and filter values
+                        as the value. The set of allowable filter
+                        names/values is dependent on the request
+                        being performed. Check the EC2 API guide
+                        for details.
+
+        :rtype: list of :class:`boto.ec2.snapshot.Snapshot`
+        :return: The requested Snapshot objects or an empty list if encounter
+                 EC2ResponseError
+        """
+        if snapshot_ids and not isinstance(snapshot_ids, list):
+            snapshot_ids = [snapshot_ids]
+        try:
+            return self.get_ec2_connection().get_all_snapshots(
+                snapshot_ids=snapshot_ids, filters=filters)
+        except EC2ResponseError, e:
+            log.error("EC2ResponseError retrieving snapshot IDs {0}: {1}"
+                      .format(snapshot_ids, e))
+        return []
 
     def get_all_instances(self, instance_ids=None, filters=None):
         """
