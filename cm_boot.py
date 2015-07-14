@@ -236,7 +236,7 @@ def _start_nginx(ud):
     log.info('<< Starting nginx >>')
     _configure_nginx(log, ud)
     rmdir = False
-    upload_store_dir = '/mnt/galaxyData/upload_store'
+    upload_store_dir = '/mnt/galaxy/upload_store'
     ul = None
     nginx_conf_file = _nginx_conf_file(log)
     if nginx_conf_file:
@@ -463,7 +463,6 @@ def _restart_cm(ud, clean=False):
     log.info('<< Restarting CloudMan >>')
     _stop_cm(clean=clean)
     _start(ud)
-
 
 def _fix_etc_hosts():
     ' Without editing /etc/hosts, there are issues with hostname command\n        on NeCTAR (and consequently with setting up SGE).\n    '

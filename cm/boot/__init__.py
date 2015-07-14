@@ -73,7 +73,7 @@ def _start_nginx(ud):
     _configure_nginx(log, ud)
     # _fix_nginx_upload(ud)
     rmdir = False  # Flag to indicate if a dir should be deleted
-    upload_store_dir = '/mnt/galaxyData/upload_store'
+    upload_store_dir = '/mnt/galaxy/upload_store'
     # Look for ``upload_store`` definition in nginx conf file and create that dir
     # before starting nginx if it doesn't already exist
     ul = None
