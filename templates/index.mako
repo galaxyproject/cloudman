@@ -362,83 +362,95 @@ vertical-align: top;
 <div class="box" id="volume_config">
     <h2 style="text-align:center;">Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
-        <p style="text-align:justify;">Welcome to CloudMan. This application will allow you to manage this cluster platform and
-        the services provided within. To get started, choose the type of platform you'd like to work
-        with and provide the associated value, if any.</p>
+        <p style="text-align:justify;">
+            Welcome to CloudMan. This application will allow you to manage this
+            cluster platform and the services provided within. To get started,
+            choose the type of platform you'd like to work with and provide the
+            associated value, if any. More information about each of the
+            available types can be found
+            <a href="https://wiki.galaxyproject.org/CloudMan/ClusterTypes" target="_blank">here</a>.
+        </p>
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
-                <p style="text-align:justify;">
-                <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
-                    <label for="galaxy-cluster">
-                    <span style="display: block;margin-left: 20px;">
-                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, a job manager, and a data volume.
-                        Specify the initial storage type:
-                    </span>
-                    </label>
-                    <div style="text-align:left;margin-left: 18px">
-                    %if cloud_type == 'ec2':
-                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-                    %else:
-                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size">
-                    %endif
-                    <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
-                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:30px">
-                    <label for="galaxy-custom-size">Volume - Custom:</label>
-                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="5">GB <span id="g_pss_vtag"></span></div>
-                    <div style="text-align:left;margin-left: 18px">
-                    %if cloud_type == 'ec2':
-                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient">
-                    %else:
-                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
-                    %endif
-                    <label for="galaxy-transient">Transient Storage (${transient_fs_size} GB)</label>
-                    </div>
-                </p>
+            <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
+            <label for="galaxy-cluster">
+                <span style="display: block;margin-left: 20px;">
+                    <b>Cluster with Galaxy</b>: a preconfigured Galaxy application
+                    with numerous bioinformatics tools, many gigabytes of genomic
+                    reference datasets, a production-quality database, a fast
+                    web server and a cluster job manager. You have a choice of
+                    the type and size of storage to use:
+                </span>
+            </label>
+            <div style="text-align:left;margin-left: 18px">
+                %if cloud_type == 'ec2':
+                    <input id="id-galaxy-cluster-persistent" type="radio" name="storage_type" value="volume" checked="true">
+                %else:
+                    <input id="id-galaxy-cluster-persistent" type="radio" name="storage_type" value="volume">
+                %endif
+                <label for="id-galaxy-cluster-persistent">
+                    Persistent volume storage: size
+                </label>
+                <input id="id-galaxy-cluster-persistent-size" type="text" name="storage_size" class="LV_field" value="" size="5" placeholder="10">GB <span id="g_pss_vtag"></span>
+            </div>
+            <div style="text-align:left;margin-left: 18px">
+                %if cloud_type == 'ec2':
+                    <input id="galaxy-transient" type="radio" name="storage_type" value="transient">
+                %else:
+                    <input id="galaxy-transient" type="radio" name="storage_type" value="transient" checked='true'>
+                %endif
+                <label for="galaxy-transient">
+                    Transient instance storage: ${transient_fs_size} GB
+                </label>
+            </div>
         </div>
+
         <div id='extra_startup_options'>
             <div class="form-row">
-                <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
-                    <label for="share-cluster">
+                <input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
+                <label for="data-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Shared Cluster</b>: derive your cluster form someone else's cluster. <i>Note</i> that this form field works only
+                        <b>Cluster only</b>: a cluster-in-the-cloud without any
+                        applications automatically added. Choose the type and
+                        size of storage you would like for the cluster:
+                    </span>
+                </label>
+                <div style="text-align: left; margin: 10px 0 0 18px;">
+                    <input id="id-data-cluster-persistent" type="radio" name="storage_type" value="volume">
+                    <label for="id-data-cluster-persistent">
+                        Persistent volume storage: size
+                    </label>
+                    <input id="id-data-cluster-storage-size" type="text" name="storage_size" class="LV_field" value="" size="5">GB <span id="id-data-cluster-storage-size-vtag"></span>
+                </div>
+                <div style="text-align: left; margin-left: 18px;">
+                    <input id="id-cluster-only-transient" type="radio" name="storage_type" value="transient">
+                    <label for="id-cluster-only-transient">
+                        Transient instance storage: ${transient_fs_size} GB
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
+                <label for="share-cluster">
+                    <span style="display: block;margin-left: 20px;">
+                        <b>Cloned cluster</b>: derive your cluster form someone else's shared cluster. <i>Note</i> that this form field works only
                         for instances that were shared after July 1, 2013! For instances
                         shared before that date, please use <a href="http://usegalaxy.org/cloudlaunch" target="_blank">CloudLaunch<a/>
                         and provide the share string there. <br/>
                         Specify the provided cluster share-string (for example,
-                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00</span>):
+                        <span style="white-space:nowrap; font-style: italic;">cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00</span>):
                     </span>
-                    </label>
-                </p>
-                <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
-                    <label for="shared_bucket">Cluster share-string</label>
-            </div>
-
-            <div class="form-row">
-                <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
-                    <label for="data-cluster">
-                    <span style="display: block;margin-left: 20px;">
-                        <b>Data Cluster</b>: a persistent data volume and a job manager.
-                        Specify the initial storage size (in Gigabytes):
-                    </span>
-                    </label>
-                </p>
-                <input style="margin-left:20px" type="text" name="pss" class="LV_field" id="d_pss" value="" size="5">GB<span id="d_pss_vtag"></span>
-            </div>
-
-            <div class="form-row">
-                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="Test" style="float:left" id="test-cluster">
-                <label for="test-cluster">
-                <span style="display: block;margin-left: 20px;">
-                    <b>Test Cluster</b>: A job manager only. No persistent storage is created.</p>
-                </span>
                 </label>
+                <input style="margin-left:20px"  type="text" name="share_string" class="LV_field" id="id-share-string" value="" size="50">
+                    <label for="id-share-string">Cluster share-string</label>
             </div>
         </div>
         <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Choose platform type" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose configuration option" id="start_cluster_submit_btn"/>
         </div>
         </form>
     </div>
@@ -950,8 +962,8 @@ $(document).ready(function() {
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
-        var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
+        var g_permanent_storage_size = new LiveValidation('id-galaxy-cluster-persistent-size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
+        var d_permanent_storage_size = new LiveValidation('id-data-cluster-storage-size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'id-data-cluster-storage-size-vtag' } );
 
         ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
         %if cloud_type == 'ec2':
@@ -1003,27 +1015,40 @@ $(document).ready(function() {
     $('#expand_vol').tipsy({gravity: 'w', fade: true});
 
     // Enable onclick events for the option in the initial cluster configuration box
-    $('#galaxy-default-size').click(function() {
+    $('#galaxy-cluster').click(function() {
+        $('#id-galaxy-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#id-galaxy-cluster-persistent').click(function() {
+        $('#id-galaxy-cluster-persistent-size').focus();
+    });
+    $('#id-galaxy-cluster-persistent-size').focus(function() {
+        $('#galaxy-cluster').attr('checked', 'checked');
+        $('#id-galaxy-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#galaxy-transient').click(function() {
         $('#galaxy-cluster').attr('checked', 'checked');
     });
-    $('#galaxy-custom-size').click(function() {
-        $('#g_pss').focus();
-    });
-    $('#g_pss').focus(function() {
-        $('#galaxy-cluster').attr('checked', 'checked');
-        $('#galaxy-custom-size').attr('checked', 'checked');
-    });
-    $('#share-cluster').click(function() {
-        $('#shared_bucket').focus();
-    });
-    $('#shared_bucket').focus(function() {
-        $('#share-cluster').attr('checked', 'checked');
-    });
+
     $('#data-cluster').click(function() {
-        $('#d_pss').focus();
+        $('#id-cluster-only-transient').attr('checked', 'checked');
     });
-    $('#d_pss').focus(function() {
+    $('#id-data-cluster-persistent').click(function() {
         $('#data-cluster').attr('checked', 'checked');
+        $('#id-data-cluster-storage-size').focus();
+    });
+    $('#id-data-cluster-storage-size').focus(function() {
+        $('#data-cluster').attr('checked', 'checked');
+        $('#id-data-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#id-cluster-only-transient').click(function() {
+        $('#data-cluster').attr('checked', 'checked');
+    });
+
+    $('#share-cluster').click(function() {
+        $('#id-share-string').focus();
+    });
+    $('#id-share-string').focus(function() {
+        $('#share-cluster').attr('checked', 'checked');
     });
     $('#close-snapshotoverlay').click(function(){
         $('#snapshotoverlay').hide();

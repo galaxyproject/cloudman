@@ -47,39 +47,56 @@ class CM(BaseController):
 
     @expose
     @TestFlag({})
-    def initialize_cluster(self, trans, startup_opt, galaxy_data_option="custom-size",
-                           pss=None, shared_bucket=None):
+    def initialize_cluster(self, trans, startup_opt, storage_type="transient",
+                           storage_size='0', share_string=None):
         """
-        Call this method if the current cluster has not yet been initialized to
-        initialize it. This method should be called only once.
+        Initialize an uninitialized cluster. This method can be called only once.
 
-        For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
-        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
-        an integer value for the ``pss`` argument, which will set the initial size
-        of the persistent storage associated with this cluster. If ``Shared_cluster``
-        ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
-        must be provided, which will then be used to derive this cluster from
-        the shared one.
+        :type startup_opt: string
+        :param startup_opt: Name of the cluster type option. Choose from
+                            ``Galaxy``, ``Data``, or ``Shared_cluster``
+
+        :type storage_type: string
+        :param storage_type: Type of storage to use. Choose from ``volume``
+                            or ``transient``.
+
+        :type storage_size: list or string
+        :param storage_size: The size of persistent storage medium. If supplying
+                             a list, the first value in the list will be used.
+                             The list values or a single string all must be
+                             string representations of an integer.
+
+        :type share_string: string
+        :param share_string: Share-string ID from a shared cluster (e.g.,
+            ``cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00``).
         """
-        if galaxy_data_option == "custom-size":
-            if isinstance(pss, list):
-                pss = [x for x in pss if x][0]
-        elif galaxy_data_option == 'default-size':
-            pss = str(self.app.manager.get_default_data_size())
-        else:
-            pss = 0
-        if pss == 0 or pss.isdigit():
-            error = self.app.manager.initialize_cluster_with_custom_settings(
-                startup_opt, galaxy_data_option, int(pss), shared_bucket)
-        else:
-            error = ("Wrong value provided for the persistent storage "
-                     "size: '{0}'".format(pss))
-
-        if error:
-            log.warning(error)
+        if isinstance(storage_size, list):
+            # There are couple of fields on the web form with the same
+            # name so they come in as a list; parse the list and get the value
+            storage_size = [x for x in storage_size if x]
+            # Grab the value or default to 10 if not value was provided for
+            # a volume-based storage or default to 0 otherwise (e.g., transient)
+            if storage_size:
+                storage_size = storage_size[0]
+            elif storage_type == 'volume':
+                storage_size = '10'
+            else:
+                storage_size = '0'
+        try:
+            storage_size = int(storage_size)
+        except TypeError, te:
+            error = "Wrong format for storage_size variable: {0}".format(te)
+            log.debug(error)
+            self.app.msgs.info(error)
             return error
-        else:
-            return self.instance_state_json(trans)
+        except ValueError, ve:
+            error = "Wrong value for storage_size variable: {0}".format(ve)
+            log.debug(error)
+            self.app.msgs.info(error)
+            return error
+        error = self.app.manager.initialize_cluster_with_custom_settings(
+            startup_opt, storage_type, storage_size, share_string)
+        return error or self.instance_state_json(trans)
 
     @expose
     def cloudman_version(self, trans):
@@ -146,7 +163,8 @@ class CM(BaseController):
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
-                # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
+                # log.debug("Data volume size before expansion: '%s'" %
+                #            self.app.manager.get_permanent_storage_size())
                 if (new_vol_size > self.app.manager.get_permanent_storage_size()
                    and new_vol_size < 16000):
                     self.app.manager.expand_user_data_volume(new_vol_size,

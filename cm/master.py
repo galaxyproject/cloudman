@@ -437,8 +437,8 @@ class ConsoleManager(BaseConsoleManager):
                     .format(self.userdata_cluster_type)
                 self.app.manager.initialize_cluster_with_custom_settings(
                     self.userdata_cluster_type,
-                    galaxy_data_option=self.app.config.get("galaxy_data_option", "transient"),
-                    pss=self.app.config.get("pss", None),
+                    storage_type=self.app.config.get("storage_type", "transient"),
+                    storage_size=self.app.config.get("storage_size", '0'),
                     shared_bucket=self.app.config.get("shared_bucket", None))
             else:
                 cc_detail = "This is a new cluster; waiting to configure the type."
@@ -1287,44 +1287,37 @@ class ConsoleManager(BaseConsoleManager):
         return False
 
     @TestFlag({})
-    def initialize_cluster_with_custom_settings(self, startup_opt, galaxy_data_option="custom-size",
-                                                pss=None, shared_bucket=None):
+    def initialize_cluster_with_custom_settings(self, startup_opt, storage_type="transient",
+                                                storage_size=0, shared_bucket=None):
         """
         Call this method if the current cluster has not yet been initialized to
         initialize it. This method should be called only once.
 
-        For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
-        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
-        an integer value for the ``pss`` argument, which will set the initial size
-        of the persistent storage associated with this cluster. If ``Shared_cluster``
-        ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
-        must be provided, which will then be used to derive this cluster from
-        the shared one.
+        :type startup_opt: string
+        :param startup_opt: Name of the cluster type option. Choose from
+                            ``Galaxy``, ``Data``, or ``Shared_cluster``
+
+        :type storage_type: string
+        :param storage_type: Type of storage to use. Choose from ``volume``
+                            or ``transient``.
+
+        :type storage_size: list or string
+        :param storage_size: The size of persistent storage medium. If supplying
+                             a list, the first value in the list will be used.
+                             The list values or a single string all must be
+                             string representations of an integer.
+
+        :type share_string: string
+        :param share_string: Share-string ID from a shared cluster (e.g.,
+            ``cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00``).
         """
         log.debug("initialize_cluster_with_custom_settings: cluster_type={0}, "
-                  "data_option={1}, initial_pss_size={2}"
-                  .format(startup_opt, galaxy_data_option, pss))
+                  "storage_type={1}, storage_size={2}"
+                  .format(startup_opt, storage_type, storage_size))
         if self.app.manager.initial_cluster_type is None:
-            if startup_opt == "Test":
-                self.app.manager.init_cluster(startup_opt, storage_type='transient')
-                return None
             if startup_opt == "Galaxy" or startup_opt == "Data":
-                # Initialize form on the main UI contains two fields named ``pss``,
-                # which arrive as a list so pull out the actual storage size value
-                if galaxy_data_option == "transient":
-                    storage_type = "transient"
-                    pss = 0
-                elif galaxy_data_option == "custom-size" or galaxy_data_option == "volume":
-                    storage_type = "volume"
-                else:
-                    storage_type = "volume"
-                    pss = self.app.manager.get_default_data_size()
-                if storage_type == "transient" or pss:
-                    self.app.manager.init_cluster(startup_opt, pss, storage_type=storage_type)
-                    return None
-                else:
-                    msg = "Wrong or no value provided for the persistent " \
-                          "storage size: '{0}'".format(pss)
+                self.app.manager.init_cluster(startup_opt, storage_size, storage_type=storage_type)
+                return None
             elif startup_opt == "Shared_cluster":
                 if shared_bucket:
                     # TODO: Check the format of the share string
