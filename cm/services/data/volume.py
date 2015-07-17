@@ -705,7 +705,7 @@ class Volume(BlockStorage):
                         # there is not a file system on the device so try creating
                         # one
                         if run('/sbin/mkfs.xfs %s' % self.device,
-                               "Failed to create a files ystem on device %s" % self.device,
+                               "Failed to create a file system on device %s" % self.device,
                                "Created a file system on device %s" % self.device):
                             if not run(
                                 '/bin/mount %s %s' % (self.device, mount_point),
