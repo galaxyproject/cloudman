@@ -1205,6 +1205,7 @@ p.disabled {
     color: #5F5F5F;
     font-weight: bold;
     width: 80px;
+    vertical-align: text-top;
 }
 .fs-details-box-header {
     padding: 5px 0;

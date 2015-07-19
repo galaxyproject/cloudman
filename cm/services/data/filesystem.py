@@ -12,7 +12,6 @@ from boto.exception import EC2ResponseError
 
 from cm.util import misc
 from cm.util.misc import run
-from cm.util.misc import flock
 from cm.util.misc import nice_size
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -309,10 +308,10 @@ class Filesystem(DataService):
         # Create a snapshot of the detached volumes
         for vol in self.volumes:
             snap_ids.append(vol.create_snapshot(snap_description=snap_description))
-        # After the snapshot is done, add the file system back as a cluster
+        # After the snapshot has begun, add the file system back as a cluster
         # service
-        log.debug("{0} snapshot process completed; adding self to the list of master services"
-                  .format(self.get_full_name()))
+        log.debug("{0} snapshot created; adding self to the list of master "
+                  "services.".format(self.get_full_name()))
         self.state = service_states.UNSTARTED  # Need to reset state so it gets picked up by monitor
         self.app.manager.activate_master_service(self)
         return snap_ids
@@ -381,11 +380,11 @@ class Filesystem(DataService):
         state of the file system to `ok_state` if the NFS sharing went OK.
         Otherwise, set the file system state to `err_state`.
         """
-        log.debug("Exporting FS {0} over NFS".format(mount_point))
         previous_state = self.state
         if not mount_point:
             mount_point = self.mount_point
-        if  NFSExport.add_nfs_share(mount_point):
+        log.debug("Exporting FS {0} over NFS".format(mount_point))
+        if NFSExport.add_nfs_share(mount_point):
             self.state = ok_state
         else:
             self.state = err_state

@@ -47,8 +47,9 @@ class Volume(BlockStorage):
         self.size = size
         self.from_snapshot_id = from_snapshot_id
         self.from_archive = from_archive
-        self.snapshot = None
-        self.snapshots_created = []  # Snapshots that were created from this volume
+        self.snapshot = None  # Snapshot object from which this volume was created
+        # A list of snapshot objects that were created from this volume
+        self._snapshots_created = []
         self.device = None
         # Static indicates if a volume is created from a snapshot AND can be
         # deleted upon cluster termination
@@ -98,6 +99,32 @@ class Volume(BlockStorage):
         details['err_msg'] = None if details.get('err_msg', '') == '' else details['err_msg']
         details['snapshots_created'] = self.snapshots_created
         return details
+
+    @property
+    def snapshots_created(self):
+        """
+        Compose a list of dicts with each dict containing the snapshot ID,
+        current snapshot progress and current snapshot status.
+
+        TODO: This method won't work on cluster restart because no ref to
+        created snapshots will exist. On cluster start, should probably
+        populate self._snapshots_created with any snaps that were derived
+        from this volume.
+        """
+        snaps_info = []
+        for snap in self._snapshots_created:
+            snap_info = {}
+            try:
+                snap.update()
+                snap_info['snap_id'] = snap.id
+                snap_info['snap_progress'] = snap.progress
+                snap_info['snap_status'] = snap.status
+                snaps_info.append(snap_info)
+            except EC2ResponseError, e:
+                log.warning("EC2ResponseError getting snapshot status: {0} "
+                            "(code {1}; status {2})"
+                            .format(e.message, e.error_code, e.status))
+        return snaps_info
 
     def update(self, vol_id):
         """
@@ -549,46 +576,56 @@ class Volume(BlockStorage):
 
     def create_snapshot(self, snap_description=None):
         """
-        Crete a point-in-time snapshot of the current volume, optionally specifying
-        a description for the snapshot.
+        Create a point-in-time snapshot of the current volume, optionally
+        specifying a description for the snapshot.
         """
         log.info("Initiating creation of a snapshot for volume '%s'" % self.volume_id)
         try:
             snapshot = self.volume.create_snapshot(description=snap_description)
-        except EC2ResponseError as ex:
-            log.error("Error creating a snapshot from volume '%s': %s" %
-                      (self.volume_id, ex))
-            raise
-        if snapshot:
-            try:
-                while snapshot.status != 'completed':
-                    log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
-                              % (snapshot.id, snapshot.progress, snapshot.status))
-                    self.snapshot_progress = snapshot.progress
-                    self.snapshot_status = snapshot.status
-                    time.sleep(6)
-                    snapshot.update()
-                log.info("Completed creation of a snapshot for volume '%s'; "
-                         "snap id: '%s'" % (self.volume_id, snapshot.id))
-            except SystemExit, exc:
-                # FIXME: this is an attempt at a 'patch' not to cripple a cluster
-                # (Paste will kill threads that run for more than 30 mins so
-                # catch an exception here and give back the control to a user)
-                log.error("SystemExit while creating snapshot {0}; ignoring: "
-                          "{1}".format(snapshot.id, exc))
+            log.debug("Snapshot {0} from volume {1} created. Check the snapshot "
+                      "status.".format(snapshot.id, self.volume_id))
+            self._snapshots_created.append(snapshot)
+            # Add tags to the newly created snapshot
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
                                              self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.config['bucket_cluster'])
             self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
-            self.snapshot_progress = None  # Reset because of the UI
-            self.snapshot_status = None  # Reset because of the UI
-            self.snapshots_created.append(snapshot.id)
             return str(snapshot.id)
-        else:
-            log.error(
-                "Could not create snapshot from volume '%s'" % self.volume_id)
+        except EC2ResponseError as ex:
+            log.error("Error creating a snapshot from volume '%s': %s" %
+                      (self.volume_id, ex))
             return None
+        # if snapshot:
+        #     try:
+        #         while snapshot.status != 'completed':
+        #             log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
+        #                       % (snapshot.id, snapshot.progress, snapshot.status))
+        #             self.snapshot_progress = snapshot.progress
+        #             self.snapshot_status = snapshot.status
+        #             time.sleep(6)
+        #             snapshot.update()
+        #         log.info("Completed creation of a snapshot for volume '%s'; "
+        #                  "snap id: '%s'" % (self.volume_id, snapshot.id))
+        #     except SystemExit, exc:
+        #         # FIXME: this is an attempt at a 'patch' not to cripple a cluster
+        #         # (Paste will kill threads that run for more than 30 mins so
+        #         # catch an exception here and give back the control to a user)
+        #         log.error("SystemExit while creating snapshot {0}; ignoring: "
+        #                   "{1}".format(snapshot.id, exc))
+        #     self.app.cloud_interface.add_tag(snapshot, 'clusterName',
+        #                                      self.app.config['cluster_name'])
+        #     self.app.cloud_interface.add_tag(
+        #         self.volume, 'bucketName', self.app.config['bucket_cluster'])
+        #     self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
+        #     self.snapshot_progress = None  # Reset because of the UI
+        #     self.snapshot_status = None  # Reset because of the UI
+        #     self.snapshots_created.append(snapshot.id)
+        #     return str(snapshot.id)
+        # else:
+        #     log.error(
+        #         "Could not create snapshot from volume '%s'" % self.volume_id)
+        #     return None
 
     def get_from_snap_id(self):
         """

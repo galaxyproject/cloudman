@@ -347,7 +347,18 @@
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
         <tr><th>Persistent:</th><td><%= persistent %></td>
         <% if (typeof(snapshots_created) != "undefined") { %>
-            <tr><th>Snapshots created:</th><td><%= snapshots_created %></td>
+            <tr>
+                <th>Snapshots created:</th>
+                <td>
+                    <% for (i = 0; i < snapshots_created.length; i++) { %>
+                        <div style="padding-bottom: 5px;">
+                            <i>ID:</i> <%= snapshots_created[i].snap_id %><br/>
+                            <i>Progress:</i> <%= snapshots_created[i].snap_progress %><br/>
+                            <i>Status:</i> <%= snapshots_created[i].snap_status %><br/>
+                        </div>
+                    <% } %>
+                </td>
+            </tr>
         <% } %>
     </%text>
     </script>

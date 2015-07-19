@@ -153,6 +153,7 @@ vertical-align: top;
             </div>
             <label>or delete the created snapshot after filesystem resizing?</label>
             <input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will not be kept
+            <input type="hidden" value="galaxy">
             <div class="form-row">
                 <input type="submit" value="Create Data Volume"/>
             </div>

@@ -693,7 +693,9 @@ class ConsoleManager(BaseConsoleManager):
                 "err_msg": None, "snapshot_progress": None, "from_snap": "snap-galaxyFS",
                 "volume_id": "vol-0000000d", "device": "/dev/vdc", "size_pct": "4%",
                 "DoT": "No", "size": "1014M", "persistent": "Yes",
-                "snapshots_created": ['snap-gFSsnp1', 'snap-gFSsnp2', 'snap-gFSsnp3']},
+                "snapshots_created": [
+                    {'snap_id': 'snap-gFSsnp1', 'snap_progress': '22%', 'snap_status': 'pending'},
+                    {'snap_id': 'snap-gFSsnp2', 'snap_progress': '100%', 'snap_status': 'completed'}]},
                {"size_used": "560M", "status": "Running", "kind": "Snapshot",
                 "mount_point": "/mnt/galaxyIndices", "name": "galaxyIndices",
                 "snapshot_status": None, "err_msg": None, "snapshot_progress": None,
