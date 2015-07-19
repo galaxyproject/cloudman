@@ -1371,14 +1371,7 @@ class ConsoleManager(BaseConsoleManager):
             # Add Galaxy NodeJSProxy service
             self.activate_master_service(self.service_registry.get('NodeJSProxy'))
         elif cluster_type == 'Data':
-            # Add a file system for user's data if one doesn't already exist
             pass
-        elif cluster_type == 'Test':
-            # Job manager service is automatically added at cluster start (see
-            # ``start`` method)
-            pass
-            # self.activate_master_service(self.service_registry.get('Pulsar'))
-            # self.activate_master_service(self.service_registry.get('ClouderaManager'))
         else:
             log.error("Tried to initialize a cluster but received an unknown type: '%s'" % cluster_type)
 
@@ -1395,7 +1388,7 @@ class ConsoleManager(BaseConsoleManager):
         Here's an example cluster template as it would be defined in user data:
         ```
         initial_cluster_type: Galaxy
-        galaxy_data_option: transient
+        storage_type: transient
         cluster_templates:
           - name: Galaxy
             filesystem_templates:
@@ -1418,12 +1411,13 @@ class ConsoleManager(BaseConsoleManager):
               type: volume
         ```
         """
+        log.debug("Checking for cluster template definitions.")
         if self.app.config.cluster_templates:
             cluster_template = None
             for template in [template for template in self.app.config.cluster_templates if 'name' in template]:
                 if template['name'] == cluster_type:
                     cluster_template = template
-            if not cluster_template or ('filesystem_templates' not in cluster_template and cluster_type != "Test"):
+            if not cluster_template or ('filesystem_templates' not in cluster_template and cluster_type != "Data"):
                 log.warn("Cluster template not defined or no filesystem templates "
                          "defined for cluster type {0}".format(cluster_type))
             else:
@@ -1434,8 +1428,7 @@ class ConsoleManager(BaseConsoleManager):
             self.process_filesystem_templates(cluster_type, pss, storage_type,
                                               self.app.config.filesystem_templates)
         else:
-            if cluster_type != "Test":
-                log.error("No filesystem templates defined for cluster type: {0}".format(cluster_type))
+            log.error("No cluster templates definitions found; continuing.")
 
     # TODO: Remove special case handling for Galaxy filesystem - requires change in UI and initialisation logic
     def process_filesystem_templates(self, cluster_type, pss, storage_type, filesystem_templates):
@@ -1443,9 +1436,10 @@ class ConsoleManager(BaseConsoleManager):
         Turn data sources defined in file system templates into file systems.
         """
         if filesystem_templates:
+            log.debug("Processing file system templates: {0}".format(filesystem_templates))
             attached_volumes = self.get_attached_volumes()
             for fs_template in [s for s in filesystem_templates if 'name' in s]:
-                log.debug("Processing filesystem template: {0}".format(fs_template['name']))
+                log.debug("Processing file system template: {0}".format(fs_template['name']))
                 fs = Filesystem(self.app, fs_template['name'],
                                 svc_roles=ServiceRole.from_string_array(fs_template.get('roles', None)))
                 # Check if an already attached volume maps to the current filesystem
@@ -1492,20 +1486,21 @@ class ConsoleManager(BaseConsoleManager):
                             log.error("Unknown storage type {0} for archive extraction."
                                       .format(storage_type))
                     elif "volume" == fs_template['type']:
-                        log.debug("Creating a volume based file system named '{0}' with pss: {1}"
-                                  .format(fs_template['name'], pss))
-                        size = max(fs_template.get('size', 10), fs_template.get('min_size', 0))
-                        if ServiceRole.GALAXY_DATA in ServiceRole.from_string_array(
-                           fs_template.get('roles', None)):
-                            if pss > size:
-                                size = pss
-                        if 'data_source' in fs_template and \
-                           'archive' == fs_template['data_source'] and \
-                           'archive_url' in fs_template:
+                        size = max(fs_template.get('size', 10), fs_template.get('min_size', 1))
+                        if pss > size:
+                            size = pss
+                        if 'archive_url' in fs_template:
+                            log.debug("Creating a volume-based file system '{0}' of "
+                                      "size {1}GB from archive {2}."
+                                      .format(fs_template['name'], size,
+                                              fs_template['archive_url']))
                             from_archive = {'url': fs_template['archive_url'],
                                             'md5_sum': fs_template.get('archive_md5', None)}
                             fs.add_volume(size=size, from_archive=from_archive)
                         else:
+                            log.debug("Creating a blank volume-based file system "
+                                      "'{0}' of size {1}GB."
+                                      .format(fs_template['name'], size))
                             fs.add_volume(size=size)
                     elif "transient" == fs_template['type']:
                         log.debug("Creating a transient file system named '{0}'".format(fs_template['name']))
@@ -2177,6 +2172,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         # Match fs_name with a service or if it's null or empty, default to
         # GALAXY_DATA role
+        log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
+                  % (fs_name, new_vol_size, snap_description))
         if fs_name:
             svcs = self.app.manager.get_services(svc_name=fs_name)
             if svcs:
@@ -2186,15 +2183,16 @@ class ConsoleManager(BaseConsoleManager):
                           "the file system was not found?".format(fs_name))
                 return
         else:
-            svc = self.app.manager.get_services(
-                svc_role=ServiceRole.GALAXY_DATA)[0]
-
-        log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
-                  % (svc.get_full_name(), new_vol_size, snap_description))
-        svc.state = service_states.CONFIGURING
-        svc.grow = {
-            'new_size': new_vol_size, 'snap_description': snap_description,
-            'delete_snap': delete_snap}
+            # Default to expanding the 'galaxy' file system
+            svc = self.service_registry.get_active('galaxy')
+        if svc:
+            svc.state = service_states.CONFIGURING
+            svc.grow = {
+                'new_size': new_vol_size, 'snap_description': snap_description,
+                'delete_snap': delete_snap}
+        else:
+            log.warning("Could not find file system {0} to mark it for expansion?"
+                        .format(fs_name))
 
     @TestFlag('TESTFLAG_ROOTPUBLICKEY')
     def get_root_public_key(self):
