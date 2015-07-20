@@ -698,9 +698,9 @@ class EC2Interface(CloudInterface):
                         being performed. Check the EC2 API guide
                         for details.
 
-        :rtype: list of :class:`boto.ec2.snapshot.Snapshot`
+        :rtype: list of :class:`boto.ec2.snapshot.Snapshot` objects
         :return: The requested Snapshot objects or an empty list if encounter
-                 EC2ResponseError
+                 ``EC2ResponseError``.
         """
         if snapshot_ids and not isinstance(snapshot_ids, list):
             snapshot_ids = [snapshot_ids]
@@ -711,6 +711,67 @@ class EC2Interface(CloudInterface):
             log.error("EC2ResponseError retrieving snapshot IDs {0}: {1}"
                       .format(snapshot_ids, e))
         return []
+
+    def get_snapshot(self, snapshot_id):
+        """
+        Get a Snapshot object for the ``snapshot_id``.
+
+        :type snapshot_id: string
+        :param snapshot_ids: The snapshot ID to try and retrieve
+
+        :rtype: :class:`boto.ec2.snapshot.Snapshot` object
+        :return: The Snapshot object corresponding to the provided ``snapshot_id``
+                 or ``None`` if the snapshot wasn't found or in the case of
+                 ``EC2ResponseError``.
+        """
+        snaps_list = self.get_all_snapshots([snapshot_id])
+        if snaps_list:
+            return snaps_list[0]
+        return None
+
+    def get_snapshot_progress(self, snapshot_id):
+        """
+        Get a the progress value for the ``snapshot_id``.
+
+        :type snapshot_id: string
+        :param snapshot_ids: The snapshot ID to check on
+
+        :rtype: string
+        :return: The percent complete of the snapshot for the provided
+                 ``snapshot_id`` and empty string if the snapshot wasn't found
+                 or in the case of ``EC2ResponseError``.
+        """
+        snap = self.get_snapshot(snapshot_id)
+        if snap:
+            try:
+                snap.update()
+                return snap.progress
+            except EC2ResponseError, e:
+                log.error("EC2ResponseError checking snapshot {0} progress: {1}"
+                          .format(snapshot_id, e))
+        return ''
+
+    def get_snapshot_status(self, snapshot_id):
+        """
+        Get a the status of the snapshot with ``snapshot_id``.
+
+        :type snapshot_id: string
+        :param snapshot_ids: The snapshot ID to check on
+
+        :rtype: string
+        :return: The status of the snapshot for the provided ``snapshot_id``
+                 and empty string if the snapshot wasn't found or in the case
+                 of ``EC2ResponseError``.
+        """
+        snap = self.get_snapshot(snapshot_id)
+        if snap:
+            try:
+                snap.update()
+                return snap.status
+            except EC2ResponseError, e:
+                log.error("EC2ResponseError checking snapshot {0} status: {1}"
+                          .format(snapshot_id, e))
+        return ''
 
     def get_all_instances(self, instance_ids=None, filters=None):
         """

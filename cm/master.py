@@ -1804,16 +1804,17 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
-    @TestFlag([{"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-14--03-02/", "snap":
-                'snap-743ddw12', "visibility": 'Shared'},
-               {"bucket": "cm-7834hdoeiuwha/TESTshare/2011-08-19--10-49/", "snap":
-                'snap-gf69348h', "visibility": 'Public'}])
+    @TestFlag([{"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-14--03-02/",
+                "snap": 'snap-743ddw12', "snap_progress": "100%", "visibility": 'Shared'},
+               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-19--10-49/",
+               "snap": 'snap-gf69348h', "snap_progress": "22%", "visibility": 'Public'}])
     @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
         Get a list of point-in-time shared instances of this cluster.
         Returns a list such instances. Each element of the returned list is a
-        dictionary with ``bucket``, ``snap``, and ``visibility`` keys.
+        dictionary with ``bucket``, ``snap``, ``snap_progress`` and
+        ``visibility`` keys.
         """
         lst = []
         try:
@@ -1826,6 +1827,7 @@ class ConsoleManager(BaseConsoleManager):
                 for folder in folder_list:
                     # Get snapshot assoc. with the current shared cluster
                     tmp_pd = 'tmp_pd.yaml'
+                    progress = None
                     if misc.get_file_from_bucket(
                         s3_conn, self.app.config['bucket_cluster'],
                             os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
@@ -1834,6 +1836,7 @@ class ConsoleManager(BaseConsoleManager):
                         # a shared instance so pull it out of the list
                         if 'shared_data_snaps' in tmp_ud and len(tmp_ud['shared_data_snaps']) == 1:
                             snap_id = tmp_ud['shared_data_snaps'][0]
+                            progress = self.app.cloud_interface.get_snapshot_progress(snap_id)
                         else:
                             snap_id = "Missing-ERROR"
                         try:
@@ -1854,7 +1857,9 @@ class ConsoleManager(BaseConsoleManager):
                             visibility = 'Shared'
                         lst.append(
                             {"bucket": os.path.join(self.app.config['bucket_cluster'],
-                                                    folder.name), "snap": snap_id, "visibility": visibility})
+                                                    folder.name),
+                             "snap": snap_id, "snap_progress": progress,
+                             "visibility": visibility})
         except S3ResponseError, e:
             log.error(
                 "Problem retrieving references to shared instances: %s" % e)

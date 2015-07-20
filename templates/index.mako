@@ -684,18 +684,25 @@ function get_shared_instances(){
         function(data){
             if(data){
                 var shared_list = $('#shared_instances_list').html(
-                    "<p>These are the share string IDs that you can share " +
-                    "with others so they can create and instantiate their instances " +
-                    "of your shared cluster. Also, for reference, corresponding " +
-                    "snapshot ID's are provided and you have an option to delete a " +
-                    "given shared instance. <b>Note</b> that once deleted, any derived instances " +
-                    "that have been created and used will cease to be able to be started.</p>");
+                    "<p>These are the shared versions of this cluster that " +
+                    "you can share with others so they can create clones of your " +
+                    "cluster. Simply copy the Share string ID and send it or " +
+                    "publish it. For more information about cluster sharing, " +
+                    "see <a href='https://wiki.galaxyproject.org/CloudMan/Sharing'" +
+                    "target='_blank'>this page</a>. " +
+                    "Before others can create the clones, the share " +
+                    "<i>Status</i> must reach 100% (note that depending on the " +
+                    "size of your disk, this may take many hours). </p>" +
+                    "<p><b>Note</b> that if you delete a share, any instances " +
+                    "that other users have been created (and used) will no " +
+                    "longer be functional!</p>");
                 var table = $("<table/>");
                 if (data.shared_instances.length > 0) {
                     table.addClass("shared_instances_table");
                     tr = $('<tr/>');
                     tr.append($('<th/>').text("Visibility"));
                     tr.append($('<th/>').text("Share string ID"));
+                    tr.append($('<th/>').text("Status"));
                     tr.append($('<th/>').text("Snapshot ID"));
                     tr.append($('<th/>').text("Delete?"));
                     table.append(tr);
@@ -704,11 +711,12 @@ function get_shared_instances(){
                             var tr = $("<tr/>");
                             tr.append($('<td/>').text(data.shared_instances[i].visibility));
                             tr.append($('<td/>').text(data.shared_instances[i].bucket));
+                            tr.append($('<td/>').text(data.shared_instances[i].snap_progress));
                             tr.append($('<td/>').text(data.shared_instances[i].snap));
                             anchor = $("<a>&nbsp;</a>").click(function () {
                                 show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
                             }).addClass("del_scf");
-                            tr.append($('<td/>').html(anchor));
+                            tr.append($('<td/ style="padding-left: 15px;">').html(anchor));
                             table.append(tr);
                         };
                         fn(n);

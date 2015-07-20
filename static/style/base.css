@@ -806,6 +806,7 @@ div.report-row label
 
 .shared_instances_table {
     width: 100%;
+    font-size: 11px;
 }
 .shared_instances_table th {
     text-align: left;
