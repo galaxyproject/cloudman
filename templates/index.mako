@@ -559,7 +559,7 @@ function update_ui(data){
         $('#app-status').attr('style', 'color: ' + data.app_status);
         $('#data-status').attr('style', 'color: ' + data.data_status);
         // Show volume manipulating options only after data volumes are ready
-        if (data.cluster_storage_type == 'transient' || data.data_status !== 'green'){
+        if (data.testflag !== true && (data.cluster_storage_type == 'transient' || data.data_status !== 'green')){
             $('#expand_vol').hide();
             $('#share_a_cluster').hide();
         }else{

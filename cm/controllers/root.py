@@ -893,6 +893,7 @@ class CM(BaseController):
         use_autoscaling = self.app.manager.service_registry.is_active('Autoscale')
         ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
                     'dns': dns,
+                    'testflag': self.app.TESTFLAG,
                     'instance_status': {'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available': str(self.app.manager.get_num_available_workers()),
                                         'requested': str(len(self.app.manager.worker_instances))},
