@@ -135,28 +135,41 @@ vertical-align: top;
     <h2>Expand Disk Space</h2>
     <form id="expand_user_data_volume" name="expand_user_data_volume" class="generic_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
         <div class="form-row">
-        Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
-        <b>WILL BE STOPPED</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy
-        jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-        <p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account.
-        If you decide to leave the snapshot for reference, you may also provide a brief note that will later be visible in
-        the snapshot's description.</p>
+            Through this form you may increase the disk space available to the
+            cluster. All of the cluster services (but not the cluster) will be
+            stopped until the new disk is ready, at which point they will all
+            be automatically restarted. This process may result in Galaxy jobs
+            that are currently running to fail. Note that the new disk size must
+            be larger than the current disk size.
+            <p>
+                During this process, a snapshot of your data volume will be
+                created, which can optionally be left in your account. If you
+                decide to keep the snapshot for reference, you may also provide
+                a brief note that will later be visible in the snapshot's
+                description.
+            </p>
+        </div>
+        <div id="permanent_storage_size" class="form-row">
+            <label for="new_vol_size">
+                New disk size (minimum <span id="du-inc">0</span>GB, maximum 16000GB):
+            </label>
+            <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="5">GB
+            <span id="new_col_size_vtag"></span>
+        </div>
+        <div id="permanent_storage_size" class="form-row">
+            <label for="vol_expand_desc">Note (optional):</label>
+            <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="41"><br/>
         </div>
         <div class="form-row">
-            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 16000GB):</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
-            </div>
-            <label>Note (optional):</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="50"><br/>
-            </div>
-            <label>or delete the created snapshot after filesystem resizing?</label>
-            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will not be kept
-            <input type="hidden" value="galaxy">
-            <div class="form-row">
-                <input type="submit" value="Create Data Volume"/>
-            </div>
+            <input type="checkbox" name="delete_snap" id="delete_snap">
+            <label for="delete_snap">
+                If checked, the created snapshot will be deleted after the
+                resizing process completes.
+            </label>
+        </div>
+        <input type="hidden" value="galaxy">
+        <div style="padding-top: 15px;">
+            <input type="submit" value="Increase disk size"/>
         </div>
     </form>
 </div>
@@ -988,7 +1001,7 @@ $(document).ready(function() {
         var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
         spot_price.add( Validate.Numericality, { minimum: 0 } );
     }
-    var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
+    var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'new_col_size_vtag' } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 16000 } );
 
     var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
