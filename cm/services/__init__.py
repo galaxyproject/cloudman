@@ -304,6 +304,28 @@ class Service(object):
         self.svc_roles = []
         self.dependencies = []
 
+    def state_changed_before(self, timedelta=30):
+        """
+        Test if the last state change has occurred before ``timedelta`` seconds.
+
+        Compare curren time with the value in ``self.last_state_change_time``
+        and check if the time delta is greater than the ``timedelta`` value.
+
+        :type timedelta: int
+        :param timedelta: Desired number of seconds that need to have passed
+                          from the time this method is called in order for this
+                          method to return ``True``.
+
+        :rtype: bool
+        :return: ``True`` is at least ``timedelta`` seconds have passed between
+                 when this method is called and the value in
+                 ``self.last_state_change_time``; ``False`` otherwise.
+        """
+        delta = (dt.datetime.utcnow() - self.last_state_change_time).seconds
+        if delta > timedelta:
+            return True
+        return False
+
     def start(self):
         raise NotImplementedError("Subclasses of Service must implement this.")
 

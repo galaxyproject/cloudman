@@ -158,7 +158,7 @@ vertical-align: top;
         </div>
         <div id="permanent_storage_size" class="form-row">
             <label for="vol_expand_desc">Note (optional):</label>
-            <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="41"><br/>
+            <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="44"><br/>
         </div>
         <div class="form-row">
             <input type="checkbox" name="delete_snap" id="delete_snap">
@@ -167,7 +167,7 @@ vertical-align: top;
                 resizing process completes.
             </label>
         </div>
-        <input type="hidden" value="galaxy">
+        <input type="hidden" name="fs_name" value="galaxy">
         <div style="padding-top: 15px;">
             <input type="submit" value="Increase disk size"/>
         </div>
@@ -551,11 +551,11 @@ function update_ui(data){
         $('#status-available').text( data.instance_status.available );
         $('#status-total').text( data.instance_status.requested );
         $('#du-total').text(data.disk_usage.total);
-        $('#du-inc').text(data.disk_usage.total.slice(0,-1));
+        $('#du-inc').text(Math.round(data.disk_usage.total.slice(0,-1)));
         $('#du-used').text(data.disk_usage.used);
         $('#du-pct').text(data.disk_usage.used_percent);
         if($('#new_vol_size').val() == '0'){
-            $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
+            $('#new_vol_size').val(Math.round(data.disk_usage.total.slice(0,-1)));
         }
         if (parseInt(data.disk_usage.used_percent) > 80){
             $('#storage_warning').show();

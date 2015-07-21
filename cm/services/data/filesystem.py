@@ -11,6 +11,7 @@ from datetime import datetime
 from boto.exception import EC2ResponseError
 
 from cm.util import misc
+from cm.util import Time
 from cm.util.misc import run
 from cm.util.misc import nice_size
 from cm.services import service_states
@@ -49,10 +50,11 @@ class Filesystem(DataService):
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
         self.mount_point = mount_point if mount_point is not None else os.path.join(
             self.app.path_resolver.mount_root, self.name)
-        # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
-        # the file system; use following dict structure:
-        # {'new_size': <size>, 'snap_desc': <snapshot description>}
-        self.grow = None
+        # Used to indicate a need to grow/expand the file system;
+        # This is a composite dict and the implementatin logic depends on the
+        # keys so look around carefully (i.e., this should probably be turned
+        # into a helper class)
+        self.grow = {}
         # A time stamp when the state changed to STARTING; it is used to
         # avoid brief ERROR states during system configuration.
         self.started_starting = datetime.utcnow()
@@ -111,6 +113,7 @@ class Filesystem(DataService):
                 log.debug("Trying to add file system service named '{0}'"
                           .format(self.get_full_name()))
                 self.state = service_states.STARTING
+                self.last_state_change_time = Time.now()
                 self.started_starting = datetime.utcnow()
                 if not self.activated:
                     self.activated = True
@@ -170,6 +173,7 @@ class Filesystem(DataService):
                  .format(self.get_full_name(), self.volumes, self.buckets,
                          self.transient_storage, self.nfs_fs, self.gluster_fs))
         self.state = service_states.SHUTTING_DOWN
+        self.last_state_change_time = Time.now()
         r_thread = threading.Thread(target=self.__remove, kwargs={'delete_devices':
                                                                   delete_devices})
         r_thread.start()
@@ -194,10 +198,15 @@ class Filesystem(DataService):
         Otherwise, it will be left attached (this is useful during snapshot creation).
         """
         super(Filesystem, self).remove(synchronous=True)
-        log.debug("Removing {0} devices".format(self.get_full_name()))
+        log.debug("Removing all devices from {0}".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
-        for vol in self.volumes:
+        self.last_state_change_time = Time.now()
+        for vol in self.volumes[:]:
             vol.remove(self.mount_point, delete_vols=delete_devices, detach=detach)
+            # Remove the element from the list after the device has been removed
+            # This is done so multiple threads do not potentially try removing
+            # the same volume twice
+            self.volumes.remove(vol)
         for b in self.buckets:
             b.unmount()
         for t in self.transient_storage:
@@ -233,63 +242,94 @@ class Filesystem(DataService):
 
     def expand(self):
         """
-        Expand the size of this file system. Note that this process requires
-        the file system to be unmounted during the operation and the new one
-        will be automatically remounted upon completion of the process.
+        Expand the size of this file system.
+
+        This process requires the file system to be unmounted during
+        the operation, hence all services using the file system must be stopped
+        prior to calling this method. Depending on the size of the file system,
+        it may take many hours for the expansion process to complete. However,
+        this method will only initiate the expandion process by creating a
+        snapshot of the underlying file system. A separate process should keep
+        checking on the status of the created snapshot. After the snapshot
+        reached 'completed' status, the file system the snapshot will need to be
+        grown - see ``self.growfs`` method.
 
         Also note that this method applies only to Volume-based file systems.
         """
-        if self.grow is not None:
+        if self.grow:
+            log.debug("Starting expansion of {0} file system."
+                      .format(self.get_full_name()))
+            self.grow['status'] = 'in_progress'
+            # Keep track of the Volume objects before removing them
+            self.grow['smaller_vol_ids'] = self.volumes[:]
             self.__remove(delete_devices=False, remove_from_master=False)
-            self.state = service_states.CONFIGURING
-            smaller_vol_ids = []
-            # Create a snapshot of the detached volume
-            for vol in self.volumes:
-                smaller_vol_ids.append(vol.volume_id)
+            self.grow['snap_ids'] = []
+            # Create a snapshots of the original volumes
+            for vol in self.grow['smaller_vol_ids']:
                 snap_id = vol.create_snapshot(self.grow['snap_description'])
-                # Reset the reference to the cloud volume resource object
-                vol.volume = None
-                # Set the size for the new volume
-                vol.size = self.grow['new_size']
-                # Set the snapshot from which a new volume resource object will
-                # be created
-                vol.from_snapshot_id = snap_id
+                if snap_id:
+                    self.grow['snap_ids'].append(snap_id)
+                else:
+                    log.warning("Did not create a snapshot of vol {0}?!"
+                                .format(vol.volume_id))
+        else:
+            log.debug("Tried to grow '%s' but `self.grow` field is not set." %
+                      self.get_full_name())
 
-            # Create a new volume based on just created snapshot and add the
-            # file system
-            self.state = service_states.SHUT_DOWN
-            self.add()
+    def probe_expansion(self):
+        """
+        Probe the status of the file system expansion process.
+        """
+        # log.debug("Checking on the expansion status of file system {0}"
+        #           .format(self.get_full_name()))
+        snap_ids = self.grow.get('snap_ids', [])
+        for snap_id in snap_ids:
+            ss = self.app.cloud_interface.get_snapshot_status(snap_id)
+            if ss == 'completed':
+                log.debug("File system {0} snapshot {1} completed."
+                          .format(self.get_full_name(), snap_id))
+                self.grow['status'] = 'snaps_completed'
 
-            # Grow the file system
-            if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
-                       % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
-                return False
-            # Delete old, smaller volumes since everything seems to have gone ok
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            for smaller_vol_id in smaller_vol_ids:
-                try:
-                    ec2_conn.delete_volume(smaller_vol_id)
-                    log.debug("Deleted smaller volume {0} after resizing".format(
-                        smaller_vol_id))
-                except EC2ResponseError, e:
-                    log.error("Error deleting smaller volume '%s' after resizing: %s"
-                              % (smaller_vol_id, e))
-            # If specified by user, delete the snapshot used during the
-            # resizing process
-            if self.grow['delete_snap'] is True:
-                try:
+    def growfs(self):
+        """
+        Reinstate this file system and the ``growfs`` command.
+
+        This method should only be called after the ``self.expand`` method
+        and after the created snapshots have reached ``completed`` state.
+        """
+        log.debug("Growing file system {0}".format(self.get_full_name()))
+        self.grow['status'] = 'growing'
+        # Add new volume objects into this file system based on the created snaps
+        for snap_id in self.grow.get('snap_ids', []):
+            self.add_volume(size=self.grow.get('new_size', None),
+                            from_snapshot_id=snap_id)
+        self.add()
+        # Grow the file system
+        if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
+                   % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
+            return False
+        # Delete old, smaller volumes since everything seems to have gone ok
+        ec2_conn = self.app.cloud_interface.get_ec2_connection()
+        for vol in self.grow.get('smaller_vol_ids', []):
+            try:
+                ec2_conn.delete_volume(vol.volume_id)
+                log.debug("Deleted smaller volume {0} after resizing".format(
+                    vol.volume_id))
+            except EC2ResponseError, e:
+                log.error("Error deleting smaller volume '%s' after resizing: %s"
+                          % (vol.volume_id, e))
+        # If specified by user, delete the snapshot used during the
+        # resizing process
+        if self.grow['delete_snap'] is True:
+            try:
+                for snap_id in self.grow.get('snap_ids', []):
                     ec2_conn.delete_snapshot(snap_id)
                     log.debug("Deleted temporary snapshot {0} created and used during resizing"
                               .format(snap_id))
-                except EC2ResponseError, e:
-                    log.error("Error deleting snapshot '%s' during '%s' resizing: %s"
-                              % (snap_id, self.get_full_name(), e))
-            self.grow = None  # Reset flag
-            return True
-        else:
-            log.debug("Tried to grow '%s' but grow flag is None" %
-                      self.get_full_name())
-            return False
+            except EC2ResponseError, e:
+                log.error("Error deleting a snapshot after resizing '%s': %s"
+                          % (self.get_full_name(), e))
+        self.grow = {}  # Reset the grow flag
 
     def create_snapshot(self, snap_description=None):
         """

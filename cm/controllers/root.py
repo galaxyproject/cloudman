@@ -156,6 +156,8 @@ class CM(BaseController):
         """
         if delete_snap:
             delete_snap = True
+        if not fs_name:
+            fs_name = 'galaxy'  # Default to resizing the 'galaxy' file system
         log.debug("Initiating expansion of {0} file system to size {1} w/ "
                   "snap desc '{2}', which {3} be deleted after the expansion process "
                   "completes.".format(fs_name, new_vol_size, vol_expand_desc,
@@ -163,8 +165,8 @@ class CM(BaseController):
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
-                # log.debug("Data volume size before expansion: '%s'" %
-                #            self.app.manager.get_permanent_storage_size())
+                log.debug("Data volume size before expansion: '%s'" %
+                          self.app.manager.get_permanent_storage_size())
                 if (new_vol_size > self.app.manager.get_permanent_storage_size()
                    and new_vol_size < 16000):
                     self.app.manager.expand_user_data_volume(new_vol_size,

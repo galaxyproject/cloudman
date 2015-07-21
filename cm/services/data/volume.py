@@ -308,7 +308,7 @@ class Volume(BlockStorage):
                 self.snapshot = snap[0]
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
-            if self.size == 0:
+            if not self.size:
                 try:
                     self.size = self.snapshot.volume_size
                 except EC2ResponseError, e:
@@ -678,6 +678,8 @@ class Volume(BlockStorage):
             Setting ``delete_vols`` is irreversible. All data will be
             permanently deleted.
         """
+        log.debug("Removing volume-based FS @ mount point {0} (delete_vols: "
+                  "{1}; detach: {2})".format(mount_point, delete_vols, detach))
         self.unmount(mount_point)
         if detach:
             log.debug("Detaching volume {0} as {1}".format(
@@ -691,7 +693,7 @@ class Volume(BlockStorage):
                         self.volume_id, self.fs.get_full_name()))
                     self.delete()
         else:
-            log.debug("Unmounted FS {0} but instructed not to detach volume {1}"
+            log.debug("Unmounted {0} but was instructed not to detach volume {1}"
                       .format(self.fs.get_full_name(), self.volume_id))
 
     def mount(self, mount_point):
@@ -846,8 +848,8 @@ class Volume(BlockStorage):
                     time.sleep(3)
                 return True
             else:
-                log.debug("Did not unmount file system {0} at {1} because it is "
-                          "not mounted.".format(self.fs.get_full_name(), mount_point))
+                log.debug("File system {0} at {1} is already unmounted."
+                          .format(self.fs.get_full_name(), mount_point))
                 return False
         log.debug("Did not unmount file system '%s' because it is not in state "
                   "'running' or 'shutting-down'" % self.fs.get_full_name())

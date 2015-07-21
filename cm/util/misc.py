@@ -864,10 +864,10 @@ def getoutput(cmd, quiet=False, user=None):
             cmd = '/bin/su - {0} -c "{1}"'.format(user, cmd)
         out = commands.getoutput(cmd)
         if not quiet:
-            log.debug("Executed command '{0}' and got output: {1}".format(cmd, out))
+            log.debug("Executed command '{0}' and got output: '{1}'".format(cmd, out))
     except Exception, e:
         if not quiet:
-            log.error("Exception executing command {0}: {1}".format(cmd, e))
+            log.error("Exception executing command '{0}': {1}".format(cmd, e))
     return out
 
 

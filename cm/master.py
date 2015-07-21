@@ -232,7 +232,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         Get the status of a file system volume currently being snapshoted. This
         method looks through all the file systems and all volumes assoc. with a
-        file system and returns the status and progress for thee first volume
+        file system and returns the status and progress for the first volume
         going through the snapshot process.
         In addition, if a file system is marked as needing to 'grow' or sharing
         the cluster is currently pending but no volumes are currently being
@@ -846,6 +846,8 @@ class ConsoleManager(BaseConsoleManager):
                 pss += int(vol.size)
         return pss
 
+    @TestFlag({'total': '50.0G', 'used': '45.3G', 'used_percent': '90%',
+               'updated': True})
     def check_disk(self):
         """
         Check the usage of the main data disk and set appropriate object fields.
@@ -2169,34 +2171,34 @@ class ConsoleManager(BaseConsoleManager):
     def expand_user_data_volume(self, new_vol_size, fs_name, snap_description=None,
                                 delete_snap=False):
         """
-        Mark the file system ``fs_name`` for size expansion. For full details on how
-        this works, take a look at the file system expansion method for the
-        respective file system type.
-        If the underlying file system supports/requires creation of a point-in-time
-        snapshot, setting ``delete_snap`` to ``False`` will retain the snapshot
-        that will be creted during the expansion process under the given cloud account.
-        If the snapshot is to be kept, a brief ``snap_description`` can be provided.
+        Mark the file system ``fs_name`` for size expansion.
+
+        For full details on how this works, take a look at the file system
+        expansion method for the respective file system type.
+
+        :type new_vol_size: int
+        :param new_vol_size: The new size of the device/file system.
+
+        :type fs_name: string
+        :param fs_name: The name of the file system to resize, as registered in
+                        the ``registry``.
+
+        :type snap_description: string
+        :param snap_description: A short description (less than 255 chars) for
+                                 the snapshot.
+
+        :type delete_snap: bool
+        :param delete_snap: A flag to indicate whether to delete the snapshot
+                            after the disk resizing process has completed.
         """
-        # Match fs_name with a service or if it's null or empty, default to
-        # GALAXY_DATA role
-        log.debug("Marking '%s' for expansion to %sGB with snap description '%s'"
-                  % (fs_name, new_vol_size, snap_description))
-        if fs_name:
-            svcs = self.app.manager.get_services(svc_name=fs_name)
-            if svcs:
-                svc = svcs[0]
-            else:
-                log.error("Could not initiate expansion of {0} file system because "
-                          "the file system was not found?".format(fs_name))
-                return
-        else:
-            # Default to expanding the 'galaxy' file system
-            svc = self.service_registry.get_active('galaxy')
+        log.debug("Marking '%s' file system for expansion to %sGB with snap "
+                  "description '%s'." % (fs_name, new_vol_size, snap_description))
+        svc = self.service_registry.get_active(fs_name)
         if svc:
-            svc.state = service_states.CONFIGURING
-            svc.grow = {
-                'new_size': new_vol_size, 'snap_description': snap_description,
-                'delete_snap': delete_snap}
+            svc.grow = {'new_size': new_vol_size,
+                        'snap_description': snap_description,
+                        'delete_snap': delete_snap,
+                        'status': 'pending'}
         else:
             log.warning("Could not find file system {0} to mark it for expansion?"
                         .format(fs_name))
@@ -2393,20 +2395,38 @@ class ConsoleMonitor(object):
         else:
             self.update_frequency = 10  # If last system change within past 5 mins, run update every 10 secs
 
-    def expand_user_data_volume(self):
-        # TODO: recover services if process fails midway
-        log.info("Initiating user data volume resizing")
+    def initiate_fs_expansion(self, fs_svc):
+        """
+        Initiate the process of expanding the provided file system service.
+
+        Note that the file system expansion may take a long time (many hours)
+        during which at least some of the cluster services will not be available.
+        Note that after initiating the expandsion process, a monitoring process
+        needs to be put into place and the method ``self.finalize_fs_expansion``
+        should be called to resume cluster services after the expansion process
+        has completed.
+
+        :type fs_svc: :class: ``cm.services.data.filesystem.Filesystem`` object
+        :param fs_svc: A Filesystem service object to be resized.
+        """
+        log.info("Initiating {0} file system expansion.".format(fs_svc.get_full_name()))
         self.app.manager._stop_app_level_services()
+        fs_svc.expand()
 
-        # Grow galaxyData filesystem
-        svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
-        for svc in svcs:
-            if ServiceRole.GALAXY_DATA in svc.svc_roles:
-                log.debug("Expanding '%s'" % svc.get_full_name())
-                svc.expand()
+    def finalize_fs_expansion(self, fs_svc):
+        """
+        Finalize the process of file system expansion.
 
+        This implies growing the file system on the underlying device and
+        starting cluster-level services.
+
+        :type fs_svc: :class: ``cm.services.data.filesystem.Filesystem`` object
+        :param fs_svc: A Filesystem service object whose resizing process will
+                       be finalized.
+        """
+        log.debug("Finalizing {0} file system expansion.".format(fs_svc.get_full_name()))
+        fs_svc.growfs()
         self.app.manager._start_app_level_services()
-        return True
 
     def create_cluster_config_file(self, file_name='persistent_data-current.yaml', addl_data=None):
         """
@@ -2561,6 +2581,7 @@ class ConsoleMonitor(object):
                service.state != service_states.STARTING:
                 log.debug("Monitor adding service '%s'" % service.get_full_name())
                 self.last_system_change_time = Time.now()
+                service.last_state_change_time = self.last_system_change_time
                 if service.add():
                     log.debug("Monitor done adding service {0} (setting config_changed)"
                               .format(service.get_full_name()))
@@ -2575,11 +2596,18 @@ class ConsoleMonitor(object):
             # service that would indicate the configuration of the service is
             # complete. This could probably be done by monitoring
             # the service state flag that is already maintained?
+        # Check if any file systems were marked for expansion
         svcs = self.app.manager.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
-            if ServiceRole.GALAXY_DATA in svc.svc_roles and svc.grow is not None:
-                self.last_system_change_time = Time.now()
-                self.expand_user_data_volume()
+            if svc.svc_type == ServiceType.FILE_SYSTEM and svc.grow:
+                grow_status = svc.grow.get('status', None)
+                if grow_status == 'pending':
+                    self.last_system_change_time = Time.now()
+                    self.initiate_fs_expansion(svc)
+                elif grow_status == 'in_progress':
+                    svc.probe_expansion()
+                elif grow_status == 'snaps_completed':
+                    self.finalize_fs_expansion(svc)
         return config_changed
 
     def _stop_services(self):
@@ -2592,10 +2620,20 @@ class ConsoleMonitor(object):
             if not service.activated and service.state not in [
                service_states.UNSTARTED, service_states.COMPLETED,
                service_states.SHUT_DOWN]:
-                log.debug("Monitor stopping service '%s'" % service.get_full_name())
-                self.last_system_change_time = Time.now()
-                service.remove()
-                config_changed = True
+                # Wait for min 30 secs since the service state has last changed
+                # to initiate the removal process.
+                if service.state_changed_before(30):
+                    log.debug("Monitor stopping service '{0}' in state '{1}'"
+                              .format(service.get_full_name(), service.state))
+                    self.last_system_change_time = Time.now()
+                    service.last_state_change_time = self.last_system_change_time
+                    service.remove()
+                    config_changed = True
+                # else:
+                #     log.debug("Monitor would have initiated stopping of service "
+                #               "{0} in state '{1}' but min time delta has not "
+                #               "passed yet.".format(service.get_full_name(),
+                #                                    service.state))
         return config_changed
 
     def __check_amqp_messages(self):
@@ -2651,7 +2689,7 @@ class ConsoleMonitor(object):
                 return False
         log.debug("Monitor started; manager started")
         while self.running:
-            self.sleeper.sleep(4)
+            self.sleeper.sleep(5)
             self.__check_amqp_messages()
             if self.app.manager.cluster_status == cluster_status.TERMINATED:
                 self.running = False
