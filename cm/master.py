@@ -2718,10 +2718,11 @@ class ConsoleMonitor(object):
                     elif migration_service.state == service_states.COMPLETED:
                         self.app.msgs.remove_message(msg)
                 # Log current services' states (in condensed format)
-                svcs_state = "S&S: "
+                svcs_state = []
                 for s in self.app.manager.service_registry.itervalues():
-                    svcs_state += "%s..%s; " % (s.get_full_name(), 'OK' if s.state == 'Running' else s.state)
-                log.debug(svcs_state)
+                    svcs_state.append("%s..%s" % (s.get_full_name(), 'OK'
+                                                  if s.state == 'Running' else s.state))
+                log.debug(('S&S: {0}').format('{}; '*len(svcs_state)).format(*sorted(svcs_state)))
                 # Check the status of worker instances
                 for w_instance in self.app.manager.worker_instances:
                     if w_instance.is_spot():
