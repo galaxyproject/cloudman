@@ -1575,3 +1575,11 @@ fieldset {
 .fa-plus-square:hover, .fa-share-alt-square:hover {
     color: #54B251;
 }
+
+.app-svc-table {
+    border-collapse: collapse;
+}
+
+.app-svc-row:hover{
+    background-color: greenyellow;
+}

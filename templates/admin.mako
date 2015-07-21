@@ -86,14 +86,14 @@
             target='_blank'>${initial_cluster_type}</a>' type of cluster with
             '${cluster_storage_type}' storage type.
         </div>
-        <table width="700px" style="margin:10px 0;">
+        <table width="700px" style="margin:10px 0;" class="app-svc-table">
             <tr style="text-align:left">
                 <th width="25%">Service name</th>
                 <th width="15%">Status</th>
                 <th width="60%" colspan="5"></th>
             </tr>
             %for app_svc in app_services:
-                <tr>
+                <tr class="app-svc-row">
                     <td>
                         ${app_svc}
                         %if app_svc == 'ClouderaManager':
