@@ -393,8 +393,10 @@ vertical-align: top;
                     <b>Cluster with Galaxy</b>: a preconfigured Galaxy application
                     with numerous bioinformatics tools, many gigabytes of genomic
                     reference datasets, a production-quality database, a fast
-                    web server and a cluster job manager. You have a choice of
-                    the type and size of storage to use:
+                    web server and a cluster job manager.
+                    <div style="margin: 12px 0 2px 0;">
+                        You have a choice of the type and size of storage to use:
+                    </div>
                 </span>
             </label>
             <div style="text-align:left;margin-left: 18px">
@@ -426,11 +428,14 @@ vertical-align: top;
                 <label for="data-cluster">
                     <span style="display: block;margin-left: 20px;">
                         <b>Cluster only</b>: a cluster-in-the-cloud without any
-                        applications automatically added. Choose the type and
-                        size of storage you would like for the cluster:
+                        applications automatically added.
+                        <div style="margin: 12px 0 2px 0;">
+                            Choose the type and size of storage you would like
+                            for the cluster:
+                        </div>
                     </span>
                 </label>
-                <div style="text-align: left; margin: 10px 0 0 18px;">
+                <div style="text-align: left; margin-left: 18px;">
                     <input id="id-data-cluster-persistent" type="radio" name="storage_type" value="volume">
                     <label for="id-data-cluster-persistent">
                         Persistent volume storage: size
@@ -461,7 +466,11 @@ vertical-align: top;
                     <label for="id-share-string">Cluster share-string</label>
             </div>
         </div>
-        <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
+        <div id="toggle_extra_startup_options_cont" class="form-row">
+            <a id='toggle_extra_startup_options' href="#">
+                Show additional startup options
+            </a>
+        </div>
         <br/>
         <div class="form-row" style="text-align:center;">
             <input type="submit" value="Choose configuration option" id="start_cluster_submit_btn"/>
@@ -849,10 +858,10 @@ $(document).ready(function() {
         // $('#extra_startup_options').show();
         if ($('#extra_startup_options').is(":visible")){
             $('#extra_startup_options').hide();
-            $('#toggle_extra_startup_options').text('Show more startup options');
+            $('#toggle_extra_startup_options').text('Show additional startup options');
         }else{
             $('#extra_startup_options').show();
-            $('#toggle_extra_startup_options').text("Hide extra options");
+            $('#toggle_extra_startup_options').text("Hide additional startup options");
         }
     });
     $('#popupoverlay').click(function(){
