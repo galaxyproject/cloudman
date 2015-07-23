@@ -1425,6 +1425,7 @@ class ConsoleManager(BaseConsoleManager):
                 log.warn("Cluster template not defined or no filesystem templates "
                          "defined for cluster type {0}".format(cluster_type))
             else:
+                log.debug("Using {0} cluster template.".format(cluster_template))
                 self.process_filesystem_templates(cluster_type, pss, storage_type,
                                                   cluster_template['filesystem_templates'])
         elif self.app.config.filesystem_templates:
@@ -1465,9 +1466,10 @@ class ConsoleManager(BaseConsoleManager):
                     log.debug("Adding a volume-based ({0}) file system."
                               .format(fs_template['volume_id']))
                     fs.add_volume(vol_id=fs_template['volume_id'])
-                elif 'type' in fs_template:
+                elif 'type' in fs_template or self.cluster_storage_type:
+                    fs_type = fs_template.get('type', None)
                     # TODO: This obviates the need for type archive. Instead, archive should be a volume "data_source"
-                    if 'archive' == fs_template['type'] and 'archive_url' in fs_template:
+                    if 'archive' == fs_type and 'archive_url' in fs_template:
                         log.debug("Creating an archive-based ({0}) file system "
                                   "named {1} with storage type {2} and pss {3}"
                                   .format(fs_template.get('archive_url'),
@@ -1489,7 +1491,8 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.error("Unknown storage type {0} for archive extraction."
                                       .format(storage_type))
-                    elif "volume" == fs_template['type']:
+                    elif "volume" == fs_type or \
+                         self.cluster_storage_type == 'volume':
                         size = max(fs_template.get('size', 10), fs_template.get('min_size', 1))
                         if pss > size:
                             size = pss
@@ -1506,27 +1509,27 @@ class ConsoleManager(BaseConsoleManager):
                                       "'{0}' of size {1}GB."
                                       .format(fs_template['name'], size))
                             fs.add_volume(size=size)
-                    elif "transient" == fs_template['type']:
-                        log.debug("Creating a transient file system named '{0}'".format(fs_template['name']))
-                        if 'data_source' in fs_template and \
-                           'archive' == fs_template['data_source'] and \
-                           'archive_url' in fs_template:
+                    elif "transient" == fs_type or \
+                         self.cluster_storage_type == "transient":
+                        log.debug("Creating a transient file system named '{0}'"
+                                  .format(fs_template['name']))
+                        if 'archive_url' in fs_template:
                             from_archive = {'url': fs_template['archive_url'],
                                             'md5_sum': fs_template.get('archive_md5', None)}
                             fs.add_transient_storage(from_archive=from_archive)
                         else:
                             fs.add_transient_storage()
-                    elif 'gluster' == fs_template['type'] and 'server' in fs_template:
+                    elif 'gluster' == fs_type and 'server' in fs_template:
                         log.debug("Creating a glusterfs-based filesystem named {0}"
                                   .format(fs_template['name']))
                         fs.add_glusterfs(fs_template['server'],
                                          mount_options=fs_template.get('mount_options', None))
-                    elif 'nfs' == fs_template['type'] and 'server' in fs_template:
+                    elif 'nfs' == fs_type and 'server' in fs_template:
                         log.debug("Creating an NFS-based filesystem named {0}"
                                   .format(fs_template['name']))
                         fs.add_nfs(fs_template['server'], None, None,
                                    mount_options=fs_template.get('mount_options', None))
-                    elif 's3fs' == (fs_template['type'] and 'bucket_name' in fs_template and
+                    elif 's3fs' == (fs_type and 'bucket_name' in fs_template and
                                     'bucket_a_key' in fs_template and 'bucket_s_key' in fs_template):
                         log.debug("Creating a bucket-based filesystem named {0}"
                                   .format(fs_template['name']))
@@ -1535,7 +1538,10 @@ class ConsoleManager(BaseConsoleManager):
                     else:
                         log.error("Format error in snaps.yaml file. Unrecognised or "
                                   "improperly configured type '{0}' for fs named: {1}"
-                                  .format(fs_template['type'], fs_template['name']))
+                                  .format(fs_type, fs_template['name']))
+                else:
+                    log.warning("Created {0} file system but no devices added?"
+                                .format(fs_template['name']))
                 self.activate_master_service(fs)
 
     @TestFlag(True)
