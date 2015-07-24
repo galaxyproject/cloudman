@@ -438,7 +438,7 @@ class CM(BaseController):
             else:
                 log_file = os.path.join(self.app.path_resolver.sge_cell, 'messages')
         elif service_name == 'CloudMan':
-            log_file = "paster.log"
+            log_file = "/var/log/cloudman/cloudman.log"
         elif service_name == 'GalaxyReports':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
         elif service_name == 'Pulsar':

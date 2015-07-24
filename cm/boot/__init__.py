@@ -28,7 +28,7 @@ from .object_store import _get_file_from_bucket, _key_exists_in_bucket
 
 logging.getLogger('boto').setLevel(logging.INFO)  # Only log boto messages >=INFO
 
-LOCAL_PATH = os.getcwd()
+LOG_PATH = '/var/log/cloudman'
 CM_HOME = '/mnt/cm'
 CM_BOOT_PATH = '/opt/cloudman/boot'
 USER_DATA_FILE = 'userData.yaml'
@@ -49,7 +49,7 @@ def _setup_global_logger():
     # console.setLevel(logging.INFO) # accepts >INFO levels
     console.setFormatter(formatter)
     log_file = logging.FileHandler(
-        os.path.join(LOCAL_PATH, "%s.log" % sys.argv[0]), 'w')  # log to a file
+        os.path.join(LOG_PATH, "%s.log" % os.path.basename(__file__)[:-3]), 'w')  # log to a file
     log_file.setLevel(logging.DEBUG)  # accepts all levels
     log_file.setFormatter(formatter)
     new_logger = logging.root
@@ -341,7 +341,8 @@ def _virtualenv_exists(venv_name='CM'):
     return False
 
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None,
+                            ex_options=None):
     """
     Compose a system level command used to control (i.e., start/stop) CloudMan.
     Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``
@@ -349,25 +350,31 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
     ``cm_venv_name`` exists and, if it does, the returned control command
     will include activation of the virtualenv. If the extra command ``ex_cmd``
     is provided, insert that command into the returned activation command.
+    If ``ex_options`` is provided, append those to the end of the command.
 
     Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``
     """
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2}"
-                                .format(cm_venv_name, CM_HOME, action, ex_cmd))
+        cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2} {4}"
+                                .format(cm_venv_name, CM_HOME, action, ex_cmd,
+                                        ex_options))
     else:
-        cmd = "cd {0}; {2}; sh run.sh {1}".format(CM_HOME, action, ex_cmd)
+        cmd = ("cd {0}; {2}; sh run.sh {1} {3}"
+               .format(CM_HOME, action, ex_cmd, ex_options))
     return cmd
 
 
 def _start_cm():
-    log.debug("Copying user data file from '%s' to '%s'"
-              % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE)))
-    shutil.copyfile(os.path.join(
-        CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
+    src = os.path.join(CM_BOOT_PATH, USER_DATA_FILE)
+    dest = os.path.join(CM_HOME, USER_DATA_FILE)
+    log.debug("Copying user data file from '%s' to '%s'".format(src, dest))
+    shutil.copyfile(src, dest)
+    os.chmod(dest, 0600)
     log.info("<< Starting CloudMan in %s >>" % CM_HOME)
     ex_cmd = "pip install -r {0}".format(os.path.join(CM_HOME, "requirements.txt"))
-    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
+    ex_options = "--log-file=/var/log/cloudman/cloudman.log"
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd,
+                                      ex_options=ex_options))
 
 
 def _stop_cm(clean=False):
