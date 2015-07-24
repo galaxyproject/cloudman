@@ -865,7 +865,7 @@ class ConsoleManager(BaseConsoleManager):
         """
         disk_status = {'total': "0", 'used': "0", 'used_percent': "0%",
                        'updated': False}
-        if self.initial_cluster_type == 'Galaxy':
+        if self.cluster_storage_type == 'volume':
             fs_svc = self.service_registry.get_active('galaxy')
         else:
             fs_svc = self.service_registry.get_active('transient_nfs')
@@ -1347,11 +1347,15 @@ class ConsoleManager(BaseConsoleManager):
 
         :type cluster_type: string
         :param cluster_type: Type of cluster being setup. Currently, accepting
-                             values ``Galaxy``, ``Data``, or ``SGE``
+                             values ``Galaxy`` or ``Data``.
 
         :type pss: int
         :param pss: Persistent Storage Size associated with data volumes being
                     created for the cluster
+
+        :type storage_type: string
+        :param storage_type: Type of storage to use. Choose from ``volume``
+                             or ``transient``.
         """
         self.cluster_status = cluster_status.STARTING
         self.initial_cluster_type = cluster_type
