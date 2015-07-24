@@ -10,30 +10,24 @@ vertical-align: top;
     <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space. <span id="storage_warning_plus" style="display:none;">Use the icon next to the disk status below to increase your disk size.</span></div>
     <%include file="bits/messages.html" />
     <div id="main_text">
-        %if initial_cluster_type is None:
-            Welcome to <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">CloudMan</a>.
-            This application allows you to manage this cloud cluster and the services provided within.
-            If this is your first time running this cluster, you will need to select an initial data volume
-            size. Once the data store is configured, default services will start and you will be able to add
-            and remove additional services as well as 'worker' nodes on which jobs are run.
-        %else:
-            Welcome to <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">CloudMan</a>.
-            This application allows you to manage this instance cloud cluster and the services
-            provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
-            use the controls below to manage services provided by the application.
-        %endif
+        This is CloudMan - an application that allows you to manage this cloud
+        cluster and the services provided within. Once the cluster configuration
+        has been completed (indicated by a notification popup), you can start
+        using the cluster and the services that were started. For more information
+        on the system features, see the
+        <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">wiki</a>.
     </div>
-    <div style="clear: both;"></div><br/>
+    <h3>Cluster controls</h3>
     <div style='position:relative;text-align:center;'>
         <ul style='display:inline;padding:0;'>
             <li style='display:inline;width:150px;'>
-                <a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
+                <a id="stop-button" original-title="Shut down..." class="action-button left-button">Shut down...</a>
             </li>
             <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Add Nodes..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
+                <a class="middle-button action-button" original-title="Add worker nodes..." id="scale_up_button">Add worker nodes <img src="/cloud/static/images/downarrow.png"></a>
             </li>
             <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Remove Nodes..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
+                <a class="middle-button action-button" original-title="Remove worker nodes..." id="scale_down_button">Remove worker nodes <img src="/cloud/static/images/downarrow.png"></a>
             </li>
             <li style='display:inline;width:150px;'>
                 <a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
@@ -41,7 +35,7 @@ vertical-align: top;
         </ul>
 
     <div id='cluster_scale_up_popup' class='cluster_scale_popup'>
-        <h4>Add nodes</h4>
+        <h4>Add worker nodes</h4>
         <form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
         <div class="form-row">
             <label>Number of nodes to start:</label>
@@ -75,7 +69,7 @@ vertical-align: top;
         </form>
     </div>
     <div id='cluster_scale_down_popup' class='cluster_scale_popup'>
-        <h4>Remove nodes</h4>
+        <h4>Remove worker nodes</h4>
         <form id="remove_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
             <div class="form-row">
                 <div id="num_nodes" class="form-row-input">
@@ -97,7 +91,7 @@ vertical-align: top;
         </form>
     </div>
 </div>
-<h2>Status</h2>
+<h3>Cluster status</h3>
 <div id="status_container">
     <div id="cluster_view">
         <div id="cluster_view_tooltip" style="text-align: center;"></div>
@@ -113,9 +107,9 @@ vertical-align: top;
             ##<span id="snap-status"></span><span id="snap-progress"></span>
         </td></tr>
         <tr><td><h4>Worker status: </h4></td><td>
-            <b>Idle</b>: <span id="status-idle">0</span>
-            <b>Available</b>: <span id="status-available">0</span>
             <b>Requested</b>: <span id="status-total">0</span>
+            <b>Available</b>: <span id="status-available">0</span>
+            <b>Idle</b>: <span id="status-idle">0</span>
         </td></tr>
         <tr><td><h4>Service status: </h4></td><td>
             Applications <span id="app-status"><i class="fa fa-circle"></i></span>
@@ -224,7 +218,7 @@ vertical-align: top;
             <p></p><b>Also delete this cluster?</b>
             <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
             If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted, including any shared clusters.</div>
-            <div style="padding-top: 20px;"><input type="submit" value="Yes, power off"></div>
+            <div style="padding-top: 20px;"><input type="submit" value="Yes, shut down"></div>
         </div>
     </form>
 </div>
@@ -279,9 +273,10 @@ vertical-align: top;
                     ## Select available instance types based on cloud name
                     <%include file="instance_types.mako" />
                 </div>
-                <br/><div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
+                <br/>
             </div>
         </div>
+        <div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
     </form>
 </div>
 <div class="box" id="adjust_autoscaling">
@@ -480,8 +475,10 @@ vertical-align: top;
 </div>
 <div id="log_container">
     <div id="log_container_header">
-        <h3>Cluster status log</h3>
-        <div id="log_container_header_img"><i class="fa fa-plus-circle fa-lg"></i></div>
+        <h3>Cluster info log <i class="fa fa-chevron-down"></i></h3>
+        <div id="log_container_header_img">
+            <span id="log-icon-txt">Collapse</span> <i class="fa fa-plus-circle fa-lg"></i>
+        </div>
     </div>
     <div id="log_container_body">
     <ul>
@@ -616,7 +613,7 @@ function update_ui(data){
             as_max = 0;
             $('#scale_up_button').removeClass('ab_disabled');
             $('#scale_up_button > img').show();
-            if (data.instance_status.requested == '0'){
+            if (data.instance_status.requested == 'a'){
                 $('#scale_down_button').addClass('ab_disabled');
                 $('#scale_down_button > img').hide();
             }else{
@@ -754,8 +751,18 @@ function get_shared_instances(){
 function show_log_container_body() {
     $('#log_container_header_img i').removeClass('fa-plus-circle');
     $('#log_container_header_img i').addClass('fa-minus-circle');
+    $('#log_container_header_img span').text('Collapse');
     $('#log_container_header').addClass('clicked');
     $('#log_container_body').slideDown('fast');
+}
+
+function hide_log_container_body() {
+    $('#log_container_header_img i').addClass('fa-plus-circle');
+    $('#log_container_header_img i').removeClass('fa-minus-circle');
+    $('#log_container_header_img span').text('Expand');
+    $('#log_container_body').slideUp('fast', function(){
+        $('#log_container_header').removeClass('clicked');
+    });
 }
 
 // This is called when worker nodes are added by the user.
@@ -873,19 +880,15 @@ $(document).ready(function() {
     $('.boxclose').click(function(){
         hidebox();
     });
-    $('#log_container_body').hide();
     $('#log_container_header').click(function() {
         if ($('#log_container_body').is(":hidden")){
             show_log_container_body();
         } else {
-            $('#log_container_header_img i').addClass('fa-plus-circle');
-            $('#log_container_header_img i').removeClass('fa-minus-circle');
-            $('#log_container_body').slideUp('fast', function(){
-                $('#log_container_header').removeClass('clicked');
-            });
+            hide_log_container_body();
         }
         return false;
     });
+    show_log_container_body();
 
     $('.generic_form').ajaxForm({
         type: 'POST',
