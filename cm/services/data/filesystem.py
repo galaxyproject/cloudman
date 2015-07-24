@@ -30,8 +30,8 @@ log = logging.getLogger('cloudman')
 class Filesystem(DataService):
     def __init__(self, app, name, svc_roles=[ServiceRole.GENERIC_FS], mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
-        log.debug("Instantiating Filesystem object {0} with service roles: {1}".format(
-            name, ServiceRole.to_string(svc_roles)))
+        log.debug("Instantiating Filesystem object {0} with service roles: '{1}'"
+                  .format(name, ServiceRole.to_string(svc_roles)))
         self.svc_roles = svc_roles
         # TODO: Introduce a new file system layer that abstracts/consolidates
         # potentially multiple devices under a single file system interface

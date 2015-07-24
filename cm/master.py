@@ -430,10 +430,10 @@ class ConsoleManager(BaseConsoleManager):
             self.userdata_cluster_type = self.app.config.get('initial_cluster_type', None)
             self.cluster_storage_type = self.app.config.get('cluster_storage_type', None)
             if self.initial_cluster_type is not None:
-                cc_detail = "Configuring a previously existing cluster of type {0}"\
+                cc_detail = "Configuring a previously existing cluster of type {0}."\
                     .format(self.initial_cluster_type)
             elif self.userdata_cluster_type:
-                cc_detail = "Configuring a predefined cluster of type {0}"\
+                cc_detail = "Configuring a predefined cluster of type {0}."\
                     .format(self.userdata_cluster_type)
                 self.app.manager.initialize_cluster_with_custom_settings(
                     self.userdata_cluster_type,
@@ -444,7 +444,7 @@ class ConsoleManager(BaseConsoleManager):
                 cc_detail = "This is a new cluster; waiting to configure the type."
                 self.cluster_status = cluster_status.WAITING
         else:
-            cc_detail = "Configuring an old existing cluster of type {0}"\
+            cc_detail = "Configuring an old existing cluster of type {0}."\
                 .format(self.initial_cluster_type)
         # Add master's private IP to /etc/hosts (workers need it and
         # master's /etc/hosts is being synced to the workers)
