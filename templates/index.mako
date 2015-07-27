@@ -1107,9 +1107,11 @@ $(document).ready(function() {
 
     $('#share-cluster').click(function() {
         $('#id-share-string').focus();
+        $('#id-galaxy-cluster-persistent').attr('checked', false);
     });
     $('#id-share-string').focus(function() {
         $('#share-cluster').attr('checked', 'checked');
+        $('#id-galaxy-cluster-persistent').attr('checked', false);
     });
     $('#close-snapshotoverlay').click(function(){
         $('#snapshotoverlay').hide();

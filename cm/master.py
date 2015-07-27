@@ -1314,6 +1314,8 @@ class ConsoleManager(BaseConsoleManager):
         :type share_string: string
         :param share_string: Share-string ID from a shared cluster (e.g.,
             ``cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00``).
+            If this parameter is set, storage type and size parameters are
+            ignored because they're defined by the cluster share.
         """
         log.debug("initialize_cluster_with_custom_settings: cluster_type={0}, "
                   "storage_type={1}, storage_size={2}"

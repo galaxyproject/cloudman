@@ -69,7 +69,12 @@ class CM(BaseController):
         :type share_string: string
         :param share_string: Share-string ID from a shared cluster (e.g.,
             ``cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00``).
+            If this parameter is set, storage type and size parameters are
+            ignored because they're defined by the cluster share.
         """
+        # log.debug("startup_opt: {0}; storage_type: {1}; storage_size: {2}; "
+        #           "share_string: {3}".format(startup_opt, storage_type,
+        #                                      storage_size, share_string))
         if isinstance(storage_size, list):
             # There are couple of fields on the web form with the same
             # name so they come in as a list; parse the list and get the value
