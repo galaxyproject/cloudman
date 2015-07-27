@@ -182,7 +182,7 @@ vertical-align: top;
         </div>
         <input type="hidden" name="fs_name" value="galaxy">
         <div style="padding-top: 15px;">
-            <input type="submit" value="Increase disk size"/>
+            <input type="submit" value="Increase disk size" class="btn btn-default"/>
         </div>
     </form>
 </div>
@@ -252,7 +252,9 @@ vertical-align: top;
         <div class="form-row">
             If autoscaling is turned off, the cluster will remain in it's current state and you will
             be able to manually add or remove nodes.
-            <div class="form-row"><input type="submit" value="Turn autoscaling off"/></div>
+        </div>
+        <div class="form-row">
+            <input type="submit" value="Turn autoscaling off" class="btn btn-default"/>
         </div>
     </form>
 </div>
@@ -295,7 +297,9 @@ vertical-align: top;
                 <br/>
             </div>
         </div>
-        <div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
+        <div class="form-row">
+            <input type="submit" value="Turn autoscaling on" class="btn btn-default" />
+        </div>
     </form>
 </div>
 <div class="box" id="adjust_autoscaling">
@@ -316,8 +320,10 @@ vertical-align: top;
                 <div class="form-row-input">
                     <input type="text" name="as_max_adj" id="as_max_adj" value="" size="10">
                 </div>
-                <div class="form-row"><input type="submit" value="Adjust autoscaling"/></div>
             </div>
+        </div>
+        <div class="form-row">
+            <input type="submit" value="Adjust autoscaling" class="btn btn-default" />
         </div>
     </form>
 </div>
@@ -373,7 +379,7 @@ vertical-align: top;
                 </div>
             </div>
             <div class="form-row">
-                <input type="submit" value="Share this instance" />
+                <input type="submit" value="Share this instance" class="btn btn-default" />
             </div>
         </form></div>
     </div>
@@ -489,7 +495,7 @@ vertical-align: top;
         </div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Choose configuration option" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose configuration option" id="start_cluster_submit_btn" class="btn btn-default" />
         </div>
         </form>
     </div>
