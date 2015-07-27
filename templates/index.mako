@@ -97,15 +97,34 @@ vertical-align: top;
         <div id="cluster_view_tooltip" style="text-align: center;"></div>
         <canvas id="cluster_canvas" width="150" height="120"></canvas>
     </div>
-    <table cellpadding="0" cellspacing="10">
-            %if cluster_name:
-                <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span>&nbsp;
-                <span><a id="share_a_cluster" title="Share this cluster instance"><i class="fa fa-share-alt-square fa-lg"></i></a></span></td></tr>
-            %endif
-        <tr><td><h4>Disk status: </h4></td><td>
-            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' title="Expand disk size"><i class="fa fa-plus-square fa-lg"></i></span>
+    <table cellpadding="0" cellspacing="10" class="status-table">
+        %if cluster_name:
+            <tr>
+                <td><h4>Cluster name: </h4></td>
+                <td>
+                    <span id="cluster_name">${cluster_name}</span>&nbsp;
+                    <span>
+                        <a id="share_a_cluster" title="Share this cluster instance">
+                            <span class="btn btn-default btn-sm">
+                                <i class="fa fa-share-alt-square fa-lg"></i> Share
+                            </span>
+                        </a>
+                    </span>
+                </td>
+            </tr>
+        %endif
+        <tr>
+            <td><h4>Disk status: </h4></td>
+            <td>
+                <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>)
+                <span id='expand_vol' title="Expand disk size">
+                    <span class="btn btn-default btn-sm">
+                        <i class="fa fa-plus-square fa-lg"></i> Grow
+                    </span>
+                </span>
             ##<span id="snap-status"></span><span id="snap-progress"></span>
-        </td></tr>
+            </td>
+        </tr>
         <tr><td><h4>Worker status: </h4></td><td>
             <b>Requested</b>: <span id="status-total">0</span>
             <b>Available</b>: <span id="status-available">0</span>
@@ -310,7 +329,7 @@ vertical-align: top;
             <p>Retrieving your shared cluster instances...</p>
             <div class="spinner">&nbsp;</div>
         </div>
-        <h3><a href="#">Share-an-instance</a></h3>
+        <h3><a href="#">Share this instance</a></h3>
         <div><form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
             <div class="form-row">
                 <p><b>This form allows you to share this cluster instance, at its current state,
@@ -351,8 +370,10 @@ vertical-align: top;
                             </div>
                         </div>
                     </div>
-                    <div class="form-row"><input type="submit" value="Share-an-instance"/></div>
                 </div>
+            </div>
+            <div class="form-row">
+                <input type="submit" value="Share this instance" />
             </div>
         </form></div>
     </div>

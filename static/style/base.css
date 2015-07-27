@@ -404,7 +404,7 @@ a.boxclose{
 
 #status_container {
     position:relative;
-    height:120px;
+    height: 130px;
     margin: 0 auto;
     width: 700px;
     padding:0px 15px 0 5px;
@@ -952,6 +952,58 @@ div.volume_expand_popup{
     user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
+}
+
+.btn {
+  display: inline-block;
+  padding: 6px 12px;
+  margin-bottom: 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.42857143;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  -ms-touch-action: manipulation;
+  touch-action: manipulation;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  background-image: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.btn-default {
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;
+}
+
+.btn-default:hover {
+    color: #333;
+    background-color: #e6e6e6;
+    border-color: #adadad;
+}
+
+.btn-success {
+    color: #fff;
+    background-color: #5cb85c;
+    border-color: #4cae4c;
+}
+
+.btn-success:hover {
+    color: #fff;
+    background-color: #449d44;
+    border-color: #398439;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+    border-radius: 3px;
 }
 
 .button-clicked{
@@ -1519,10 +1571,6 @@ fieldset {
 }
 
 /*Font-awesome tweks*/
-.fa-plus-square:hover, .fa-share-alt-square:hover {
-    color: #54B251;
-}
-
 .fa-lg {
     vertical-align: 0 !important;
 }
@@ -1538,4 +1586,13 @@ fieldset {
 
 .app-svc-row:hover{
     background-color: greenyellow;
+}
+
+.status-table {
+    border-spacing: 10px 4px;
+}
+
+.status-table td {
+    vertical-align: middle;
+    height: 27px;
 }
