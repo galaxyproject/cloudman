@@ -978,14 +978,14 @@ div.volume_expand_popup{
 
 .btn-default {
     color: #333;
-    background-color: #fff;
-    border-color: #ccc;
+    background-color: #f2f2f2;
+    border-color: #bfbfbf
 }
 
 .btn-default:hover {
     color: #333;
-    background-color: #e6e6e6;
-    border-color: #adadad;
+    background-color: #dedede;
+    border-color: #a1a1a1;;
 }
 
 .btn-success {
