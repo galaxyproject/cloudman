@@ -12,6 +12,7 @@ from glob import glob
 
 from boto.exception import EC2ResponseError
 
+from cm.util import misc
 from cm.util.misc import run
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -48,8 +49,6 @@ class Volume(BlockStorage):
         self.from_snapshot_id = from_snapshot_id
         self.from_archive = from_archive
         self.snapshot = None  # Snapshot object from which this volume was created
-        # A list of snapshot objects that were created from this volume
-        self._snapshots_created = []
         self.device = None
         # Static indicates if a volume is created from a snapshot AND can be
         # deleted upon cluster termination
@@ -64,6 +63,10 @@ class Volume(BlockStorage):
         elif from_snapshot_id or from_archive:
             log.debug("Volume service object created; creating the actual volume.")
             self.create()
+        # A list of boto Snapshot objects that were created from this volume
+        # Bootstrap the field with snaps that might have been created before
+        # this cluster was started.
+        self._derived_snapshots = self.derived_snapshots()
 
     def __str__(self):
         return str(self.volume_id)
@@ -106,25 +109,54 @@ class Volume(BlockStorage):
         Compose a list of dicts with each dict containing the snapshot ID,
         current snapshot progress and current snapshot status.
 
-        TODO: This method won't work on cluster restart because no ref to
-        created snapshots will exist. On cluster start, should probably
-        populate self._snapshots_created with any snaps that were derived
-        from this volume.
+        :rtype: list
+        :return: A list of dicts each containing the following keys:
+                ``snaps_id``, ``'snap_progress``, and ``snap_status``. An
+                empty list is returned if no snapshots were creted from this
+                volume.
         """
+        # log.debug("Getting snaps created for volume {0}".format(self.volume_id))
         snaps_info = []
-        for snap in self._snapshots_created:
+        for snap in self._derived_snapshots:
             snap_info = {}
             try:
-                snap.update()
-                snap_info['snap_id'] = snap.id
-                snap_info['snap_progress'] = snap.progress
-                snap_info['snap_status'] = snap.status
-                snaps_info.append(snap_info)
+                if snap.volume_id == self.volume_id:
+                    snap.update()
+                    snap_info['snap_id'] = snap.id
+                    snap_info['snap_progress'] = snap.progress
+                    snap_info['snap_status'] = snap.status
+                    snaps_info.append(snap_info)
             except EC2ResponseError, e:
                 log.warning("EC2ResponseError getting snapshot status: {0} "
                             "(code {1}; status {2})"
                             .format(e.message, e.error_code, e.status))
         return snaps_info
+
+    def derived_snapshots(self):
+        """
+        Get a list of snapshots that were created from this volume.
+
+        Inspect all snapshots under the current cloud account and filter the
+        ones that have have been created from this volume. Note that this method
+        relies on object fields internal to ``boto`` library.
+
+        :rtype: list
+        :return: A list of boto Snapshot objects derived from this volume
+        """
+        start_time = time.time()
+        log.debug("Getting snaps derived from volume {0}.".format(self.volume_id))
+        derived_snapshots = []
+        for snap in self.app.cloud_interface.get_all_snapshots():
+            try:
+                if snap.volume_id == self.volume_id:
+                    derived_snapshots.append(snap)
+            except EC2ResponseError, e:
+                log.warning("EC2ResponseError getting snapshot status: {0} "
+                            "(code {1}; status {2})"
+                            .format(e.message, e.error_code, e.status))
+        log.debug("Got snaps derived from volume {0} in {1} seconds: {2}"
+                  .format(self.volume_id, time.time() - start_time, derived_snapshots))
+        return derived_snapshots
 
     def update(self, vol_id):
         """
@@ -584,7 +616,7 @@ class Volume(BlockStorage):
             snapshot = self.volume.create_snapshot(description=snap_description)
             log.debug("Snapshot {0} from volume {1} created. Check the snapshot "
                       "status.".format(snapshot.id, self.volume_id))
-            self._snapshots_created.append(snapshot)
+            self._derived_snapshots.append(snapshot)
             # Add tags to the newly created snapshot
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
                                              self.app.config['cluster_name'])
@@ -661,6 +693,8 @@ class Volume(BlockStorage):
         else:
             self.fs.kind = 'volume'
         if self.attach():
+            us = os.path.join(self.app.path_resolver.galaxy_data, 'upload_store')
+            misc.remove(us)
             self.mount(self.fs.mount_point)
 
     def remove(self, mount_point, delete_vols=False, detach=True):
@@ -701,6 +735,7 @@ class Volume(BlockStorage):
         Mount this volume as a locally accessible file system and make it
         available over NFS
         """
+        log.debug("Mounting {0} for {1}".format(mount_point, self.fs.get_full_name()))
         for counter in range(30):
             if self.status == volume_status.ATTACHED:
                 if os.path.exists(mount_point):
