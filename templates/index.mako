@@ -64,7 +64,9 @@ vertical-align: top;
                     <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
                 </div>
             %endif
-            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
+            <div class="form-row">
+                <input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()" class="btn btn-default" />
+            </div>
         </div>
         </form>
     </div>
@@ -86,7 +88,9 @@ vertical-align: top;
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;
                 </div>
-                <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
+                <div class="form-row">
+                    <input type="submit" value="Remove Existing Nodes" class="btn btn-default" />
+                </div>
             </div>
         </form>
     </div>
@@ -237,7 +241,9 @@ vertical-align: top;
             <p></p><b>Also delete this cluster?</b>
             <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
             If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted, including any shared clusters.</div>
-            <div style="padding-top: 20px;"><input type="submit" value="Yes, shut down"></div>
+            <div style="padding-top: 20px;">
+                <input type="submit" value="Yes, shut down" class="btn btn-default" />
+            </div>
         </div>
     </form>
 </div>
@@ -640,7 +646,7 @@ function update_ui(data){
             as_max = 0;
             $('#scale_up_button').removeClass('ab_disabled');
             $('#scale_up_button > img').show();
-            if (data.instance_status.requested == 'a'){
+            if (data.instance_status.requested == '0'){
                 $('#scale_down_button').addClass('ab_disabled');
                 $('#scale_down_button > img').hide();
             }else{
