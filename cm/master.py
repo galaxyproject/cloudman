@@ -1821,7 +1821,9 @@ class ConsoleManager(BaseConsoleManager):
     @TestFlag([{"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-14--03-02/",
                 "snap": 'snap-743ddw12', "snap_progress": "100%", "visibility": 'Shared'},
                {"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-19--10-49/",
-               "snap": 'snap-gf69348h', "snap_progress": "22%", "visibility": 'Public'}])
+               "snap": 'snap-gf69348h', "snap_progress": "22%", "visibility": 'Public'},
+               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-19--10-49/",
+               "snap": 'Missing-ERROR', "snap_progress": '', "visibility": 'Public'}])
     @synchronized(s3_rlock)
     def get_shared_instances(self):
         """
@@ -1841,7 +1843,7 @@ class ConsoleManager(BaseConsoleManager):
                 for folder in folder_list:
                     # Get snapshot assoc. with the current shared cluster
                     tmp_pd = 'tmp_pd.yaml'
-                    progress = None
+                    progress = ''
                     if misc.get_file_from_bucket(
                         s3_conn, self.app.config['bucket_cluster'],
                             os.path.join(folder.name, 'persistent_data.yaml'), tmp_pd):
