@@ -272,8 +272,8 @@ def _start_nginx(ud):
         log.debug('nginx already running; reloading it')
         _run(log, '{0} -s reload'.format(nginx_executable))
     if (rmdir or (len(os.listdir(upload_store_dir)) == 0)):
-        _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
+        _run(log, 'rm -rf {0}'.format(upload_store_dir))
 
 def _fix_nginx_upload(ud):
     '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
