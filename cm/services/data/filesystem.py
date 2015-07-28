@@ -343,11 +343,14 @@ class Filesystem(DataService):
             # On AWS it is possible to snapshot a volume while it's still
             # attached so do that because it's faster
             detach = False
+        # Keep track of the Volume objects before removing them
+        volumes = self.volumes[:]
         self.__remove(delete_devices=False, detach=detach)
         snap_ids = []
         # Create a snapshot of the detached volumes
-        for vol in self.volumes:
+        for vol in volumes:
             snap_ids.append(vol.create_snapshot(snap_description=snap_description))
+            self.add_volume(vol_id=vol.volume_id)  # Add back the volume device
         # After the snapshot has begun, add the file system back as a cluster
         # service
         log.debug("{0} snapshot created; adding self to the list of master "
