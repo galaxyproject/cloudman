@@ -652,6 +652,25 @@ class EC2Interface(CloudInterface):
             log.error("EC2ResponseError creating a volume: {0}".format(ec2e))
         return None
 
+    def delete_volume(self, volume_id):
+        """
+        Delete an EBS volume.
+
+        :type volume_id: str
+        :param volume_id: The ID of the volume to be deleted.
+
+        :rtype: bool
+        :return: True if successful.
+        """
+        try:
+            if self.get_ec2_connection().delete_volume(volume_id):
+                log.debug("Deleted volume {0}".format(volume_id))
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError deleting volume {0}: {1}"
+                      .format(volume_id, ec2e))
+        log.debug("Failed to delete volume {0}".format(volume_id))
+        return False
+
     def get_all_volumes(self, volume_ids=None, filters=None):
         """
         Get all Volumes associated with the current credentials.
@@ -678,6 +697,25 @@ class EC2Interface(CloudInterface):
             volume_ids = [volume_ids]
         return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids,
                                                          filters=filters)
+
+    def delete_snapshot(self, snapshot_id):
+        """
+        Delete a volume snapshot.
+
+        :type snapshot_id: str
+        :param snapshot_id: The ID of the snapshot to be deleted.
+
+        :rtype: bool
+        :return: True if successful.
+        """
+        try:
+            if self.get_ec2_connection().delete_snapshot(snapshot_id):
+                log.debug("Deleted snapshot {0}".format(snapshot_id))
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError deleting snapshot {0}: {1}"
+                      .format(snapshot_id, ec2e))
+        log.debug("Failed to delete snapshot {0}".format(snapshot_id))
+        return False
 
     def get_all_snapshots(self, snapshot_ids=None, filters=None):
         """
@@ -739,7 +777,8 @@ class EC2Interface(CloudInterface):
         :rtype: dict
         :return: A dictionary with the following keys capturing the current
                  state of the snapshot: ``id``, ``progress``, ``status``,
-                 ``tags``, ``region_name``, and ``description``.
+                 ``tags``, ``region_name``, ``description``, ``volume_id``,
+                 and ``volume_size``.
                  If the snapshot wasn't found or in the case of
                  ``EC2ResponseError``, return an empty dict.
         """
@@ -749,7 +788,9 @@ class EC2Interface(CloudInterface):
             'status': None,
             'tags': {},
             'region_name': None,
-            'description': None
+            'description': None,
+            'volume_id': None,
+            'volume_size': None
         }
         snap = self.get_snapshot(snapshot_id)
         if snap:
@@ -761,7 +802,9 @@ class EC2Interface(CloudInterface):
                     'status': snap.status,
                     'tags': snap.tags,
                     'region_name': snap.region.name,
-                    'description': snap.description
+                    'description': snap.description,
+                    'volume_id': snap.volume_id,
+                    'volume_size': snap.volume_size
                 }
             except EC2ResponseError, e:
                 log.error("EC2ResponseError getting snapshot {0} info: {1}"

@@ -115,7 +115,7 @@ class Volume(BlockStorage):
                 ``snap_desc``. An empty list is returned if no snapshots were
                 created from this volume.
         """
-        log.debug("Getting snaps created for volume {0}".format(self.volume_id))
+        # log.debug("Getting snaps created for volume {0}".format(self.volume_id))
         snaps_info = []
         for snap in self._derived_snapshots:
             snap_info = {}
@@ -169,12 +169,8 @@ class Volume(BlockStorage):
         log.debug('Getting an update on volume {0} ({1})'.format(vol_id, type(vol_id)))
         if isinstance(vol_id, basestring):
             vols = None
-            try:
-                log.debug("Retrieving a reference to the Volume object for ID {0}".format(vol_id))
-                vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(volume_ids=(vol_id,))
-            except EC2ResponseError, e:
-                log.error("Trouble getting volume reference for volume {0}: {1}"
-                          .format(vol_id, e))
+            log.debug("Retrieving a reference to the Volume object for ID {0}".format(vol_id))
+            vols = self.app.cloud_interface.get_all_volumes(volume_ids=(vol_id,))
             if not vols:
                 log.error('Attempted to connect to a nonexistent volume {0}; '
                           'aborting.'.format(vol_id))
@@ -328,28 +324,27 @@ class Volume(BlockStorage):
         new volume will be of the same size as the snapshot.
         """
         if not self.size and not self.from_snapshot_id and not self.from_archive:
-            log.error('Cannot add a volume without a size, snapshot ID or archive url')
-            return None
+            log.error('Cannot add a {0} volume without a size, snapshot ID or '
+                      'archive url; aborting.'.format(self.fs))
+            return False
         # If creating the volume from a snaphost, get the expected volume size
         if self.from_snapshot_id and not self.volume:
-            snap = self.app.cloud_interface.get_all_snapshots([self.from_snapshot_id])
-            if not snap:
+            self.snapshot = self.app.cloud_interface.get_snapshot(self.from_snapshot_id)
+            if not self.snapshot:
                 log.error("Did not retrieve Snapshot object for {0}; aborting."
                           .format(self.from_snapshot_id))
-                return None
-            else:
-                self.snapshot = snap[0]
+                return False
             # We need a size to be able to create a volume, so if none
             # is specified, use snapshot size
             if not self.size:
-                try:
-                    self.size = self.snapshot.volume_size
-                except EC2ResponseError, e:
-                    log.error("Error retrieving snapshot %s size: %s" % (self.from_snapshot_id, e))
+                si = self.app.cloud_interface.get_snapshot_info(self.from_snapshot_id)
+                self.size = si.get('volume_size')
         # If it does not already exist, create the volume
         if self.status == volume_status.NONE:
-            log.debug("Creating a new volume of size '%s' in zone '%s' from snapshot '%s'"
-                      % (self.size, self.app.cloud_interface.get_zone(), self.from_snapshot_id))
+            log.debug("Creating a new volume of size '%s' in zone '%s' from "
+                      "snapshot '%s' for %s."
+                      % (self.size, self.app.cloud_interface.get_zone(),
+                         self.from_snapshot_id, self.fs))
             self.volume = self.app.cloud_interface.create_volume(
                 self.size,
                 self.app.cloud_interface.get_zone(),
@@ -363,40 +358,37 @@ class Volume(BlockStorage):
                              self.app.cloud_interface.get_zone(), self.fs))
             else:
                 log.warning("No volume object - did not create a volume?")
+                return False
         else:
-            log.debug("Tried to create a volume but it is in state '%s' (volume ID: %s)" %
-                      (self.status, self.volume_id))
+            log.debug("Tried to create a volume for %s but it is in state '%s' "
+                      "(volume ID: %s)" % (self.fs, self.status, self.volume_id))
+            return False
         # Add tags to newly created volumes (do this outside the inital if/else
         # to ensure the tags get assigned even if using an existing volume vs.
         # creating a new one)
-        try:
-            self.app.cloud_interface.add_tag(
-                self.volume, 'clusterName', self.app.config['cluster_name'])
-            self.app.cloud_interface.add_tag(
-                self.volume, 'bucketName', self.app.config['bucket_cluster'])
-            if filesystem:
-                self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
-                self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
-                self.app.cloud_interface.add_tag(self.volume, 'roles',
-                                                 ServiceRole.to_string(self.fs.svc_roles))
-        except EC2ResponseError, e:
-            log.error("Error adding tags to volume: %s" % e)
+        self.app.cloud_interface.add_tag(
+            self.volume, 'clusterName', self.app.config['cluster_name'])
+        self.app.cloud_interface.add_tag(
+            self.volume, 'bucketName', self.app.config['bucket_cluster'])
+        if filesystem:
+            self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
+            self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
+            self.app.cloud_interface.add_tag(self.volume, 'roles',
+                                             ServiceRole.to_string(self.fs.svc_roles))
+        return True
 
     def delete(self):
         """
-        Delete this volume.
+        Delete the volume device.
         """
-        try:
-            if self.volume:
-                volume_id = self.volume_id
-                self.volume.delete()
-                log.debug("Deleted volume '%s'" % volume_id)
+        if self.volume:
+            if self.app.cloud_interface.delete_volume(self.volume_id):
+                log.debug("Deleted volume '%s'" % self.volume_id)
                 self.volume = None
-            else:
-                log.debug("No volume object so cannot delete it; ignoring.")
-        except EC2ResponseError, e:
-            log.error("Error deleting volume '%s' - you should delete it manually "
-                      "after the cluster has shut down: %s" % (self.volume_id, e))
+                self.volume_id = None
+                return True
+        log.debug("No volume object so cannot delete it; ignoring.")
+        return False
 
     # attachment helper methods
 

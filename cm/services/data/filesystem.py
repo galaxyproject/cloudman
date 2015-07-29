@@ -8,8 +8,6 @@ import commands
 import threading
 from datetime import datetime
 
-from boto.exception import EC2ResponseError
-
 from cm.util import misc
 from cm.util import Time
 from cm.util.misc import run
@@ -48,7 +46,7 @@ class Filesystem(DataService):
         self.size_used = None  # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
-        self.mount_point = mount_point if mount_point is not None else os.path.join(
+        self.mount_point = mount_point if mount_point else os.path.join(
             self.app.path_resolver.mount_root, self.name)
         # Used to indicate a need to grow/expand the file system;
         # This is a composite dict and the implementatin logic depends on the
@@ -66,7 +64,7 @@ class Filesystem(DataService):
         """
         Return a descriptive name of this file system
         """
-        return "FS object for {0}".format(self.name)
+        return "{0} FS".format(self.name)
 
     def get_details(self):
         """
@@ -206,7 +204,8 @@ class Filesystem(DataService):
             # Remove the element from the list after the device has been removed
             # This is done so multiple threads do not potentially try removing
             # the same volume twice
-            self.volumes.remove(vol)
+            if vol in self.volumes:
+                self.volumes.remove(vol)
         for b in self.buckets:
             b.unmount()
         for t in self.transient_storage:
@@ -284,7 +283,7 @@ class Filesystem(DataService):
         #           .format(self.get_full_name()))
         snap_ids = self.grow.get('snap_ids', [])
         for snap_id in snap_ids:
-            ss = self.app.cloud_interface.get_snapshot_status(snap_id)
+            ss = self.app.cloud_interface.get_snapshot_info(snap_id).get('status')
             if ss == 'completed':
                 log.debug("File system {0} snapshot {1} completed."
                           .format(self.get_full_name(), snap_id))
@@ -309,26 +308,17 @@ class Filesystem(DataService):
                    % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
             return False
         # Delete old, smaller volumes since everything seems to have gone ok
-        ec2_conn = self.app.cloud_interface.get_ec2_connection()
         for vol in self.grow.get('smaller_vol_ids', []):
-            try:
-                ec2_conn.delete_volume(vol.volume_id)
-                log.debug("Deleted smaller volume {0} after resizing".format(
-                    vol.volume_id))
-            except EC2ResponseError, e:
-                log.error("Error deleting smaller volume '%s' after resizing: %s"
-                          % (vol.volume_id, e))
+            self.app.cloud_interface.delete_volume(vol.volume_id)
+            log.debug("Deleted smaller volume {0} after resizing".format(
+                      vol.volume_id))
         # If specified by user, delete the snapshot used during the
         # resizing process
         if self.grow['delete_snap'] is True:
-            try:
-                for snap_id in self.grow.get('snap_ids', []):
-                    ec2_conn.delete_snapshot(snap_id)
-                    log.debug("Deleted temporary snapshot {0} created and used during resizing"
-                              .format(snap_id))
-            except EC2ResponseError, e:
-                log.error("Error deleting a snapshot after resizing '%s': %s"
-                          % (self.get_full_name(), e))
+            for snap_id in self.grow.get('snap_ids', []):
+                self.app.cloud_interface.delete_snapshot(snap_id)
+                log.debug("Deleted temporary snapshot {0} created and used during resizing"
+                          .format(snap_id))
         self.grow = {}  # Reset the grow flag
 
     def create_snapshot(self, snap_description=None):
@@ -384,10 +374,10 @@ class Filesystem(DataService):
             # filtering w/ boto is supported only with ec2
             f = {'attachment.device': device, 'attachment.instance-id':
                  self.app.cloud_interface.get_instance_id()}
-            vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            vols = self.app.cloud_interface.get_all_volumes(filters=f)
         else:
             vols = []
-            all_vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+            all_vols = self.app.cloud_interface.get_all_volumes()
             for vol in all_vols:
                 if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id() and \
                         vol.attach_data.device == device:
