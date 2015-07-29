@@ -1000,19 +1000,22 @@ def move(source, destination):
 
 def remove(path):
     """
-    Remove (delete) the file ``path``.
+    Remove (delete) the file or directory at ``path``.
 
-    A convenience wrapper for python's ``os.remove`` method that simply
-    wrapps the call in a try/catch block.
+    A convenience wrapper for python's ``os.remove`` os ``shutil.rmtree``
+    methods that simply wrapps the call in a try/catch block.
     """
     try:
-        if os.path.exists(path):
+        if os.path.isdir(path):
+            log.debug('Removing directory {0}'.format(path))
+            shutil.rmtree(path)
+        elif os.path.exists(path):
             log.debug('Removing file {0}'.format(path))
             os.remove(path)
     except IOError, ioe:
-        log.error("IOError removing {0}: {2}".format(path, ioe))
+        log.error("IOError removing {0}: {1}".format(path, ioe))
     except OSError, ioe:
-        log.error("OSError removing {0}: {2}".format(path, ioe))
+        log.error("OSError removing {0}: {1}".format(path, ioe))
 
 
 def add_to_etc_hosts(ip_address, hosts=[]):
