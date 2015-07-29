@@ -734,7 +734,8 @@ class CM(BaseController):
             return False
 
     @expose
-    def share_a_cluster(self, trans, visibility, user_ids="", canonical_ids=""):
+    def share_a_cluster(self, trans, visibility, user_ids="", canonical_ids="",
+                        share_desc=""):
         if visibility == 'shared' and user_ids != "" and canonical_ids != "":
             # Check provided values
             try:
@@ -760,7 +761,7 @@ class CM(BaseController):
             log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', "
                       "canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
             return self.instance_state_json(trans)
-        self.app.manager.share_a_cluster(u_ids, c_ids)
+        self.app.manager.share_a_cluster(u_ids, c_ids, share_desc[:255])
         return self.instance_state_json(trans, no_json=True)
 
     @expose

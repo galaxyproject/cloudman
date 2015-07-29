@@ -321,6 +321,7 @@ div.form-row-input > input{max-width:300px;}
     background-repeat:no-repeat;
     display:inline-block;
     width:20px;
+    line-height: 15px;
 }
 
 .del_scf:hover {
@@ -789,9 +790,18 @@ div.report-row label
 .shared_instances_table {
     width: 100%;
     font-size: 11px;
+    border-collapse: collapse;
 }
 .shared_instances_table th {
     text-align: left;
+}
+.shared-instance-desc {
+    word-wrap: break-word;
+    padding-bottom: 10px;
+}
+
+.shared-instance-ttr {
+    border-top: solid 1px #888;
 }
 
 table.colored

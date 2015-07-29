@@ -363,8 +363,18 @@ vertical-align: top;
                 process is complete, services on your cluster will automatically resume.</p>
                 <div class="form-row">
                     <div id="public_private">
-                        <input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">Public</input>
-                        <input type="radio" id="shared_visibility" name="visibility" value="shared">Shared</input>
+                        <input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">
+                            Public
+                        </input>
+                        <input type="radio" id="shared_visibility" name="visibility" value="shared">
+                            Shared
+                        </input>
+                    </div>
+                    <div>
+                        <label for="id-share-desc" style="line-height: 25px;">
+                            Optional cluster share description (less than 255 characters)
+                        <label><br/>
+                        <input type="text" id="id-share-desc" name="share_desc" value="" size="100" />
                     </div>
                     <div id="user_permissions" style="display: none;">
                         <div id="add_user">
@@ -373,7 +383,7 @@ vertical-align: top;
                             These numbers can be obtained from the bottom of the
                             AWS Security Credentials page, under <i>Account Identifiers</i> section.</p>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS account numbers:</span>
-                                <input type="text" id="user_ids" name="user_ids" size="40" value="" />
+                                <input type="text" id="user_ids" name="user_ids" size="0" value="" />
                                 <span class="share_cluster_help_text">CSV numbers</span>
                             </div>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
@@ -760,7 +770,7 @@ function get_shared_instances(){
                     table.append(tr);
                     for (n=0; n<(data.shared_instances).length; n++) {
                         var fn = function(i) {
-                            var tr = $("<tr/>");
+                            var tr = $("<tr class='shared-instance-ttr' />");
                             tr.append($('<td/>').text(data.shared_instances[i].visibility));
                             tr.append($('<td/>').text(data.shared_instances[i].bucket));
                             tr.append($('<td/>').text(data.shared_instances[i].snap_progress));
@@ -768,8 +778,12 @@ function get_shared_instances(){
                             anchor = $("<a>&nbsp;</a>").click(function () {
                                 show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
                             }).addClass("del_scf");
-                            tr.append($('<td/ style="padding-left: 15px;">').html(anchor));
+                            tr.append($('<td style="padding-left: 15px;" />').html(anchor));
                             table.append(tr);
+                            var tr2 = $('<tr/>');
+                            tr2.append($('<th/>'));
+                            tr2.append($('<td colspan="4" class="shared-instance-desc" />').text(data.shared_instances[i].snap_desc));
+                            table.append(tr2);
                         };
                         fn(n);
                     }

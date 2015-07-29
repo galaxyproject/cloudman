@@ -111,11 +111,11 @@ class Volume(BlockStorage):
 
         :rtype: list
         :return: A list of dicts each containing the following keys:
-                ``snaps_id``, ``'snap_progress``, and ``snap_status``. An
-                empty list is returned if no snapshots were creted from this
-                volume.
+                ``snaps_id``, ``'snap_progress``, ``snap_status``, and
+                ``snap_desc``. An empty list is returned if no snapshots were
+                created from this volume.
         """
-        # log.debug("Getting snaps created for volume {0}".format(self.volume_id))
+        log.debug("Getting snaps created for volume {0}".format(self.volume_id))
         snaps_info = []
         for snap in self._derived_snapshots:
             snap_info = {}
@@ -125,6 +125,7 @@ class Volume(BlockStorage):
                     snap_info['snap_id'] = snap.id
                     snap_info['snap_progress'] = snap.progress
                     snap_info['snap_status'] = snap.status
+                    snap_info['snap_desc'] = snap.description
                     snaps_info.append(snap_info)
             except EC2ResponseError, e:
                 log.warning("EC2ResponseError getting snapshot status: {0} "
@@ -357,9 +358,9 @@ class Volume(BlockStorage):
                 # When creating from a snapshot in Euca, volume.size may be None
                 self.size = int(self.volume.size or 0)
                 log.debug("Created a new volume of size '%s' from snapshot '%s' "
-                          "with ID '%s' in zone '%s'"
+                          "with ID '%s' in zone '%s' for %s."
                           % (self.size, self.from_snapshot_id, self.volume_id,
-                             self.app.cloud_interface.get_zone()))
+                             self.app.cloud_interface.get_zone(), self.fs))
             else:
                 log.warning("No volume object - did not create a volume?")
         else:
@@ -611,11 +612,11 @@ class Volume(BlockStorage):
         Create a point-in-time snapshot of the current volume, optionally
         specifying a description for the snapshot.
         """
-        log.info("Initiating creation of a snapshot for volume '%s'" % self.volume_id)
+        log.debug("Initiating creation of a snapshot for volume '%s'" % self.volume_id)
         try:
             snapshot = self.volume.create_snapshot(description=snap_description)
-            log.debug("Snapshot {0} from volume {1} created. Check the snapshot "
-                      "status.".format(snapshot.id, self.volume_id))
+            log.info("Created snapshot {0} from volume {1} ({2}). Check the snapshot "
+                     "for status.".format(snapshot.id, self.volume_id, self.fs))
             self._derived_snapshots.append(snapshot)
             # Add tags to the newly created snapshot
             self.app.cloud_interface.add_tag(snapshot, 'clusterName',
@@ -628,36 +629,6 @@ class Volume(BlockStorage):
             log.error("Error creating a snapshot from volume '%s': %s" %
                       (self.volume_id, ex))
             return None
-        # if snapshot:
-        #     try:
-        #         while snapshot.status != 'completed':
-        #             log.debug("Snapshot '%s' progress: '%s'; status: '%s'"
-        #                       % (snapshot.id, snapshot.progress, snapshot.status))
-        #             self.snapshot_progress = snapshot.progress
-        #             self.snapshot_status = snapshot.status
-        #             time.sleep(6)
-        #             snapshot.update()
-        #         log.info("Completed creation of a snapshot for volume '%s'; "
-        #                  "snap id: '%s'" % (self.volume_id, snapshot.id))
-        #     except SystemExit, exc:
-        #         # FIXME: this is an attempt at a 'patch' not to cripple a cluster
-        #         # (Paste will kill threads that run for more than 30 mins so
-        #         # catch an exception here and give back the control to a user)
-        #         log.error("SystemExit while creating snapshot {0}; ignoring: "
-        #                   "{1}".format(snapshot.id, exc))
-        #     self.app.cloud_interface.add_tag(snapshot, 'clusterName',
-        #                                      self.app.config['cluster_name'])
-        #     self.app.cloud_interface.add_tag(
-        #         self.volume, 'bucketName', self.app.config['bucket_cluster'])
-        #     self.app.cloud_interface.add_tag(self.volume, 'filesystem', self.fs.name)
-        #     self.snapshot_progress = None  # Reset because of the UI
-        #     self.snapshot_status = None  # Reset because of the UI
-        #     self.snapshots_created.append(snapshot.id)
-        #     return str(snapshot.id)
-        # else:
-        #     log.error(
-        #         "Could not create snapshot from volume '%s'" % self.volume_id)
-        #     return None
 
     def get_from_snap_id(self):
         """
@@ -695,6 +666,7 @@ class Volume(BlockStorage):
         if self.attach():
             us = os.path.join(self.app.path_resolver.galaxy_data, 'upload_store')
             misc.remove(us)
+            log.debug("Volume attached, mounting {0}".format(self.fs.mount_point))
             self.mount(self.fs.mount_point)
 
     def remove(self, mount_point, delete_vols=False, detach=True):
