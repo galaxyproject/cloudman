@@ -813,7 +813,12 @@ class ConsoleManager(BaseConsoleManager):
                 hexsha = repo.head.commit.hexsha
                 authored_date = time.strftime("%d %b %Y", time.gmtime(
                     repo.head.commit.authored_date))
-                active_branch = repo.active_branch.name
+                try:
+                    active_branch = repo.active_branch.name
+                except TypeError, te:
+                    log.debug("TypeError getting active git branch name: {0}"
+                              .format(te))
+                    active_branch = None
                 repo_url = _get_remote_url(repo)
                 return {'hexsha': hexsha, 'authored_date': authored_date,
                         'active_branch': active_branch, 'repo_url': repo_url}
