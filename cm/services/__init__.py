@@ -367,7 +367,7 @@ class Service(object):
                 if remove_dependency and dependency in failed_prereqs:
                     failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
-                log.info("{0} service prerequisites OK; starting the service".format(
+                log.info("{0} service prerequisites OK; starting the service.".format(
                     self.get_full_name()))
                 self.start()
                 return True

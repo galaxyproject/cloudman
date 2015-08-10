@@ -763,7 +763,7 @@ function get_shared_instances(){
                     table.addClass("shared_instances_table");
                     tr = $('<tr/>');
                     tr.append($('<th/>').text("Visibility"));
-                    tr.append($('<th/>').text("Share string ID"));
+                    tr.append($('<th/>').text("Share string ID and share description"));
                     tr.append($('<th/>').text("Status"));
                     tr.append($('<th/>').text("Snapshot ID"));
                     tr.append($('<th/>').text("Delete?"));
