@@ -375,14 +375,18 @@
                 padding: 2px 2px 2px 2px;
             }
 
-            /* The percentage */
+            /* Show the numerical FS usage values within the meter tag */
             #fs-meter-<%= name %>:after {
-                content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+                <% if (size_used != "N/A") { %>
+                    content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+                <% } else { %>
+                    content: "Not available";
+                <% } %>
             }
         </style>
         <% if (status === "Available" || status === "Running") { %>
             <meter id="fs-meter-<%= name %>" class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
-                <%= size_used %>/<%= size %> (<%= size_pct %>%)
+                ##     <%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
             <% if (snapshot_status != "" && snapshot_status != null) { %>
