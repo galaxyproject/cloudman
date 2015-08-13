@@ -279,7 +279,7 @@ class ConsoleManager(BaseConsoleManager):
                              (self.app.config.get('default_bucket_url') or
                               self.app.config['bucket_default'])))
         else:
-            log.error("Couldn't get snaps.yaml at all! Will not be able to create Galaxy Data and Index volumes.")
+            log.debug("Couldn't get legacy snaps.yaml from default bucket. Assuming it's present in user data, since user data will override it anyway.")
             return []
 
         snaps_file = misc.load_yaml_file(snaps_file)
