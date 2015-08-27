@@ -224,23 +224,48 @@ vertical-align: top;
 <div class="overlay" id="overlay" style="display:none"></div>
 <div class="box" id="power_off">
     <a class="boxclose"></a>
-    <h1>EC2 Cluster Configuration</h1>
+    <h1>Shut down</h1>
     <form id="power_cluster_off_form" class="generic_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
         <div class="form-row">
-            <label>Are you sure you want to power the cluster off?</label>
-            <p>This action will shut down all services on the cluster and terminate
-            any worker nodes (instances) associated with this cluster. Unless you
-            choose to have the cluster deleted, all of your data will be preserved
-            beyond the life of this instance. Next time you wish to start this same
-            cluster, simply use the same user data (i.e., cluster name and credentials)
-            and CloudMan will reactivate your cluster with your data.</p>
-            <label for="terminate_master_instance"><b>Automatically terminate the master instance?</b></label>
-            <div><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
-            <label for="terminate_master_instance">If checked, this master instance will automatically terminate after all services have been shut down.
-            If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
-            <p></p><b>Also delete this cluster?</b>
-            <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
-            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted, including any shared clusters.</div>
+            <h2>Are you sure you want to power off this cluster?</h2>
+            <p>
+                This action will stop all services on the cluster and terminate
+                any worker nodes associated with this cluster.
+            </p>
+            % if cluster_storage_type != 'transient':
+                <p>
+                    Unless you choose to have the cluster deleted, all of your
+                    data will be saved beyond the life of this instance. Next
+                    time you wish to start this same cluster, use the same
+                    access credentials and the same cluster name and CloudMan
+                    will reactivate your cluster with your data.
+                </p>
+            %else:
+                <p>
+                    This cluster is using transient storage and consequently
+                    it cannot be saved. Once terminated, all data will be lost.
+                </p>
+            %endif
+            <label for="terminate_master_instance">
+                <b>Automatically terminate the master instance?</b>
+            </label>
+            <div>
+                <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked />
+                <label for="terminate_master_instance">
+                    If checked, this master instance will automatically terminate
+                    after all services have been stopped. If not checked, you should
+                    maually terminate this instance from the cloud's dashboard after
+                    all services here have been shut down.
+                </label>
+            </div>
+            % if cluster_storage_type != 'transient':
+                <p></p><b>Also delete this cluster?</b>
+                <div>
+                    <input type="checkbox" name="delete_cluster" id="delete_cluster" />
+                    If checked, this cluster will be deleted. <b>This action is irreversible!</b>
+                    All your data will be deleted, including any shared clusters.
+                </div>
+            %endif
             <div style="padding-top: 20px;">
                 <input type="submit" value="Yes, shut down" class="btn btn-default" />
             </div>

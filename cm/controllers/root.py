@@ -43,7 +43,8 @@ class CM(BaseController):
                                        instance_types=instance_types,
                                        system_message=system_message,
                                        default_data_size=self.app.manager.get_default_data_size(),
-                                       transient_fs_size=self.app.manager.transient_fs_size())
+                                       transient_fs_size=self.app.manager.transient_fs_size(),
+                                       cluster_storage_type=self.app.manager.cluster_storage_type)
 
     @expose
     @TestFlag({})
