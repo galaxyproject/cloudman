@@ -170,7 +170,7 @@ class Volume(BlockStorage):
         if isinstance(vol_id, basestring):
             vols = None
             log.debug("Retrieving a reference to the Volume object for ID {0}".format(vol_id))
-            vols = self.app.cloud_interface.get_all_volumes(volume_ids=(vol_id,))
+            vols = self.app.cloud_interface.get_all_volumes(volume_ids=[vol_id])
             if not vols:
                 log.error('Attempted to connect to a nonexistent volume {0}; '
                           'aborting.'.format(vol_id))

@@ -967,6 +967,16 @@ def get_hostname():
         return ""
 
 
+def chmod(path, mode):
+    """
+    Change the mode of the file given by ``path`` to the numeric ``mode``.
+    """
+    try:
+        os.chmod(path, mode)
+    except OSError, ose:
+        log.error("OSError setting mode {0} on file {1}: {2}".format(mode, path, ose))
+
+
 def make_dir(path, owner=None):
     """Check if a directory under ``path`` exists and create it if it does not."""
     log.debug("Checking existence of directory '%s'" % path)
