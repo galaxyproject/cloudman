@@ -55,6 +55,9 @@ class TransientStorage(BlockStorage):
         """
         log.debug("Adding a transient FS at {0}".format(self.fs.mount_point))
         misc.make_dir(self.fs.mount_point, owner='ubuntu')
+        # Make the default instance transient storage group writable
+        if self.fs.name == 'transient_nfs':
+            misc.chmod(self.fs.mount_point, 0775)
         # Set the device ID
         cmd = "df %s | grep -v Filesystem | awk '{print $1}'" % self.fs.mount_point
         self.device = misc.getoutput(cmd)
