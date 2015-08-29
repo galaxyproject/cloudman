@@ -1341,14 +1341,12 @@ class ConsoleManager(BaseConsoleManager):
                     self.app.manager.init_shared_cluster(shared_bucket.strip())
                     return None
                 else:
-                    msg = "For a shared cluster, you must provide shared bucket "\
-                        "name; cluster configuration not set."
+                    log.warning("For a shared cluster, you must provide shared "
+                                "bucket name; cluster configuration not set.")
             else:
                 log.error("Unrecognized cluster type specified: {0}?".format(startup_opt))
         else:
-            msg = "Cluster already set to type '%s'" % self.app.manager.initial_cluster_type
-        log.warning(msg)
-        return msg
+            log.debug("Cluster already set to type '%s'" % self.app.manager.initial_cluster_type)
 
     @TestFlag(None)
     def init_cluster(self, cluster_type, pss=0, storage_type='volume'):
