@@ -64,6 +64,10 @@ class GalaxyService(ApplicationService):
         log.info("Removing '%s' service" % self.name)
         super(GalaxyService, self).remove(synchronous)
         self.state = service_states.SHUTTING_DOWN
+        # Reset the number of restart attempts
+        log.debug("Resetting Galaxy remaining_start_attempts to {0}."
+                  .format(self.remaining_start_attempts))
+        self.remaining_start_attempts = NUM_START_ATTEMPTS
         self.manage_galaxy(False)
 
     def restart(self):
@@ -146,9 +150,14 @@ class GalaxyService(ApplicationService):
                 if misc.run(start_command):
                     self.remaining_start_attempts -= 1
                 elif self.remaining_start_attempts > 0:
+                    log.debug("It seems Galaxy failed to start; will atempt to "
+                              "auto-restart (up to {0} more time(s))."
+                              .format(self.remaining_start_attempts))
                     self.state = service_states.UNSTARTED
                     self.last_state_change_time = datetime.utcnow()
                 else:
+                    log.debug("It seems Galaxy failed to start; setting service "
+                              "state to {0}.".format(service_states.ERROR))
                     self.state = service_states.ERROR
                     self.last_state_change_time = datetime.utcnow()
             else:
