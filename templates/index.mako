@@ -243,7 +243,7 @@ vertical-align: top;
             %else:
                 <p>
                     This cluster is using transient storage and consequently
-                    it cannot be saved. Once terminated, all data will be lost.
+                    it cannot be saved. Once shut down, all data will be lost.
                 </p>
             %endif
             <label for="terminate_master_instance">
