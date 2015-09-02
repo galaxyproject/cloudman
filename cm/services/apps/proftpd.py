@@ -73,7 +73,8 @@ class ProFTPdService(ApplicationService):
             'galaxyftp_user_name': 'galaxyftp',
             'psql_galaxyftp_password': gftp_pwd,
             'galaxy_db_port': self.app.path_resolver.psql_db_port,
-            'galaxyFS_base_path': self.app.path_resolver.galaxy_data
+            'galaxyFS_base_path': self.app.path_resolver.galaxy_data,
+            'public_ip_address': self.app.cloud_interface.get_public_ip()
         }
         template = proftpd_conf_template.substitute(params)
         # Write out the config file

@@ -1,6 +1,7 @@
 ServerName                      "Galaxy CloudMan FTP"
 ServerType                      standalone
 DefaultServer                   on
+MasqueradeAddress               $public_ip_address
 
 # Port 21 is the standard FTP port.
 Port                            21
