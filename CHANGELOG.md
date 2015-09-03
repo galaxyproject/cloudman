@@ -1,9 +1,9 @@
-### CloudMan - August 2015.
+### CloudMan - September 3, 2015.
 
 #### Major updates
 * The cloud component build process has been (re)automated, this time reusable using Ansible roles and a composite playbook. The playbook for building your own version, on Amazon or OpenStack is available here https://github.com/galaxyproject/galaxy-cloudman-playbook
 
-* Created documentation for building private/custom instances https://wiki.galaxyproject.org/CloudMan/Building
+* Created documentation for building private/custom instances https://wiki.galaxyproject.org/CloudMan/Building and an all new Getting Started section https://wiki.galaxyproject.org/CloudMan/GettingStarted
 
 * Added a bunch of new documentation to the wiki: https://wiki.galaxyproject.org/CloudMan
 
@@ -53,6 +53,8 @@
 * On AWS, started using HVM virtualization, hence enabling use of additional instance types (e.g., big memory machines (type r3))
 
 * The boot script execution path has changed to `/opt/cloudman/boot`
+
+* bcftools are now part of the base image
 
 * Disabled existing Hadoop and HTCondor services
 
