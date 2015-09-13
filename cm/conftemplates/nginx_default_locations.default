@@ -39,7 +39,7 @@
             auth_pam    "Secure Zone";
             auth_pam_service_name   "nginx";
             rewrite ^/vnc$$ /vnc/ permanent; # redirect if no trailing slash
-            rewrite ^/vnc(.*) /$$1 break;
+            rewrite ^/vnc/(.*) /$$1 break;
             proxy_pass http://127.0.0.1:6080;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $$http_upgrade;
