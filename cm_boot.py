@@ -201,7 +201,11 @@ def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
     b = s3_conn.get_bucket(bucket_name, validate=False)
     k = Key(b, key_name)
     log.debug(("Checking if key '%s' exists in bucket '%s'" % (key_name, bucket_name)))
-    return k.exists()
+    try:
+        return k.exists()
+    except S3ResponseError as e:
+        log.error(("Failed to checkf if file '%s' exists in bucket '%s': %s" % (key_name, bucket_name, e)))
+        return False
 logging.getLogger('boto').setLevel(logging.INFO)
 LOG_PATH = '/var/log/cloudman'
 CM_HOME = '/mnt/cm'

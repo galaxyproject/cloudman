@@ -34,4 +34,9 @@ def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
     k = Key(b, key_name)
     log.debug("Checking if key '%s' exists in bucket '%s'" % (
         key_name, bucket_name))
-    return k.exists()
+    try:
+        return k.exists()
+    except S3ResponseError, e:
+        log.error("Failed to checkf if file '%s' exists in bucket '%s': %s" %
+                  (key_name, bucket_name, e))
+        return False
