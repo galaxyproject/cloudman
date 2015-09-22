@@ -56,7 +56,7 @@ def populate_admin_users(option_manager, admins_list=[]):
     """
     for admin in option_manager.app.config.get('admin_users', []):
         if admin not in admins_list:
-                admins_list.append(admin)
+            admins_list.append(admin)
     if len(admins_list) == 0:
         return False
     log.info('Setting Galaxy admin users to: %s' % admins_list)
@@ -150,6 +150,7 @@ def populate_galaxy_paths(option_manager):
     if not exists(temp_dir):
         makedirs(temp_dir)
     attempt_chown_galaxy(temp_dir, recursive=True)
+    attempt_chown_galaxy(path_resolver.galaxy_indices, recursive=False)
     properties["new_file_path"] = temp_dir
     # This is something a user may change so this is not an ideal solution
     # but a relation to the required files is necessary so here it is.
@@ -170,6 +171,7 @@ def populate_galaxy_paths(option_manager):
 
 
 class FileGalaxyOptionManager(object):
+
     """
     Default Galaxy option manager, modifies `$galaxy_config_dir/$OPTIONS_FILE_NAME`
     directly.
@@ -203,12 +205,13 @@ class FileGalaxyOptionManager(object):
         configfile.close()
         new_config_file_path = join(galaxy_config_dir, '{0}.new'.format(OPTIONS_FILE_NAME))
         with open(new_config_file_path, 'wt') as output_file:
-                parser.write(output_file)
+            parser.write(output_file)
         move(new_config_file_path, config_file_path)
         attempt_chown_galaxy(config_file_path)
 
 
 class DirectoryGalaxyOptionManager(object):
+
     """
     When `galaxy_conf_dir` in specified in UserData this is used to
     manage Galaxy's options.
