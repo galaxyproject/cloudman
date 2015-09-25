@@ -1,4 +1,4 @@
-# This file is maintained my CloudMan.
+# This file is maintained by CloudMan.
 # Changes will be overwritten!
 
 worker_processes  2;
