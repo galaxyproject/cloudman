@@ -26,10 +26,6 @@
             alias $galaxy_home/static/robots.txt;
         }
 
-        location /admin/jobs {
-            proxy_pass  http://127.0.0.1:8079;
-        }
-
         location ~ ^/plugins/visualizations/ipython/static/(?<static_file>.*?)$$ {
             alias $galaxy_home/config/plugins/interactive_environments/ipython/static/$$static_file;
         }
