@@ -181,7 +181,7 @@ class Volume(BlockStorage):
         else:
             vol = vol_id
         if (vol.attachment_state() == 'attached' and
-           vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id()):
+                vol.attach_data.instance_id != self.app.cloud_interface.get_instance_id()):
             log.error('Attempting to connect to a volume ({0} that is already attached "\
                 "to a different instance ({1}'.format(vol.id, vol.attach_data.instance_id))
             self.volume = None
@@ -256,7 +256,8 @@ class Volume(BlockStorage):
         else:
             try:
                 self.volume.update()
-                # Take only the first word of the status as openstack adds some extra info after a space
+                # Take only the first word of the status as openstack adds some extra info
+                # after a space
                 status = volume_status_map.get(self.volume.status.split(' ')[0], None)
                 if status == volume_status.IN_USE and self.volume.attachment_state() == 'attached':
                     status = volume_status.ATTACHED
@@ -280,7 +281,8 @@ class Volume(BlockStorage):
         Note that this may potentially be forever.
         """
         if self.status == volume_status.NONE:
-            log.debug('Attempted to wait for a status ({0}) on a non-existent volume'.format(status))
+            log.debug(
+                'Attempted to wait for a status ({0}) on a non-existent volume'.format(status))
             return False  # no volume means not worth waiting
         else:
             start_time = time.time()
@@ -642,7 +644,8 @@ class Volume(BlockStorage):
         if (ServiceRole.GALAXY_DATA not in self.fs.svc_roles and
             (self.from_snapshot_id is not None or self.from_archive is not
              None)):
-            log.debug("Marked volume '%s' from file system '%s' as 'static'" % (self.volume_id, self.fs.name))
+            log.debug("Marked volume '%s' from file system '%s' as 'static'" %
+                      (self.volume_id, self.fs.name))
             # FIXME: This is a major problem - any new volumes added from a snapshot
             # will be assumed 'static'. This is OK before being able to add an
             # arbitrary volume as a file system but is no good any more. The
@@ -686,7 +689,7 @@ class Volume(BlockStorage):
                 log.debug("Detached volume {0} as {1}".format(
                     self.volume_id, self.fs.get_full_name()))
                 if ((self.static and (ServiceRole.GALAXY_DATA not in self.fs.svc_roles))
-                   or delete_vols):
+                        or delete_vols):
                     log.debug("Deleting volume {0} as part of {1} removal".format(
                         self.volume_id, self.fs.get_full_name()))
                     self.delete()
@@ -758,7 +761,8 @@ class Volume(BlockStorage):
                     else:
                         if self.snapshot and self.volume.size > self.snapshot.volume_size:
                             run('/usr/sbin/xfs_growfs %s' % mount_point)
-                            log.info("Successfully grew file system {0}".format(self.fs.get_full_name()))
+                            log.info(
+                                "Successfully grew file system {0}".format(self.fs.get_full_name()))
                 except Exception, e:
                     log.error("Exception mounting {0} at {1}".format(
                               self.fs.get_full_name(), mount_point))
@@ -804,7 +808,7 @@ class Volume(BlockStorage):
                         # Extract the FS archive in a separate thread
                         ExtractArchive(self.from_archive['url'], mount_point,
                                        self.from_archive['md5_sum'],
-                                       callback=self.fs.nfs_share_and_set_state).start()
+                                       callback=self.fs.nfs_share_and_set_state).run()
                 else:
                     self.fs.nfs_share_and_set_state()
                 return True
