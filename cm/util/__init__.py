@@ -11,6 +11,7 @@ import requests
 import os
 import sys
 import tarfile
+from contextlib import closing
 
 from cm.util import misc
 from cm.util.bunch import Bunch
@@ -43,7 +44,7 @@ spot_states = Bunch(
     CANCELLED="cancelled"
 )
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('cloudman')
 _lock = threading.RLock()
 
 
@@ -151,6 +152,7 @@ def relpath(path, start=None):
 
 
 class Time:
+
     """ Time utilities of now that can be instrumented for testing."""
 
     @classmethod
@@ -185,11 +187,11 @@ class ExtractArchive(threading.Thread):
     def _md5_check_ok(self, digest):
         """Do the MD5 checksum. Return `True` if OK; `False` otherwise."""
         if self.md5_sum and not digest == self.md5_sum:
-            log.debug(" (X) Invalid MD5 sum for archive {0}. Expected: {1} but "
+            log.debug("Invalid MD5 sum for archive {0}. Expected: {1} but "
                       "found {2}".format(self.archive_url, self.md5_sum, digest))
             return False
         if self.md5_sum:
-            log.info(" (X) MD5 checksum for archive {0} is OK: {1}=={2}".format(
+            log.info("MD5 checksum for archive {0} is OK: {1}=={2}".format(
                      self.archive_url, self.md5_sum, digest))
         return True
 
@@ -200,26 +202,24 @@ class ExtractArchive(threading.Thread):
         """
         try:
             start = datetime.utcnow()
-            r = requests.get(self.archive_url, stream=True)
-            stream = MD5TransparentFilter(r.raw)
-            archive = tarfile.open(fileobj=stream, mode='r|*')
-            archive.extractall(path=self.path)
-            archive.close()
-            hexdigest = stream.hexdigest()
-            head_response = requests.head(self.archive_url)
-            archive_size = head_response.headers.get('content-length', -1)
-            log.debug(" (X) Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
-                      .format(self.archive_url, misc.nice_size(archive_size),
-                              self.path, misc.nice_size(misc.get_dir_size(self.path)),
-                              datetime.utcnow() - start))
-            return hexdigest
-        except Exception, e:
-            log.error(" (X) Exception extracting archive {0} to {1}: {2}".format(
-                      self.archive_url, self.path, e))
+            with closing(requests.get(self.archive_url, stream=True)) as r:
+                stream = MD5TransparentFilter(r.raw)
+                with closing(tarfile.open(fileobj=stream, mode='r|*', errorlevel=0)) as archive:
+                    archive.extractall(path=self.path)
+                    hexdigest = stream.hexdigest()
+                    archive_size = r.headers.get('content-length', -1)
+                    log.debug("Completed extracting archive {0} ({1}) to {2} ({3}) in {4}"
+                              .format(self.archive_url, misc.nice_size(archive_size),
+                                      self.path, misc.nice_size(misc.get_dir_size(self.path)),
+                                      datetime.utcnow() - start))
+                    return hexdigest
+        except Exception as e:
+            log.exception("Exception extracting archive {0} to {1}: {2}".format(
+                self.archive_url, self.path, e))
             return None
 
     def run(self):
-        log.info(" (X) Extracting archive url {0} to {1}. This could take a while..."
+        log.info("Extracting archive url {0} to {1}. This could take a while..."
                  .format(self.archive_url, self.path))
         digest = self._extract()
         while not self._md5_check_ok(digest) and self.num_retries > 0:

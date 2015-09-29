@@ -379,7 +379,7 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
         try:
             key_list = b.get_all_keys(prefix=folder_name, delimiter='/')
             # for k in key_list:
-            #     print k.name#, k.get_acl().acl.grants[0].type
+            # print k.name#, k.get_acl().acl.grants[0].type
             if len(key_list) > 0:
                 key = key_list[0]
                 # Just get one key assuming all keys will have the same ACL
@@ -807,7 +807,8 @@ def get_file_from_public_location(config, remote_filename, local_file):
             log.debug("Could not fetch file from s3 public url: %s" % url)
             return False
     except Exception as e:
-        log.debug("Could not fetch file from s3 public url: {0} due to exception: {1}".format(url, e))
+        log.debug(
+            "Could not fetch file from s3 public url: {0} due to exception: {1}".format(url, e))
         return False
 
 
@@ -865,7 +866,7 @@ def getoutput(cmd, quiet=False, user=None):
         out = commands.getoutput(cmd)
         if not quiet:
             log.debug("Executed command '{0}' and got output: '{1}'".format(cmd, out))
-    except Exception, e:
+    except Exception as e:
         if not quiet:
             log.error("Exception executing command '{0}': {1}".format(cmd, e))
     return out
@@ -901,7 +902,7 @@ def replace_string(file_name, pattern, subst):
         os.remove(file_name)
         # Move new file
         shutil.move(abs_path, file_name)
-    except Exception, e:
+    except Exception as e:
         log.error("Trouble replacing string in file {0}: {1}".format(file_name, e))
 
 
@@ -955,7 +956,7 @@ def set_hostname(hostname):
         with open('/etc/hostname', 'w') as file_handle:
             file_handle.write("{0}\n".format(hostname))
         run('service hostname restart')
-    except IOError, ioe:
+    except IOError as ioe:
         log.error("IOError wirting out /etc/hostname: {0}".format(ioe))
 
 
@@ -973,7 +974,7 @@ def chmod(path, mode):
     """
     try:
         os.chmod(path, mode)
-    except OSError, ose:
+    except OSError as ose:
         log.error("OSError setting mode {0} on file {1}: {2}".format(mode, path, ose))
 
 
@@ -983,12 +984,12 @@ def make_dir(path, owner=None):
     if not os.path.exists(path):
         try:
             log.debug("Creating directory '%s'" % path)
-            os.makedirs(path, 0755)
+            os.makedirs(path, 0o755)
             log.debug("Directory '%s' successfully created." % path)
             if owner:
                 os.chown(path, pwd.getpwnam(owner)[2], grp.getgrnam(owner)[2])
                 log.debug("Set dir '{0}' owner to {1}.".format(path, owner))
-        except OSError, e:
+        except OSError as e:
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
@@ -1004,7 +1005,7 @@ def move(source, destination):
     try:
         log.debug('Moving file {0} to {1}'.format(source, destination))
         shutil.move(source, destination)
-    except IOError, ioe:
+    except IOError as ioe:
         log.error("IOError moving {0} to {1}: {2}".format(source, destination, ioe))
 
 
@@ -1022,9 +1023,9 @@ def remove(path):
         elif os.path.exists(path):
             log.debug('Removing file {0}'.format(path))
             os.remove(path)
-    except IOError, ioe:
+    except IOError as ioe:
         log.error("IOError removing {0}: {1}".format(path, ioe))
-    except OSError, ioe:
+    except OSError as ioe:
         log.error("OSError removing {0}: {1}".format(path, ioe))
 
 
@@ -1162,7 +1163,9 @@ def get_dir_size(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
+            if os.path.exists(fp):  # deals with broken symlinks
+                total_size += os.path.getsize(fp)
+
     return total_size
 
 
@@ -1295,7 +1298,7 @@ def run_psql_command(sql_command, user, psql_path, port=5432):
     given `user` on the specified `port`.
     """
     log.debug("Running {0}:{1} command for user {2}: {3}".format(psql_path,
-              port, user, sql_command))
+                                                                 port, user, sql_command))
     return run('/bin/su - postgres -c "{0} -p {1} {2} -c \\\"{3}\\\" "'.format
                (psql_path, port, user, sql_command))
 
@@ -1323,9 +1326,9 @@ def write_template_file(template, parameters, conf_file):
             print >> f, t
         log.debug("Wrote template file {0}".format(conf_file))
         return True
-    except KeyError, kexc:
+    except KeyError as kexc:
         log.error("KeyError filling template {0}: {1}".format(template, kexc))
-    except IOError, ioexc:
+    except IOError as ioexc:
         log.error("IOError writing template file {0}: {1}".format(conf_file, ioexc))
     return False
 

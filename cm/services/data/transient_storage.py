@@ -19,6 +19,7 @@ log = logging.getLogger('cloudman')
 
 
 class TransientStorage(BlockStorage):
+
     def __init__(self, filesystem, from_archive=None):
         """
         Instance's transient storage exposed over NFS.
@@ -78,7 +79,7 @@ class TransientStorage(BlockStorage):
                           "dedicated thread.".format(self.get_full_name()))
                 ExtractArchive(self.from_archive['url'], self.fs.mount_point,
                                self.from_archive['md5_sum'],
-                               callback=self.fs.nfs_share_and_set_state).start()
+                               callback=self.fs.nfs_share_and_set_state).run()
         else:
             self.fs.nfs_share_and_set_state()
 
