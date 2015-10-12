@@ -1,4 +1,5 @@
 """CloudMan service implementation for Supervisor."""
+from httplib import CannotSendRequest
 import xmlrpclib
 from socket import error as socket_error
 
@@ -198,6 +199,9 @@ class SupervisorService(ApplicationService):
             except xmlrpclib.Fault, flt:
                 log.debug('Fault getting prog {0} info from supervisord: {0}'
                           .format(prog_name, flt))
+            except CannotSendRequest, csr:
+                log.debug('Exception getting prog {0} info from supervisord: {0}'
+                          .format(prog_name, csr))
         return {}
 
     def get_program_status(self, prog_name):
