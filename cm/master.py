@@ -2477,8 +2477,6 @@ class ConsoleMonitor(object):
             fss = []  # list of filesystems
             if addl_data:
                 cc = addl_data
-            # Save cloud tags, in case the cloud doesn't support them natively
-            cc['tags'] = self.app.cloud_interface.tags
             for srvc in self.app.manager.service_registry.active():
                 if srvc.svc_type == ServiceType.FILE_SYSTEM:
                     if srvc.persistent:
