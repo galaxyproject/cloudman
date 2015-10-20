@@ -144,7 +144,8 @@ class EC2Interface(CloudInterface):
 
     def get_vpc_id(self):
         if not self._vpc_id:
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/vpc-id' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/vpc-id' % self.get_mac_address())
             self._vpc_id = fp.read().strip()
             fp.close()
             if "404 - Not Found" in self._vpc_id:
@@ -155,7 +156,8 @@ class EC2Interface(CloudInterface):
         if not self.get_vpc_id():
             return None
         if not self._subnet_id:
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/subnet-id' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/subnet-id' % self.get_mac_address())
             self._subnet_id = fp.read().strip()
             fp.close()
         return self._subnet_id
@@ -163,12 +165,15 @@ class EC2Interface(CloudInterface):
     def get_security_group_ids(self):
         if not self._security_group_ids:
             self._security_group_ids = []
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/security-group-ids' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/security-group-ids' %
+                                self.get_mac_address())
             lines = fp.readlines()
             for line in lines:
                 self._security_group_ids.append(urllib.unquote_plus(line.strip()))
             fp.close()
-            log.debug("Fetched security group ids for the first time: %s" % self._security_group_ids)
+            log.debug("Fetched security group ids for the first time: %s" %
+                      self._security_group_ids)
         return self._security_group_ids
 
     @TestFlag(['cloudman_sg'])
@@ -251,7 +256,8 @@ class EC2Interface(CloudInterface):
         Return the current public hostname reported by Amazon.
         Public hostname can be changed -- check it every self.update_frequency.
         """
-        if self.public_hostname is None or (time.time() - self.public_hostname_updated > self.update_frequency):
+        if (self.public_hostname is None or
+           (time.time() - self.public_hostname_updated > self.update_frequency)):
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -442,15 +448,19 @@ class EC2Interface(CloudInterface):
             if self.running_in_vpc:
                 log.debug("Starting instance(s) in VPC with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
-                          "security_group_ids={sgs}, user_data(with sensitive info filtered out)=[{ud}], instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
+                          "security_group_ids={sgs}, user_data(with sensitive info filtered out)=[{ud}], "
+                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=self.get_security_group_ids(),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'freenxpass', 'secret_key']]),
+                                  ud=("\n".join(['%s: %s' % (key, value)
+                                      for key, value in worker_ud.iteritems()
+                                      if key not in['password', 'freenxpass', 'secret_key']])),
                                   type=instance_type, zone=self.get_zone(), subnet_id=self.get_subnet_id()))
 
-                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
-                                                                                    groups=self.get_security_group_ids(),
-                                                                                    associate_public_ip_address=True)
+                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                    subnet_id=self.get_subnet_id(),
+                    groups=self.get_security_group_ids(),
+                    associate_public_ip_address=True)
                 interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
 
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
@@ -464,10 +474,13 @@ class EC2Interface(CloudInterface):
             else:
                 log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
-                          "security_groups=['{sgs}'], user_data(with sensitive info filtered out)=[{ud}], instance_type='{type}', placement='{zone}')"
+                          "security_groups=['{sgs}'], user_data(with sensitive info filtered out)=[{ud}], "
+                          "instance_type='{type}', placement='{zone}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'freenxpass', 'secret_key']]),
+                                  ud=("\n".join(['%s: %s' % (key, value)
+                                      for key, value in worker_ud.iteritems()
+                                      if key not in['password', 'freenxpass', 'secret_key']])),
                                   type=instance_type, zone=self.get_zone()))
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
                                                      min_count=min_num,
@@ -514,10 +527,12 @@ class EC2Interface(CloudInterface):
         try:
             ec2_conn = self.get_ec2_connection()
             if self.get_subnet_id():
-                log.debug("Making a spot instance request, using groups: %s, subnet=%s" % (self.get_security_group_ids(), self.get_subnet_id()))
-                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
-                                                                                    groups=self.get_security_group_ids(),
-                                                                                    associate_public_ip_address=True)
+                log.debug("Making a spot instance request, using groups: %s, subnet=%s"
+                          % (self.get_security_group_ids(), self.get_subnet_id()))
+                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                    subnet_id=self.get_subnet_id(),
+                    groups=self.get_security_group_ids(),
+                    associate_public_ip_address=True)
                 interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
                 reqs = ec2_conn.request_spot_instances(price=price,
                                                        image_id=self.get_ami(),
