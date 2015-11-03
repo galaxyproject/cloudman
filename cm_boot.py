@@ -407,7 +407,7 @@ def _unpack_cm():
     log.info(('<< Unpacking CloudMan from %s >>' % local_path))
     tar = tarfile.open(local_path, 'r:gz')
     tar.extractall(CM_HOME)
-    if ('run.sh' not in tar.getnames()):
+    if ('run.sh' not in tar.getnames() and './run.sh' not in tar.getnames()):
         first_entry = tar.getnames()[0]
         extracted_dir = first_entry.split('/')[0]
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
