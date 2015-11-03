@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
+"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\n\nDo not directly change ``cm_boot.py`` as changes will get overwritten. Instead,\nmake desired changes in ``cm/boot`` module and then, from CloudMan's root\ndirectory, invoke ``python make_boot_script.py`` to  generate ``cm_boot.py``.\n"
 import logging
 import os
 import shutil
@@ -407,7 +407,7 @@ def _unpack_cm():
     log.info(('<< Unpacking CloudMan from %s >>' % local_path))
     tar = tarfile.open(local_path, 'r:gz')
     tar.extractall(CM_HOME)
-    if ('run.sh' not in tar.getnames() and './run.sh' not in tar.getnames()):
+    if (('run.sh' not in tar.getnames()) and ('./run.sh' not in tar.getnames())):
         first_entry = tar.getnames()[0]
         extracted_dir = first_entry.split('/')[0]
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
@@ -448,7 +448,7 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None, e
 def _start_cm():
     src = os.path.join(CM_BOOT_PATH, USER_DATA_FILE)
     dest = os.path.join(CM_HOME, USER_DATA_FILE)
-    log.debug("Copying user data file from '%s' to '%s'".format(src, dest))
+    log.debug("Copying user data file from '{0}' to '{1}'".format(src, dest))
     shutil.copyfile(src, dest)
     os.chmod(dest, 384)
     log.info(('<< Starting CloudMan in %s >>' % CM_HOME))
