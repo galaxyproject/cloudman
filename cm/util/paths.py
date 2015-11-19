@@ -282,7 +282,7 @@ class PathResolver(object):
         Use the running nginx to provide the location of the current nginx configuration directory
         """
         conf_file = misc.run("{0} -t && {0} -t 2>&1 | head -n 1 | cut -d' ' -f5".format(self.nginx_executable))
-        if conf_file:
+        if os.path.exists(conf_file.strip()):
             return conf_file.rstrip("nginx.conf\n")
         return ''
 
