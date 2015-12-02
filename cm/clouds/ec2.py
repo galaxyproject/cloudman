@@ -285,6 +285,11 @@ class EC2Interface(CloudInterface):
                     self.self_public_ip = fp.read()
                     fp.close()
                     if self.self_public_ip:
+                        # Check if we got an actual IP address or bogus response
+                        try:
+                            socket.inet_pton(socket.AF_INET, self.self_public_ip)
+                        except socket.error:
+                            self.self_public_ip = None
                         break
                 except Exception, e:
                     log.error("Error retrieving FQDN: %s" % e)
