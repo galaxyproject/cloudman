@@ -1,3 +1,17 @@
+### CloudMan - December 2015.
+* This is a minor update release.
+
+* Update Galaxy to the Galaxy 15.10 release.
+
+* Preload the GIE IPyhton Docker container onto the image for faster startup.
+
+* Quit storing tags in the cluster config to prevent `persistent_data.yaml`
+becoming too big when supplied as user data to worker instances.
+
+* Updated library versions in `requirements.txt`.
+
+* Made file system archive extraction more resilient and synchronous.
+
 ### CloudMan - September 3, 2015.
 
 #### Major updates
