@@ -75,6 +75,7 @@ class PSSService(ApplicationService):
                 if srvc.activated and srvc != self and \
                    not (srvc.running() or srvc.completed()):
                     prereqs_ok = False
+                    break_srvc = srvc
                     break
             if prereqs_ok and awaiting_galaxy:
                 # Make sure Galaxy service exists before assuming all services
@@ -91,7 +92,7 @@ class PSSService(ApplicationService):
             if not prereqs_ok:
                 log.debug("%s not running (%s), %s service prerequisites not "
                           "met afterall, not starting the service yet" %
-                          (srvc.get_full_name(), srvc.state, self.name))
+                          (break_srvc.get_full_name(), break_srvc.state, self.name))
                 # Reset state so it gets picked up by the monitor thread again
                 self.state = service_states.UNSTARTED
                 return False
