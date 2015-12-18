@@ -1,4 +1,4 @@
-### CloudMan - December 2015.
+### CloudMan - December 18, 2015.
 * This is a minor update release.
 
 * Update Galaxy to the Galaxy 15.10 release.
@@ -9,6 +9,9 @@
 becoming too big when supplied as user data to worker instances.
 
 * Updated library versions in `requirements.txt`.
+
+* Add a more direct method for locating the Nginx configuration directory
+  (thanks to @MatthewRalston)
 
 * Made file system archive extraction more resilient and synchronous.
 
