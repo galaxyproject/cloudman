@@ -184,6 +184,13 @@ class Configuration(dict):
         return self.get("hadoop_enabled", False)
 
     @property
+    def worker_initial_count(self):
+        """
+        If supplied via user data, launch that many workers after launch.
+        """
+        return self.get("worker_initial_count", 0)
+
+    @property
     def instance_reboot_timeout(self):
         return self.get("instance_reboot_timeout", DEFAULT_INSTANCE_REBOOT_TIMEOUT)
 

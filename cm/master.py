@@ -53,7 +53,8 @@ class ConsoleManager(BaseConsoleManager):
         self.console_monitor = ConsoleMonitor(self.app)
         self.root_pub_key = None
         self.cluster_status = cluster_status.STARTING
-        self.num_workers_requested = 0  # Number of worker nodes requested by user
+        # Number of worker nodes requested by user
+        self.num_workers_requested = self.app.config.worker_initial_count
         # The actual worker nodes (note: this is a list of Instance objects)
         # (because get_worker_instances currently depends on tags, which is only
         # supported by EC2, get the list of instances only for the case of EC2 cloud.
@@ -2608,6 +2609,22 @@ class ConsoleMonitor(object):
             misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'],
                                      "%s.clusterName" % self.app.config['cluster_name'], cn_file)
 
+    def _start_initial_workers(self):
+        """
+        If requested via user data, start workers.
+
+        See ``self.app.config.worker_initial_count``.
+        """
+        jm_running = True
+        for job_manager_svc in self.app.manager.service_registry.active(
+                service_role=ServiceRole.JOB_MANAGER):
+            jm_running = jm_running and job_manager_svc.running()
+        if jm_running and self.app.manager.num_workers_requested > 0:
+            log.debug("Monitor starting {0} requested workers.".format(
+                self.app.manager.num_workers_requested))
+            self.app.manager.add_instances(self.app.manager.num_workers_requested)
+            self.app.manager.num_workers_requested = 0  # Reset
+
     def _start_services(self):
         config_changed = False  # Flag to indicate if cluster conf was changed
         # Check and add any new services
@@ -2786,6 +2803,7 @@ class ConsoleMonitor(object):
                         log.debug("Instance {0} has been quiet for a while (last check "
                                   "{1} secs ago); will wait a bit longer before a check..."
                                   .format(w_instance.get_desc(), (Time.now() - w_instance.last_state_update).seconds))
+            self._start_initial_workers()
             # Store cluster configuraiton if the configuration has changed
             config_changed = self._start_services()
             config_changed = config_changed or self._stop_services()
