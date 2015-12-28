@@ -57,6 +57,8 @@ class ServiceRole(object):
                         'name': "Cloudera Manager Service"}
     NGINX = {'type': ServiceType.APPLICATION, 'name': "Nginx Service"}
     CLOUDGENE = {'type': ServiceType.APPLICATION, 'name': "Cloudgene Service"}
+    NODEJSPROXY = {'type': ServiceType.APPLICATION, 'name': "NodeJS Proxy Service"}
+    SUPERVISOR = {'type': ServiceType.APPLICATION, 'name': "Supervisor Service"}
 
     @staticmethod
     def get_type(role):
@@ -69,6 +71,8 @@ class ServiceRole(object):
         ``ServiceRole`` objects and return that list.
         """
         svc_roles = []
+        if not roles_str:
+            return svc_roles
         roles_list = roles_str.split(",")
         for val in roles_list:
             role = ServiceRole._role_from_string(val.strip())
@@ -136,6 +140,10 @@ class ServiceRole(object):
             return ServiceRole.NGINX
         elif val == "Cloudgene":
             return ServiceRole.CLOUDGENE
+        elif val == "NodeJSProxy":
+            return ServiceRole.NODEJSPROXY
+        elif val == "Supervisor":
+            return ServiceRole.SUPERVISOR
         else:
             log.warn(
                 "Attempt to convert unknown role name from string: {0}".format(val))
@@ -201,6 +209,10 @@ class ServiceRole(object):
             return "Nginx"
         elif svc_role == ServiceRole.CLOUDGENE:
             return "Cloudgene"
+        elif svc_role == ServiceRole.NODEJSPROXY:
+            return "NodeJSProxy"
+        elif svc_role == ServiceRole.SUPERVISOR:
+            return "Supervisor"
         else:
             raise Exception(
                 "Unrecognized role {0}. Cannot convert to string".format(svc_role))
@@ -292,6 +304,28 @@ class Service(object):
         self.svc_roles = []
         self.dependencies = []
 
+    def state_changed_before(self, timedelta=30):
+        """
+        Test if the last state change has occurred before ``timedelta`` seconds.
+
+        Compare curren time with the value in ``self.last_state_change_time``
+        and check if the time delta is greater than the ``timedelta`` value.
+
+        :type timedelta: int
+        :param timedelta: Desired number of seconds that need to have passed
+                          from the time this method is called in order for this
+                          method to return ``True``.
+
+        :rtype: bool
+        :return: ``True`` is at least ``timedelta`` seconds have passed between
+                 when this method is called and the value in
+                 ``self.last_state_change_time``; ``False`` otherwise.
+        """
+        delta = (dt.datetime.utcnow() - self.last_state_change_time).seconds
+        if delta > timedelta:
+            return True
+        return False
+
     def start(self):
         raise NotImplementedError("Subclasses of Service must implement this.")
 
@@ -333,7 +367,7 @@ class Service(object):
                 if remove_dependency and dependency in failed_prereqs:
                     failed_prereqs.remove(dependency)
             if len(failed_prereqs) == 0:
-                log.info("{0} service prerequisites OK; starting the service".format(
+                log.info("{0} service prerequisites OK; starting the service.".format(
                     self.get_full_name()))
                 self.start()
                 return True
@@ -353,10 +387,12 @@ class Service(object):
         """
         # Assemble a list of dependent services to remove
         dependent_services = []
-        for service in self.app.manager.service_registry.active():
-            for dependency in service.dependencies:
-                if dependency.is_satisfied_by(self):
-                    dependent_services.append(service)
+        # Workers do not have service_registry field implemented yet
+        if hasattr(self.app.manager, 'service_registry'):
+            for service in self.app.manager.service_registry.active():
+                for dependency in service.dependencies:
+                    if dependency.is_satisfied_by(self):
+                        dependent_services.append(service)
         if dependent_services:
             log.debug("Removing all services depending on {0}: {1}".format(
                       self.name, dependent_services))

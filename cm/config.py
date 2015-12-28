@@ -20,10 +20,10 @@ DEFAULT_INSTANCE_TYPES = {
         ("c3.2xlarge", "Compute optimized 2xLarge (8 vCPU/15GB RAM)"),
         ("c3.8xlarge", "Compute optimized 8xLarge (32 vCPU/60GB RAM)"),
         # R3 instance types require HVM virtualization and appropriate AMI so omit
-        # ("", "-------------"),
-        # ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
-        # ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
-        # ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
+        ("", "-------------"),
+        ("r3.large", "Memory optimized Large (2 vCPU/15GB RAM)"),
+        ("r3.2xlarge", "Memory optimized 2xLarge (8 vCPU/61GB RAM)"),
+        ("r3.8xlarge", "Memory optimized 8xLarge (32 vCPU/244GB RAM)"),
         ("", "-------------"),
         ("custom_instance_type", "Custom instance type")
     ],
@@ -51,6 +51,10 @@ DEFAULT_INSTANCE_TYPES = {
         ("m1.medium", "Medium"),
         ("m1.xlarge", "Extra Large"),
         ("m1.xxlarge", "Extra Extra Large"),
+    ],
+    "default": [
+        ("", "Same as Master"),
+        ("custom_instance_type", "Custom instance type")
     ]
 }
 
@@ -140,6 +144,10 @@ class Configuration(dict):
         return self.get('filesystem_templates')
 
     @property
+    def cluster_templates(self):
+        return self.get('cluster_templates', None)
+
+    @property
     def root_dir(self):
         return self.get('root_dir', '.')
 
@@ -176,6 +184,13 @@ class Configuration(dict):
         return self.get("hadoop_enabled", False)
 
     @property
+    def worker_initial_count(self):
+        """
+        If supplied via user data, launch that many workers after launch.
+        """
+        return self.get("worker_initial_count", 0)
+
+    @property
     def instance_reboot_timeout(self):
         return self.get("instance_reboot_timeout", DEFAULT_INSTANCE_REBOOT_TIMEOUT)
 
@@ -206,6 +221,8 @@ class Configuration(dict):
             keys = [key for key in DEFAULT_INSTANCE_TYPES.keys() if key in self.cloud_name]
             if keys:
                 return DEFAULT_INSTANCE_TYPES.get(keys[0])
+            else:
+                return DEFAULT_INSTANCE_TYPES.get("default")
 
     @property
     def cloudman_repo_url(self):
@@ -214,6 +231,10 @@ class Configuration(dict):
     @property
     def ignore_unsatisfiable_dependencies(self):
         return self.get("ignore_unsatisfiable_dependencies", False)
+
+    @ignore_unsatisfiable_dependencies.setter
+    def ignore_unsatisfiable_dependencies(self, value):
+        self['ignore_unsatisfiable_dependencies'] = value
 
     @property
     def web_thread_count(self):

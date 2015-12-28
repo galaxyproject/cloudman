@@ -210,12 +210,12 @@ class SlurmctldService(BaseJobManager):
     def enable_node(self, alias, address):
         """
         Enable node identified by ``alias`` for running jobs by setting it's
-        state to ``IDLE``. Note that this assumes the node is, on the back end,
+        state to ``RESUME``. Note that this assumes the node is, on the back end,
         properly configured and will communicate with the master node to confirm
         its status. Note that ``address`` parameter is not used in this
         implementation.
         """
-        return misc.run("/usr/bin/scontrol update NodeName={0} State=IDLE"
+        return misc.run("/usr/bin/scontrol update NodeName={0} State=RESUME"
                         .format(alias))
 
     def disable_node(self, alias, address, state="DRAIN", reason="CloudMan-disabled"):

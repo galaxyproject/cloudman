@@ -57,10 +57,16 @@ class EC2Interface(CloudInterface):
         if self.instance_type is None:
             for i in range(0, 5):
                 try:
-                    log.debug('Gathering instance type, attempt %s' % i)
-                    fp = urllib.urlopen(
-                        'http://169.254.169.254/latest/meta-data/instance-type')
-                    self.instance_type = fp.read()
+                    url = 'http://169.254.169.254/latest/meta-data/instance-type'
+                    log.debug('Gathering instance type via {0}; attempt {1}/5'
+                              .format(url, i+1))
+                    fp = urllib.urlopen(url)
+                    if fp.code == 200:
+                        self.instance_type = fp.read()
+                    else:
+                        log.warning("Error (code {0}) retrieving instance type "
+                                    "from url {1}: {2}".format(fp.code, url,
+                                                               fp.read()))
                     fp.close()
                     if self.instance_type:
                         break
@@ -138,7 +144,8 @@ class EC2Interface(CloudInterface):
 
     def get_vpc_id(self):
         if not self._vpc_id:
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/vpc-id' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/vpc-id' % self.get_mac_address())
             self._vpc_id = fp.read().strip()
             fp.close()
             if "404 - Not Found" in self._vpc_id:
@@ -149,7 +156,8 @@ class EC2Interface(CloudInterface):
         if not self.get_vpc_id():
             return None
         if not self._subnet_id:
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/subnet-id' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/subnet-id' % self.get_mac_address())
             self._subnet_id = fp.read().strip()
             fp.close()
         return self._subnet_id
@@ -157,12 +165,15 @@ class EC2Interface(CloudInterface):
     def get_security_group_ids(self):
         if not self._security_group_ids:
             self._security_group_ids = []
-            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/security-group-ids' % self.get_mac_address())
+            fp = urllib.urlopen('http://169.254.169.254/latest/meta-data/network/'
+                                'interfaces/macs/%s/security-group-ids' %
+                                self.get_mac_address())
             lines = fp.readlines()
             for line in lines:
                 self._security_group_ids.append(urllib.unquote_plus(line.strip()))
             fp.close()
-            log.debug("Fetched security group ids for the first time: %s" % self._security_group_ids)
+            log.debug("Fetched security group ids for the first time: %s" %
+                      self._security_group_ids)
         return self._security_group_ids
 
     @TestFlag(['cloudman_sg'])
@@ -245,7 +256,8 @@ class EC2Interface(CloudInterface):
         Return the current public hostname reported by Amazon.
         Public hostname can be changed -- check it every self.update_frequency.
         """
-        if self.public_hostname is None or (time.time() - self.public_hostname_updated > self.update_frequency):
+        if (self.public_hostname is None or
+           (time.time() - self.public_hostname_updated > self.update_frequency)):
             for i in range(0, 5):
                 try:
                     log.debug(
@@ -273,6 +285,11 @@ class EC2Interface(CloudInterface):
                     self.self_public_ip = fp.read()
                     fp.close()
                     if self.self_public_ip:
+                        # Check if we got an actual IP address or bogus response
+                        try:
+                            socket.inet_pton(socket.AF_INET, self.self_public_ip)
+                        except socket.error:
+                            self.self_public_ip = None
                         break
                 except Exception, e:
                     log.error("Error retrieving FQDN: %s" % e)
@@ -363,18 +380,28 @@ class EC2Interface(CloudInterface):
         object must be an instance of a cloud object and support tagging.
         """
         if self.tags_supported:
-            try:
-                log.debug("Adding tag '%s:%s' to resource '%s'" % (
-                    key, value, resource.id if resource.id else resource))
-                resource.add_tag(key, value)
-            except EC2ResponseError, e:
-                log.error(
-                    "Exception adding tag '%s:%s' to resource '%s': %s" % (key,
-                                                                           value, resource, e))
-                self.tags_supported = False
-        resource_tags = self.tags.get(resource.id, {})
-        resource_tags[key] = value
-        self.tags[resource.id] = resource_tags
+            if resource:
+                try:
+                    resource_id = None
+                    if hasattr(resource, 'id'):
+                        resource_id = resource.id
+                    log.debug("Adding tag '%s:%s' to resource '%s'" % (
+                        key, value, resource_id if resource_id else resource))
+                    resource.add_tag(key, value)
+                except EC2ResponseError, e:
+                    log.error("EC2ResponseError adding tag '%s:%s' to resource "
+                              "'%s': %s" % (key, value, resource, e))
+                    self.tags_supported = False
+                except AttributeError, ae:
+                    log.error("AttributeError adding tag '%s:%s' to resource "
+                              "'%s': %s" % (key, value, resource, ae))
+                if resource_id:
+                    resource_tags = self.tags.get(resource_id, {})
+                    resource_tags[key] = value
+                    self.tags[resource_id] = resource_tags
+            else:
+                log.debug("Wanted to add a tag {0}:{1} but no resource provided."
+                          .format(key, value))
 
     @TestFlag(None)
     def get_tag(self, resource, key):
@@ -426,15 +453,19 @@ class EC2Interface(CloudInterface):
             if self.running_in_vpc:
                 log.debug("Starting instance(s) in VPC with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
-                          "security_group_ids={sgs}, user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
+                          "security_group_ids={sgs}, user_data(with sensitive info filtered out)=[{ud}], "
+                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=self.get_security_group_ids(),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                                  ud=("\n".join(['%s: %s' % (key, value)
+                                      for key, value in worker_ud.iteritems()
+                                      if key not in['password', 'freenxpass', 'secret_key']])),
                                   type=instance_type, zone=self.get_zone(), subnet_id=self.get_subnet_id()))
 
-                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
-                                                                                    groups=self.get_security_group_ids(),
-                                                                                    associate_public_ip_address=True)
+                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                    subnet_id=self.get_subnet_id(),
+                    groups=self.get_security_group_ids(),
+                    associate_public_ip_address=True)
                 interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
 
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
@@ -448,10 +479,13 @@ class EC2Interface(CloudInterface):
             else:
                 log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
-                          "security_groups=['{sgs}'], user_data(with password/secret_key filtered out)=[{ud}], instance_type='{type}', placement='{zone}')"
+                          "security_groups=['{sgs}'], user_data(with sensitive info filtered out)=[{ud}], "
+                          "instance_type='{type}', placement='{zone}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
-                                  ud="\n".join(['%s: %s' % (key, value) for key, value in worker_ud.iteritems() if key not in['password', 'secret_key']]),
+                                  ud=("\n".join(['%s: %s' % (key, value)
+                                      for key, value in worker_ud.iteritems()
+                                      if key not in['password', 'freenxpass', 'secret_key']])),
                                   type=instance_type, zone=self.get_zone()))
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
                                                      min_count=min_num,
@@ -498,10 +532,12 @@ class EC2Interface(CloudInterface):
         try:
             ec2_conn = self.get_ec2_connection()
             if self.get_subnet_id():
-                log.debug("Making a spot instance request, using groups: %s, subnet=%s" % (self.get_security_group_ids(), self.get_subnet_id()))
-                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(subnet_id=self.get_subnet_id(),
-                                                                                    groups=self.get_security_group_ids(),
-                                                                                    associate_public_ip_address=True)
+                log.debug("Making a spot instance request, using groups: %s, subnet=%s"
+                          % (self.get_security_group_ids(), self.get_subnet_id()))
+                interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                    subnet_id=self.get_subnet_id(),
+                    groups=self.get_security_group_ids(),
+                    associate_public_ip_address=True)
                 interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
                 reqs = ec2_conn.request_spot_instances(price=price,
                                                        image_id=self.get_ami(),
@@ -602,6 +638,59 @@ class EC2Interface(CloudInterface):
         worker_ud = dict(self.app.config.items() + worker_ud.items())
         return worker_ud
 
+    def create_volume(self, size, zone, snapshot=None, volume_type='gp2', iops=None):
+        """
+        Create a new EBS Volume.
+
+        :type size: int
+        :param size: The size of the new volume, in GiB
+
+        :type zone: string or :class:`boto.ec2.zone.Zone`
+        :param zone: The availability zone in which the Volume will be created.
+
+        :type snapshot: string or :class:`boto.ec2.snapshot.Snapshot`
+        :param snapshot: The snapshot from which the new Volume will be
+                         created.
+
+        :type volume_type: string
+        :param volume_type: The type of the volume. (optional).  Valid
+                            values are: standard | io1 | gp2.
+
+        :type iops: int
+        :param iops: The provisioned IOPS you want to associate with
+                     this volume. (optional)
+
+        :rtype: `None` or :class:`boto.ec2.volume.Volume`
+        :return: If the volume was created successfully, return a boto instance
+                 of the Volume object. Otherwise, return `None`.
+        """
+        try:
+            return self.get_ec2_connection().create_volume(
+                size=size, zone=zone, snapshot=snapshot, volume_type=volume_type,
+                iops=iops)
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError creating a volume: {0}".format(ec2e))
+        return None
+
+    def delete_volume(self, volume_id):
+        """
+        Delete an EBS volume.
+
+        :type volume_id: str
+        :param volume_id: The ID of the volume to be deleted.
+
+        :rtype: bool
+        :return: True if successful.
+        """
+        try:
+            if self.get_ec2_connection().delete_volume(volume_id):
+                log.debug("Deleted volume {0}".format(volume_id))
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError deleting volume {0}: {1}"
+                      .format(volume_id, ec2e))
+        log.debug("Failed to delete volume {0}".format(volume_id))
+        return False
+
     def get_all_volumes(self, volume_ids=None, filters=None):
         """
         Get all Volumes associated with the current credentials.
@@ -613,7 +702,7 @@ class EC2Interface(CloudInterface):
 
         :type filters: dict
         :param filters: Optional filters that can be used to limit
-                        the results returned.  Filters are provided
+                        the results returned. Filters are provided
                         in the form of a dictionary consisting of
                         filter names as the key and filter values
                         as the value. The set of allowable filter
@@ -628,6 +717,119 @@ class EC2Interface(CloudInterface):
             volume_ids = [volume_ids]
         return self.get_ec2_connection().get_all_volumes(volume_ids=volume_ids,
                                                          filters=filters)
+
+    def delete_snapshot(self, snapshot_id):
+        """
+        Delete a volume snapshot.
+
+        :type snapshot_id: str
+        :param snapshot_id: The ID of the snapshot to be deleted.
+
+        :rtype: bool
+        :return: True if successful.
+        """
+        try:
+            if self.get_ec2_connection().delete_snapshot(snapshot_id):
+                log.debug("Deleted snapshot {0}".format(snapshot_id))
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError deleting snapshot {0}: {1}"
+                      .format(snapshot_id, ec2e))
+        log.debug("Failed to delete snapshot {0}".format(snapshot_id))
+        return False
+
+    def get_all_snapshots(self, snapshot_ids=None, filters=None):
+        """
+        Get all Snapshots associated with the current credentials.
+
+        :type snapshot_ids: list
+        :param snapshot_ids: Optional list of snapshot IDs.  If this list
+                           is present, only the snapshots associated with
+                           these snapshot IDs will be returned.
+
+        :type filters: dict
+        :param filters: Optional filters that can be used to limit
+                        the results returned. Filters are provided
+                        in the form of a dictionary consisting of
+                        filter names as the key and filter values
+                        as the value. The set of allowable filter
+                        names/values is dependent on the request
+                        being performed. Check the EC2 API guide
+                        for details.
+
+        :rtype: list of :class:`boto.ec2.snapshot.Snapshot` objects
+        :return: The requested Snapshot objects or an empty list if encounter
+                 ``EC2ResponseError``.
+        """
+        if snapshot_ids and not isinstance(snapshot_ids, list):
+            snapshot_ids = [snapshot_ids]
+        try:
+            return self.get_ec2_connection().get_all_snapshots(
+                snapshot_ids=snapshot_ids, filters=filters)
+        except EC2ResponseError, e:
+            log.error("EC2ResponseError retrieving snapshot IDs {0}: {1}"
+                      .format(snapshot_ids, e))
+        return []
+
+    def get_snapshot(self, snapshot_id):
+        """
+        Get a Snapshot object for the ``snapshot_id``.
+
+        :type snapshot_id: string
+        :param snapshot_ids: The snapshot ID to try and retrieve
+
+        :rtype: :class:`boto.ec2.snapshot.Snapshot` object
+        :return: The Snapshot object corresponding to the provided ``snapshot_id``
+                 or ``None`` if the snapshot wasn't found or in the case of
+                 ``EC2ResponseError``.
+        """
+        snaps_list = self.get_all_snapshots([snapshot_id])
+        if snaps_list:
+            return snaps_list[0]
+        return None
+
+    def get_snapshot_info(self, snapshot_id):
+        """
+        Get updated info for the ``snapshot_id``.
+
+        :type snapshot_id: string
+        :param snapshot_ids: The snapshot ID to check on
+
+        :rtype: dict
+        :return: A dictionary with the following keys capturing the current
+                 state of the snapshot: ``id``, ``progress``, ``status``,
+                 ``tags``, ``region_name``, ``description``, ``volume_id``,
+                 and ``volume_size``.
+                 If the snapshot wasn't found or in the case of
+                 ``EC2ResponseError``, return an empty dict.
+        """
+        snap_info = {
+            'id': snapshot_id,
+            'progress': None,
+            'status': None,
+            'tags': {},
+            'region_name': None,
+            'description': None,
+            'volume_id': None,
+            'volume_size': None
+        }
+        snap = self.get_snapshot(snapshot_id)
+        if snap:
+            try:
+                snap.update()
+                snap_info = {
+                    'id': snapshot_id,
+                    'progress': snap.progress,
+                    'status': snap.status,
+                    'tags': snap.tags,
+                    'region_name': snap.region.name,
+                    'description': snap.description,
+                    'volume_id': snap.volume_id,
+                    'volume_size': snap.volume_size
+                }
+            except EC2ResponseError, e:
+                log.error("EC2ResponseError getting snapshot {0} info: {1}"
+                          .format(snapshot_id, e))
+        return snap_info
 
     def get_all_instances(self, instance_ids=None, filters=None):
         """

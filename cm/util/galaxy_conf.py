@@ -44,17 +44,19 @@ def attempt_chown_galaxy(path, recursive=False):
 
 
 def populate_admin_users(option_manager, admins_list=[]):
-    """ Galaxy admin users can now be added by providing them in user data
-        (see below) or by calling this method and providing a user list.
-        YAML format for user data for providing admin users
-        (note that these users will still have to manually register
-        on the given Galaxy instance):
-        admin_users:
-         - user@example.com
-         - user2@anotherexample.edu """
+    """
+    Galaxy admin users can be added by providing them in user data
+    (see below) or by calling this method and providing a user list.
+    YAML format for user data for providing admin users
+    (note that these users will still have to manually register
+    on the given Galaxy instance):
+    admin_users:
+     - user@example.com
+     - user2@anotherexample.edu
+    """
     for admin in option_manager.app.config.get('admin_users', []):
         if admin not in admins_list:
-                admins_list.append(admin)
+            admins_list.append(admin)
     if len(admins_list) == 0:
         return False
     log.info('Setting Galaxy admin users to: %s' % admins_list)
@@ -141,13 +143,14 @@ def populate_galaxy_paths(option_manager):
         .format(path_resolver.psql_db_port)
     properties["use_pbkdf2"] = "False"  # Required for FTP
     properties["tool_data_path"] = path_resolver.galaxy_indices
-    properties["len_file_path"] = join(path_resolver.galaxy_config_dir, "len")
+    properties["len_file_path"] = join(path_resolver.galaxy_home, "tool-data", "len")
     properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
-    temp_dir = join(path_resolver.transient_nfs, "tmp")
+    temp_dir = '/mnt/galaxy/tmp'
     if not exists(temp_dir):
         makedirs(temp_dir)
     attempt_chown_galaxy(temp_dir, recursive=True)
+    attempt_chown_galaxy(path_resolver.galaxy_indices, recursive=False)
     properties["new_file_path"] = temp_dir
     # This is something a user may change so this is not an ideal solution
     # but a relation to the required files is necessary so here it is.
@@ -168,6 +171,7 @@ def populate_galaxy_paths(option_manager):
 
 
 class FileGalaxyOptionManager(object):
+
     """
     Default Galaxy option manager, modifies `$galaxy_config_dir/$OPTIONS_FILE_NAME`
     directly.
@@ -201,12 +205,13 @@ class FileGalaxyOptionManager(object):
         configfile.close()
         new_config_file_path = join(galaxy_config_dir, '{0}.new'.format(OPTIONS_FILE_NAME))
         with open(new_config_file_path, 'wt') as output_file:
-                parser.write(output_file)
+            parser.write(output_file)
         move(new_config_file_path, config_file_path)
         attempt_chown_galaxy(config_file_path)
 
 
 class DirectoryGalaxyOptionManager(object):
+
     """
     When `galaxy_conf_dir` in specified in UserData this is used to
     manage Galaxy's options.

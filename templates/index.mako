@@ -7,33 +7,27 @@ vertical-align: top;
 </style>
 <div class="body" style="max-width: 720px; margin: 0 auto;">
     <h2>CloudMan Console</h2>
-    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space.  Use the disk icon below to increase your volume size.</div>
+    <div id="storage_warning" style="display:none;" class="warning"><strong>Warning:</strong> You are running out of disk space. <span id="storage_warning_plus" style="display:none;">Use the icon next to the disk status below to increase your disk size.</span></div>
     <%include file="bits/messages.html" />
     <div id="main_text">
-        %if initial_cluster_type is None:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this cloud cluster and the services provided within.
-            If this is your first time running this cluster, you will need to select an initial data volume
-            size. Once the data store is configured, default services will start and you will be able to add
-            and remove additional services as well as 'worker' nodes on which jobs are run.
-        %else:
-            Welcome to <a href="http://usecloudman.org/" target="_blank">CloudMan</a>.
-            This application allows you to manage this instance cloud cluster and the services
-            provided within. Your previous data store has been reconnected.  Once the cluster has initialized,
-            use the controls below to manage services provided by the application.
-        %endif
+        This is CloudMan - an application that allows you to manage this cloud
+        cluster and the services provided within. Once the cluster configuration
+        has been completed (indicated by a notification popup), you can start
+        using the cluster and the services that were started. For more information
+        on the system features, see the
+        <a href="https://wiki.galaxyproject.org/CloudMan" target="_blank">wiki</a>.
     </div>
-    <div style="clear: both;"></div><br/>
+    <h3>Cluster controls</h3>
     <div style='position:relative;text-align:center;'>
         <ul style='display:inline;padding:0;'>
             <li style='display:inline;width:150px;'>
-                <a id="stop-button" original-title="Terminate Cluster" class="action-button left-button">Terminate cluster</a>
+                <a id="stop-button" original-title="Shut down..." class="action-button left-button">Shut down...</a>
             </li>
             <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Add Nodes..." id="scale_up_button">Add nodes <img src="/cloud/static/images/downarrow.png"></a>
+                <a class="middle-button action-button" original-title="Add worker nodes..." id="scale_up_button">Add worker nodes <img src="/cloud/static/images/downarrow.png"></a>
             </li>
             <li style='display:inline;width:150px;'>
-                <a class="action-button" original-title="Remove Nodes..." id="scale_down_button">Remove nodes <img src="/cloud/static/images/downarrow.png"></a>
+                <a class="middle-button action-button" original-title="Remove worker nodes..." id="scale_down_button">Remove worker nodes <img src="/cloud/static/images/downarrow.png"></a>
             </li>
             <li style='display:inline;width:150px;'>
                 <a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
@@ -41,7 +35,7 @@ vertical-align: top;
         </ul>
 
     <div id='cluster_scale_up_popup' class='cluster_scale_popup'>
-        <h4>Add nodes</h4>
+        <h4>Add worker nodes</h4>
         <form id="add_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='add_instances')}" method="post">
         <div class="form-row">
             <label>Number of nodes to start:</label>
@@ -70,12 +64,14 @@ vertical-align: top;
                     <div class="LV_msgbox"><span id="spot_price_vtag"></span></div>
                 </div>
             %endif
-            <div class="form-row"><input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()"></div>
+            <div class="form-row">
+                <input type="submit" value="Start Additional Nodes" onClick="return add_pending_node()" class="btn btn-default" />
+            </div>
         </div>
         </form>
     </div>
     <div id='cluster_scale_down_popup' class='cluster_scale_popup'>
-        <h4>Remove nodes</h4>
+        <h4>Remove worker nodes</h4>
         <form id="remove_instances_form" class="generic_form" name="node_management_form" action="${h.url_for(controller='root',action='remove_instances')}" method="post">
             <div class="form-row">
                 <div id="num_nodes" class="form-row-input">
@@ -92,34 +88,55 @@ vertical-align: top;
                 <div id="num_nodes" class="form-row-input">
                     &nbsp;
                 </div>
-                <div class="form-row"><input type="submit" value="Remove Existing Nodes"></div>
+                <div class="form-row">
+                    <input type="submit" value="Remove Existing Nodes" class="btn btn-default" />
+                </div>
             </div>
         </form>
     </div>
 </div>
-<h2>Status</h2>
+<h3>Cluster status</h3>
 <div id="status_container">
     <div id="cluster_view">
         <div id="cluster_view_tooltip" style="text-align: center;"></div>
         <canvas id="cluster_canvas" width="150" height="120"></canvas>
     </div>
-    <table cellpadding="0" cellspacing="10">
-            %if cluster_name:
-                <tr><td><h4>Cluster name: </h4></td><td><span id="cluster_name">${cluster_name}</span>&nbsp;
-                <span><a id="share_a_cluster" title="Share this cluster instance">&nbsp;</a></span></td></tr>
-            %endif
-        <tr><td><h4>Disk status: </h4></td><td>
-            <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>) <span id='expand_vol' title="Expand disk size">&nbsp;</span>
+    <table cellpadding="0" cellspacing="10" class="status-table">
+        %if cluster_name:
+            <tr>
+                <td><h4>Cluster name: </h4></td>
+                <td>
+                    <span id="cluster_name">${cluster_name}</span>&nbsp;
+                    <span>
+                        <a id="share_a_cluster" title="Share this cluster instance">
+                            <span class="btn btn-default btn-sm">
+                                <i class="fa fa-share-alt-square fa-lg"></i> Share
+                            </span>
+                        </a>
+                    </span>
+                </td>
+            </tr>
+        %endif
+        <tr>
+            <td><h4>Disk status: </h4></td>
+            <td>
+                <span id="du-used">0</span> / <span id="du-total">0</span> (<span id="du-pct">0</span>)
+                <span id='expand_vol' title="Expand disk size">
+                    <span class="btn btn-default btn-sm">
+                        <i class="fa fa-plus-square fa-lg"></i> Grow
+                    </span>
+                </span>
             ##<span id="snap-status"></span><span id="snap-progress"></span>
-        </td></tr>
+            </td>
+        </tr>
         <tr><td><h4>Worker status: </h4></td><td>
-            <b>Idle</b>: <span id="status-idle">0</span>
-            <b>Available</b>: <span id="status-available">0</span>
             <b>Requested</b>: <span id="status-total">0</span>
+            <b>Available</b>: <span id="status-available">0</span>
+            <b>Idle</b>: <span id="status-idle">0</span>
         </td></tr>
         <tr><td><h4>Service status: </h4></td><td>
-            Applications <div id="app-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
-            Data <div id="data-status" style="width:16px;display:inline-block" class="status_green">&nbsp;</div>
+            Applications <span id="app-status"><i class="fa fa-circle"></i></span>
+            Data <span id="data-status"><i class="fa fa-circle"></i></span>
         </td></tr>
 ##      <tr><td colspan=2>
 ##      </td></tr>
@@ -135,27 +152,41 @@ vertical-align: top;
     <h2>Expand Disk Space</h2>
     <form id="expand_user_data_volume" name="expand_user_data_volume" class="generic_form" action="${h.url_for(controller='root',action='expand_user_data_volume')}" method="post">
         <div class="form-row">
-        Through this form you may increase the disk space available to Galaxy. All of the cluster services (but not the cluster)
-        <b>WILL BE STOPPED</b> until the new disk is ready, at which point they will all be restarted. This may result in Galaxy
-        jobs that are currently running to fail. Note that the new disk size <b>must be larger</b> than the current disk size.
-        <p>During this process, a snapshot of your data volume will be created, which can optionally be left in your account.
-        If you decide to leave the snapshot for reference, you may also provide a brief note that will later be visible in
-        the snapshot's description.</p>
+            Through this form you may increase the disk space available to the
+            cluster. All of the cluster services (but not the cluster) will be
+            stopped until the new disk is ready, at which point they will all
+            be automatically restarted. This process may result in Galaxy jobs
+            that are currently running to fail. Note that the new disk size must
+            be larger than the current disk size.
+            <p>
+                During this process, a snapshot of your data volume will be
+                created, which can optionally be left in your account. If you
+                decide to keep the snapshot for reference, you may also provide
+                a brief note that will later be visible in the snapshot's
+                description.
+            </p>
+        </div>
+        <div id="permanent_storage_size" class="form-row">
+            <label for="new_vol_size">
+                New disk size (minimum <span id="du-inc">0</span>GB, maximum 16000GB):
+            </label>
+            <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="5">GB
+            <span id="new_col_size_vtag"></span>
+        </div>
+        <div id="permanent_storage_size" class="form-row">
+            <label for="vol_expand_desc">Note (optional):</label>
+            <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="44"><br/>
         </div>
         <div class="form-row">
-            <label>New Disk Size (minimum <span id="du-inc">0</span>GB, maximum 16000GB):</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="new_vol_size" id="new_vol_size" value="0" size="25">
-            </div>
-            <label>Note (optional):</label>
-            <div id="permanent_storage_size" class="form-row-input">
-                <input type="text" name="vol_expand_desc" id="vol_expand_desc" value="" size="50"><br/>
-            </div>
-            <label>or delete the created snapshot after filesystem resizing?</label>
-            <input type="checkbox" name="delete_snap" id="delete_snap"> If checked, the created snapshot will not be kept
-            <div class="form-row">
-                <input type="submit" value="Create Data Volume"/>
-            </div>
+            <input type="checkbox" name="delete_snap" id="delete_snap">
+            <label for="delete_snap">
+                If checked, the created snapshot will be deleted after the
+                resizing process completes.
+            </label>
+        </div>
+        <input type="hidden" name="fs_name" value="galaxy">
+        <div style="padding-top: 15px;">
+            <input type="submit" value="Increase disk size" class="btn btn-default"/>
         </div>
     </form>
 </div>
@@ -163,6 +194,8 @@ vertical-align: top;
 ## Overlay that prevents any future clicking, see CSS
 <div id="snapshotoverlay" style="display:none">
     <div id="snapshotoverlay_msg_box" style="display:none"></div>
+    ## Allow the overlay to be hidden between UI updates
+    <a id="close-snapshotoverlay" href="#">Temporarily hide overlay</a>
 </div>
 <div id="no_click_clear_overlay" style="display:none"></div>
 <div id="snapshot_status_box" class="box">
@@ -191,24 +224,51 @@ vertical-align: top;
 <div class="overlay" id="overlay" style="display:none"></div>
 <div class="box" id="power_off">
     <a class="boxclose"></a>
-    <h1>EC2 Cluster Configuration</h1>
+    <h1>Shut down</h1>
     <form id="power_cluster_off_form" class="generic_form" name="power_cluster_form" action="${h.url_for(controller='root',action='kill_all')}" method="post">
         <div class="form-row">
-            <label>Are you sure you want to power the cluster off?</label>
-            <p>This action will shut down all services on the cluster and terminate
-            any worker nodes (instances) associated with this cluster. Unless you
-            choose to have the cluster deleted, all of your data will be preserved
-            beyond the life of this instance. Next time you wish to start this same
-            cluster, simply use the same user data (i.e., cluster name and credentials)
-            and CloudMan will reactivate your cluster with your data.</p>
-            <label for="terminate_master_instance"><b>Automatically terminate the master instance?</b></label>
-            <div><input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked>
-            <label for="terminate_master_instance">If checked, this master instance will automatically terminate after all services have been shut down.
-            If not checked, you should maually terminate this instance after all services have been shut down.</label></div>
-            <p></p><b>Also delete this cluster?</b>
-            <div><input type="checkbox" name="delete_cluster" id="delete_cluster">
-            If checked, this cluster will be deleted. <b>This action is irreversible!</b> All your data will be deleted, including any shared clusters.</div>
-            <div style="padding-top: 20px;"><input type="submit" value="Yes, power off"></div>
+            <h2>Are you sure you want to power off this cluster?</h2>
+            <p>
+                This action will stop all services on the cluster and terminate
+                any worker nodes associated with this cluster.
+            </p>
+            % if cluster_storage_type != 'transient':
+                <p>
+                    Unless you choose to have the cluster deleted, all of your
+                    data will be saved beyond the life of this instance. Next
+                    time you wish to start this same cluster, use the same
+                    access credentials and the same cluster name and CloudMan
+                    will reactivate your cluster with your data.
+                </p>
+            %else:
+                <p>
+                    This cluster is using transient storage and consequently
+                    it cannot be saved. Once shut down, all data will be lost.
+                </p>
+            %endif
+            <label for="terminate_master_instance">
+                <b>Automatically terminate the master instance?</b>
+            </label>
+            <div>
+                <input type="checkbox" name="terminate_master_instance" id="terminate_master_instance" checked />
+                <label for="terminate_master_instance">
+                    If checked, this master instance will automatically terminate
+                    after all services have been stopped. If not checked, you should
+                    maually terminate this instance from the cloud's dashboard after
+                    all services here have been shut down.
+                </label>
+            </div>
+            % if cluster_storage_type != 'transient':
+                <p></p><b>Also delete this cluster?</b>
+                <div>
+                    <input type="checkbox" name="delete_cluster" id="delete_cluster" />
+                    If checked, this cluster will be deleted. <b>This action is irreversible!</b>
+                    All your data will be deleted, including any shared clusters.
+                </div>
+            %endif
+            <div style="padding-top: 20px;">
+                <input type="submit" value="Yes, shut down" class="btn btn-default" />
+            </div>
         </div>
     </form>
 </div>
@@ -223,7 +283,9 @@ vertical-align: top;
         <div class="form-row">
             If autoscaling is turned off, the cluster will remain in it's current state and you will
             be able to manually add or remove nodes.
-            <div class="form-row"><input type="submit" value="Turn autoscaling off"/></div>
+        </div>
+        <div class="form-row">
+            <input type="submit" value="Turn autoscaling off" class="btn btn-default"/>
         </div>
     </form>
 </div>
@@ -263,8 +325,11 @@ vertical-align: top;
                     ## Select available instance types based on cloud name
                     <%include file="instance_types.mako" />
                 </div>
-                <br/><div class="form-row"><input type="submit" value="Turn autoscaling on"/></div>
+                <br/>
             </div>
+        </div>
+        <div class="form-row">
+            <input type="submit" value="Turn autoscaling on" class="btn btn-default" />
         </div>
     </form>
 </div>
@@ -286,8 +351,10 @@ vertical-align: top;
                 <div class="form-row-input">
                     <input type="text" name="as_max_adj" id="as_max_adj" value="" size="10">
                 </div>
-                <div class="form-row"><input type="submit" value="Adjust autoscaling"/></div>
             </div>
+        </div>
+        <div class="form-row">
+            <input type="submit" value="Adjust autoscaling" class="btn btn-default" />
         </div>
     </form>
 </div>
@@ -299,7 +366,7 @@ vertical-align: top;
             <p>Retrieving your shared cluster instances...</p>
             <div class="spinner">&nbsp;</div>
         </div>
-        <h3><a href="#">Share-an-instance</a></h3>
+        <h3><a href="#">Share this instance</a></h3>
         <div><form id="share_a_cluster_form" class="share_a_cluster" name="share_a_cluster_form" action="${h.url_for(controller='root', action='share_a_cluster')}" method="post">
             <div class="form-row">
                 <p><b>This form allows you to share this cluster instance, at its current state,
@@ -321,8 +388,18 @@ vertical-align: top;
                 process is complete, services on your cluster will automatically resume.</p>
                 <div class="form-row">
                     <div id="public_private">
-                        <input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">Public</input>
-                        <input type="radio" id="shared_visibility" name="visibility" value="shared">Shared</input>
+                        <input type="radio" id="public_visibility" name="visibility" value="public" checked="yes">
+                            Public
+                        </input>
+                        <input type="radio" id="shared_visibility" name="visibility" value="shared">
+                            Shared
+                        </input>
+                    </div>
+                    <div>
+                        <label for="id-share-desc" style="line-height: 25px;">
+                            Optional cluster share description (less than 255 characters)
+                        <label><br/>
+                        <input type="text" id="id-share-desc" name="share_desc" value="" size="100" />
                     </div>
                     <div id="user_permissions" style="display: none;">
                         <div id="add_user">
@@ -331,7 +408,7 @@ vertical-align: top;
                             These numbers can be obtained from the bottom of the
                             AWS Security Credentials page, under <i>Account Identifiers</i> section.</p>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS account numbers:</span>
-                                <input type="text" id="user_ids" name="user_ids" size="40" value="" />
+                                <input type="text" id="user_ids" name="user_ids" size="0" value="" />
                                 <span class="share_cluster_help_text">CSV numbers</span>
                             </div>
                             <div style="height: 38px;"><span style="display: inline-block; width: 150px;">AWS canonical user IDs:</span>
@@ -340,8 +417,10 @@ vertical-align: top;
                             </div>
                         </div>
                     </div>
-                    <div class="form-row"><input type="submit" value="Share-an-instance"/></div>
                 </div>
+            </div>
+            <div class="form-row">
+                <input type="submit" value="Share this instance" class="btn btn-default" />
             </div>
         </form></div>
     </div>
@@ -360,95 +439,114 @@ vertical-align: top;
 <div class="box" id="volume_config">
     <h2 style="text-align:center;">Initial CloudMan Platform Configuration</h2>
     <div class="form-row">
-        <p style="text-align:justify;">Welcome to CloudMan. This application will allow you to manage this cluster platform and
-        the services provided within. To get started, choose the type of platform you'd like to work
-        with and provide the associated value, if any.</p>
+        <p style="text-align:justify;">
+            Welcome to CloudMan. This application will allow you to manage this
+            cluster platform and the services provided within. To get started,
+            choose the type of platform you'd like to work with and provide the
+            associated value, if any. More information about each of the
+            available types can be found
+            <a href="https://wiki.galaxyproject.org/CloudMan/ClusterTypes" target="_blank">here</a>.
+        </p>
     </div>
     <form id="initial_volume_config_form" name="power_cluster_form" action="${h.url_for(controller='root',action='initialize_cluster')}" method="post">
         <div class="form-row">
-                <p style="text-align:justify;">
-                <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
-                    <label for="galaxy-cluster">
-                    <span style="display: block;margin-left: 20px;">
-                        <b>Galaxy Cluster</b>: Galaxy application, available tools, reference datasets, a job manager, and a data volume.
-                        Specify the initial storage type:
-                    </span>
-                    </label>
-                    <div style="text-align:left;margin-left: 18px">
-                    %if cloud_type == 'ec2':
-                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size" checked='true'>
-                    %else:
-                    <input id="galaxy-default-size" type="radio" name="galaxy_data_option" value="default-size">
-                    %endif
-                    <label for="galaxy-default-size">Volume - Default (${default_data_size} GB)</label>
-                    <input id="galaxy-custom-size" type="radio" name="galaxy_data_option" value="custom-size" style="margin-left:70px">
-                    <label for="galaxy-custom-size">Volume - Custom:</label>
-                    <input type="text" name="pss" class="LV_field" id="g_pss" value="" size="2"> GB
+            <input id="galaxy-cluster" type="radio" name="startup_opt" value="Galaxy" checked='true' style="float:left">
+            <label for="galaxy-cluster">
+                <span style="display: block;margin-left: 20px;">
+                    <b>Cluster with Galaxy</b>: a preconfigured Galaxy application
+                    with numerous bioinformatics tools, many gigabytes of genomic
+                    reference datasets, a production-quality database, a fast
+                    web server and a cluster job manager.
+                    <div style="margin: 12px 0 2px 0;">
+                        You have a choice of the type and size of storage to use:
                     </div>
-                    <div style="text-align:left;margin-left: 18px">
-                    %if cloud_type == 'ec2':
-                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient">
-                    %else:
-                    <input id="galaxy-transient" type="radio" name="galaxy_data_option" value="transient" checked='true'>
-                    %endif
-                    <label for="galaxy-transient">Transient Storage</label>
-                    </div>
-                    <div style="height: 5px;">
-                        <span style="margin-left: 247px;" id="g_pss_vtag"></span>
-                    </div>
-                </p>
+                </span>
+            </label>
+            <div style="text-align:left;margin-left: 18px">
+                %if cloud_type == 'ec2':
+                    <input id="id-galaxy-cluster-persistent" type="radio" name="storage_type" value="volume" checked="true">
+                %else:
+                    <input id="id-galaxy-cluster-persistent" type="radio" name="storage_type" value="volume">
+                %endif
+                <label for="id-galaxy-cluster-persistent">
+                    Persistent volume storage: size
+                </label>
+                <input id="id-galaxy-cluster-persistent-size" type="text" name="storage_size" class="LV_field" value="" size="5" placeholder="10">GB <span id="g_pss_vtag"></span>
+            </div>
+            <div style="text-align:left;margin-left: 18px">
+                %if cloud_type == 'ec2':
+                    <input id="galaxy-transient" type="radio" name="storage_type" value="transient">
+                %else:
+                    <input id="galaxy-transient" type="radio" name="storage_type" value="transient" checked='true'>
+                %endif
+                <label for="galaxy-transient">
+                    Transient instance storage: ${transient_fs_size} GB
+                </label>
+            </div>
         </div>
+
         <div id='extra_startup_options'>
             <div class="form-row">
-                <p style="text-align:justify;"><input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
-                    <label for="share-cluster">
+                <input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
+                <label for="data-cluster">
                     <span style="display: block;margin-left: 20px;">
-                        <b>Share-an-Instance Cluster</b>: derive your cluster form someone else's cluster. <i>Note</i> that this form field works only
+                        <b>Cluster only</b>: a cluster-in-the-cloud without any
+                        applications automatically added.
+                        <div style="margin: 12px 0 2px 0;">
+                            Choose the type and size of storage you would like
+                            for the cluster:
+                        </div>
+                    </span>
+                </label>
+                <div style="text-align: left; margin-left: 18px;">
+                    <input id="id-data-cluster-persistent" type="radio" name="storage_type" value="volume">
+                    <label for="id-data-cluster-persistent">
+                        Persistent volume storage: size
+                    </label>
+                    <input id="id-data-cluster-storage-size" type="text" name="storage_size" class="LV_field" value="" size="5">GB <span id="id-data-cluster-storage-size-vtag"></span>
+                </div>
+                <div style="text-align: left; margin-left: 18px;">
+                    <input id="id-cluster-only-transient" type="radio" name="storage_type" value="transient">
+                    <label for="id-cluster-only-transient">
+                        Transient instance storage: ${transient_fs_size} GB
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <input id="share-cluster" type="radio" name="startup_opt" value="Shared_cluster" style="float:left">
+                <label for="share-cluster">
+                    <span style="display: block;margin-left: 20px;">
+                        <b>Cloned cluster</b>: derive your cluster form someone else's shared cluster. <i>Note</i> that this form field works only
                         for instances that were shared after July 1, 2013! For instances
                         shared before that date, please use <a href="http://usegalaxy.org/cloudlaunch" target="_blank">CloudLaunch<a/>
                         and provide the share string there. <br/>
                         Specify the provided cluster share-string (for example,
-                        <span style="white-space:nowrap">cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00</span>):
+                        <span style="white-space:nowrap; font-style: italic;">cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00</span>):
                     </span>
-                    </label>
-                </p>
-                <input style="margin-left:20px"  type="text" name="shared_bucket" class="LV_field" id="shared_bucket" value="" size="50">
-                    <label for="shared_bucket">Cluster share-string</label>
-            </div>
-
-            <div class="form-row">
-                <p style="text-align:justify;"><input id="data-cluster" type="radio" name="startup_opt" value="Data" style="float:left">
-                    <label for="data-cluster">
-                    <span style="display: block;margin-left: 20px;">
-                        <b>Data Cluster</b>: a persistent data volume and a job manager.
-                        Specify the initial storage size (in Gigabytes):
-                    </span>
-                    </label>
-                </p>
-                <input style="margin-left:20px"  type="text" name="pss" class="LV_field" id="d_pss" value="" size="3">GB<span id="d_pss_vtag"></span>
-            </div>
-
-            <div class="form-row">
-                <p style="text-align:justify;"><input type="radio" name="startup_opt" value="Test" style="float:left" id="test-cluster">
-                <label for="test-cluster">
-                <span style="display: block;margin-left: 20px;">
-                    <b>Test Cluster</b>: A job manager only. No persistent storage is created.</p>
-                </span>
                 </label>
+                <input style="margin-left:20px"  type="text" name="share_string" class="LV_field" id="id-share-string" value="" size="50">
+                    <label for="id-share-string">Cluster share-string</label>
             </div>
         </div>
-        <div id="toggle_extra_startup_options_cont" class="form-row"><a id='toggle_extra_startup_options' href="#">Show more startup options</a></div>
+        <div id="toggle_extra_startup_options_cont" class="form-row">
+            <a id='toggle_extra_startup_options' href="#">
+                Show additional startup options
+            </a>
+        </div>
         <br/>
         <div class="form-row" style="text-align:center;">
-            <input type="submit" value="Choose platform type" id="start_cluster_submit_btn"/>
+            <input type="submit" value="Choose configuration option" id="start_cluster_submit_btn" class="btn btn-default" />
         </div>
         </form>
     </div>
 </div>
 <div id="log_container">
     <div id="log_container_header">
-        <h3>Cluster status log</h3>
-        <div id="log_container_header_img"></div>
+        <h3>Cluster info log <i class="fa fa-chevron-down"></i></h3>
+        <div id="log_container_header_img">
+            <span id="log-icon-txt">Collapse</span> <i class="fa fa-plus-circle fa-lg"></i>
+        </div>
     </div>
     <div id="log_container_body">
     <ul>
@@ -527,30 +625,34 @@ function update_ui(data){
         $('#status-available').text( data.instance_status.available );
         $('#status-total').text( data.instance_status.requested );
         $('#du-total').text(data.disk_usage.total);
-        $('#du-inc').text(data.disk_usage.total.slice(0,-1));
+        $('#du-inc').text(Math.round(data.disk_usage.total.slice(0,-1)));
         $('#du-used').text(data.disk_usage.used);
-        $('#du-pct').text(data.disk_usage.pct);
+        $('#du-pct').text(data.disk_usage.used_percent);
         if($('#new_vol_size').val() == '0'){
-            $('#new_vol_size').val(data.disk_usage.total.slice(0,-1));
+            $('#new_vol_size').val(Math.round(data.disk_usage.total.slice(0,-1)));
         }
-        if (parseInt(data.disk_usage.pct) > 80){
+        if (parseInt(data.disk_usage.used_percent) > 80){
             $('#storage_warning').show();
+            if (data.cluster_storage_type != 'transient'){
+                $('#storage_warning_plus').show();
+            }
         }else{
             $('#storage_warning').hide();
+            $('#storage_warning_plus').hide();
         }
         $('#snap-progress').text(data.snapshot.progress);
         $('#snap-status').text(data.snapshot.status);
         // DBTODO write generic services display
-        $('#data-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.data_status);
+        $('#app-status').attr('style', 'color: ' + data.app_status);
+        $('#data-status').attr('style', 'color: ' + data.data_status);
         // Show volume manipulating options only after data volumes are ready
-        if (data.data_status !== 'green'){
+        if (data.testflag !== true && (data.cluster_storage_type == 'transient' || data.data_status !== 'green')){
             $('#expand_vol').hide();
             $('#share_a_cluster').hide();
         }else{
             $('#expand_vol').show();
             $('#share_a_cluster').show();
         }
-        $('#app-status').removeClass('status_nodata status_green status_red status_yellow').addClass('status_'+data.app_status);
         cluster_status = data.cluster_status;
         if (cluster_status === "SHUTTING_DOWN"){
             shutting_down();
@@ -669,32 +771,44 @@ function get_shared_instances(){
         function(data){
             if(data){
                 var shared_list = $('#shared_instances_list').html(
-                    "<p>These are the share string IDs that you can share " +
-                    "with others so they can create and instantiate their instances " +
-                    "of your shared cluster. Also, for reference, corresponding " +
-                    "snapshot ID's are provided and you have an option to delete a " +
-                    "given shared instance. <b>Note</b> that once deleted, any derived instances " +
-                    "that have been created and used will cease to be able to be started.</p>");
+                    "<p>These are the shared versions of this cluster that " +
+                    "you can share with others so they can create clones of your " +
+                    "cluster. Simply copy the Share string ID and send it or " +
+                    "publish it. For more information about cluster sharing, " +
+                    "see <a href='https://wiki.galaxyproject.org/CloudMan/Sharing'" +
+                    "target='_blank'>this page</a>. " +
+                    "Before others can create the clones, the share " +
+                    "<i>Status</i> must reach 100% (note that depending on the " +
+                    "size of your disk, this may take many hours). </p>" +
+                    "<p><b>Note</b> that if you delete a share, any instances " +
+                    "that other users have been created (and used) will no " +
+                    "longer be functional!</p>");
                 var table = $("<table/>");
                 if (data.shared_instances.length > 0) {
                     table.addClass("shared_instances_table");
                     tr = $('<tr/>');
                     tr.append($('<th/>').text("Visibility"));
-                    tr.append($('<th/>').text("Share string ID"));
+                    tr.append($('<th/>').text("Share string ID and share description"));
+                    tr.append($('<th/>').text("Status"));
                     tr.append($('<th/>').text("Snapshot ID"));
                     tr.append($('<th/>').text("Delete?"));
                     table.append(tr);
                     for (n=0; n<(data.shared_instances).length; n++) {
                         var fn = function(i) {
-                            var tr = $("<tr/>");
+                            var tr = $("<tr class='shared-instance-ttr' />");
                             tr.append($('<td/>').text(data.shared_instances[i].visibility));
                             tr.append($('<td/>').text(data.shared_instances[i].bucket));
+                            tr.append($('<td/>').text(data.shared_instances[i].snap_progress));
                             tr.append($('<td/>').text(data.shared_instances[i].snap));
                             anchor = $("<a>&nbsp;</a>").click(function () {
                                 show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
                             }).addClass("del_scf");
-                            tr.append($('<td/>').html(anchor));
+                            tr.append($('<td style="padding-left: 15px;" />').html(anchor));
                             table.append(tr);
+                            var tr2 = $('<tr/>');
+                            tr2.append($('<th/>'));
+                            tr2.append($('<td colspan="4" class="shared-instance-desc" />').text(data.shared_instances[i].snap_desc));
+                            table.append(tr2);
                         };
                         fn(n);
                     }
@@ -707,10 +821,20 @@ function get_shared_instances(){
 }
 
 function show_log_container_body() {
-    // Show the containter box for CloudMan log on the main page
-    $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top right' );
+    $('#log_container_header_img i').removeClass('fa-plus-circle');
+    $('#log_container_header_img i').addClass('fa-minus-circle');
+    $('#log_container_header_img span').text('Collapse');
     $('#log_container_header').addClass('clicked');
     $('#log_container_body').slideDown('fast');
+}
+
+function hide_log_container_body() {
+    $('#log_container_header_img i').addClass('fa-plus-circle');
+    $('#log_container_header_img i').removeClass('fa-minus-circle');
+    $('#log_container_header_img span').text('Expand');
+    $('#log_container_body').slideUp('fast', function(){
+        $('#log_container_header').removeClass('clicked');
+    });
 }
 
 // This is called when worker nodes are added by the user.
@@ -813,10 +937,10 @@ $(document).ready(function() {
         // $('#extra_startup_options').show();
         if ($('#extra_startup_options').is(":visible")){
             $('#extra_startup_options').hide();
-            $('#toggle_extra_startup_options').text('Show more startup options');
+            $('#toggle_extra_startup_options').text('Show additional startup options');
         }else{
             $('#extra_startup_options').show();
-            $('#toggle_extra_startup_options').text("Hide extra options");
+            $('#toggle_extra_startup_options').text("Hide additional startup options");
         }
     });
     $('#popupoverlay').click(function(){
@@ -828,18 +952,15 @@ $(document).ready(function() {
     $('.boxclose').click(function(){
         hidebox();
     });
-    $('#log_container_body').hide();
     $('#log_container_header').click(function() {
         if ($('#log_container_body').is(":hidden")){
             show_log_container_body();
         } else {
-            $('#log_container_header_img').css('background', 'transparent url(/cloud/static/images/plus_minus.png) no-repeat top left' );
-            $('#log_container_body').slideUp('fast', function(){
-                $('#log_container_header').removeClass('clicked');
-            });
+            hide_log_container_body();
         }
         return false;
     });
+    show_log_container_body();
 
     $('.generic_form').ajaxForm({
         type: 'POST',
@@ -947,8 +1068,8 @@ $(document).ready(function() {
     var number_nodes = new LiveValidation('number_nodes', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'number_nodes_vtag' } );
     number_nodes.add( Validate.Numericality, { minimum: 1, onlyInteger: true } );
     if (permanent_storage_size === 0) {
-        var g_permanent_storage_size = new LiveValidation('g_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
-        var d_permanent_storage_size = new LiveValidation('d_pss', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'd_pss_vtag' } );
+        var g_permanent_storage_size = new LiveValidation('id-galaxy-cluster-persistent-size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'g_pss_vtag' } );
+        var d_permanent_storage_size = new LiveValidation('id-data-cluster-storage-size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'id-data-cluster-storage-size-vtag' } );
 
         ## Set maximum size only for ec2, since openstack supports volumes larger than 1TB
         %if cloud_type == 'ec2':
@@ -964,7 +1085,7 @@ $(document).ready(function() {
         var spot_price = new LiveValidation('spot_price', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'spot_price_vtag' } );
         spot_price.add( Validate.Numericality, { minimum: 0 } );
     }
-    var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300 } );
+    var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'new_col_size_vtag' } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 16000 } );
 
     var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
@@ -1000,27 +1121,46 @@ $(document).ready(function() {
     $('#expand_vol').tipsy({gravity: 'w', fade: true});
 
     // Enable onclick events for the option in the initial cluster configuration box
-    $('#galaxy-default-size').click(function() {
+    $('#galaxy-cluster').click(function() {
+        $('#id-galaxy-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#id-galaxy-cluster-persistent').click(function() {
+        $('#id-galaxy-cluster-persistent-size').focus();
+    });
+    $('#id-galaxy-cluster-persistent-size').focus(function() {
+        $('#galaxy-cluster').attr('checked', 'checked');
+        $('#id-galaxy-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#galaxy-transient').click(function() {
         $('#galaxy-cluster').attr('checked', 'checked');
     });
-    $('#galaxy-custom-size').click(function() {
-        $('#g_pss').focus();
-    });
-    $('#g_pss').focus(function() {
-        $('#galaxy-cluster').attr('checked', 'checked');
-        $('#galaxy-custom-size').attr('checked', 'checked');
-    });
-    $('#share-cluster').click(function() {
-        $('#shared_bucket').focus();
-    });
-    $('#shared_bucket').focus(function() {
-        $('#share-cluster').attr('checked', 'checked');
-    });
+
     $('#data-cluster').click(function() {
-        $('#d_pss').focus();
+        $('#id-cluster-only-transient').attr('checked', 'checked');
     });
-    $('#d_pss').focus(function() {
+    $('#id-data-cluster-persistent').click(function() {
         $('#data-cluster').attr('checked', 'checked');
+        $('#id-data-cluster-storage-size').focus();
+    });
+    $('#id-data-cluster-storage-size').focus(function() {
+        $('#data-cluster').attr('checked', 'checked');
+        $('#id-data-cluster-persistent').attr('checked', 'checked');
+    });
+    $('#id-cluster-only-transient').click(function() {
+        $('#data-cluster').attr('checked', 'checked');
+    });
+
+    $('#share-cluster').click(function() {
+        $('#id-share-string').focus();
+        $('#id-galaxy-cluster-persistent').attr('checked', false);
+    });
+    $('#id-share-string').focus(function() {
+        $('#share-cluster').attr('checked', 'checked');
+        $('#id-galaxy-cluster-persistent').attr('checked', false);
+    });
+    $('#close-snapshotoverlay').click(function(){
+        $('#snapshotoverlay').hide();
+        hidebox();
     });
 
     // Initiate the update calls

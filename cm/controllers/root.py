@@ -5,7 +5,8 @@ import subprocess
 import time
 
 import cm.util.paths as paths
-
+from cm.util import Time
+from cm.util import misc
 from cm.base.controller import BaseController
 from cm.framework import expose
 from cm.services import ServiceRole, ServiceType, service_states
@@ -18,7 +19,8 @@ class CM(BaseController):
     @expose
     def index(self, trans, **kwd):
         if self.app.config['role'] == 'worker':
-            return trans.fill_template('worker_index.mako', master_ip=self.app.config['master_public_ip'])
+            return trans.fill_template('worker_index.mako',
+                                       master_ip=self.app.config['master_public_ip'])
         else:
             permanent_storage_size = self.app.manager.get_permanent_storage_size()
             initial_cluster_type = self.app.manager.initial_cluster_type
@@ -40,31 +42,67 @@ class CM(BaseController):
                                        cloud_type=self.app.config.cloud_type,
                                        instance_types=instance_types,
                                        system_message=system_message,
-                                       default_data_size=self.app.manager.get_default_data_size())
+                                       default_data_size=self.app.manager.get_default_data_size(),
+                                       transient_fs_size=self.app.manager.transient_fs_size(),
+                                       cluster_storage_type=self.app.manager.cluster_storage_type)
 
     @expose
     @TestFlag({})
-    def initialize_cluster(self, trans, startup_opt, galaxy_data_option="custom-size", pss=None, shared_bucket=None):
+    def initialize_cluster(self, trans, startup_opt, storage_type="transient",
+                           storage_size='0', share_string=None):
         """
-        Call this method if the current cluster has not yet been initialized to
-        initialize it. This method should be called only once.
+        Initialize an uninitialized cluster. This method can be called only once.
 
-        For the ``startup_opt``, choose from ``Galaxy``, ``Data``,
-        ``Test``, or ``Shared_cluster``. ``Galaxy`` and ``Data`` type also require
-        an integer value for the ``pss`` argument, which will set the initial size
-        of the persistent storage associated with this cluster. If ``Shared_cluster``
-        ``startup_opt`` is selected, a share string for ``shared_bucket`` argument
-        must be provided, which will then be used to derive this cluster from
-        the shared one.
+        :type startup_opt: string
+        :param startup_opt: Name of the cluster type option. Choose from
+                            ``Galaxy``, ``Data``, or ``Shared_cluster``
+
+        :type storage_type: string
+        :param storage_type: Type of storage to use. Choose from ``volume``
+                            or ``transient``.
+
+        :type storage_size: list or string
+        :param storage_size: The size of persistent storage medium. If supplying
+                             a list, the first value in the list will be used.
+                             The list values or a single string all must be
+                             string representations of an integer.
+
+        :type share_string: string
+        :param share_string: Share-string ID from a shared cluster (e.g.,
+            ``cm-0011923649e9271f17c4f83ba6846db0/shared/2013-07-01--21-00``).
+            If this parameter is set, storage type and size parameters are
+            ignored because they're defined by the cluster share.
         """
-
-        error = self.app.manager.initialize_cluster_with_custom_settings(startup_opt, galaxy_data_option, pss, shared_bucket)
-
-        if error:
-            log.warning(error)
+        # log.debug("startup_opt: {0}; storage_type: {1}; storage_size: {2}; "
+        #           "share_string: {3}".format(startup_opt, storage_type,
+        #                                      storage_size, share_string))
+        if isinstance(storage_size, list):
+            # There are couple of fields on the web form with the same
+            # name so they come in as a list; parse the list and get the value
+            storage_size = [x for x in storage_size if x]
+            # Grab the value or default to 10 if not value was provided for
+            # a volume-based storage or default to 0 otherwise (e.g., transient)
+            if storage_size:
+                storage_size = storage_size[0]
+            elif storage_type == 'volume':
+                storage_size = '10'
+            else:
+                storage_size = '0'
+        try:
+            storage_size = int(storage_size)
+        except TypeError, te:
+            error = "Wrong format for storage_size variable: {0}".format(te)
+            log.debug(error)
+            self.app.msgs.info(error)
             return error
-        else:
-            return self.instance_state_json(trans)
+        except ValueError, ve:
+            error = "Wrong value for storage_size variable: {0}".format(ve)
+            log.debug(error)
+            self.app.msgs.info(error)
+            return error
+        error = self.app.manager.initialize_cluster_with_custom_settings(
+            startup_opt, storage_type, storage_size, share_string)
+        return error or self.instance_state_json(trans)
 
     @expose
     def cloudman_version(self, trans):
@@ -89,11 +127,13 @@ class CM(BaseController):
 
     @expose
     def instance_feed(self, trans):
-        return trans.fill_template('instance_feed.mako', instances=self.app.manager.worker_instances)
+        return trans.fill_template('instance_feed.mako',
+                                   instances=self.app.manager.worker_instances)
 
     @expose
     def instance_feed_json(self, trans):
-        dict_feed = {'instances': [self.app.manager.get_status_dict()] + [x.get_status_dict() for x in self.app.manager.worker_instances]}
+        dict_feed = {'instances': [self.app.manager.get_status_dict()] +
+                     [x.get_status_dict() for x in self.app.manager.worker_instances]}
         return json.dumps(dict_feed)
 
     @expose
@@ -122,6 +162,8 @@ class CM(BaseController):
         """
         if delete_snap:
             delete_snap = True
+        if not fs_name:
+            fs_name = 'galaxy'  # Default to resizing the 'galaxy' file system
         log.debug("Initiating expansion of {0} file system to size {1} w/ "
                   "snap desc '{2}', which {3} be deleted after the expansion process "
                   "completes.".format(fs_name, new_vol_size, vol_expand_desc,
@@ -129,7 +171,8 @@ class CM(BaseController):
         try:
             if new_vol_size.isdigit():
                 new_vol_size = int(new_vol_size)
-                # log.debug("Data volume size before expansion: '%s'" % self.app.manager.get_permanent_storage_size())
+                log.debug("Data volume size before expansion: '%s'" %
+                          self.app.manager.get_permanent_storage_size())
                 if (new_vol_size > self.app.manager.get_permanent_storage_size()
                    and new_vol_size < 16000):
                     self.app.manager.expand_user_data_volume(new_vol_size,
@@ -188,7 +231,8 @@ class CM(BaseController):
         """
         dot = True if dot == 'on' else False
         persist = True if persist == 'on' else False
-        log.debug("Wanting to add a {1} file system of kind {0}".format(fs_kind, "persistent" if persist else "temporary"))
+        log.debug("Wanting to add a {1} file system of kind {0}"
+                  .format(fs_kind, "persistent" if persist else "temporary"))
         if fs_kind == 'bucket':
             if bucket_name != '':
                 # log.debug("Adding file system {0} from bucket {1}".format(bucket_fs_name, bucket_name))
@@ -260,9 +304,11 @@ class CM(BaseController):
         return "ACK"
 
     @expose
-    def detailed_shutdown(self, trans, galaxy=True, sge=True, postgres=True, filesystems=True, volumes=True, instances=True):
+    def detailed_shutdown(self, trans, galaxy=True, sge=True, postgres=True,
+                          filesystems=True, volumes=True, instances=True):
         self.app.shutdown(
-            sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres, sd_filesystems=filesystems, sd_volumes=volumes,
+            sd_galaxy=galaxy, sd_sge=sge, sd_postgres=postgres,
+            sd_filesystems=filesystems, sd_volumes=volumes,
             sd_instances=instances, sd_volumes_delete=volumes)
 
     @expose
@@ -398,7 +444,7 @@ class CM(BaseController):
             else:
                 log_file = os.path.join(self.app.path_resolver.sge_cell, 'messages')
         elif service_name == 'CloudMan':
-            log_file = "paster.log"
+            log_file = "/var/log/cloudman/cloudman.log"
         elif service_name == 'GalaxyReports':
             log_file = os.path.join(self.app.path_resolver.galaxy_home, 'reports_webapp.log')
         elif service_name == 'Pulsar':
@@ -455,8 +501,13 @@ class CM(BaseController):
         status_dict['snapshot'] = {'status': str(snap_status[0]),
                                    'progress': str(snap_status[1])}
         status_dict['master_is_exec_host'] = self.app.manager.master_exec_host
+        status_dict['ignore_deps_framework'] = self.app.config.ignore_unsatisfiable_dependencies
         status_dict['messages'] = self.messages_string(self.app.msgs.get_messages())
+        status_dict['cluster_startup_time'] = self.app.manager.startup_time.strftime("%b %d %Y %H:%M:%S")
+        cluster_uptime = misc.format_time_delta(Time.now() - self.app.manager.startup_time)
+        status_dict['cluster_uptime'] = cluster_uptime
         # status_dict['dummy'] = str(datetime.now()) # Used for testing only
+        # print "status_dict: %s" % status_dict
         return json.dumps(status_dict)
 
     @expose
@@ -640,7 +691,8 @@ class CM(BaseController):
                 self.app.manager.start_autoscaling(
                     int(as_min), int(as_max), instance_type)
             else:
-                log.error("Invalid values for autoscaling bounds (min: %s, max: %s).  Autoscaling is OFF." % (as_min, as_max))
+                log.error("Invalid values for autoscaling bounds (min: %s, "
+                          "max: %s).  Autoscaling is OFF." % (as_min, as_max))
         if self.app.manager.service_registry.is_active('Autoscale'):
             return json.dumps({'running': True,
                                'as_min': self.app.manager.service_registry.get('Autoscale').as_min,
@@ -683,7 +735,8 @@ class CM(BaseController):
             return False
 
     @expose
-    def share_a_cluster(self, trans, visibility, user_ids="", canonical_ids=""):
+    def share_a_cluster(self, trans, visibility, user_ids="", canonical_ids="",
+                        share_desc=""):
         if visibility == 'shared' and user_ids != "" and canonical_ids != "":
             # Check provided values
             try:
@@ -706,9 +759,10 @@ class CM(BaseController):
         elif visibility == 'public':
             u_ids = c_ids = None
         else:
-            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
+            log.error("Incorrect values provided - permissions: '%s', user IDs: '%s', "
+                      "canonnical IDs: '%s'" % (visibility, u_ids, c_ids))
             return self.instance_state_json(trans)
-        self.app.manager.share_a_cluster(u_ids, c_ids)
+        self.app.manager.share_a_cluster(u_ids, c_ids, share_desc[:255])
         return self.instance_state_json(trans, no_json=True)
 
     @expose
@@ -748,6 +802,20 @@ class CM(BaseController):
             return "SSL toggled"
 
     @expose
+    def toggle_dependency_framework(self, trans):
+        """
+        Toggle config option ``ignore_unsatisfiable_dependencies``.
+
+        With ``ignore_unsatisfiable_dependencies`` set, Cloudman's service
+        dependency framework is disabled a service can be started without its
+        dependencies being met.
+        """
+        self.app.config.ignore_unsatisfiable_dependencies = (
+            not self.app.config.ignore_unsatisfiable_dependencies)
+        return "Ignore dependencies set to {0}".format(
+            self.app.config.ignore_unsatisfiable_dependencies)
+
+    @expose
     def admin(self, trans):
         if self.app.config['role'] == 'worker':
             return trans.fill_template('worker_index.mako', master_ip=self.app.config['master_public_ip'])
@@ -771,7 +839,8 @@ class CM(BaseController):
                                    cloud_type=self.app.config.cloud_type,
                                    initial_cluster_type=self.app.manager.initial_cluster_type,
                                    cluster_name=self.app.config['cluster_name'],
-                                   app_services=sorted(app_services))
+                                   app_services=sorted(app_services),
+                                   cluster_storage_type=self.app.manager.cluster_storage_type)
 
     @expose
     def cluster_status(self, trans):
@@ -833,19 +902,21 @@ class CM(BaseController):
         use_autoscaling = self.app.manager.service_registry.is_active('Autoscale')
         ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
                     'dns': dns,
+                    'testflag': self.app.TESTFLAG,
                     'instance_status': {'idle': str(len(self.app.manager.get_idle_instances())),
                                         'available': str(self.app.manager.get_num_available_workers()),
                                         'requested': str(len(self.app.manager.worker_instances))},
-                    'disk_usage': {'used': str(self.app.manager.disk_used),
-                                   'total': str(self.app.manager.disk_total),
-                                   'pct': str(self.app.manager.disk_pct)},
+                    'disk_usage': self.app.manager.check_disk(),
                     'data_status': self.app.manager.get_data_status(),
                     'app_status': self.app.manager.get_app_status(),
+                    'cluster_storage_type': self.app.manager.cluster_storage_type,
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
                     'autoscaling': {'use_autoscaling': use_autoscaling,
-                                    'as_min': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_min,
-                                    'as_max': 'N/A' if not use_autoscaling else self.app.manager.service_registry.get('Autoscale').as_max}
+                                    'as_min': 'N/A' if not use_autoscaling else
+                                    self.app.manager.service_registry.get('Autoscale').as_min,
+                                    'as_max': 'N/A' if not use_autoscaling else
+                                    self.app.manager.service_registry.get('Autoscale').as_max}
                     }
         if no_json:
             return ret_dict
@@ -866,4 +937,6 @@ class CM(BaseController):
         bugs_email = trans.app.config.info_bugs_email
         blog_url = trans.app.config.info_blog_url
         screencasts_url = trans.app.config.info_screencasts_url
-        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url, blog_url=blog_url, bugs_email=bugs_email, screencasts_url=screencasts_url, CM_url=CM_url)
+        return trans.fill_template("masthead.mako", brand=brand, wiki_url=wiki_url,
+                                   blog_url=blog_url, bugs_email=bugs_email,
+                                   screencasts_url=screencasts_url, CM_url=CM_url)

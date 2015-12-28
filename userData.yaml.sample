@@ -1,6 +1,6 @@
 access_key: <your AWS access key>
 boot_script_name: [cm_boot.py]
-boot_script_path: [/tmp/cm]
+boot_script_path: [/opt/cloudman/boot]
 bucket_cluster: cm-<hash>
 bucket_default: [cloudman]
 cloudman_home: /mnt/cm

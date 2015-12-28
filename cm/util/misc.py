@@ -25,7 +25,6 @@ from tempfile import mkstemp, NamedTemporaryFile
 
 from cm.services import ServiceRole
 
-
 log = logging.getLogger('cloudman')
 
 
@@ -380,7 +379,7 @@ def get_list_of_bucket_folder_users(s3_conn, bucket_name, folder_name, exclude_p
         try:
             key_list = b.get_all_keys(prefix=folder_name, delimiter='/')
             # for k in key_list:
-            #     print k.name#, k.get_acl().acl.grants[0].type
+            # print k.name#, k.get_acl().acl.grants[0].type
             if len(key_list) > 0:
                 key = key_list[0]
                 # Just get one key assuming all keys will have the same ACL
@@ -492,7 +491,6 @@ def adjust_bucket_acl(s3_conn, bucket_name, users_whose_grant_to_remove):
             # through the list of grants for bucket's users and the list of users
             # whose grant to remove and create a list of bucket grants to keep
             for g in bucket.get_acl().acl.grants:
-                # log.debug("Grant -> permission: %s, user name: %s, grant type: %s" % (g.permission, g.display_name, g.type))
                 # Public (i.e., group) permissions are kept under 'type' field
                 # so check that first
                 if g.type == 'Group' and 'Group' in users_whose_grant_to_remove:
@@ -568,7 +566,8 @@ def file_in_bucket_older_than_local(s3_conn, bucket_name, remote_filename, local
                 local_filename, remote_filename, e))
             return True
     else:
-        log.debug("Checking age of file in bucket (%s) against local file (%s) but file in bucket is None; updating file in bucket."
+        log.debug("Checking age of file in bucket (%s) against local file (%s) "
+                  "but file in bucket is None; updating file in bucket."
                   % (remote_filename, local_filename))
         return True
 
@@ -670,6 +669,36 @@ def delete_file_from_bucket(conn, bucket_name, remote_filename):
     return False
 
 
+def update_file_in_bucket(conn, bucket_name, local_filepath):
+    """
+    Updates file in bucket from its local counterpart.
+
+    The script is saved only if the file does not already exist there
+    and it is not older than the local one.
+    """
+    filename = os.path.basename(local_filepath)
+    if not conn or not bucket_exists(conn, bucket_name):
+        log.debug("No s3_conn or cluster bucket {0} does not exist; not "
+                  "saving the pss in the bucket".format(bucket_name))
+        return
+    if file_in_bucket_older_than_local(conn,
+                                       bucket_name,
+                                       filename,
+                                       local_filepath):
+        if os.path.exists(local_filepath):
+            log.debug("Saving current instance post start script (%s) to "
+                      "cluster bucket '%s' as '%s'" %
+                      (local_filepath, bucket_name,
+                       filename))
+            save_file_to_bucket(conn, bucket_name, filename, local_filepath)
+        else:
+            log.debug("No instance post start script (%s)" % local_filepath)
+    else:
+        log.debug("A current post start script {0} already exists in bucket "
+                  "{1}; not updating it".format(filename,
+                                                bucket_name))
+
+
 def delete_bucket(conn, bucket_name):
     """
     Delete the bucket ``bucket_name``. This method will iterate through all the keys in
@@ -732,41 +761,58 @@ def set_file_metadata(conn, bucket_name, remote_filename, metadata_key, metadata
     return False
 
 
-def get_file_from_public_bucket(config, bucket_name, remote_filename, local_file):
+def get_file_from_public_location(config, remote_filename, local_file):
     """
     A fallback method which does the equivalent of a wget from
-    the S3 REST API.
+    the location specified in user data by (in order) default_bucket_url
+    or bucket_default.
     """
     import urlparse
 
-    s3_host = config.get('s3_host', 's3.amazonaws.com')
-    s3_port = config.get('s3_port', 443)
-    s3_conn_path = config.get('s3_conn_path', '/')
+    url = config.get('default_bucket_url', None)
+    bucket = config.get('bucket_default', None)
 
-    s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
-    s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
+    if not url and bucket:
+        s3_host = config.get('s3_host', 's3.amazonaws.com')
+        s3_port = config.get('s3_port', 443)
+        s3_conn_path = config.get('s3_conn_path', '/')
 
-    # TODO: assume openstack public bucket with specific access rights. Fix later
-    if 'nectar' in config.get('cloud_name', '').lower():
-        url = urlparse.urljoin(s3_base_url, '/V1/AUTH_377/')
-    else:
-        url = s3_base_url
+        s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
+        s3_base_url = urlparse.urljoin(s3_base_url, s3_conn_path)
 
-    url = urlparse.urljoin(url, bucket_name + "/")
+        # TODO: assume openstack public bucket with specific access rights. Fix later
+        if 'nectar' in config.get('cloud_name', '').lower():
+            url = urlparse.urljoin(s3_base_url, '/V1/AUTH_377/')
+        else:
+            url = s3_base_url
+
+        url = urlparse.urljoin(url, bucket + "/")
+
+    elif not url and not bucket:
+        log.error("Neither 'default_bucket_url' or 'bucket_default' in userdata")
+        return False
+
+    if not url.endswith('/'):
+        url += '/'
     url = urlparse.urljoin(url, remote_filename)
     log.debug("Fetching file {0} and saving it as {1}".format(url, local_file))
-    r = requests.get(url)
-    if r.status_code == requests.codes.ok:
-        f = open(local_file, 'w')
-        f.write(r.content)
-        f.close()
-        return True
-    else:
-        log.warn("Could not fetch file from s3 public url: %s" % url)
+    try:
+        r = requests.get(url)
+        if r.status_code == requests.codes.ok:
+            f = open(local_file, 'w')
+            f.write(r.content)
+            f.close()
+            return True
+        else:
+            log.debug("Could not fetch file from s3 public url: %s" % url)
+            return False
+    except Exception as e:
+        log.debug(
+            "Could not fetch file from s3 public url: {0} due to exception: {1}".format(url, e))
         return False
 
 
-def run(cmd, err=None, ok=None, quiet=False, cwd=None):
+def run(cmd, err=None, ok=None, quiet=False, user=None):
     """
     Convenience method for executing a shell command ``cmd``. Returns
     ``True`` if the command ran fine (i.e., exit code 0), ``False`` otherwise.
@@ -775,13 +821,17 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
     include ``ok`` output if command ran fine. If ``quiet`` is set to ``True``,
     do not log any messages.
 
-    `cwd` argument is not used.
+    If `user` is set, run the command as the specified system user. Note that
+    this may not work as expected if the command depends on embedded escaping
+    of quotes or other special characters.
     """
     # Predefine err and ok mesages to include the command being run
     if err is None:
         err = "---> PROBLEM"
     if ok is None:
         ok = "'%s' command OK" % cmd
+    if user:
+        cmd = '/bin/su - {0} -c "{1}"'.format(user, cmd)
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, cwd=None)
     stdout, stderr = process.communicate()
@@ -800,19 +850,25 @@ def run(cmd, err=None, ok=None, quiet=False, cwd=None):
         return False
 
 
-def getoutput(cmd, quiet=False):
+def getoutput(cmd, quiet=False, user=None):
     """
-    Execute the shell command `cmd` and return the output. If `quiet` is set,
-    do not log any messages. If there is an exception, return `None`.
+    Execute the shell command `cmd` and return the output.
+
+    If `quiet` is set, do not log any messages. If there is an exception,
+    return `None`. If `user` is set, run the command as the specified system
+    user. Note that this may not work as expected if the command depends on
+    embedded escaping of quotes or other special characters.
     """
     out = None
     try:
+        if user:
+            cmd = '/bin/su - {0} -c "{1}"'.format(user, cmd)
         out = commands.getoutput(cmd)
         if not quiet:
-            log.debug("Executed command '{0}' and got output: {1}".format(cmd, out))
-    except Exception, e:
+            log.debug("Executed command '{0}' and got output: '{1}'".format(cmd, out))
+    except Exception as e:
         if not quiet:
-            log.error("Exception executing command {0}: {1}".format(cmd, e))
+            log.error("Exception executing command '{0}': {1}".format(cmd, e))
     return out
 
 
@@ -846,7 +902,7 @@ def replace_string(file_name, pattern, subst):
         os.remove(file_name)
         # Move new file
         shutil.move(abs_path, file_name)
-    except Exception, e:
+    except Exception as e:
         log.error("Trouble replacing string in file {0}: {1}".format(file_name, e))
 
 
@@ -900,7 +956,7 @@ def set_hostname(hostname):
         with open('/etc/hostname', 'w') as file_handle:
             file_handle.write("{0}\n".format(hostname))
         run('service hostname restart')
-    except IOError, ioe:
+    except IOError as ioe:
         log.error("IOError wirting out /etc/hostname: {0}".format(ioe))
 
 
@@ -912,21 +968,65 @@ def get_hostname():
         return ""
 
 
+def chmod(path, mode):
+    """
+    Change the mode of the file given by ``path`` to the numeric ``mode``.
+    """
+    try:
+        os.chmod(path, mode)
+    except OSError as ose:
+        log.error("OSError setting mode {0} on file {1}: {2}".format(mode, path, ose))
+
+
 def make_dir(path, owner=None):
     """Check if a directory under ``path`` exists and create it if it does not."""
     log.debug("Checking existence of directory '%s'" % path)
     if not os.path.exists(path):
         try:
             log.debug("Creating directory '%s'" % path)
-            os.makedirs(path, 0755)
+            os.makedirs(path, 0o755)
             log.debug("Directory '%s' successfully created." % path)
             if owner:
                 os.chown(path, pwd.getpwnam(owner)[2], grp.getgrnam(owner)[2])
                 log.debug("Set dir '{0}' owner to {1}.".format(path, owner))
-        except OSError, e:
+        except OSError as e:
             log.error("Making directory '%s' failed: %s" % (path, e))
     else:
         log.debug("Directory '%s' exists." % path)
+
+
+def move(source, destination):
+    """
+    Move the ``source`` file to ``destination``.
+
+    A convenience wrapper for python's ``shutil.move`` method that simply
+    wrapps the call in a try/catch block.
+    """
+    try:
+        log.debug('Moving file {0} to {1}'.format(source, destination))
+        shutil.move(source, destination)
+    except IOError as ioe:
+        log.error("IOError moving {0} to {1}: {2}".format(source, destination, ioe))
+
+
+def remove(path):
+    """
+    Remove (delete) the file or directory at ``path``.
+
+    A convenience wrapper for python's ``os.remove`` os ``shutil.rmtree``
+    methods that simply wrapps the call in a try/catch block.
+    """
+    try:
+        if os.path.isdir(path):
+            log.debug('Removing directory {0}'.format(path))
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            log.debug('Removing file {0}'.format(path))
+            os.remove(path)
+    except IOError as ioe:
+        log.error("IOError removing {0}: {1}".format(path, ioe))
+    except OSError as ioe:
+        log.error("OSError removing {0}: {1}".format(path, ioe))
 
 
 def add_to_etc_hosts(ip_address, hosts=[]):
@@ -939,6 +1039,9 @@ def add_to_etc_hosts(ip_address, hosts=[]):
     to the given line.
     """
     try:
+        if not ip_address:
+            log.error('No ip address provided when calling add_to_etc_hosts. Ignoring...')
+            return
         etc_hosts = open('/etc/hosts', 'r')
         # Pull out all the lines from /etc/hosts that do not have an entry
         # matching a value in `hosts` argument
@@ -1060,13 +1163,17 @@ def get_dir_size(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
+            if os.path.exists(fp):  # deals with broken symlinks
+                total_size += os.path.getsize(fp)
+
     return total_size
 
 
-def nice_size(size):
+def nice_size(size, number_only=False):
     """
     Returns a readably formatted string with the size
+    If ``number_only`` is set, return the number as a string; otherwise,
+    add the unit (e.g., KB, MB). If the ``size`` cannot be parsed, return ``N/A``.
 
     >>> nice_size(100)
     '100 bytes'
@@ -1086,6 +1193,8 @@ def nice_size(size):
         step = 1024 ** (ind + 1)
         if step > size:
             size = size / float(1024 ** ind)
+            if number_only:
+                return '%.1f' % size
             if word == 'bytes':  # No decimals for bytes
                 return "%d bytes" % size
             return "%.1f %s" % (size, word)
@@ -1189,7 +1298,7 @@ def run_psql_command(sql_command, user, psql_path, port=5432):
     given `user` on the specified `port`.
     """
     log.debug("Running {0}:{1} command for user {2}: {3}".format(psql_path,
-              port, user, sql_command))
+                                                                 port, user, sql_command))
     return run('/bin/su - postgres -c "{0} -p {1} {2} -c \\\"{3}\\\" "'.format
                (psql_path, port, user, sql_command))
 
@@ -1199,6 +1308,29 @@ def random_string_generator(size=10, chars=string.ascii_uppercase + string.digit
     Generate a random string of `size` consisting of `chars`
     """
     return ''.join(random.choice(chars) for _ in range(size))
+
+
+def write_template_file(template, parameters, conf_file):
+    """
+    Write out a file base on a string template.
+
+    Given a `string.template` and appropriate `parameters` as a
+    dict, load the file as a `string.Template`, substitute the `parameters` and
+    write out the file to the `conf_file` path. Return `True` if successful,
+    `False` otherwise.
+    """
+    try:
+        t = template.substitute(parameters)
+        # Write out the file
+        with open(conf_file, 'w') as f:
+            print >> f, t
+        log.debug("Wrote template file {0}".format(conf_file))
+        return True
+    except KeyError as kexc:
+        log.error("KeyError filling template {0}: {1}".format(template, kexc))
+    except IOError as ioexc:
+        log.error("IOError writing template file {0}: {1}".format(conf_file, ioexc))
+    return False
 
 
 class RingBuffer(object):

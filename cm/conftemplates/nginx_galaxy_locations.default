@@ -1,4 +1,4 @@
-        # This file is maintained my CloudMan.
+        # This file is maintained by CloudMan.
         # Changes will be overwritten!
 
         location / {
@@ -26,12 +26,22 @@
             alias $galaxy_home/static/robots.txt;
         }
 
-        location /favicon.ico {
-            alias $galaxy_home/static/favicon.ico;
+        location ~ ^/plugins/interactive_environments/ipython/static/(?<static_file>.*?)$$ {
+            alias $galaxy_home/config/plugins/interactive_environments/ipython/static/$$static_file;
         }
-
-        location /admin/jobs {
-            proxy_pass  http://127.0.0.1:8079;
+        location ~ ^/plugins/visualizations/(?<vis_name>.+?)/static/(?<static_file>.*?)$$ {
+            alias $galaxy_home/config/plugins/visualizations/$$vis_name/static/$$static_file;
+        }
+        location /gie_proxy/ipython {
+            proxy_pass http://localhost:8800/gie_proxy/ipython;
+            proxy_redirect off;
+        }
+        location /gie_proxy/ipython/api/kernels {
+            proxy_pass http://localhost:8800/gie_proxy/ipython/api/kernels;
+            proxy_redirect off;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $$http_upgrade;
+            proxy_set_header Connection "upgrade";
         }
 
         location /_x_accel_redirect/ {

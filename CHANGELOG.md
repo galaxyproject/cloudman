@@ -1,3 +1,111 @@
+### CloudMan - December 18, 2015.
+* This is a minor update release.
+
+* Update Galaxy to the Galaxy 15.10 release.
+
+* Preload the GIE IPyhton Docker container onto the image for faster startup.
+
+* Quit storing tags in the cluster config to prevent `persistent_data.yaml`
+becoming too big when supplied as user data to worker instances.
+
+* Updated library versions in `requirements.txt`.
+
+* Add a more direct method for locating the Nginx configuration directory
+  (thanks to @MatthewRalston)
+
+* Made file system archive extraction more resilient and synchronous.
+
+### CloudMan - September 3, 2015.
+
+#### Major updates
+* The cloud component build process has been (re)automated, this time reusable using Ansible roles and a composite playbook. The playbook for building your own version, on Amazon or OpenStack is available here https://github.com/galaxyproject/galaxy-cloudman-playbook
+
+* Created documentation for building private/custom instances https://wiki.galaxyproject.org/CloudMan/Building and an all new Getting Started section https://wiki.galaxyproject.org/CloudMan/GettingStarted
+
+* Added a bunch of new documentation to the wiki: https://wiki.galaxyproject.org/CloudMan
+
+* *Galaxy on the Cloud*: all new `galaxy` and `indices` file systems, with Galaxy 15.07 release, ~200 preinstalled Galaxy tools, and nearly half a terrabyte of updated reference genome data.
+
+* *Galaxy on the Cloud*: switched to a different Cloud Launch application, available at https://launch.usegalaxy.org/
+
+* *Galaxy on the Cloud*: Integrated Galaxy IPython Interactive Environment https://trello.com/c/wIelk3vj
+
+* *Galaxy on the Cloud*: Switched to using a file system archive for galaxyFS (vs. volume snapshot) by default, enabling global access to the file system
+
+* Hardened many of the master instance security aspects: the cloud metadata service can be queried only by the `root` user; removed all sensitive information from the logs; user data file is readable only the to `root` user.
+
+* Switched to using Slurm job manager (vs. SGE previously)
+
+* Creating cluster shares is now fast (~30 seconds vs. hours) - and a description can be added to each share
+
+* Integrated Cloudera Manager as a service for creating Hadoop-based clusters (beta) https://trello.com/c/mo7y7S0r
+
+* Added a service for the Cloudgene applicaton - a bioinformatics workflow platform for Hadoop (beta) https://wiki.galaxyproject.org/CloudMan/Services/Cloudgene
+
+* Added Pulsar service, hence enabling cloud-bursting https://trello.com/c/y6mFi1Df and http://onlinelibrary.wiley.com/doi/10.1002/cpe.3536/abstract
+
+* Enabled use of Docker-based tools (e.g., https://github.com/afgane/docker-recipes/tree/master/bio_tools/galaxy101)
+
+* Fixed the process use for expanding a file system to no longer stall the cluster after ~30 minutes
+
+* All of the system logs are now stored in `/var/log/cloudman` (https://wiki.galaxyproject.org/CloudMan/Troubleshooting#Log_files)
+
+#### Other updates
+* Updated the user interface to make it retina-screen compatible (as part of that, replaced Fugue icons with *Font Awesome*)
+
+* Added new buttons for cluster sharing and file system resizing
+
+* Updated the options on the initial cluster configuration dialogue to make them consistent
+
+* Added the ability for a user to specify a custom instance type for worker nodes
+
+* Added supervisor service, which should allow easier integration of future application services
+
+* Adjusted features related to the Galaxy move to Github https://trello.com/c/HZhLpUOK
+
+* Created a dedicated nginx service with nginx configuration files being split into per-service files https://trello.com/c/Q4E8Rz2x
+
+* Separate the main Galaxy database and the tool installation database https://trello.com/c/CstOXtHM
+
+* On AWS, started using HVM virtualization, hence enabling use of additional instance types (e.g., big memory machines (type r3))
+
+* The boot script execution path has changed to `/opt/cloudman/boot`
+
+* bcftools are now part of the base image
+
+* Disabled existing Hadoop and HTCondor services
+
+* A bunch of code cleanup, improvements, tweaks, new docstrings, and hopefully bug fixes
+
+
+### CloudMan - August 6, 2014.
+
+* On AWS, updated galaxyFS snapshot (`snap-e6e1c04a`), which includes the June 2, 2014 Galaxy release with the July 30th security fix. All the tools installed via the Tool Shed have been updated and a number of new tools added, most notably: Tophat2, Bowtie2, FastQC, several FASTQ manipulation tools, several QC tools.
+
+* For AWS, added support for VPC
+
+* For OpenStack clouds, added the ability to automatically recover worker instances on cluster reboot
+
+* Added support for creating a file system based on a downloadable archive
+
+* Do not run Galaxy with multiple processes by default. This is because Tool Shed installs do not work properly in the multi-process mode. This feature can be enabled by setting user data optionconfigure_multiple_galaxy_processes to True when launching an instance.
+
+* Set SGE slots in each queue to be equal to the number of cores on the instance
+
+* Set instance IP in the Galaxy's FTP data upload tool message
+
+* Added support for Nginx v1.4 and allow it (with the PAM module) to used as the authentication mechanism when accessing Galaxy Reports app
+
+* Fixed cluster deletion when performed via the API
+
+* No longer automatically start Hadoop and HTCondor services
+On manually-invoked instance reboots, do not increment the instance reboot count that otherwise eventually leads to instance termination
+
+* Limit the size of the log message buffer used in the UI to 1000 lines. Long-running instances had issues with this log growing large and that led to poor UI performance. The complete log is still available from the Admin page (or the command line).
+
+* Automatically delete the bucket/container for Test type (ie, 'SGE only') clusters on cluster termination
+
+
 ### CloudMan - January 7, 2014.
 
 ##### Major updates

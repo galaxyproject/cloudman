@@ -409,9 +409,13 @@ class Instance(object):
                             for i in range(3):
                                 instance = self.get_cloud_instance_object()
                                 if instance:
-                                    self.app.cloud_interface.add_tag(instance, 'clusterName', self.app.config['cluster_name'])
-                                    self.app.cloud_interface.add_tag(instance, 'role', 'worker')
-                                    self.app.cloud_interface.add_tag(instance, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
+                                    self.app.cloud_interface.add_tag(
+                                        instance, 'clusterName', self.app.config['cluster_name'])
+                                    self.app.cloud_interface.add_tag(
+                                        instance, 'role', 'worker')
+                                    self.app.cloud_interface.add_tag(
+                                        instance, 'Name',
+                                        "Worker: {0}".format(self.app.config['cluster_name']))
                                     break
                                 time.sleep(5)
             except EC2ResponseError, e:
@@ -492,7 +496,8 @@ class Instance(object):
 
     def send_master_pubkey(self):
         # log.info("\tMT: Sending MASTER_PUBKEY message: %s" % self.app.manager.get_root_public_key() )
-        self.app.manager.console_monitor.conn.send('MASTER_PUBKEY | %s' % self.app.manager.get_root_public_key(), self.id)
+        self.app.manager.console_monitor.conn.send(
+            'MASTER_PUBKEY | %s' % self.app.manager.get_root_public_key(), self.id)
         log.debug("Sent master public key to worker instance '%s'." % self.id)
         log.debug("\tMT: Message MASTER_PUBKEY %s sent to '%s'" % (self.app.manager.get_root_public_key(), self.id))
 
@@ -628,7 +633,8 @@ class Instance(object):
                 self.app.cloud_interface.add_tag(self.inst, 'clusterName', self.app.config['cluster_name'])
                 self.app.cloud_interface.add_tag(self.inst, 'role', 'worker')
                 self.app.cloud_interface.add_tag(self.inst, 'alias', self.alias)
-                self.app.cloud_interface.add_tag(self.inst, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
+                self.app.cloud_interface.add_tag(
+                    self.inst, 'Name', "Worker: {0}".format(self.app.config['cluster_name']))
 
                 self.app.manager.update_condor_host(self.public_ip)
             elif msg_type == "NODE_STATUS":

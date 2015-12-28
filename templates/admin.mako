@@ -44,7 +44,8 @@
                     <input type="submit" value="Set admin users">
                 </form>
             </li>
-            <li>Running Galaxy at revision: <span id="galaxy_rev">N/A</span></li>
+            <li>Galaxy is at revision: <span id="galaxy_rev">N/A</span></li>
+            <%doc>
             <li>Update Galaxy from a provided repository
                 <span class="help_info">
                     <span class="help_link">What will this do?</span>
@@ -76,22 +77,31 @@
                     <input type="submit" value="Update Galaxy">
                 </form>
             </li>
+            </%doc>
         </ul>
         <h3>Services controls</h3>
         <div class="help_text">
             Use these controls to administer individual application services managed by CloudMan.
-            Currently running a '<a href="http://wiki.g2.bx.psu.edu/Admin/Cloud"
-            target='_blank'>${initial_cluster_type}</a>' type of cluster.
+            Currently running a '<a href="https://wiki.galaxyproject.org/CloudMan?action=show&redirect=Admin%2FCloud#Detailed_steps"
+            target='_blank'>${initial_cluster_type}</a>' type of cluster with
+            '${cluster_storage_type}' storage type.
         </div>
-        <table width="700px" style="margin:10px 0;">
+        <table width="700px" style="margin:10px 0;" class="app-svc-table">
             <tr style="text-align:left">
-                <th width="20%">Service name</th>
+                <th width="25%">Service name</th>
                 <th width="15%">Status</th>
-                <th width="65%" colspan="5"></th>
+                <th width="60%" colspan="5"></th>
             </tr>
             %for app_svc in app_services:
-                <tr>
-                    <td>${app_svc}</td>
+                <tr class="app-svc-row">
+                    <td>
+                        ${app_svc}
+                        %if app_svc == 'ClouderaManager':
+                            (beta)
+                        %elif app_svc == 'Cloudgene':
+                            (beta)
+                        %endif
+                    </td>
                     <td><span id="${app_svc | lowercase}_status">&nbsp;</span></td>
                     <td><a href="${h.url_for(controller='root',action='service_log')}?service_name=${app_svc}">Log</a></td>
                     <td><a class='action' href="${h.url_for(controller='root',action='manage_service')}?service_name=${app_svc}&to_be_started=False" target='_blank'>Stop</a></td>
@@ -115,6 +125,7 @@
             Use these controls to administer CloudMan itself as well as the underlying system.
         </div>
         <ul class='services_list'>
+            <li>Cluster uptime: <span id="cluster_runtime">N/A</span></li>
             <li>Command used to connect to the instance: <div class="code">ssh -i <i>[path to ${key_pair_name} file]</i> ubuntu@${ip}</div></li>
             <li>Name of this cluster's bucket: ${bucket_cluster}
                 %if cloud_type == 'ec2':
@@ -138,6 +149,17 @@
             <li><a id='show_user_data' href="${h.url_for(controller='root', action='get_user_data')}">Show current user data</a></li>
             <li><a class="action" id='toggle_ssl' href="${h.url_for(controller='root', action='toggle_ssl')}">Toggle use of SSL on this instance</a></li>
             <li><a id='cloudman_log' href="${h.url_for(controller='root', action='service_log')}?service_name=CloudMan">Show CloudMan log</a></li>
+            </li>
+            <li><a class="action" id='dependency_framework' href="${h.url_for(controller='root', action='toggle_dependency_framework')}">&nbsp;</a>
+                <span class="help_info">
+                    <span class="help_link">What will this do?</span>
+                    <div class="help_content" style="display: none">
+                        CloudMan implements a service dependency framework that
+                        ensures services are started in order. This functionality
+                        can be toggled here. In a vast majority of scenarios,
+                        this should not be disabled.
+                    </div>
+                </span>
             </li>
             <li>
                 <a class="action" id="master_is_exec_host" href="${h.url_for(controller='root', action='toggle_master_as_exec_host')}">&nbsp;</a>
@@ -205,7 +227,10 @@
         ## ********************************* Overlays *********************************
         ## ****************************************************************************
         ## Overlay that prevents any future clicking, see CSS
-        <div id="snapshotoverlay" style="display:none"></div>
+        <div id="snapshotoverlay" style="display:none">
+            ## Allow the overlay to be hidden between UI updates
+            <a id="close-snapshotoverlay" href="#">Temporarily hide overlay</a>
+        </div>
         <div class="overlay" id="overlay" style="display:none"></div>
         ## Indicate an action has been recorded
         <div class="box" id="action_initiated" style="height: 90px; text-align: center;">
@@ -286,10 +311,10 @@
     <script type="text/template" id="fileSystems-template">
         <thead>
             <tr class="filesystem-tr">
-                <th class="fs-td-20pct">Name</th>
+                <th class="fs-td-25pct">Name</th>
                 <th class="fs-td-15pct">Status</th>
                 <th class="fs-td-20pct">Usage</th>
-                <th class="fs-td-15pct">Controls</td>
+                <th class="fs-td-10pct">Controls</td>
                 <th colspan="2"></th>
             </tr>
         </thead>
@@ -322,7 +347,18 @@
         <tr><th>Delete on termination:</th><td><%= DoT %></td>
         <tr><th>Persistent:</th><td><%= persistent %></td>
         <% if (typeof(snapshots_created) != "undefined") { %>
-            <tr><th>Snapshots created:</th><td><%= snapshots_created %></td>
+            <tr>
+                <th>Snapshots created:</th>
+                <td>
+                    <% for (i = 0; i < snapshots_created.length; i++) { %>
+                        <div style="padding-bottom: 5px;">
+                            <i>ID:</i> <%= snapshots_created[i].snap_id %><br/>
+                            <i>Progress:</i> <%= snapshots_created[i].snap_progress %><br/>
+                            <i>Status:</i> <%= snapshots_created[i].snap_status %><br/>
+                        </div>
+                    <% } %>
+                </td>
+            </tr>
         <% } %>
     </%text>
     </script>
@@ -339,14 +375,18 @@
                 padding: 2px 2px 2px 2px;
             }
 
-            /* The percentage */
+            /* Show the numerical FS usage values within the meter tag */
             #fs-meter-<%= name %>:after {
-                content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+                <% if (size_used != "N/A") { %>
+                    content: "<%= size_used %>/<%= size %> (<%= size_pct %>%)";
+                <% } else { %>
+                    content: "Not available";
+                <% } %>
             }
         </style>
         <% if (status === "Available" || status === "Running") { %>
             <meter id="fs-meter-<%= name %>" class="space_usage" min="0" max="100" value="<%= size_pct %>" high="85">
-                <%= size_used %>/<%= size %> (<%= size_pct %>%)
+                ##     <%= size_used %>/<%= size %> (<%= size_pct %>%)
             </meter>
         <% } else if (kind == "Volume" && status === "Configuring") { %>
             <% if (snapshot_status != "" && snapshot_status != null) { %>

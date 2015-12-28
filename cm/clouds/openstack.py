@@ -168,6 +168,33 @@ class OSInterface(EC2Interface):
         worker_ud = self._compose_worker_user_data()
         return self._launch_instances(num, instance_type, worker_ud)
 
+    def create_volume(self, size, zone, snapshot=None, volume_type=None, iops=None):
+        """
+        Create a new EBS Volume.
+
+        :type size: int
+        :param size: The size of the new volume, in GiB
+
+        :type zone: string or :class:`boto.ec2.zone.Zone`
+        :param zone: The availability zone in which the Volume will be created.
+
+        :type snapshot: string or :class:`boto.ec2.snapshot.Snapshot`
+        :param snapshot: The snapshot from which the new Volume will be
+                         created.
+
+        :type volume_type: `None`
+        :param volume_type: Set to `None`; does not apply for OpenStack.
+
+        :type iops: `None`
+        :param iops: Set to `None`; does not apply for OpenStack.
+
+        :rtype: `None` or :class:`boto.ec2.volume.Volume`
+        :return: If the volume was created successfully, return a boto instance
+                 of the Volume object. Otherwise, return `None`.
+        """
+        return super(OSInterface, self).create_volume(
+            size=size, zone=zone, snapshot=snapshot, volume_type=None, iops=None)
+
     def _launch_instances(self, num, instance_type, worker_ud, min_num=1):
         """
         Actually launch the `num` instance(s) of type `instance_type` and using
@@ -205,12 +232,12 @@ class OSInterface(EC2Interface):
                     self.app.manager.worker_instances.append(i)
                 log.debug("Started %s instance(s)" % num)
                 return True
-        except BotoServerError, e:
-            log.error("boto server error when starting an instance: %s" % str(e))
-            return False
         except EC2ResponseError, e:
             err = "EC2 response error when starting worker nodes: %s" % str(e)
             log.error(err)
+            return False
+        except BotoServerError, bse:
+            log.error("boto server error when starting an instance: %s" % str(bse))
             return False
         except Exception, ex:
             err = "Error when starting worker nodes: %s" % str(ex)

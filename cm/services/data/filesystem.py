@@ -8,11 +8,9 @@ import commands
 import threading
 from datetime import datetime
 
-from boto.exception import EC2ResponseError
-
 from cm.util import misc
+from cm.util import Time
 from cm.util.misc import run
-from cm.util.misc import flock
 from cm.util.misc import nice_size
 from cm.services import service_states
 from cm.services import ServiceRole
@@ -21,6 +19,7 @@ from cm.services.data.mountablefs import MountableFS
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 from cm.services.data.transient_storage import TransientStorage
+from cm.util.nfs_export import NFSExport
 
 import logging
 log = logging.getLogger('cloudman')
@@ -29,10 +28,9 @@ log = logging.getLogger('cloudman')
 class Filesystem(DataService):
     def __init__(self, app, name, svc_roles=[ServiceRole.GENERIC_FS], mount_point=None, persistent=True):
         super(Filesystem, self).__init__(app)
-        log.debug("Instantiating Filesystem object {0} with service roles: {1}".format(
-            name, ServiceRole.to_string(svc_roles)))
+        log.debug("Instantiating Filesystem object {0} with service roles: '{1}'"
+                  .format(name, ServiceRole.to_string(svc_roles)))
         self.svc_roles = svc_roles
-        self.nfs_lock_file = '/tmp/nfs.lockfile'
         # TODO: Introduce a new file system layer that abstracts/consolidates
         # potentially multiple devices under a single file system interface
         # Maybe a class above this class should be introduced, e.g., DataService,
@@ -47,14 +45,14 @@ class Filesystem(DataService):
         self.size = None  # Total size of this file system
         self.size_used = None  # Used size of the this file system
         self.size_pct = None  # Used percentage of this file system
-        self.dirty = False
         self.kind = None  # Choice of 'snapshot', 'volume', 'bucket', 'transient', or 'nfs'
-        self.mount_point = mount_point if mount_point is not None else os.path.join(
+        self.mount_point = mount_point if mount_point else os.path.join(
             self.app.path_resolver.mount_root, self.name)
-        # Used (APPLICABLE ONLY FOR the galaxyData FS) to indicate a need to grow
-        # the file system; use following dict structure:
-        # {'new_size': <size>, 'snap_desc': <snapshot description>}
-        self.grow = None
+        # Used to indicate a need to grow/expand the file system;
+        # This is a composite dict and the implementatin logic depends on the
+        # keys so look around carefully (i.e., this should probably be turned
+        # into a helper class)
+        self.grow = {}
         # A time stamp when the state changed to STARTING; it is used to
         # avoid brief ERROR states during system configuration.
         self.started_starting = datetime.utcnow()
@@ -66,7 +64,7 @@ class Filesystem(DataService):
         """
         Return a descriptive name of this file system
         """
-        return "FS object for {0}".format(self.name)
+        return "{0} FS".format(self.name)
 
     def get_details(self):
         """
@@ -113,6 +111,7 @@ class Filesystem(DataService):
                 log.debug("Trying to add file system service named '{0}'"
                           .format(self.get_full_name()))
                 self.state = service_states.STARTING
+                self.last_state_change_time = Time.now()
                 self.started_starting = datetime.utcnow()
                 if not self.activated:
                     self.activated = True
@@ -142,7 +141,8 @@ class Filesystem(DataService):
                     self.get_full_name(), e))
                 return False
             self.status()
-            log.debug("Done adding devices to {0} (devices: {1}, {2}, {3}, {4}, {5})"
+            log.debug("Done adding devices to {0}. Vols: {1}; buckets: {2}; "
+                      "transient: {3}; NFS device: {4}; Gluster devices: {5})"
                       .format(self.get_full_name(), self.volumes, self.buckets,
                               self.transient_storage,
                               self.nfs_fs.device if self.nfs_fs else '-',
@@ -171,6 +171,7 @@ class Filesystem(DataService):
                  .format(self.get_full_name(), self.volumes, self.buckets,
                          self.transient_storage, self.nfs_fs, self.gluster_fs))
         self.state = service_states.SHUTTING_DOWN
+        self.last_state_change_time = Time.now()
         r_thread = threading.Thread(target=self.__remove, kwargs={'delete_devices':
                                                                   delete_devices})
         r_thread.start()
@@ -195,10 +196,16 @@ class Filesystem(DataService):
         Otherwise, it will be left attached (this is useful during snapshot creation).
         """
         super(Filesystem, self).remove(synchronous=True)
-        log.debug("Removing {0} devices".format(self.get_full_name()))
+        log.debug("Removing all devices from {0}".format(self.get_full_name()))
         self.state = service_states.SHUTTING_DOWN
-        for vol in self.volumes:
+        self.last_state_change_time = Time.now()
+        for vol in self.volumes[:]:
             vol.remove(self.mount_point, delete_vols=delete_devices, detach=detach)
+            # Remove the element from the list after the device has been removed
+            # This is done so multiple threads do not potentially try removing
+            # the same volume twice
+            if vol in self.volumes:
+                self.volumes.remove(vol)
         for b in self.buckets:
             b.unmount()
         for t in self.transient_storage:
@@ -234,63 +241,85 @@ class Filesystem(DataService):
 
     def expand(self):
         """
-        Expand the size of this file system. Note that this process requires
-        the file system to be unmounted during the operation and the new one
-        will be automatically remounted upon completion of the process.
+        Expand the size of this file system.
+
+        This process requires the file system to be unmounted during
+        the operation, hence all services using the file system must be stopped
+        prior to calling this method. Depending on the size of the file system,
+        it may take many hours for the expansion process to complete. However,
+        this method will only initiate the expandion process by creating a
+        snapshot of the underlying file system. A separate process should keep
+        checking on the status of the created snapshot. After the snapshot
+        reached 'completed' status, the file system the snapshot will need to be
+        grown - see ``self.growfs`` method.
 
         Also note that this method applies only to Volume-based file systems.
         """
-        if self.grow is not None:
+        if self.grow:
+            log.debug("Starting expansion of {0} file system."
+                      .format(self.get_full_name()))
+            self.grow['status'] = 'in_progress'
+            # Keep track of the Volume objects before removing them
+            self.grow['smaller_vol_ids'] = self.volumes[:]
             self.__remove(delete_devices=False, remove_from_master=False)
-            self.state = service_states.CONFIGURING
-            smaller_vol_ids = []
-            # Create a snapshot of the detached volume
-            for vol in self.volumes:
-                smaller_vol_ids.append(vol.volume_id)
+            self.grow['snap_ids'] = []
+            # Create a snapshots of the original volumes
+            for vol in self.grow['smaller_vol_ids']:
                 snap_id = vol.create_snapshot(self.grow['snap_description'])
-                # Reset the reference to the cloud volume resource object
-                vol.volume = None
-                # Set the size for the new volume
-                vol.size = self.grow['new_size']
-                # Set the snapshot from which a new volume resource object will
-                # be created
-                vol.from_snapshot_id = snap_id
-
-            # Create a new volume based on just created snapshot and add the
-            # file system
-            self.state = service_states.SHUT_DOWN
-            self.add()
-
-            # Grow the file system
-            if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
-                       % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
-                return False
-            # Delete old, smaller volumes since everything seems to have gone ok
-            ec2_conn = self.app.cloud_interface.get_ec2_connection()
-            for smaller_vol_id in smaller_vol_ids:
-                try:
-                    ec2_conn.delete_volume(smaller_vol_id)
-                    log.debug("Deleted smaller volume {0} after resizing".format(
-                        smaller_vol_id))
-                except EC2ResponseError, e:
-                    log.error("Error deleting smaller volume '%s' after resizing: %s"
-                              % (smaller_vol_id, e))
-            # If specified by user, delete the snapshot used during the
-            # resizing process
-            if self.grow['delete_snap'] is True:
-                try:
-                    ec2_conn.delete_snapshot(snap_id)
-                    log.debug("Deleted temporary snapshot {0} created and used during resizing"
-                              .format(snap_id))
-                except EC2ResponseError, e:
-                    log.error("Error deleting snapshot '%s' during '%s' resizing: %s"
-                              % (snap_id, self.get_full_name(), e))
-            self.grow = None  # Reset flag
-            return True
+                if snap_id:
+                    self.grow['snap_ids'].append(snap_id)
+                else:
+                    log.warning("Did not create a snapshot of vol {0}?!"
+                                .format(vol.volume_id))
         else:
-            log.debug("Tried to grow '%s' but grow flag is None" %
+            log.debug("Tried to grow '%s' but `self.grow` field is not set." %
                       self.get_full_name())
+
+    def probe_expansion(self):
+        """
+        Probe the status of the file system expansion process.
+        """
+        # log.debug("Checking on the expansion status of file system {0}"
+        #           .format(self.get_full_name()))
+        snap_ids = self.grow.get('snap_ids', [])
+        for snap_id in snap_ids:
+            ss = self.app.cloud_interface.get_snapshot_info(snap_id).get('status')
+            if ss == 'completed':
+                log.debug("File system {0} snapshot {1} completed."
+                          .format(self.get_full_name(), snap_id))
+                self.grow['status'] = 'snaps_completed'
+
+    def growfs(self):
+        """
+        Reinstate this file system and the ``growfs`` command.
+
+        This method should only be called after the ``self.expand`` method
+        and after the created snapshots have reached ``completed`` state.
+        """
+        log.debug("Growing file system {0}".format(self.get_full_name()))
+        self.grow['status'] = 'growing'
+        # Add new volume objects into this file system based on the created snaps
+        for snap_id in self.grow.get('snap_ids', []):
+            self.add_volume(size=self.grow.get('new_size', None),
+                            from_snapshot_id=snap_id)
+        self.add()
+        # Grow the file system
+        if not run('/usr/sbin/xfs_growfs %s' % self.mount_point, "Error growing file system '%s'"
+                   % self.mount_point, "Successfully grew file system '%s'" % self.mount_point):
             return False
+        # Delete old, smaller volumes since everything seems to have gone ok
+        for vol in self.grow.get('smaller_vol_ids', []):
+            self.app.cloud_interface.delete_volume(vol.volume_id)
+            log.debug("Deleted smaller volume {0} after resizing".format(
+                      vol.volume_id))
+        # If specified by user, delete the snapshot used during the
+        # resizing process
+        if self.grow['delete_snap'] is True:
+            for snap_id in self.grow.get('snap_ids', []):
+                self.app.cloud_interface.delete_snapshot(snap_id)
+                log.debug("Deleted temporary snapshot {0} created and used during resizing"
+                          .format(snap_id))
+        self.grow = {}  # Reset the grow flag
 
     def create_snapshot(self, snap_description=None):
         """
@@ -304,15 +333,18 @@ class Filesystem(DataService):
             # On AWS it is possible to snapshot a volume while it's still
             # attached so do that because it's faster
             detach = False
+        # Keep track of the Volume objects before removing them
+        volumes = self.volumes[:]
         self.__remove(delete_devices=False, detach=detach)
         snap_ids = []
         # Create a snapshot of the detached volumes
-        for vol in self.volumes:
+        for vol in volumes:
             snap_ids.append(vol.create_snapshot(snap_description=snap_description))
-        # After the snapshot is done, add the file system back as a cluster
+            self.add_volume(vol_id=vol.volume_id)  # Add back the volume device
+        # After the snapshot has begun, add the file system back as a cluster
         # service
-        log.debug("{0} snapshot process completed; adding self to the list of master services"
-                  .format(self.get_full_name()))
+        log.debug("{0} snapshot created; adding self to the list of master "
+                  "services.".format(self.get_full_name()))
         self.state = service_states.UNSTARTED  # Need to reset state so it gets picked up by monitor
         self.app.manager.activate_master_service(self)
         return snap_ids
@@ -342,10 +374,10 @@ class Filesystem(DataService):
             # filtering w/ boto is supported only with ec2
             f = {'attachment.device': device, 'attachment.instance-id':
                  self.app.cloud_interface.get_instance_id()}
-            vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes(filters=f)
+            vols = self.app.cloud_interface.get_all_volumes(filters=f)
         else:
             vols = []
-            all_vols = self.app.cloud_interface.get_ec2_connection().get_all_volumes()
+            all_vols = self.app.cloud_interface.get_all_volumes()
             for vol in all_vols:
                 if vol.attach_data.instance_id == self.app.cloud_interface.get_instance_id() and \
                         vol.attach_data.device == device:
@@ -381,109 +413,19 @@ class Filesystem(DataService):
         state of the file system to `ok_state` if the NFS sharing went OK.
         Otherwise, set the file system state to `err_state`.
         """
-        log.debug("Exporting FS {0} over NFS".format(mount_point))
         previous_state = self.state
         if not mount_point:
             mount_point = self.mount_point
-        if self._add_nfs_share(mount_point):
+        log.debug("Exporting FS {0} over NFS".format(mount_point))
+        if NFSExport.add_nfs_share(mount_point):
             self.state = ok_state
         else:
             self.state = err_state
         log.debug("Set state for FS {0} to: {1} (was: {2})".format(mount_point,
                   self.state, previous_state))
 
-    def _add_nfs_share(self, mount_point=None, permissions='rw'):
-        """
-        Do the actual work to share this file system/mount point over NFS.
-
-        Note that if the given mount point already exists in `/etc/exports`,
-        the existing line will be replaced with the line composed within this
-        method.
-
-        :type mount_point: string
-        :param mount_point: The mount point to add to the NFS share
-
-        :type permissions: string
-        :param permissions: Choose the type of permissions for the hosts
-                            mounting this NFS mount point. Use: 'rw' for
-                            read-write (default) or 'ro' for read-only
-        """
-        log.debug("Will attempt to share mount point {0} over NFS.".format(mount_point))
-        try:
-            ee_file = '/etc/exports'
-            if mount_point is None:
-                mount_point = self.mount_point
-            # Compose the line that will be put into /etc/exports
-            # NOTE: with Spot instances, should we use 'async' vs. 'sync' option?
-            # See: http://linux.die.net/man/5/exports
-            ee_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
-                .format(mp=mount_point, perms=permissions)
-            # Make sure we manipulate ee_file by a single process at a time
-            with flock(self.nfs_lock_file):
-                # Determine if the given mount point is already shared
-                with open(ee_file) as f:
-                    shared_paths = f.readlines()
-                in_ee = -1
-                hadoo_mnt_point = "/opt/hadoop"
-                hadoop_set = False
-                for i, sp in enumerate(shared_paths):
-                    if mount_point in sp:
-                        in_ee = i
-                    if hadoo_mnt_point in sp:
-                        hadoop_set = True
-
-                # TODO:: change the follwoing line and make hadoop a file
-                # system
-                if not hadoop_set:
-                    hdp_line = "{mp}\t*({perms},sync,no_root_squash,no_subtree_check)\n"\
-                        .format(mp="/opt/hadoop", perms='rw')
-                    shared_paths.append(hdp_line)
-
-                # If the mount point is already in /etc/exports, replace the existing
-                # entry with the newly composed ee_line (thus supporting change of
-                # permissions). Otherwise, append ee_line to the end of the
-                # file.
-                if in_ee > -1:
-                    shared_paths[in_ee] = ee_line
-                else:
-                    shared_paths.append(ee_line)
-                # Write out the newly composed file
-                with open(ee_file, 'w') as f:
-                    f.writelines(shared_paths)
-                log.debug("Added '{0}' line to NFS file {1}".format(
-                    ee_line.strip(), ee_file))
-            # Mark the NFS server as being in need of a restart
-            self.dirty = True
-            return True
-        except Exception, e:
-            log.error(
-                "Error configuring {0} file for NFS: {1}".format(ee_file, e))
-            return False
-
-    def remove_nfs_share(self, mount_point=None):
-        """
-        Remove the given/current file system/mount point from being shared
-        over NFS. The method removes the file system's ``mount_point`` from
-        ``/etc/share`` and indcates that the NFS server needs restarting.
-        """
-        try:
-            ee_file = '/etc/exports'
-            if mount_point is None:
-                mount_point = self.mount_point
-            mount_point = mount_point.replace(
-                '/', '\/')  # Escape slashes for sed
-            cmd = "sed -i '/^{0}\s/d' {1}".format(mount_point, ee_file)
-            log.debug("Removing NSF share for mount point {0}; cmd: {1}".format(
-                      mount_point, cmd))
-            # To avoid race conditions between threads, use a lock file
-            with flock(self.nfs_lock_file):
-                run(cmd)
-            self.dirty = True
-            return True
-        except Exception, e:
-            log.error("Error removing FS {0} share from NFS: {1}".format(
-                mount_point, e))
-            return False
+    def remove_nfs_share(self):
+        NFSExport.remove_nfs_share(self.mount_point)
 
     def _service_transitioning(self):
         """
@@ -542,7 +484,7 @@ class Filesystem(DataService):
                     self.size_used = disk_usage[1]
                     self.size_pct = disk_usage[2]
             else:
-                log.warning("Empty disk usage for FS {0}".format(self.name))
+                log.warning("Empty disk usage for FS '{0}'".format(self.name))
         except Exception, e:
             log.debug("Error updating file system {0} size and usage: {1}".format(
                 self.get_full_name(), e))
@@ -575,15 +517,7 @@ class Filesystem(DataService):
         """
         # log.debug("Updating service '%s-%s' status; current state: %s" \
         #   % (self.name, self.name, self.state))
-        if self.dirty:
-            # First check if the NFS server needs to be restarted but do it one
-            # thread at a time
-            with flock(self.nfs_lock_file):
-                if run(
-                    "/etc/init.d/nfs-kernel-server restart", "Error restarting NFS server",
-                    "As part of %s filesystem update, successfully restarted NFS server"
-                        % self.name):
-                    self.dirty = False
+        NFSExport.reload_nfs_exports()
         # Transient storage file system has its own process for checking status
         if len(self.transient_storage) > 0:
             for ts in self.transient_storage:

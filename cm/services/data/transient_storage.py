@@ -13,11 +13,13 @@ from cm.services import ServiceRole, service_states
 from cm.services.data import BlockStorage
 from cm.util import misc
 from cm.util import ExtractArchive
+from cm.util.nfs_export import NFSExport
 
 log = logging.getLogger('cloudman')
 
 
 class TransientStorage(BlockStorage):
+
     def __init__(self, filesystem, from_archive=None):
         """
         Instance's transient storage exposed over NFS.
@@ -54,16 +56,30 @@ class TransientStorage(BlockStorage):
         """
         log.debug("Adding a transient FS at {0}".format(self.fs.mount_point))
         misc.make_dir(self.fs.mount_point, owner='ubuntu')
+        # Make the default instance transient storage group writable
+        if self.fs.name == 'transient_nfs':
+            misc.chmod(self.fs.mount_point, 0775)
         # Set the device ID
         cmd = "df %s | grep -v Filesystem | awk '{print $1}'" % self.fs.mount_point
         self.device = misc.getoutput(cmd)
         # If based on an archive, extract archive contents to the mount point
         if self.from_archive:
-            self.fs.persistent = True
-            # Extract the FS archive in a separate thread
-            ExtractArchive(self.from_archive['url'], self.fs.mount_point,
-                           self.from_archive['md5_sum'],
-                           callback=self.fs.nfs_share_and_set_state).start()
+            # Do not overwrite an existing dir structure w/ the archive content.
+            # This happens when a cluster is rebooted.
+            if self.fs.name == 'galaxy' and os.path.exists(self.app.path_resolver.galaxy_home):
+                log.debug("Galaxy home dir ({0}) already exists; not extracting "
+                          "the archive ({1}) so not to overwrite it."
+                          .format(self.app.path_resolver.galaxy_home, self.from_archive['url']))
+                self.fs.nfs_share_and_set_state()
+            else:
+                self.fs.persistent = True
+                self.fs.state = service_states.CONFIGURING
+                # Extract the FS archive in a separate thread
+                log.debug("Extracting transient FS {0} from an archive in a "
+                          "dedicated thread.".format(self.get_full_name()))
+                ExtractArchive(self.from_archive['url'], self.fs.mount_point,
+                               self.from_archive['md5_sum'],
+                               callback=self.fs.nfs_share_and_set_state).run()
         else:
             self.fs.nfs_share_and_set_state()
 
@@ -97,27 +113,21 @@ class TransientStorage(BlockStorage):
             #           self.fs.get_full_name(), self.fs.mount_point))
             self.fs.state = service_states.UNSTARTED
         else:
-            ee_file = '/etc/exports'
             try:
-                # This does read the file every time the service status is
-                # updated. Is this really necessary?
-                with open(ee_file, 'r') as f:
-                    shared_paths = f.readlines()
-                for shared_path in shared_paths:
-                    if self.fs.mount_point in shared_path:
-                        self.fs.state = service_states.RUNNING
-                        # Transient storage needs to be special-cased because
-                        # it's not a mounted disk per se but a disk on an
-                        # otherwise default device for an instance (i.e., /mnt)
-                        update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
-                                           "awk '{print $2, $3, $5}'")
-                        self.fs._update_size(cmd=update_size_cmd)
-                        return
-                # Or should this set it to UNSTARTED? Because this FS is just an
-                # NFS-exported file path...
-                log.warning("Data service {0} not found in {1}; error!"
-                            .format(self.fs.get_full_name(), ee_file))
-                self.fs.state = service_states.ERROR
+                if NFSExport.find_mount_point_entry(self.fs.mount_point) > -1:
+                    self.fs.state = service_states.RUNNING
+                    # Transient storage needs to be special-cased because
+                    # it's not a mounted disk per se but a disk on an
+                    # otherwise default device for an instance (i.e., /mnt)
+                    update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
+                                       "awk '{print $2, $3, $5}'")
+                    self.fs._update_size(cmd=update_size_cmd)
+                else:
+                    # Or should this set it to UNSTARTED? Because this FS is just an
+                    # NFS-exported file path...
+                    log.warning("Data service {0} not found in /etc/exports; error!"
+                                .format(self.fs.get_full_name()))
+                    self.fs.state = service_states.ERROR
             except Exception, e:
                 log.error("Error checking the status of {0} service: {1}".format(
                     self.fs.get_full_name(), e))

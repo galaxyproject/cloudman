@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\nTo make changes to that script, make desired changes in this file and then, from\nCloudMan's root directory, invoke ``python make_boot_script.py`` to update\n``cm_boot.py`` also residing in the root dir.\n\nRequires:\n    PyYAML http://pyyaml.org/wiki/PyYAMLDocumentation (pip install pyyaml)\n    boto https://github.com/boto/boto/ (pip install boto)\n"
+"\nThis module is used to generate CloudMan's contextualization script ``cm_boot.py``.\n\nDo not directly change ``cm_boot.py`` as changes will get overwritten. Instead,\nmake desired changes in ``cm/boot`` module and then, from CloudMan's root\ndirectory, invoke ``python make_boot_script.py`` to  generate ``cm_boot.py``.\n"
 import logging
 import os
 import shutil
@@ -201,17 +201,20 @@ def _key_exists_in_bucket(log, s3_conn, bucket_name, key_name):
     b = s3_conn.get_bucket(bucket_name, validate=False)
     k = Key(b, key_name)
     log.debug(("Checking if key '%s' exists in bucket '%s'" % (key_name, bucket_name)))
-    return k.exists()
+    try:
+        return k.exists()
+    except S3ResponseError as e:
+        log.error(("Failed to checkf if file '%s' exists in bucket '%s': %s" % (key_name, bucket_name, e)))
+        return False
 logging.getLogger('boto').setLevel(logging.INFO)
-LOCAL_PATH = os.getcwd()
+LOG_PATH = '/var/log/cloudman'
 CM_HOME = '/mnt/cm'
-CM_BOOT_PATH = '/tmp/cm'
+CM_BOOT_PATH = '/opt/cloudman/boot'
 USER_DATA_FILE = 'userData.yaml'
 SYSTEM_MESSAGES_FILE = '/mnt/cm/sysmsg.txt'
 CM_REMOTE_FILENAME = 'cm.tar.gz'
 CM_LOCAL_FILENAME = 'cm.tar.gz'
 CM_REV_FILENAME = 'cm_revision.txt'
-PRS_FILENAME = 'post_start_script'
 AMAZON_S3_URL = 'http://s3.amazonaws.com/'
 DEFAULT_BUCKET_NAME = 'cloudman'
 log = None
@@ -220,7 +223,7 @@ def _setup_global_logger():
     formatter = logging.Formatter('%(asctime)s %(levelname)-5s %(module)8s:%(lineno)-3d - %(message)s')
     console = logging.StreamHandler()
     console.setFormatter(formatter)
-    log_file = logging.FileHandler(os.path.join(LOCAL_PATH, ('%s.log' % sys.argv[0])), 'w')
+    log_file = logging.FileHandler(os.path.join(LOG_PATH, ('%s.log' % os.path.basename(__file__)[:(-3)])), 'w')
     log_file.setLevel(logging.DEBUG)
     log_file.setFormatter(formatter)
     new_logger = logging.root
@@ -237,7 +240,7 @@ def _start_nginx(ud):
     log.info('<< Starting nginx >>')
     _configure_nginx(log, ud)
     rmdir = False
-    upload_store_dir = '/mnt/galaxyData/upload_store'
+    upload_store_dir = '/mnt/galaxy/upload_store'
     ul = None
     nginx_conf_file = _nginx_conf_file(log)
     if nginx_conf_file:
@@ -273,15 +276,15 @@ def _start_nginx(ud):
         log.debug('nginx already running; reloading it')
         _run(log, '{0} -s reload'.format(nginx_executable))
     if (rmdir or (len(os.listdir(upload_store_dir)) == 0)):
-        _run(log, 'rm -rf {0}'.format(upload_store_dir))
         log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
+        _run(log, 'rm -rf {0}'.format(upload_store_dir))
 
 def _fix_nginx_upload(ud):
     '\n    Set ``max_client_body_size`` in nginx config. This is necessary for the\n    Galaxy Cloud AMI ``ami-da58aab3``.\n    '
     nginx_conf_path = ud.get('nginx_conf_path', _nginx_conf_file(log))
     log.info('Attempting to configure max_client_body_size in {0}'.format(nginx_conf_path))
     if os.path.exists(nginx_conf_path):
-        bkup_nginx_conf_path = '/tmp/cm/original_nginx.conf'
+        bkup_nginx_conf_path = '/opt/cloudman/boot/original_nginx.conf'
         _run(log, 'cp {0} {1}'.format(nginx_conf_path, bkup_nginx_conf_path))
         _run(log, 'uniq {0} > {1}'.format(bkup_nginx_conf_path, nginx_conf_path))
         already_defined = "grep 'client_max_body_size' {0}".format(nginx_conf_path)
@@ -363,6 +366,8 @@ def _get_cm(ud):
         url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
     elif ('cloudman_repository' in ud):
         url = ud.get('cloudman_repository')
+    elif ('default_bucket_url' in ud):
+        url = os.path.join(ud['default_bucket_url'], CM_REMOTE_FILENAME)
     elif ('nectar' in ud.get('cloud_name', '').lower()):
         url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'V1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
     else:
@@ -402,7 +407,7 @@ def _unpack_cm():
     log.info(('<< Unpacking CloudMan from %s >>' % local_path))
     tar = tarfile.open(local_path, 'r:gz')
     tar.extractall(CM_HOME)
-    if ('run.sh' not in tar.getnames()):
+    if (('run.sh' not in tar.getnames()) and ('./run.sh' not in tar.getnames())):
         first_entry = tar.getnames()[0]
         extracted_dir = first_entry.split('/')[0]
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
@@ -432,20 +437,24 @@ def _virtualenv_exists(venv_name='CM'):
     log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist".format(venv_name))
     return False
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None):
-    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
+def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None, ex_options=None):
+    '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n    If ``ex_options`` is provided, append those to the end of the command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
     if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito('workon {0}; cd {1}; {3}; sh run.sh {2}'.format(cm_venv_name, CM_HOME, action, ex_cmd))
+        cmd = _with_venvburrito('workon {0}; cd {1}; {3}; sh run.sh {2} {4}'.format(cm_venv_name, CM_HOME, action, ex_cmd, ex_options))
     else:
-        cmd = 'cd {0}; {2}; sh run.sh {1}'.format(CM_HOME, action, ex_cmd)
+        cmd = 'cd {0}; {2}; sh run.sh {1} {3}'.format(CM_HOME, action, ex_cmd, ex_options)
     return cmd
 
 def _start_cm():
-    log.debug(("Copying user data file from '%s' to '%s'" % (os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))))
-    shutil.copyfile(os.path.join(CM_BOOT_PATH, USER_DATA_FILE), os.path.join(CM_HOME, USER_DATA_FILE))
+    src = os.path.join(CM_BOOT_PATH, USER_DATA_FILE)
+    dest = os.path.join(CM_HOME, USER_DATA_FILE)
+    log.debug("Copying user data file from '{0}' to '{1}'".format(src, dest))
+    shutil.copyfile(src, dest)
+    os.chmod(dest, 384)
     log.info(('<< Starting CloudMan in %s >>' % CM_HOME))
     ex_cmd = 'pip install -r {0}'.format(os.path.join(CM_HOME, 'requirements.txt'))
-    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd))
+    ex_options = '--log-file=/var/log/cloudman/cloudman.log'
+    _run(log, _get_cm_control_command(action='--daemon', ex_cmd=ex_cmd, ex_options=ex_options))
 
 def _stop_cm(clean=False):
     log.info(('<< Stopping CloudMan from %s >>' % CM_HOME))
@@ -462,27 +471,6 @@ def _restart_cm(ud, clean=False):
     log.info('<< Restarting CloudMan >>')
     _stop_cm(clean=clean)
     _start(ud)
-
-def _post_start_hook(ud):
-    log.info('<<Checking for post start script>>')
-    local_prs_file = os.path.join(CM_HOME, PRS_FILENAME)
-    use_object_store = ud.get('use_object_store', True)
-    if ('post_start_script_url' in ud):
-        _run(log, ('wget --output-document=%s %s' % (local_prs_file, ud['post_start_script_url'])))
-    elif use_object_store:
-        s3_conn = _get_s3connection(ud)
-        b = None
-        if ('bucket_cluster' in ud):
-            b = s3_conn.lookup(ud['bucket_cluster'])
-        if (b is not None):
-            log.info(("Cluster bucket '%s' found; getting post start script '%s'" % (b.name, PRS_FILENAME)))
-            _get_file_from_bucket(log, s3_conn, b.name, PRS_FILENAME, local_prs_file)
-    if os.path.exists(local_prs_file):
-        os.chmod(local_prs_file, 493)
-        return _run(log, ('cd %s;./%s' % (CM_HOME, PRS_FILENAME)))
-    else:
-        log.debug('Post start script does not exist; continuing.')
-        return True
 
 def _fix_etc_hosts():
     ' Without editing /etc/hosts, there are issues with hostname command\n        on NeCTAR (and consequently with setting up SGE).\n    '
@@ -506,9 +494,6 @@ def _system_message(message_contents):
     if os.path.exists(SYSTEM_MESSAGES_FILE):
         with open(SYSTEM_MESSAGES_FILE, 'a+') as f:
             f.write(message_contents)
-
-def migrate_1():
-    pass
 
 def main():
     global log

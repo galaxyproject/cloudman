@@ -36,11 +36,16 @@ function update(repeat_update){
             if (data){
                 // Get any message data
                 update_messages(data.messages);
-                if (data.galaxy_rev !== 'N/A') {
-                    // This will always point to galaxy-central but better than nothing?
-                    var rev_html = "<a href='http://bitbucket.org/galaxy/galaxy-dist/changesets/" +
-                      data.galaxy_rev.split(':')[1] + "' target='_blank'>" +
-                      data.galaxy_rev + '</a>';
+                if (!$.isEmptyObject(data.galaxy_rev)) {
+                    var commit_url = (data.galaxy_rev.repo_url + '/commit/' +
+                               data.galaxy_rev.hexsha);
+                    var branch_url = (data.galaxy_rev.repo_url + '/tree/' +
+                                data.galaxy_rev.active_branch);
+                    var rev_html = ("<a href='" + commit_url +"' target='_blank'>" +
+                                    data.galaxy_rev.hexsha.substr(0,10) + "</a>"
+                                    + " (" + "<a href='" + branch_url + "' target='_blank'>"
+                                    + data.galaxy_rev.active_branch + " branch</a>) from "
+                                    + data.galaxy_rev.authored_date);
                 } else {
                     var rev_html = "N/A";
                 }
@@ -56,6 +61,8 @@ function update(repeat_update){
                 $('#galaxy_dns').html(galaxy_dns);
                 $('#galaxy_admins').html(data.galaxy_admins);
                 $('#galaxy_rev').html(rev_html);
+                cluster_runtime = data.cluster_uptime + " (since " + data.cluster_startup_time + " UTC)";
+                $('#cluster_runtime').html(cluster_runtime);
                 update_application_status("#galaxy_status", data.Galaxy);
                 update_application_status("#postgres_status", data.Postgres);
                 update_application_status("#slurmctld_status", data.Slurmctld);
@@ -70,6 +77,8 @@ function update(repeat_update){
                 update_application_status("#clouderamanager_status", data.ClouderaManager);
                 update_application_status("#nginx_status", data.Nginx);
                 update_application_status("#cloudgene_status", data.Cloudgene);
+                update_application_status("#nodejsproxy_status", data.NodeJSProxy);
+                update_application_status("#supervisor_status", data.Supervisor);
                 $('#filesystem_status').html(data.Filesystem);
                 if (data.snapshot.status !== "None"){
                     $('#snapshotoverlay').show(); // Overlay that prevents any future clicking
@@ -83,6 +92,13 @@ function update(repeat_update){
                     $('#master_is_exec_host').html("Switch master to not run jobs");
                 } else {
                     $('#master_is_exec_host').html("Switch master to run jobs");
+                }
+                if (data.ignore_deps_framework === true) {
+                    $('#dependency_framework').html(
+                        "Switch to using service dependencies framework");
+                } else {
+                    $('#dependency_framework').html(
+                        "Switch to not using service dependencies framework");
                 }
                 $('#dummy').html(data.dummy);
             }
@@ -131,6 +147,12 @@ function handle_clicks() {
     // Force an update of the field on click
     $('#master_is_exec_host').click(function(){
         update();
+    });
+    $('#ignore_deps_framework').click(function(){
+        update();
+    });
+    $('#close-snapshotoverlay').click(function(){
+        $('#snapshotoverlay').hide();
     });
 }
 function handle_forms() {
