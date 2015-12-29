@@ -121,13 +121,8 @@ class ConsoleManager(BaseConsoleManager):
                     # TODO use the actual filesystem name for accounting/status
                     # updates
                     mount_points.append((mp['fs_name'], mp['shared_mount_path'],
-<<<<<<< HEAD
-                                        mp['fs_type'], mp['server'],
-                                        mp.get('mount_options', None)))
-=======
                                          mp['fs_type'], mp['server'],
                                          mp.get('mount_options', None)))
->>>>>>> 44c1ce73b725c5659ab9d0ccccf548e0ef23f054
             else:
                 raise Exception("Mount point parsing failure.")
         except Exception, e:

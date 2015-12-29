@@ -275,20 +275,17 @@ class ClouderaManagerService(ApplicationService):
         """
         Create a default cluster and Cloudera Manager Service on master host
         """
-<<<<<<< HEAD
         log.info("Creating Cloudera cluster: '{0}'. Please wait...".format(self.cluster_name))
 
         # Create new admin user (use 'ubuntu' and password provided at cloudman startup)
         # and delete the default 'admin' user in Cloudera Manager Service
-        self.cm_api_resource.create_user(self.host_username, self.host_password, ['ROLE_ADMIN'])
-        old_admin = self.cm_username
-        self.cm_username = self.host_username
-        self.cm_password = self.host_password
-        log.debug("Deleting the default user 'admin'...")
-        self.cm_api_resource.delete_user(old_admin)
-=======
+        # self.cm_api_resource.create_user(self.host_username, self.host_password, ['ROLE_ADMIN'])
+        # old_admin = self.cm_username
+        # self.cm_username = self.host_username
+        # self.cm_password = self.host_password
+        # log.debug("Deleting the default user 'admin'...")
+        # self.cm_api_resource.delete_user(old_admin)
         log.info("Creating a new Cloudera Cluster")
->>>>>>> 44c1ce73b725c5659ab9d0ccccf548e0ef23f054
 
         # self.cm_host = socket.gethostname()
         log.debug("Cloudera adding host: {0}".format(self.cm_host))
@@ -458,17 +455,7 @@ class ClouderaManagerService(ApplicationService):
                     self.state = service_states.ERROR
         if not self.started:
             pass
-<<<<<<< HEAD
-        elif 'running' not in misc.getoutput('service cloudera-scm-server status',
-                                             quiet=True):
-            log.error("Cloudera server not running!")
-            self.state = service_states.ERROR
-        elif not self.started:
-            pass
-        else:
-=======
         elif 'is running' in svc_status:
->>>>>>> 44c1ce73b725c5659ab9d0ccccf548e0ef23f054
             self.state = service_states.RUNNING
             # Once the service gets running, reset the number of start attempts
             self.remaining_start_attempts = NUM_START_ATTEMPTS
