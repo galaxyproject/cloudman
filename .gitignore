@@ -5,7 +5,10 @@ syntax: glob
 *.orig
 *.DS_Store
 *.pyc
+*.bkp
+*.zip
 
+__MACOSX/
 cm_webapp.pid
 
 # Config files
@@ -19,3 +22,5 @@ persistent_data.yaml
 cm.tar.gz
 update_cm.sh
 upload_cm_to_S3.py
+
+.gitignore

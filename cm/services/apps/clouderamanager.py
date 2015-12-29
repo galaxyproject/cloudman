@@ -48,16 +48,17 @@ class ClouderaManagerService(ApplicationService):
         self.cm_port = 7180
 
         # Default cluster configuration
-        self.cm_host = socket.gethostname()
-        self.host_list = [self.cm_host]
+        # TODO - read local cloud host name!
+        # self.cm_host = socket.gethostname()
+        self.cm_host = self.app.cloud_interface.get_local_hostname()
+        self.host_list = []
         self.cluster_name = "Cluster 1"
         self.cdh_version = "CDH5"
         self.cdh_version_number = "5"
         self.cm_username = "admin"
         self.cm_password = "admin"
-        self.cm_service_name = "ManagementService"
+        self.mgmt_service_name = "ManagementService"
         self.host_username = "ubuntu"
-        # Read the password from the system!
         self.host_password = self.app.config.get('password')
         self.cm_repo_url = None
         self.service_types_and_names = {
@@ -112,7 +113,7 @@ class ClouderaManagerService(ApplicationService):
             self.configure_db()
             self.start_webserver()
             self.set_default_user()
-            # self.create_default_cluster()
+            # self.create_cluster()
             # self.setup_cluster()
             self.remaining_start_attempts -= 1
         except Exception, exc:
@@ -152,8 +153,8 @@ class ClouderaManagerService(ApplicationService):
             try:
                 Runner(inventory=Inventory(['localhost']),
                        transport='local',
-                       sudo=True,
-                       sudo_user='postgres',
+                       become=True,
+                       become_user='postgres',
                        module_name="lineinfile",
                        module_args=('dest={0} backup=yes line="{1}" owner=postgres regexp="{2}"'
                                     .format(pg_conf, l, regexp))
@@ -170,8 +171,8 @@ class ClouderaManagerService(ApplicationService):
             try:
                 Runner(inventory=Inventory(['localhost']),
                        transport='local',
-                       sudo=True,
-                       sudo_user='postgres',
+                       become=True,
+                       become_user='postgres',
                        module_name="postgresql_user",
                        module_args=("name={0} role_attr_flags=LOGIN password={1}"
                                     .format(role, self.db_pwd))
@@ -188,8 +189,8 @@ class ClouderaManagerService(ApplicationService):
             try:
                 r = Runner(inventory=Inventory(['localhost']),
                            transport='local',
-                           sudo=True,
-                           sudo_user='postgres',
+                           become=True,
+                           become_user='postgres',
                            module_name="postgresql_db",
                            module_args=("name={0} owner={1} encoding='UTF-8'"
                                         .format(db, owner))
@@ -270,20 +271,129 @@ class ClouderaManagerService(ApplicationService):
             log.debug("Deleting the old default user 'admin'...")
             self.cm_api_resource.delete_user(old_admin)
 
-    def create_default_cluster(self):
+    def init_cluster(api, self):
         """
-        Create a default cluster and Cloudera Manager Service on master host
+        Create a new cluster and add hosts to it.
         """
-        log.info("Creating a new Cloudera Cluster")
 
-        # self.cm_host = socket.gethostname()
-        log.debug("Cloudera adding host: {0}".format(self.cm_host))
-        self.host_list.append(self.cm_host)
+        cluster = api.create_cluster(self.cluster_name, self.cdh_version_number)
+        # Add the CM host to the list of hosts to add in the cluster so it can run the management services
+        all_hosts = list(self.host_list)
+        all_hosts.append(self.cm_host)
+        cluster.add_hosts(all_hosts)
+        return cluster
 
-        # create the management service
-        # first check if mamagement service already exists
-        service_setup = ApiServiceSetupInfo(name=self.cm_service_name, type="MGMT")
-        self.cm_manager.create_mgmt_service(service_setup)
+    def deploy_management(manager, self):
+        """
+        Create and deploy new management service
+        """
+        MGMT_SERVICE_CONFIG = {
+            'zookeeper_datadir_autocreate': 'true',
+        }
+        MGMT_ROLE_CONFIG = {
+            'quorumPort': 2888,
+        }
+        AMON_ROLENAME = "ACTIVITYMONITOR"
+        AMON_ROLE_CONFIG = {
+            'firehose_database_host': self.cm_host + ":7432",
+            'firehose_database_user': 'amon',
+            'firehose_database_password': self.db_pwd,
+            'firehose_database_type': 'postgresql',
+            'firehose_database_name': 'amon',
+            'firehose_heapsize': '215964392',
+        }
+        APUB_ROLENAME = "ALERTPUBLISHER"
+        APUB_ROLE_CONFIG = {}
+        ESERV_ROLENAME = "EVENTSERVER"
+        ESERV_ROLE_CONFIG = {
+            'event_server_heapsize': '215964392'
+        }
+        HMON_ROLENAME = "HOSTMONITOR"
+        HMON_ROLE_CONFIG = {}
+        SMON_ROLENAME = "SERVICEMONITOR"
+        SMON_ROLE_CONFIG = {}
+        NAV_ROLENAME = "NAVIGATOR"
+        NAV_ROLE_CONFIG = {
+            'navigator_database_host': self.cm_host + ":7432",
+            'navigator_database_user': 'nav',
+            'navigator_database_password': self.db_pwd,
+            'navigator_database_type': 'postgresql',
+            'navigator_database_name': 'nav',
+            'navigator_heapsize': '215964392',
+        }
+        NAVMS_ROLENAME = "NAVIGATORMETADATASERVER"
+        NAVMS_ROLE_CONFIG = {}
+        RMAN_ROLENAME = "REPORTMANAGER"
+        RMAN_ROLE_CONFIG = {
+            'headlamp_database_host': self.cm_host + ":7432",
+            'headlamp_database_user': 'rman',
+            'headlamp_database_password': self.db_pwd,
+            'headlamp_database_type': 'postgresql',
+            'headlamp_database_name': 'rman',
+            'headlamp_heapsize': '215964392',
+        }
+
+        mgmt = manager.create_mgmt_service(ApiServiceSetupInfo())
+
+        # create roles. Note that host id may be different from host name (especially in CM 5). Look it it up in /api/v5/hosts
+        mgmt.create_role(amon_role_name + "-1", "ACTIVITYMONITOR", CM_HOST)
+        mgmt.create_role(apub_role_name + "-1", "ALERTPUBLISHER", CM_HOST)
+        mgmt.create_role(eserv_role_name + "-1", "EVENTSERVER", CM_HOST)
+        mgmt.create_role(hmon_role_name + "-1", "HOSTMONITOR", CM_HOST)
+        mgmt.create_role(smon_role_name + "-1", "SERVICEMONITOR", CM_HOST)
+        # mgmt.create_role(nav_role_name + "-1", "NAVIGATOR", CM_HOST)
+        # mgmt.create_role(navms_role_name + "-1", "NAVIGATORMETADATASERVER", CM_HOST)
+        # mgmt.create_role(rman_role_name + "-1", "REPORTSMANAGER", CM_HOST)
+
+        # now configure each role
+        for group in mgmt.get_all_role_config_groups():
+            if group.roleType == "ACTIVITYMONITOR":
+                group.update_config(amon_role_conf)
+            elif group.roleType == "ALERTPUBLISHER":
+                group.update_config(apub_role_conf)
+            elif group.roleType == "EVENTSERVER":
+                group.update_config(eserv_role_conf)
+            elif group.roleType == "HOSTMONITOR":
+                group.update_config(hmon_role_conf)
+            elif group.roleType == "SERVICEMONITOR":
+                group.update_config(smon_role_conf)
+            # elif group.roleType == "NAVIGATOR":
+                # group.update_config(nav_role_conf)
+            # elif group.roleType == "NAVIGATORMETADATASERVER":
+                # group.update_config(navms_role_conf)
+            # elif group.roleType == "REPORTSMANAGER":
+                # group.update_config(rman_role_conf)
+
+        # now start the management service
+        mgmt.start().wait()
+        return mgmt
+
+    def create_cluster(self):
+        """
+        Create a cluster and Cloudera Manager Service on master host
+        """
+        log.info("Creating Cloudera cluster: '{0}'. Please wait...".format(self.cluster_name))
+
+        ### CM Definitions ###
+        CM_CONFIG = {
+            'TSQUERY_STREAMS_LIMIT' : 1000,
+        }
+
+        ### Create and deploy new cluster ##
+        ar = self.cm_api_resource
+        manager = self.cm_manager
+        manager.update_config(CM_CONFIG)
+        log.info("Connected to CM host on " + self.cm_host + " and updated CM configuration")
+
+        ## Initialize a cluster ##
+        cluster = self.init_cluster(ar)
+        log.info("Initialized cluster " + self.cluster_name + " which uses CDH version " + self.cdh_version_number)
+
+        ## Deploy management service ##
+        deploy_management(manager)
+        log.info("Deployed CM management service " + self.mgmt_service_name + " to run on " + self.cm_host)
+
+
 
         # install hosts on this CM instance
         cmd = self.cm_manager.host_install(self.host_username, self.host_list,
@@ -297,7 +407,7 @@ class ClouderaManagerService(ApplicationService):
         if cmd.success is not True:
             log.error("Adding hosts to Cloudera Manager failed: {0}".format(cmd.resultMessage))
 
-        log.info("Host added to Cloudera Manager")
+        log.debug("Host added to Cloudera Manager")
 
         # first auto-assign roles and auto-configure the CM service
         self.cm_manager.auto_assign_roles()
@@ -305,7 +415,7 @@ class ClouderaManagerService(ApplicationService):
 
         # create a cluster on that instance
         cluster = self.cm_api_resource.create_cluster(self.cluster_name, self.cdh_version)
-        log.info("Cloudera cluster: {0} created".format(self.cluster_name))
+        log.debug("Cloudera cluster: {0} created".format(self.cluster_name))
 
         # add all hosts on the cluster
         cluster.add_hosts(self.host_list)
@@ -339,10 +449,10 @@ class ClouderaManagerService(ApplicationService):
             sleep(5)
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} downloaded".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} downloaded".format(cdh_parcel.product, cdh_parcel.version))
 
         # distribute the parcel
-        log.info("Distributing parcels...")
+        log.debug("Distributing parcels...")
         cmd = cdh_parcel.start_distribution()
         if cmd.success is not True:
             log.error("Parcel distribution failed!")
@@ -352,10 +462,10 @@ class ClouderaManagerService(ApplicationService):
             sleep(5)
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} distributed".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} distributed".format(cdh_parcel.product, cdh_parcel.version))
 
         # activate the parcel
-        log.info("Activating parcels...")
+        log.debug("Activating parcels...")
         cmd = cdh_parcel.activate()
         if cmd.success is not True:
             log.error("Parcel activation failed!")
@@ -364,10 +474,10 @@ class ClouderaManagerService(ApplicationService):
         while cdh_parcel.stage != "ACTIVATED":
             cdh_parcel = get_parcel(self.cm_api_resource, cdh_parcel.product, cdh_parcel.version, self.cluster_name)
 
-        log.info("Parcel: {0} {1} activated".format(cdh_parcel.product, cdh_parcel.version))
+        log.debug("Parcel: {0} {1} activated".format(cdh_parcel.product, cdh_parcel.version))
 
         # inspect hosts and print the result
-        log.info("Inspecting hosts. This might take a few minutes")
+        log.debug("Inspecting hosts. This might take a few minutes")
 
         cmd = self.cm_manager.inspect_hosts()
         while cmd.success is None:
@@ -377,14 +487,14 @@ class ClouderaManagerService(ApplicationService):
         if cmd.success is not True:
             log.error("Host inpsection failed!")
 
-        log.info("Hosts successfully inspected:\n".format(cmd.resultMessage))
-        log.info("Cluster {0} installed".format(self.cluster_name))
+        log.debug("Hosts successfully inspected:\n".format(cmd.resultMessage))
+        log.info("Cluster '{0}' installed".format(self.cluster_name))
 
     def setup_cluster(self):
         """
         Setup the default cluster and start basic services (HDFS, YARN and ZOOKEEPER)
         """
-        log.info("Setting up Cloudera cluster services")
+        log.info("Setting up cluster services...")
         # get the cluster
         cluster = self.cm_api_resource.get_cluster(self.cluster_name)
 
