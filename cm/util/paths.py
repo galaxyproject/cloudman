@@ -16,6 +16,8 @@ P_SU = "/bin/su"
 P_MV = "/bin/mv"
 P_LN = "/bin/ln"
 
+REBOOT_FLAG_FILE = "/tmp/cluster_was_rebooted"
+
 # Configs
 C_PSQL_PORT = "5930"
 USER_DATA_FILE = "userData.yaml"

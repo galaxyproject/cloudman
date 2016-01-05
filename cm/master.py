@@ -1060,6 +1060,8 @@ class ConsoleManager(BaseConsoleManager):
         # Spot requests cannot be tagged and thus there is no good way of associating those
         # back with a cluster after a reboot so cancel those
         log.debug("Initiating cluster reboot.")
+        # Place a flag on the system to indicate if this cluster has been rebooted
+        misc.run("touch {0}".format(paths.REBOOT_FLAG_FILE))
         # Don't detach volumes only on the EC2 cloud
         sd_filesystems = True
         if self.app.cloud_type == 'ec2':

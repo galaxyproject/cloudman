@@ -5,6 +5,8 @@ import os
 import sys
 import hoover
 
+import cm.util.paths as paths
+
 log = logging.getLogger('cloudman')
 
 DEFAULT_INSTANCE_REBOOT_TIMEOUT = 500
@@ -188,6 +190,8 @@ class Configuration(dict):
         """
         If supplied via user data, launch that many workers after launch.
         """
+        if os.path.exists(paths.REBOOT_FLAG_FILE):
+            return 0
         return self.get("worker_initial_count", 0)
 
     @property
