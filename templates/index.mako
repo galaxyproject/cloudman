@@ -321,7 +321,7 @@ vertical-align: top;
                     <input type="text" name="as_max" id="as_max" value="" size="10">
                 </div>
                 <label>Type of Nodes(s):</label>
-                <div id="instance_type" class="form-row-input">
+                <div id="instance_type_choices" class="form-row-input">
                     ## Select available instance types based on cloud name
                     <%include file="instance_types.mako" />
                 </div>
@@ -869,11 +869,12 @@ $(document).ready(function() {
     var initial_cluster_type = '${initial_cluster_type}';
     var permanent_storage_size = ${permanent_storage_size};
 
-    $('#instance_type').change(function(){
-        var isCustom = $(this).val() == 'custom_instance_type';
-        $('#cit_container').toggle(isCustom);
-        if ($('#cit_container').is(":visible")) {
+    $('.instance_type').change(function(){
+        if ($(this).val() == 'custom_instance_type') {
+            $(this).next('#cit_container').show();
             $('#custom_instance_type').focus();
+        } else {
+            $(this).next('#cit_container').hide();
         }
     });
 
