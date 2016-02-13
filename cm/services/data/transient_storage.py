@@ -121,6 +121,11 @@ class TransientStorage(BlockStorage):
                     # otherwise default device for an instance (i.e., /mnt)
                     update_size_cmd = ("df --block-size 1 | grep /mnt$ | "
                                        "awk '{print $2, $3, $5}'")
+                    # Some AWS instance types do not have transient storage
+                    # and /mnt is just part of / so report that file system size
+                    if not misc.getoutput(update_size_cmd, quiet=True):
+                        update_size_cmd = ("df --block-size 1 | grep /$ | "
+                                           "awk '{print $2, $3, $5}'")
                     self.fs._update_size(cmd=update_size_cmd)
                 else:
                     # Or should this set it to UNSTARTED? Because this FS is just an
