@@ -34,8 +34,8 @@ class AutoscaleService(Service):
                           self.instance_type)
                 self.state = service_states.RUNNING
             else:
-                log.debug("Cannot start autoscaling because limits are not set (min: '%s' max: '%s')" % (
-                    self.as_min, self.as_max))
+                log.debug("Cannot start autoscaling because limits are not set "
+                          "(min: '%s' max: '%s')" % (self.as_min, self.as_max))
 
     def remove(self, synchronous=False):
         log.info("Removing '%s' service" % self.name)
@@ -45,7 +45,10 @@ class AutoscaleService(Service):
         self.state = service_states.UNSTARTED
 
     def status(self):
-        """Check the status/size of the cluster and initiate appropriate action if necessary"""
+        """
+        Check the status/size of the cluster and initiate appropriate action
+        if necessary.
+        """
         if self.too_large():
             # Remove idle instances, leaving at least self.as_min
             num_instances_to_remove = self.get_num_instances_to_remove()
@@ -59,10 +62,13 @@ class AutoscaleService(Service):
                 num_instances_to_add, instance_type=self.instance_type)
 
     def too_large(self):
-        """Check if the current size of the cluster is too large.
-           The following checks are included:
-               - number of nodes is more than the max size of the cluster set by user
-               - there are idle nodes and a new hour is about to begin (so not to get charged for the new hour)
+        """
+        Check if the current size of the cluster is too large.
+        The following checks are included:
+            - number of nodes is more than the max size of the cluster set
+              by user
+            - there are idle nodes and a new hour is about to begin (so not
+              to get charged for the new hour)
         """
         # log.debug("Checking if cluster is too LARGE")
         if len(self.app.manager.worker_instances) > self.as_max:
@@ -77,14 +83,20 @@ class AutoscaleService(Service):
         return False
 
     def too_small(self):
-        """Check if the current size of the cluster is too small.
-           The following checks are included:
-               - number of nodes is less than the min size of the cluster set by user
-               - minute in the current hour is less than 54 (this is to ensure down-scaling and up-scaling don't conflict)
-               - there are no idle resources, jobs are queued and job turnaround time is slow
-               - there are no workers, jobs are queued and the master is set to not run jobs
         """
-        log.debug("Checking if cluster too SMALL: minute:%s,idle:%s,total workers:%s,avail workers:%s,min:%s,max:%s" %
+        Check if the current size of the cluster is too small.
+        The following checks are included:
+            - number of nodes is less than the min size of the cluster set by
+              user
+            - minute in the current hour is less than 55 (this is to ensure
+              down-scaling and up-scaling don't conflict)
+            - there are no idle resources, jobs are queued and job turnaround
+              time is slow
+            - there are no workers, jobs are queued and the master is set to
+              not run jobs
+        """
+        log.debug("Checking if cluster too SMALL: minute:%s,idle:%s,total "
+                  "workers:%s,avail workers:%s,min:%s,max:%s" %
                   (datetime.datetime.utcnow().strftime("%M"),
                    len(self.app.manager.get_idle_instances()),
                    len(self.app.manager.worker_instances),
@@ -93,32 +105,37 @@ class AutoscaleService(Service):
 
         if len(self.app.manager.worker_instances) < self.as_min:
             return True
-        elif int(datetime.datetime.utcnow().strftime("%M")) < 55 and \
-            len(self.app.manager.get_idle_instances()) == 0 and \
-            len(self.app.manager.worker_instances) < self.as_max and \
-            len(self.app.manager.worker_instances) == self.app.manager.get_num_available_workers() and \
-                self.slow_job_turnover():
+        elif (int(datetime.datetime.utcnow().strftime("%M")) < 55 and
+              len(self.app.manager.get_idle_instances()) == 0 and
+              len(self.app.manager.worker_instances) < self.as_max and
+              len(self.app.manager.worker_instances) ==
+              self.app.manager.get_num_available_workers() and
+              self.slow_job_turnover()):
             return True
         return False
 
     # *************** Helper methods ***************
     def slow_job_turnover(self, threshold=60, num_queued_jobs=2):
-        """Decide if the jobs currently in the queue are turning over slowly.
-           This is a simple heuristic, best-effort implementation that looks at the
-           mean time jobs are running and, if that time is greater than the threshold
-           and there are more queued jobs than num_queued_jobs, returns True.
-           :type threshold: int
-           :param threshold: Number of seconds that the mean time of running jobs must
-                             exceed to indicate slow job turnover
-          :type num_queued_jobs: int
-          :param num_queued_jobs: Number of jobs that should be queued before indicating slow job turnover
+        """
+        Decide if the jobs currently in the queue are turning over slowly.
+        This is a simple heuristic, best-effort implementation that looks at the
+        mean time jobs are running and, if that time is greater than the threshold
+        and there are more queued jobs than num_queued_jobs, returns True.
+
+        :type threshold: int
+        :param threshold: Number of seconds that the mean time of running jobs
+                          must exceed to indicate slow job turnover
+
+        :type num_queued_jobs: int
+        :param num_queued_jobs: Number of jobs that should be queued before
+                                indicating slow job turnover
         """
         q_jobs = self.get_queue_jobs()
         # log.debug('q_jobs: %s' % q_jobs)
         r_jobs_mean, r_jobs_stdv = self.meanstdv(q_jobs['running'])
         qw_jobs_mean, qw_jobs_stdv = self.meanstdv(q_jobs['queued'])
-        log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s' % (len(
-            q_jobs['queued']), r_jobs_mean))
+        log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s'
+                  % (len(q_jobs['queued']), r_jobs_mean))
         if ((len(q_jobs['queued']) > num_queued_jobs and
              r_jobs_mean > threshold) or
             (len(q_jobs['queued']) > 0 and
@@ -128,11 +145,13 @@ class AutoscaleService(Service):
         return False
 
     def get_queue_jobs(self):
-        """Query job manager queue and filter running and queued jobs. Then, calculate total
-           time in the queue (running or queued) for each of the jobs. Return a dict
-           with two keys 'running' and 'queued' where each key corresponds to a list
-           of queued times (in seconds) for running and queued jobs, respectively.
-           For example: {'running': [169147, 149527], 'queued': [167525, 167512]}
+        """
+        Query job manager queue and filter running and queued jobs. Then,
+        calculate total time in the queue (running or queued) for each of the
+        jobs. Return a dict with two keys 'running' and 'queued' where each
+        key corresponds to a list of queued times (in seconds) for running
+        and queued jobs, respectively. For example: {'running': [169147,
+        149527], 'queued': [167525, 167512]}
         """
         running_jobs = []
         queued_jobs = []
@@ -198,4 +217,5 @@ class AutoscaleService(Service):
         return mean, std
 
     def __str__(self):
-        return "Autoscaling limits min: %s max: %s; instance type: '%s'" % (self.as_min, self.as_max, self.instance_type)
+        return ("Autoscaling limits min: %s max: %s; instance type: '%s'" %
+                (self.as_min, self.as_max, self.instance_type))
