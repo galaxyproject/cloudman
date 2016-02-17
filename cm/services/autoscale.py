@@ -82,6 +82,7 @@ class AutoscaleService(Service):
                - number of nodes is less than the min size of the cluster set by user
                - minute in the current hour is less than 54 (this is to ensure down-scaling and up-scaling don't conflict)
                - there are no idle resources, jobs are queued and job turnaround time is slow
+               - there are no workers, jobs are queued and the master is set to not run jobs
         """
         log.debug("Checking if cluster too SMALL: minute:%s,idle:%s,total workers:%s,avail workers:%s,min:%s,max:%s" %
                   (datetime.datetime.utcnow().strftime("%M"),
@@ -118,8 +119,11 @@ class AutoscaleService(Service):
         qw_jobs_mean, qw_jobs_stdv = self.meanstdv(q_jobs['queued'])
         log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s' % (len(
             q_jobs['queued']), r_jobs_mean))
-        if len(q_jobs['queued']) > num_queued_jobs and \
-                r_jobs_mean > threshold:
+        if ((len(q_jobs['queued']) > num_queued_jobs and
+             r_jobs_mean > threshold) or
+            (len(q_jobs['queued']) > 0 and
+             not self.app.manager.master_exec_host and
+             len(self.app.manager.worker_instances) == 0)):
             return True
         return False
 
