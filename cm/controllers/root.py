@@ -687,6 +687,8 @@ class CM(BaseController):
             self.app.manager.stop_autoscaling()
         else:
             log.debug("Turning autoscaling ON")
+            if instance_type == 'custom_instance_type' and custom_instance_type:
+                instance_type = custom_instance_type.strip()
             if self.check_as_vals(as_min, as_max):
                 self.app.manager.start_autoscaling(
                     int(as_min), int(as_max), instance_type)
