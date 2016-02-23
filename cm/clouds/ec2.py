@@ -39,7 +39,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('ami-l0cal1')
     def get_ami(self):
         if self.ami is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug('Gathering instance ami, attempt %s' % i)
                     fp = urllib.urlopen(
@@ -55,7 +55,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('something.good')
     def get_type(self):
         if self.instance_type is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     url = 'http://169.254.169.254/latest/meta-data/instance-type'
                     log.debug('Gathering instance type via {0}; attempt {1}/5'
@@ -77,7 +77,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('id-LOCAL')
     def get_instance_id(self):
         if self.instance_id is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug('Gathering instance id, attempt %s' % i)
                     fp = urllib.urlopen(
@@ -110,7 +110,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('us-local-1a')
     def get_zone(self):
         if self.zone is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug('Gathering instance zone, attempt %s' % i)
                     fp = urllib.urlopen(
@@ -179,7 +179,7 @@ class EC2Interface(CloudInterface):
     @TestFlag(['cloudman_sg'])
     def get_security_groups(self):
         if not self._security_groups:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug(
                         'Gathering instance security group, attempt %s' % i)
@@ -199,7 +199,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('local_keypair')
     def get_key_pair_name(self):
         if self.key_pair_name is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug(
                         'Gathering instance public keys (i.e., key pairs), attempt %s' % i)
@@ -218,7 +218,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('127.0.0.1')
     def get_private_ip(self):
         if self.self_private_ip is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug('Gathering instance private IP, attempt %s' % i)
                     # fp = urllib.urlopen('http://169.254.169.254/latest/meta-
@@ -236,7 +236,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('localhost')
     def get_local_hostname(self):
         if self.local_hostname is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug(
                         'Gathering instance local hostname, attempt %s' % i)
@@ -258,7 +258,7 @@ class EC2Interface(CloudInterface):
         """
         if (self.public_hostname is None or
            (time.time() - self.public_hostname_updated > self.update_frequency)):
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug(
                         'Gathering instance public hostname, attempt %s' % i)
@@ -276,7 +276,7 @@ class EC2Interface(CloudInterface):
     @TestFlag('127.0.0.1')
     def get_public_ip(self):
         if self.self_public_ip is None:
-            for i in range(0, 5):
+            for i in range(1, 6):
                 try:
                     log.debug(
                         'Gathering instance public hostname, attempt %s' % i)
