@@ -192,7 +192,12 @@ class Configuration(dict):
         """
         if os.path.exists(paths.REBOOT_FLAG_FILE):
             return 0
-        return self.get("worker_initial_count", 0)
+        wic = self.get("worker_initial_count", 0)
+        if isinstance(wic, int):
+            return wic
+        elif wic.isdigit():
+            return int(wic)
+        return 0
 
     @property
     def instance_reboot_timeout(self):
