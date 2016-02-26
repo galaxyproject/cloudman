@@ -62,6 +62,7 @@ class PSSService(ApplicationService):
            self.app.manager.initial_cluster_type is not None):
             self.state = service_states.STARTING
             prereqs_ok = True
+            break_srvc = None
             # There is a race condition w/ this service so when we're setting up
             # a 'Galaxy' clutser, make sure Galaxy service actually exists before
             # deciding all the services are running.
@@ -89,7 +90,7 @@ class PSSService(ApplicationService):
                     prereqs_ok = False
                 else:
                     log.debug("Galaxy service OK for PSS")
-            if not prereqs_ok:
+            if break_srvc and not prereqs_ok:
                 log.debug("%s not running (%s), %s service prerequisites not "
                           "met afterall, not starting the service yet" %
                           (break_srvc.get_full_name(), break_srvc.state, self.name))
