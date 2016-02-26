@@ -52,7 +52,7 @@ class GalaxyReportsService(ApplicationService):
         log.debug("Running GalaxyReportsService _setup")
         reports_option_manager = DirectoryGalaxyOptionManager(self.app,
                                                               conf_dir=self.conf_dir,
-                                                              conf_file_name='reports_wsgi.ini')
+                                                              conf_file_name='reports.ini')
         reports_option_manager.setup()
         file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
         misc.make_dir(file_path, owner='galaxy')
@@ -62,12 +62,23 @@ class GalaxyReportsService(ApplicationService):
                                    .format(self.app.path_resolver.psql_db_port),
             'filter-with': 'proxy-prefix',
             'file_path': file_path,
-            'new_file_path': new_file_path
+            'new_file_path': new_file_path,
+            'paste.app_factory': 'galaxy.webapps.reports.buildapp:app_factory',
+            'use_new_layout': 'true'
         }
         proxy_props = {
             'use': 'egg:PasteDeploy#prefix',
             'prefix': '/reports',
         }
+        server_props = {
+            'use': "egg:Paste#http",
+            'port': 9001,
+            'host': '127.0.0.1',
+            'use_threadpool': 'true',
+            'threadpool_workers': 10
+        }
+        reports_option_manager.set_properties(server_props, section='server:main',
+                                              description='server_main_props')
         reports_option_manager.set_properties(main_props, section='app:main',
                                               description='app_main_props')
         reports_option_manager.set_properties(proxy_props,
