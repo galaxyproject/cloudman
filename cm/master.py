@@ -595,6 +595,8 @@ class ConsoleManager(BaseConsoleManager):
         Activate the `Autoscale` service, setting the minimum number of worker
         nodes of maintain (`as_min`), the maximum number of worker nodes to
         maintain (`as_max`) and the `instance_type` to use.
+
+        Also disable master node from running jobs.
         """
         if not self.service_registry.is_active('Autoscale'):
             as_svc = self.service_registry.get('Autoscale')
@@ -603,6 +605,7 @@ class ConsoleManager(BaseConsoleManager):
                 as_svc.as_max = as_max
                 as_svc.instance_type = instance_type
                 self.activate_master_service(as_svc)
+                self.toggle_master_as_exec_host(force_removal=True)
             else:
                 log.warning('Cannot find Autoscale service?')
         else:
@@ -905,6 +908,9 @@ class ConsoleManager(BaseConsoleManager):
             allows you to toggle the master instance as being or not being
             an execution host.
 
+            Note that if Austoscaling is on, running jobs on the master will be
+            disabled even if no workers exist.
+
             :type force_removal: bool
             :param force_removal: If True, go through the process of removing
                                   the instance from being an execution host
@@ -914,7 +920,13 @@ class ConsoleManager(BaseConsoleManager):
             :return: ``True`` if the instance is set as an execution host;
                      ``False`` otherwise.
         """
-        log.debug("Toggling master instance as exec host")
+        # When autoscaling is on, keep the master from running jobs
+        if self.service_registry.is_active('Autoscale'):
+            force_removal = True
+        if self.master_exec_host or force_removal:
+            log.debug("Setting master not to be an exec host.")
+        else:
+            log.debug("Setting master as an exec host.")
         for job_manager_svc in self.service_registry.active(
                 service_role=ServiceRole.JOB_MANAGER):
             node_alias = 'master'
