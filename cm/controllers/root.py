@@ -681,17 +681,27 @@ class CM(BaseController):
 
     @expose
     def toggle_autoscaling(self, trans, as_min=None, as_max=None, instance_type=None,
-                           custom_instance_type=''):
+                           custom_instance_type='', num_queued_jobs='',
+                           mean_runtime_threshold='', num_instances_to_add=''):
         if self.app.manager.service_registry.is_active('Autoscale'):
             log.debug("Turning autoscaling OFF")
             self.app.manager.stop_autoscaling()
         else:
+            err = False
             log.debug("Turning autoscaling ON")
             if instance_type == 'custom_instance_type' and custom_instance_type:
                 instance_type = custom_instance_type.strip()
-            if self.check_as_vals(as_min, as_max):
+            try:
+                num_queued_jobs = int(num_queued_jobs) if num_queued_jobs else None
+                mean_runtime_threshold = int(mean_runtime_threshold) if mean_runtime_threshold else None
+                num_instances_to_add = int(num_instances_to_add) if num_instances_to_add else None
+            except ValueError, e:
+                log.error("Parameter value error: {0}".format(e))
+                err = True
+            if not err and self.check_as_vals(as_min, as_max):
                 self.app.manager.start_autoscaling(
-                    int(as_min), int(as_max), instance_type)
+                    int(as_min), int(as_max), instance_type, num_queued_jobs,
+                    mean_runtime_threshold, num_instances_to_add)
             else:
                 log.error("Invalid values for autoscaling bounds (min: %s, "
                           "max: %s).  Autoscaling is OFF." % (as_min, as_max))
@@ -708,13 +718,24 @@ class CM(BaseController):
 
     @expose
     def adjust_autoscaling(self, trans, as_min_adj=None, as_max_adj=None,
-                           custom_instance_type=''):
-        if self.app.manager.service_registry.is_active('Autoscale'):
+                           instance_type=None, custom_instance_type='',
+                           num_queued_jobs='', mean_runtime_threshold='',
+                           num_instances_to_add=''):
+        err = False
+        if instance_type == 'custom_instance_type' and custom_instance_type:
+            instance_type = custom_instance_type.strip()
+        try:
+            num_queued_jobs = int(num_queued_jobs) if num_queued_jobs else None
+            mean_runtime_threshold = int(mean_runtime_threshold) if mean_runtime_threshold else None
+            num_instances_to_add = int(num_instances_to_add) if num_instances_to_add else None
+        except ValueError, e:
+            log.error("Parameter value error: {0}".format(e))
+            err = True
+        if not err and self.app.manager.service_registry.is_active('Autoscale'):
             if self.check_as_vals(as_min_adj, as_max_adj):
-                # log.debug("Adjusting autoscaling; new bounds min: %s, max:
-                # %s" % (as_min_adj, as_max_adj))
                 self.app.manager.adjust_autoscaling(
-                    int(as_min_adj), int(as_max_adj))
+                    int(as_min_adj), int(as_max_adj), custom_instance_type,
+                    num_queued_jobs, mean_runtime_threshold, num_instances_to_add)
             else:
                 log.error("Invalid values to adjust autoscaling bounds (min: %s, max: %s)." % (
                     as_min_adj, as_max_adj))
@@ -901,7 +922,6 @@ class CM(BaseController):
     def instance_state_json(self, trans, no_json=False):
         dns = self.get_galaxy_dns(trans)
         snap_status = self.app.manager.snapshot_status()
-        use_autoscaling = self.app.manager.service_registry.is_active('Autoscale')
         ret_dict = {'cluster_status': self.app.manager.get_cluster_status(),
                     'dns': dns,
                     'testflag': self.app.TESTFLAG,
@@ -914,12 +934,27 @@ class CM(BaseController):
                     'cluster_storage_type': self.app.manager.cluster_storage_type,
                     'snapshot': {'status': str(snap_status[0]),
                                  'progress': str(snap_status[1])},
-                    'autoscaling': {'use_autoscaling': use_autoscaling,
-                                    'as_min': 'N/A' if not use_autoscaling else
-                                    self.app.manager.service_registry.get('Autoscale').as_min,
-                                    'as_max': 'N/A' if not use_autoscaling else
-                                    self.app.manager.service_registry.get('Autoscale').as_max}
-                    }
+                    'autoscaling': self.autoscaling_state(trans, no_json=True)}
+        if no_json:
+            return ret_dict
+        else:
+            return json.dumps(ret_dict)
+
+    @expose
+    def autoscaling_state(self, trans, no_json=False):
+        """
+        Return the properties of the Autoscale service.
+        """
+        use_autoscaling = self.app.manager.service_registry.is_active('Autoscale')
+        if use_autoscaling:
+            svc = self.app.manager.service_registry.get('Autoscale')
+        ret_dict = {
+            'use_autoscaling': use_autoscaling,
+            'as_min': 'N/A' if not use_autoscaling else svc.as_min,
+            'as_max': 'N/A' if not use_autoscaling else svc.as_max,
+            'as_num_queued_jobs': 2 if not use_autoscaling else svc.num_queued_jobs,
+            'as_mean_runtime_threshold': 60 if not use_autoscaling else svc.mean_runtime_threshold,
+            'as_num_instances_to_add': 1 if not use_autoscaling else svc.num_instances_to_add}
         if no_json:
             return ret_dict
         else:

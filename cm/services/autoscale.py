@@ -8,16 +8,63 @@ log = logging.getLogger('cloudman')
 
 
 class AutoscaleService(Service):
-    def __init__(self, app, as_min=-1, as_max=-1, instance_type=None):
+    def __init__(self, app, as_min=-1, as_max=-1, instance_type=None,
+                 num_queued_jobs=2, mean_runtime_threshold=60,
+                 num_instances_to_add=1):
+        """
+        :type as_min: int
+        :param as_min: The minimum number of worker nodes of maintain.
+
+        :type as_max: int
+        :param as_max: The maximum number of worker nodes to maintain.
+
+        :type instance_type: str
+        :param instance_type: The type of instance to use.
+
+        :type num_queued_jobs: int
+        :param num_queued_jobs: Minimum number of jobs that need to be queued
+                                before autoscaling will trigger.
+
+        :type mean_runtime_threshold: int
+        :param mean_runtime_threshold: Mean running job runtime before
+                                       autoscaling will trigger.
+
+        :type num_instances_to_add: int
+        :param num_instances_to_add: Number of instances to add when scaling up.
+        """
         super(AutoscaleService, self).__init__(app)
         self.state = service_states.UNSTARTED
         self.svc_roles = [ServiceRole.AUTOSCALE]
         self.svc_type = ServiceType.CM_SERVICE
         self.name = ServiceRole.to_string(ServiceRole.AUTOSCALE)
         self.dependencies = [ServiceDependency(self, ServiceRole.MIGRATION)]
-        self.as_max = as_max  # Max number of nodes autoscale should maintain
-        self.as_min = as_min  # Min number of nodes autoscale should maintain
-        self.instance_type = instance_type  # Type of instances to start
+        self.as_max = as_max
+        self.as_min = as_min
+        self.instance_type = instance_type
+
+    @property
+    def num_queued_jobs(self):
+        return self._num_queued_jobs if self._num_queued_jobs else 2
+
+    @num_queued_jobs.setter
+    def num_queued_jobs(self, value):
+        self._num_queued_jobs = value
+
+    @property
+    def mean_runtime_threshold(self):
+        return self._mean_runtime_threshold if self._mean_runtime_threshold else 60
+
+    @mean_runtime_threshold.setter
+    def mean_runtime_threshold(self, value):
+        self._mean_runtime_threshold = value
+
+    @property
+    def num_instances_to_add(self):
+        return self._num_instances_to_add if self._num_instances_to_add else 1
+
+    @num_instances_to_add.setter
+    def num_instances_to_add(self, value):
+        self._num_instances_to_add = value
 
     def __repr__(self):
         return "Autoscale"
@@ -115,20 +162,14 @@ class AutoscaleService(Service):
         return False
 
     # *************** Helper methods ***************
-    def slow_job_turnover(self, threshold=60, num_queued_jobs=2):
+    def slow_job_turnover(self):
         """
         Decide if the jobs currently in the queue are turning over slowly.
+
         This is a simple heuristic, best-effort implementation that looks at the
-        mean time jobs are running and, if that time is greater than the threshold
-        and there are more queued jobs than num_queued_jobs, returns True.
-
-        :type threshold: int
-        :param threshold: Number of seconds that the mean time of running jobs
-                          must exceed to indicate slow job turnover
-
-        :type num_queued_jobs: int
-        :param num_queued_jobs: Number of jobs that should be queued before
-                                indicating slow job turnover
+        mean time jobs are running and, if that time is greater than the
+        threshold (``self.mean_runtime_threshold``) and there are more queued
+        jobs then ``self.num_queued_jobs``, returns ``True``.
         """
         q_jobs = self.get_queue_jobs()
         # log.debug('q_jobs: %s' % q_jobs)
@@ -136,8 +177,8 @@ class AutoscaleService(Service):
         qw_jobs_mean, qw_jobs_stdv = self.meanstdv(q_jobs['queued'])
         log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s'
                   % (len(q_jobs['queued']), r_jobs_mean))
-        if ((len(q_jobs['queued']) > num_queued_jobs and
-             r_jobs_mean > threshold) or
+        if ((len(q_jobs['queued']) > self.num_queued_jobs and
+             r_jobs_mean > self.mean_runtime_threshold) or
             (len(q_jobs['queued']) > 0 and
              not self.app.manager.master_exec_host and
              len(self.app.manager.worker_instances) == 0)):
@@ -192,7 +233,7 @@ class AutoscaleService(Service):
            The function returns 1 unless the number of instances autoscaling should
            maintain is less then the current number of instances. In that case, it
            returns the difference."""
-        num_instances_to_add = 1  # Add one instance at a time for now
+        num_instances_to_add = self.num_instances_to_add
         if len(self.app.manager.worker_instances) + num_instances_to_add < self.as_min:
             num_instances_to_add = int(
                 self.as_min) - len(self.app.manager.worker_instances)

@@ -289,7 +289,7 @@ vertical-align: top;
         </div>
     </form>
 </div>
-<div class="box" id="turn_autoscaling_on">
+<div class="box" id="turn_autoscaling_on" style="position: absolute;">
     <a class="boxclose"></a>
     <h2>Autoscaling Configuration</h2>
     <form id="turn_autoscaling_on_form" class="autoscaling_form" name="turn_autoscaling_on_form" action="${h.url_for(controller='root', action='toggle_autoscaling')}" method="post">
@@ -312,18 +312,35 @@ vertical-align: top;
             <p>Once turned on, the cluster size limits respected by autoscaling can be adjusted or
             autoscaling can be turned off.</p>
             <div class="form-row">
-                <label>Minimum number of nodes to maintain:</label>
+                <label>Minimum number of worker nodes to maintain:</label>
                 <div class="form-row-input">
-                    <input type="text" name="as_min" id="as_min" value="" size="10">
+                    <input type="number" name="as_min" id="as_min" min="0" max="19">
                 </div>
-                <label>Maximum number of nodes to maintain:</label>
+                <label>Maximum number of worker nodes to maintain:</label>
                 <div class="form-row-input">
-                    <input type="text" name="as_max" id="as_max" value="" size="10">
+                    <input type="number" name="as_max" id="as_max" min="1" max="19">
                 </div>
                 <label>Type of Nodes(s):</label>
                 <div id="instance_type_choices" class="form-row-input">
                     ## Select available instance types based on cloud name
                     <%include file="instance_types.mako" />
+                </div>
+                <hr/>
+                <p><a href="javascript:void(0)" onClick='$("#as-advanced").toggle()'>Advanced options</a></p>
+                <div id="as-advanced" style="display: none;">
+                    <p>Placeholder values are the defaults.</p>
+                    <label>Minimum number of queued jobs before triggering:</label>
+                    <div class="form-row-input">
+                        <input type="number" name="num_queued_jobs" id="num_queued_jobs" placeholder="2" min="1" max="99">
+                    </div>
+                    <label>Mean running job runtime before triggering (seconds):</label>
+                    <div class="form-row-input">
+                        <input type="number" name="mean_runtime_threshold" id="mean_runtime_threshold" placeholder="60" min="1">
+                    </div>
+                    <label>Number of nodes to add at once:</label>
+                    <div class="form-row-input">
+                        <input type="number" name="num_instances_to_add" id="num_instances_to_add" placeholder="1" min="1" max="19">
+                    </div>
                 </div>
                 <br/>
             </div>
@@ -333,8 +350,8 @@ vertical-align: top;
         </div>
     </form>
 </div>
-<div class="box" id="adjust_autoscaling">
-    <a class="boxclose"></a>
+<div class="box" id="adjust_autoscaling" style="position: absolute;">
+    <a class="boxclose" onClick='$("#as-advanced-adj").hide();'></a>
     <h2>Adjust Autoscaling Configuration</h2>
     <form id="adjust_autoscaling_form" class="autoscaling_form" name="adjust_autoscaling_form" action="${h.url_for(controller='root', action='adjust_autoscaling')}" method="post">
         <div class="form-row">
@@ -345,16 +362,38 @@ vertical-align: top;
             <div class="form-row">
                 <label>Minimum number of nodes to maintain:</label>
                 <div class="form-row-input">
-                    <input type="text" name="as_min_adj" id="as_min_adj" value="" size="10">
+                    <input type="number" name="as_min_adj" id="as_min_adj" min="0" max="19">
                 </div>
                 <label>Maximum number of nodes to maintain:</label>
                 <div class="form-row-input">
-                    <input type="text" name="as_max_adj" id="as_max_adj" value="" size="10">
+                    <input type="number" name="as_max_adj" id="as_max_adj" min="1" max="19">
+                </div>
+                <label>Type of Nodes(s):</label>
+                <div id="instance_type_choices" class="form-row-input">
+                    ## Select available instance types based on cloud name
+                    <%include file="instance_types.mako" />
+                </div>
+                <hr/>
+                <p><a href="javascript:void(0)" onClick='adjAdvancedAS()'>Advanced options</a></p>
+                <div id="as-advanced-adj" style="display: none;">
+                    <p>Shown values are the ones currently used.</p>
+                    <label>Minimum number of queued jobs before triggering:</label>
+                    <div class="form-row-input">
+                        <input type="number" name="num_queued_jobs" id="num_queued_jobs_adj" min="1" max="99">
+                    </div>
+                    <label>Mean running job runtime before triggering (seconds):</label>
+                    <div class="form-row-input">
+                        <input type="number" name="mean_runtime_threshold" id="mean_runtime_threshold_adj" min="1">
+                    </div>
+                    <label>Number of nodes to add at once:</label>
+                    <div class="form-row-input">
+                        <input type="number" name="num_instances_to_add" id="num_instances_to_add_adj" min="1" max="19">
+                    </div>
                 </div>
             </div>
         </div>
         <div class="form-row">
-            <input type="submit" value="Adjust autoscaling" class="btn btn-default" />
+            <input type="submit" value="Adjust autoscaling" class="btn btn-default" onClick='$("#as-advanced-adj").hide();'/>
         </div>
     </form>
 </div>
@@ -606,6 +645,25 @@ function toggleVolDialog(){
     }else{
         $('#voloverlay').show();
         $('#volume_config').show();
+    }
+}
+
+function adjAdvancedAS(){
+    if ($("#as-advanced-adj").is(":visible")){
+        $("#as-advanced-adj").hide();
+    } else {
+        $("#as-advanced-adj").show();
+        // Fetch current values
+        $.getJSON("${h.url_for(controller='root',action='autoscaling_state')}",
+            {},
+            function(data){
+                if (data){
+                    $('#num_queued_jobs_adj').val(data.as_num_queued_jobs);
+                    $('#mean_runtime_threshold_adj').val(data.as_mean_runtime_threshold);
+                    $('#num_instances_to_add_adj').val(data.as_num_instances_to_add);
+                }
+            }
+        );
     }
 }
 
@@ -1088,31 +1146,6 @@ $(document).ready(function() {
     }
     var expanded_storage_size = new LiveValidation('new_vol_size', { validMessage: "OK", wait: 300, insertAfterWhatNode: 'new_col_size_vtag' } );
     expanded_storage_size.add( Validate.Numericality, { minimum: 1, maximum: 16000 } );
-
-    var autoscaling_min_bound = new LiveValidation('as_min', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    var autoscaling_max_bound = new LiveValidation('as_max', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-
-    $('#as_min').change(function(){
-        autoscaling_max_bound.validations[0].params.minimum = $('#as_min').val();
-    });
-    $('#as_max').change(function(){
-        autoscaling_min_bound.validations[0].params.maximum = $('#as_max').val();
-    });
-
-    // FIXME: Is there a better way of doing this check than repeating all the code from the preceeding validation?
-    var autoscaling_min_bound_adj = new LiveValidation('as_min_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_min_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    var autoscaling_max_bound_adj = new LiveValidation('as_max_adj', { validMessage: "OK", wait: 300 } );
-    autoscaling_max_bound_adj.add( Validate.Numericality, { minimum: 0, maximum: 19, onlyInteger: true } );
-    $('#as_min_adj').change(function(){
-        autoscaling_max_bound_adj.validations[0].params.minimum = $('#as_min_adj').val();
-    });
-    $('#as_max_adj').change(function(){
-        autoscaling_min_bound_adj.validations[0].params.maximum = $('#as_max_adj').val();
-    });
-
 
     if (initial_cluster_type === 'None') {
         toggleVolDialog();

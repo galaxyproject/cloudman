@@ -590,13 +590,35 @@ class ConsoleManager(BaseConsoleManager):
                 return vol
         return None
 
-    def start_autoscaling(self, as_min, as_max, instance_type):
+    def start_autoscaling(self, as_min, as_max, instance_type, num_queued_jobs,
+                          mean_runtime_threshold, num_instances_to_add):
         """
-        Activate the `Autoscale` service, setting the minimum number of worker
-        nodes of maintain (`as_min`), the maximum number of worker nodes to
-        maintain (`as_max`) and the `instance_type` to use.
+        Activate the `Autoscale` service.
 
-        Also disable master node from running jobs.
+        Note that this method will automatically disable master node from
+        running jobs after autoscaling is activated. Also note that the
+        parameters are AND-ed (i.e., all need to be true before autoscaling
+        will trigger).
+
+        :type as_min: int
+        :param as_min: The minimum number of worker nodes of maintain.
+
+        :type as_max: int
+        :param as_max: The maximum number of worker nodes to maintain.
+
+        :type instance_type: str
+        :param instance_type: The type of instance to use.
+
+        :type num_queued_jobs: int
+        :param num_queued_jobs: Minimum number of jobs that need to be queued
+                                before autoscaling will trigger.
+
+        :type mean_runtime_threshold: int
+        :param mean_runtime_threshold: Mean running job runtime before
+                                       autoscaling will trigger.
+
+        :type num_instances_to_add: int
+        :param num_instances_to_add: Number of instances to add when scaling up.
         """
         if not self.service_registry.is_active('Autoscale'):
             as_svc = self.service_registry.get('Autoscale')
@@ -604,6 +626,9 @@ class ConsoleManager(BaseConsoleManager):
                 as_svc.as_min = as_min
                 as_svc.as_max = as_max
                 as_svc.instance_type = instance_type
+                as_svc.num_queued_jobs = num_queued_jobs
+                as_svc.mean_runtime_threshold = mean_runtime_threshold
+                as_svc.num_instances_to_add = num_instances_to_add
                 self.activate_master_service(as_svc)
                 self.toggle_master_as_exec_host(force_removal=True)
             else:
@@ -617,13 +642,27 @@ class ConsoleManager(BaseConsoleManager):
         """
         self.deactivate_master_service(self.service_registry.get('Autoscale'))
 
-    def adjust_autoscaling(self, as_min, as_max):
+    def adjust_autoscaling(self, as_min, as_max, instance_type,
+                           num_queued_jobs, mean_runtime_threshold,
+                           num_instances_to_add):
         as_svc = self.get_services(svc_role=ServiceRole.AUTOSCALE)
         if as_svc:
             as_svc[0].as_min = int(as_min)
             as_svc[0].as_max = int(as_max)
-            log.debug("Adjusted autoscaling limits; new min: %s, new max: %s" % (as_svc[
-                      0].as_min, as_svc[0].as_max))
+            if instance_type:
+                as_svc[0].instance_type = instance_type
+            if num_queued_jobs:
+                as_svc[0].num_queued_jobs = num_queued_jobs
+            if mean_runtime_threshold:
+                as_svc[0].mean_runtime_threshold = mean_runtime_threshold
+            if num_instances_to_add:
+                as_svc[0].num_instances_to_add = num_instances_to_add
+            log.debug("Adjusted autoscaling settings - min: %s, max: %s, "
+                      "instance type: %s, num queued jobs: %s, "
+                      "mean runtime threshold: %s, num instances to add: %s" %
+                      (as_svc[0].as_min, as_svc[0].as_max, as_svc[0].instance_type,
+                       as_svc[0].num_queued_jobs, as_svc[0].mean_runtime_threshold,
+                       as_svc[0].num_instances_to_add))
         else:
             log.debug(
                 "Cannot adjust autoscaling because autoscaling is not on.")
@@ -2440,7 +2479,7 @@ class ConsoleMonitor(object):
             self.last_system_change_time = Time.now()
             self.num_workers = len(self.app.manager.worker_instances)
         # Update frequency: as more time passes since a change in the system,
-        # progressivley back off on frequency of system updates
+        # progressively back off on frequency of system updates
         if (Time.now() - self.last_system_change_time).seconds > 600:
             self.update_frequency = 60  # If no system changes for 10 mins, run update every minute
         elif (Time.now() - self.last_system_change_time).seconds > 300:
@@ -2454,7 +2493,7 @@ class ConsoleMonitor(object):
 
         Note that the file system expansion may take a long time (many hours)
         during which at least some of the cluster services will not be available.
-        Note that after initiating the expandsion process, a monitoring process
+        Note that after initiating the expansion process, a monitoring process
         needs to be put into place and the method ``self.finalize_fs_expansion``
         should be called to resume cluster services after the expansion process
         has completed.
