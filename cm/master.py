@@ -1877,11 +1877,14 @@ class ConsoleManager(BaseConsoleManager):
                     "Error modifying snapshot '%s' attribute: %s" % (snap_id, e))
         err = False
         if canonical_ids:
-            # In order to list the keys associated with a shared instance, a user
-            # must be given READ permissions on the cluster's bucket as a whole.
-            # This allows a given user to list the contents of a bucket but not
-            # access any of the keys other than the ones granted the permission
-            # next (i.e., keys required to bootstrap the shared instance)
+            # In order to list the keys associated with a shared instance, a
+            # user must be given READ permissions on the cluster's bucket as
+            # a whole. This allows a given user to list the contents of a
+            # bucket but not access any of the keys other than the ones
+            # granted the permission for (i.e., keys required to bootstrap
+            # the shared instance).
+            misc.add_bucket_user_grant(
+                s3_conn, self.app.config['bucket_cluster'], "READ", canonical_ids)
             # Grant READ permissions for the keys required to bootstrap the
             # shared instance
             for k_name in copied_key_names:
@@ -1890,14 +1893,17 @@ class ConsoleManager(BaseConsoleManager):
                     log.error("Error adding READ permission for key '%s'" % k_name)
                     err = True
         else:  # If no canonical_ids are provided, means to set the permissions to public-read
-            # See above, but in order to access keys, the bucket root must be given read permissions
-            # FIXME: this method sets the bucket's grant to public-read and
-            # removes any individual user's grants - something share-a-cluster
-            # depends on down the line if the publicly shared instance is deleted
-            # misc.make_bucket_public(s3_conn, self.app.config['bucket_cluster'])
+            # See above, but in order to access keys, the bucket root must be
+            # given read permissions
+            # NOTE/FIXME: When a group ACL is set on a bucket, AWS removes
+            # any individual user's grants - something share-a-cluster depends
+            # on down the line if the publicly shared instance is deleted.
+            misc.set_bucket_acl(s3_conn, self.app.config['bucket_cluster'],
+                                'authenticated-read')
             for k_name in copied_key_names:
-                if not misc.make_key_public(s3_conn, self.app.config['bucket_cluster'], k_name):
-                    log.error("Error making key '%s' public" % k_name)
+                if not misc.set_key_acl(s3_conn, self.app.config['bucket_cluster'],
+                                        k_name, 'authenticated-read'):
+                    log.error("Error setting ACL on key '%s'" % k_name)
                     err = True
         if err:
             # TODO: Handle this with more user input?

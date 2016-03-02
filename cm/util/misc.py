@@ -243,16 +243,21 @@ def get_bucket(s3_conn, bucket_name, validate=False):
     return b
 
 
-def make_bucket_public(s3_conn, bucket_name, recursive=False):
+def set_bucket_acl(s3_conn, bucket_name, acl_str='public-read'):
     """
-    Make bucket `bucket_name` public, meaning anyone can read its contents. If
-    `recursive` is set, do so for all objects contained in the bucket.
+    Set ``acl_str`` on `bucket_name`.
+
+    Accepted ``acl_str`` values:
+        - ``public-read``: anyone can list bucket file names, their size and
+          last modified date.
+        - ``authenticated-read``: Anyone with a valid S3 account can do actions
+          listed above.
     """
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
-            b.make_public(recursive=recursive)
-            log.debug("Bucket '%s' made public" % bucket_name)
+            b.set_acl(acl_str)
+            log.debug("Set ACL '%s' on bucket '%s'." % (acl_str, bucket_name))
             return True
         except S3ResponseError as e:
             log.error(
@@ -260,18 +265,23 @@ def make_bucket_public(s3_conn, bucket_name, recursive=False):
     return False
 
 
-def make_key_public(s3_conn, bucket_name, key_name):
+def set_key_acl(s3_conn, bucket_name, key_name, acl_str='public-read'):
     """
-    Set the ACL setting for `key_name` in `bucket_name` so anyone can read the
-    contents of the key.
+    Set the ACL setting for `key_name` in `bucket_name`.
+
+    Accepted ``acl_str`` values:
+        - ``public-read``: anyone can list bucket file names, their size and
+          last modified date.
+        - ``authenticated-read``: Anyone with a valid S3 account can do actions
+          listed above.
     """
     b = get_bucket(s3_conn, bucket_name)
     if b:
         try:
             k = Key(b, key_name)
             if k.exists():
-                k.make_public()
-                log.debug("Key '%s' made public" % key_name)
+                k.set_acl(acl_str)
+                log.debug("Set ACL '%s' on key '%s'" % (acl_str, key_name))
                 return True
         except S3ResponseError as e:
             log.error("Could not make key '%s' public: %s" % (key_name, e))
