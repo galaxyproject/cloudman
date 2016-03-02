@@ -1766,6 +1766,7 @@ class ConsoleManager(BaseConsoleManager):
 
         # Initiate snapshot of the galaxyData file system
         snap_ids = []
+        snaps_to_share = []
         svcs = self.get_services(svc_type=ServiceType.FILE_SYSTEM)
         for svc in svcs:
             if ServiceRole.GALAXY_DATA in svc.svc_roles:
@@ -1773,7 +1774,15 @@ class ConsoleManager(BaseConsoleManager):
                     share_desc = ("CloudMan shared cluster %s; %s"
                                   % (self.app.config['cluster_name'],
                                      self.app.config['bucket_cluster']))
-                snap_ids = svc.create_snapshot(snap_description=share_desc)
+                try:
+                    gd_snap = svc.create_snapshot(snap_description=share_desc)[0]
+                    snap_ids.append(gd_snap)
+                    snaps_to_share.append(gd_snap)
+                except IndexError as e:
+                    log.debug("Trouble getting GalaxyFS snapshot? %s" % e)
+                    return False
+            elif ServiceRole.GALAXY_INDICES in svc.svc_roles:
+                snaps_to_share.append(svc.volumes[0].from_snapshot_id)
         self._start_app_level_services()
         # Create a new folder-like structure inside cluster's bucket and copy
         # the cluster configuration files
@@ -1789,16 +1798,13 @@ class ConsoleManager(BaseConsoleManager):
             conf_file_name, addl_data=addl_data)
         # Remove references to cluster's own data; this is shared via the snapshots above
         # TODO: Add an option for a user to include any self-added file systems
-        # as well
-        sud = misc.load_yaml_file(conf_file_name)
-        fsl = sud.get('filesystems', [])
+        sud = misc.load_yaml_file(conf_file_name)  # Shared user data
+        fsl = sud.get('filesystems', [])  # File system list
         sfsl = []  # Shared file systems list
         for fs in fsl:
             roles = ServiceRole.from_string_array(fs['roles'])
-            # Including GALAXY_TOOLS role here breaks w/ new combined galaxyData/galaxyTools volume.  We should
-            # probably change this to actually inspect and share base snapshots if applicable (like galaxyIndices) but
-            # never volumes.
-            # if ServiceRole.GALAXY_TOOLS in roles or ServiceRole.GALAXY_INDICES in roles:
+            # We should probably change this to actually inspect and share base
+            # snapshots if applicable (like galaxyIndices) but never volumes.
             if ServiceRole.GALAXY_INDICES in roles:
                 sfsl.append(fs)
         sud['filesystems'] = sfsl
@@ -1821,7 +1827,7 @@ class ConsoleManager(BaseConsoleManager):
                 if '/' not in key.name and 'persistent_data.yaml' not in key.name:
                     conf_files.append(key.name)
         except S3ResponseError, e:
-            log.error("Error collecting cluster configuration files form bucket '%s': %s"
+            log.error("Error collecting cluster configuration files from bucket '%s': %s"
                       % (self.app.config['bucket_cluster'], e))
             return False
         # Copy current cluster's configuration files into the shared folder
@@ -1841,20 +1847,31 @@ class ConsoleManager(BaseConsoleManager):
         misc.dump_yaml_to_file(copied_key_names, fl)
         misc.save_file_to_bucket(s3_conn, self.app.config['bucket_cluster'], os.path.join(shared_names_root, fl), fl)
         copied_key_names.append(os.path.join(shared_names_root, fl))  # Add it to the list so it's permissions get set
-        # Adjust permissions on the new keys and the created snapshots
+        # Adjust permissions on the relevant snapshots
         ec2_conn = self.app.cloud_interface.get_ec2_connection()
-        for snap_id in snap_ids:
+        ci = self.app.cloud_interface
+        for snap_id in snaps_to_share:
+            log.debug("Checking permissions for snapshot %s" % snap_id)
             try:
-                if user_ids:
-                    log.debug(
-                        "Adding createVolumePermission for snap '%s' for users '%s'" % (snap_id, user_ids))
-                    ec2_conn.modify_snapshot_attribute(
-                        snap_id, attribute='createVolumePermission',
-                        operation='add', user_ids=user_ids)
+                s_info = ci.get_snapshot_info(snap_id)
+                acct_id = ci.account_id()
+                # Check if this snap is owned by the current user or is public
+                if acct_id and acct_id == s_info.get('owner_id') and \
+                   not s_info.get('is_public'):
+                    if user_ids:
+                        log.debug("Adding createVolumePermission for snap '%s' "
+                                  "for user(s) '%s'" % (snap_id, user_ids))
+                        ec2_conn.modify_snapshot_attribute(
+                            snap_id, attribute='createVolumePermission',
+                            operation='add', user_ids=user_ids)
+                    else:
+                        log.debug("Making snap %s public." % snap_id)
+                        ec2_conn.modify_snapshot_attribute(
+                            snap_id, attribute='createVolumePermission',
+                            operation='add', groups=['all'])
                 else:
-                    ec2_conn.modify_snapshot_attribute(
-                        snap_id, attribute='createVolumePermission',
-                        operation='add', groups=['all'])
+                    log.debug("Did not share snapshot %s (owner account ID: %s; "
+                              "snap info: %s)" % (snap_id, acct_id, s_info))
             except EC2ResponseError, e:
                 log.error(
                     "Error modifying snapshot '%s' attribute: %s" % (snap_id, e))

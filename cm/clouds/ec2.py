@@ -810,7 +810,8 @@ class EC2Interface(CloudInterface):
             'region_name': None,
             'description': None,
             'volume_id': None,
-            'volume_size': None
+            'volume_size': None,
+            'owner_id': None
         }
         snap = self.get_snapshot(snapshot_id)
         if snap:
@@ -824,7 +825,9 @@ class EC2Interface(CloudInterface):
                     'region_name': snap.region.name,
                     'description': snap.description,
                     'volume_id': snap.volume_id,
-                    'volume_size': snap.volume_size
+                    'volume_size': snap.volume_size,
+                    'is_public': 'all' in snap.get_permissions().get('groups', []),
+                    'owner_id': snap.owner_id
                 }
             except EC2ResponseError, e:
                 log.error("EC2ResponseError getting snapshot {0} info: {1}"
@@ -854,3 +857,16 @@ class EC2Interface(CloudInterface):
         if instance_ids and not isinstance(instance_ids, list):
             instance_ids = [instance_ids]
         return self.get_ec2_connection().get_all_instances(instance_ids=instance_ids, filters=filters)
+
+    def account_id(self):
+        """
+        Figure out what the current user's account ID is.
+
+        AWS does not make this readily available so we need to deduce it.
+        """
+        try:
+            sg = self.get_ec2_connection().get_all_security_groups()[0]
+            return sg.owner_id
+        except EC2ResponseError as e:
+            log.debug("Trouble getting account ID: %s" % e)
+            return None
