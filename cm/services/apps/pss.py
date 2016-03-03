@@ -88,6 +88,7 @@ class PSSService(ApplicationService):
                 elif len(galaxy_svc) > 0 and not galaxy_svc[0].running():
                     log.debug("Galaxy service not running yet; will wait.")
                     prereqs_ok = False
+                    break_srvc = galaxy_svc[0]
                 else:
                     log.debug("Galaxy service OK for PSS")
             if break_srvc and not prereqs_ok:
@@ -97,9 +98,12 @@ class PSSService(ApplicationService):
                 # Reset state so it gets picked up by the monitor thread again
                 self.state = service_states.UNSTARTED
                 return False
-            # Running the pss may take a while, so do it in its own thread.
-            threading.Thread(target=self.start).start()
-            return True
+            if prereqs_ok:
+                # Running the pss may take a while, so do it in its own thread.
+                threading.Thread(target=self.start).start()
+                return True
+            log.debug("PSS prereqs still not ok; waiting.")
+            return False
         else:
             log.debug("Not adding {0} svc; it completed ({1}) or the cluster was "
                       "not yet initialized ({2})"
