@@ -116,28 +116,31 @@ class PSSService(ApplicationService):
         Start this service by running the 'Post Start Script'.
 
         Post start scripts are resolved in the following order:
-        1. If a `post_start_script_url` (for master) or `worker_post_start_script_url`
-        (for worker) is defined in user_data, it is processed first.
-        These can be semi-colon separated lists, in which case they are executed one at a time,
-        and can contain http paths, filenames or local file paths.
-        E.g.:
-        1. `http://domain.org/scripts/myscript.sh;/opt/app/start.d;bucket_script.sh;/opt/app/poststart.d;`
-        2. 'file:///opt/app/mystartup.d;hello'
+        1. If a `post_start_script_url` (for master) or
+           ``worker_post_start_script_url`` (for worker) is defined in
+           ``user_data``, it is processed first. These can be semi-colon
+           separated lists, in which case they are executed one at a time,
+            and can contain http paths, filenames or local file paths.
+            E.g.:
+            1. `http://domain.org/scripts/myscript.sh;/opt/app/start.d;bucket_script.sh;/opt/app/poststart.d;`
+            2. 'file:///opt/app/mystartup.d;hello'
 
         For each url found, the following rules apply:
             a. If the url is an http url, the file is downloaded and executed
-            b. If it's a filename only (no path), the cluster bucket will be first checked
-            for the filename, and if it exists, downloaded and executed. Otherwise, the
-            script will be assumed to be local and executed from the system path.
-            c. If the path refers to a local directory, all scripts in that directory will
-            be executed using the run-parts utility. (Refer to Ubuntu man pages for documentation
-            on run-parts).
+            b. If it's a filename only (no path), the cluster bucket will be
+               first checked for the filename, and if it exists, downloaded and
+               executed. Otherwise, the script will be assumed to be local and
+               executed from the system path.
+            c. If the path refers to a local directory, all scripts in that
+               directory will be executed using the run-parts utility (refer
+               to Ubuntu man pages for documentation on run-parts).
             d. If it's a local file, the script will be directly executed.
 
-        2. If these URL's are not defined in the user data, falls back to legacy behaviour,
-        by checking if files `post_start_script` or `worker_post_start_script`, for master
-        and worker respectively, exist in the cluster bucket. If available, they are downloaded
-        and executed.
+        2. If these URL's are not defined in the user data, falls back to
+           legacy behaviour, by checking if files ``post_start_script`` or
+           ``worker_post_start_script``, for master and worker respectively,
+           exist in the cluster bucket. If available, they are downloaded
+           and executed.
 
         Finally, the service is marked as COMPLETED and as 'not active'.
         """
@@ -146,30 +149,32 @@ class PSSService(ApplicationService):
         default_pss_filename = 'post_start_script' if self.instance_role == 'master' \
             else 'worker_post_start_script'
         pss_urls = (self.app.config.get('post_start_script_url', None)
-                   if self.instance_role == 'master' else
-                   self.app.config.get('worker_post_start_script_url', None))
-        default_local_pss_file = os.path.join(self.app.config['cloudman_home'], default_pss_filename)
+                    if self.instance_role == 'master' else
+                    self.app.config.get('worker_post_start_script_url', None))
+        default_local_pss_file = os.path.join(self.app.config['cloudman_home'],
+                                              default_pss_filename)
         # Check user data first to allow overwriting of potentially existing pss
         if pss_urls:
             url_list = [url for url in pss_urls.split(';') if url]
             for pss_url in url_list:
                 parse_result = urlparse(pss_url)
                 if "http" in parse_result.scheme:
-                    # This assumes the provided URL is readable to anyone w/o authentication
-                    # First check if the file actually exists
+                    # This assumes the provided URL is readable to anyone w/o
+                    # authentication. First check if the file actually exists.
                     if misc.run('wget --server-response %s' % pss_url):
                         misc.run('wget --output-document=%s %s' % (
                             default_local_pss_file, pss_url))
                         log.info("Downloaded script %s'; executing it... " % (pss_url))
                         self._execute_local_script(default_local_pss_file)
                     else:
-                        log.error("Specified post_start_script_url (%s) does not exist. Continuing..."
-                                  % pss_url)
+                        log.error("Specified post_start_script_url (%s) does "
+                                  "not exist. Continuing..." % pss_url)
                 else:
-                    # assume it's a file
+                    # Assume it's a file
                     local_pss = parse_result.path
-                    # if file doesn't contain a path, check whether bucket contains that file.
-                    # If the file exists in  bucket, it gets priority, otherwise, the local script is executed.
+                    # If file doesn't contain a path, check whether bucket
+                    # contains that file. If the file exists in the bucket, it
+                    # gets priority; otherwise, the local script is executed.
                     if not os.path.dirname(local_pss):
                         if self._fetch_script_from_bucket(local_pss, default_local_pss_file):
                             self._execute_local_script(default_local_pss_file)
@@ -207,8 +212,8 @@ class PSSService(ApplicationService):
 
     def _execute_local_script(self, script):
         if os.path.isdir(script):
-            log.info("Found local directory %s'; executing all scripts therein (note that this "
-                     "may take a while)" % (script))
+            log.info("Found local directory %s'; executing all scripts therein "
+                     "(note that this may take a while)" % (script))
             misc.run('cd %s; run-parts %s' % (script, script))
             log.info("Done running PSS scripts in {0}".format(script))
         elif os.path.isfile(script) and os.path.getsize(script) > 0:
@@ -219,13 +224,14 @@ class PSSService(ApplicationService):
             misc.run('cd %s; %s' % (working_dir, script))
             log.info("Done running PSS {0}".format(script))
         else:
-            log.debug("Specified local PSS file or directory (%s) does not exist; continuing." % script)
+            log.debug("Specified local PSS file or directory (%s) does not "
+                      "exist; continuing." % script)
 
     def _fetch_script_from_bucket(self, script_name, target_path):
         # Try to download the pss from the cluster's bucket
         cluster_bucket_name = self.app.config['bucket_cluster']
         log.debug("Attempting to fetch script {0} from cluster bucket ({1})."
-                      .format(script_name, cluster_bucket_name))
+                  .format(script_name, cluster_bucket_name))
         s3_conn = self.app.cloud_interface.get_s3_connection()
         return misc.get_file_from_bucket(s3_conn, cluster_bucket_name,
-                                  script_name, target_path)
+                                         script_name, target_path)
