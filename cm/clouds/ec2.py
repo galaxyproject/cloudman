@@ -811,6 +811,7 @@ class EC2Interface(CloudInterface):
             'description': None,
             'volume_id': None,
             'volume_size': None,
+            'is_public': None,
             'owner_id': None
         }
         snap = self.get_snapshot(snapshot_id)
