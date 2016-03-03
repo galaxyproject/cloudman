@@ -818,6 +818,11 @@ class EC2Interface(CloudInterface):
         if snap:
             try:
                 snap.update()
+                if snap.owner_id == self.account_id():
+                    is_public = 'all' in snap.get_permissions().get('groups', [])
+                else:
+                    # Snap permissions can only be queried for owned snaps
+                    is_public = False
                 snap_info = {
                     'id': snapshot_id,
                     'progress': snap.progress,
@@ -827,7 +832,7 @@ class EC2Interface(CloudInterface):
                     'description': snap.description,
                     'volume_id': snap.volume_id,
                     'volume_size': snap.volume_size,
-                    'is_public': 'all' in snap.get_permissions().get('groups', []),
+                    'is_public': is_public,
                     'owner_id': snap.owner_id
                 }
             except EC2ResponseError, e:
