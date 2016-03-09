@@ -638,7 +638,7 @@ class EC2Interface(CloudInterface):
         worker_ud = dict(self.app.config.items() + worker_ud.items())
         return worker_ud
 
-    def create_volume(self, size, zone, snapshot=None, volume_type='gp2', iops=None):
+    def create_volume(self, size, zone, snapshot=None, volume_type=None, iops=None):
         """
         Create a new EBS Volume.
 
@@ -654,7 +654,8 @@ class EC2Interface(CloudInterface):
 
         :type volume_type: string
         :param volume_type: The type of the volume. (optional).  Valid
-                            values are: standard | io1 | gp2.
+                            values are: standard | io1 | gp2
+                            (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html).
 
         :type iops: int
         :param iops: The provisioned IOPS you want to associate with
@@ -664,6 +665,26 @@ class EC2Interface(CloudInterface):
         :return: If the volume was created successfully, return a boto instance
                  of the Volume object. Otherwise, return `None`.
         """
+        if not iops:
+            iops = self.app.config.user_data.get('iops', None)
+        if iops:
+            volume_type = 'io1'
+            # Ensure min: 100; max: 20000; max 30:1 iops to size ratio
+            if int(iops) < 100:
+                iops = 100
+                log.debug("Supplied IOPS %s were too low; set to %s." %
+                          (self.app.config.user_data.get('iops'), iops))
+            if int(iops) > 20000:
+                iops = 20000
+                log.debug("Supplied IOPS %s were too high; set to %s." %
+                          (self.app.config.user_data.get('iops'), iops))
+            if int(iops)/int(size) > 30:
+                iops = int(size) * 30
+                log.debug("Supplied IOPS ratio %s was too high; set IOPS to %s." %
+                          (int(self.app.config.user_data.get('iops'))/int(size),
+                           iops))
+        if not volume_type:
+            volume_type = 'gp2'
         try:
             return self.get_ec2_connection().create_volume(
                 size=size, zone=zone, snapshot=snapshot, volume_type=volume_type,
