@@ -403,6 +403,14 @@ class EC2Interface(CloudInterface):
                 log.debug("Wanted to add a tag {0}:{1} but no resource provided."
                           .format(key, value))
 
+    @property
+    def ebs_optimized(self):
+        """
+        Return ``True`` if this instance has the EBS-optimized flag set.
+        """
+        inst = self.get_instance_object()
+        return inst.ebs_optimized
+
     @TestFlag(None)
     def get_tag(self, resource, key):
         """ Get tag on `resource` cloud object. Return None if tag does not exist.
@@ -445,7 +453,6 @@ class EC2Interface(CloudInterface):
         # logging.getLogger('boto').setLevel(logging.DEBUG)
 
         worker_ud_str = yaml.dump(worker_ud)
-
         try:
             # log.debug( "Would be starting worker instance(s)..." )
             reservation = None
@@ -454,13 +461,15 @@ class EC2Interface(CloudInterface):
                 log.debug("Starting instance(s) in VPC with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
                           "security_group_ids={sgs}, user_data(with sensitive info filtered out)=[{ud}], "
-                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}')"
+                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}'), "
+                          "ebs_optimized='{ebs}"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=self.get_security_group_ids(),
                                   ud=("\n".join(['%s: %s' % (key, value)
                                       for key, value in worker_ud.iteritems()
                                       if key not in['password', 'freenxpass', 'secret_key']])),
-                                  type=instance_type, zone=self.get_zone(), subnet_id=self.get_subnet_id()))
+                                  type=instance_type, zone=self.get_zone(), subnet_id=self.get_subnet_id(),
+                                  ebs=self.ebs_optimized))
 
                 interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
                     subnet_id=self.get_subnet_id(),
@@ -475,18 +484,19 @@ class EC2Interface(CloudInterface):
                                                      user_data=worker_ud_str,
                                                      instance_type=instance_type,
                                                      network_interfaces=interfaces,
-                                                     )
+                                                     ebs_optimized=self.ebs_optimized)
             else:
                 log.debug("Starting instance(s) with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
                           "security_groups=['{sgs}'], user_data(with sensitive info filtered out)=[{ud}], "
-                          "instance_type='{type}', placement='{zone}')"
+                          "instance_type='{type}', placement='{zone}', ebs_optimized='{ebs}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=", ".join(self.get_security_groups()),
                                   ud=("\n".join(['%s: %s' % (key, value)
                                       for key, value in worker_ud.iteritems()
                                       if key not in['password', 'freenxpass', 'secret_key']])),
-                                  type=instance_type, zone=self.get_zone()))
+                                  type=instance_type, zone=self.get_zone(),
+                                  ebs=self.ebs_optimized))
                 reservation = ec2_conn.run_instances(image_id=self.get_ami(),
                                                      min_count=min_num,
                                                      max_count=num,
@@ -494,7 +504,8 @@ class EC2Interface(CloudInterface):
                                                      security_groups=self.get_security_groups(),
                                                      user_data=worker_ud_str,
                                                      instance_type=instance_type,
-                                                     placement=self.get_zone())
+                                                     placement=self.get_zone(),
+                                                     ebs_optimized=self.ebs_optimized)
             # Rarely, instances take a bit to register,
             # so wait a few seconds (although this is a very poor
             # 'solution')
