@@ -461,8 +461,8 @@ class EC2Interface(CloudInterface):
                 log.debug("Starting instance(s) in VPC with the following command : ec2_conn.run_instances( "
                           "image_id='{iid}', min_count='{min_num}', max_count='{num}', key_name='{key}', "
                           "security_group_ids={sgs}, user_data(with sensitive info filtered out)=[{ud}], "
-                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}'), "
-                          "ebs_optimized='{ebs}"
+                          "instance_type='{type}', placement='{zone}', subnet_id='{subnet_id}', "
+                          "ebs_optimized='{ebs}')"
                           .format(iid=self.get_ami(), min_num=min_num, num=num,
                                   key=self.get_key_pair_name(), sgs=self.get_security_group_ids(),
                                   ud=("\n".join(['%s: %s' % (key, value)
