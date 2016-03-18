@@ -102,7 +102,7 @@ class EC2Interface(CloudInterface):
                 ir = ec2_conn.get_all_instances(i_id)
                 self.instance = ir[0].instances[0]
             except EC2ResponseError, e:
-                log.debug("Error getting instance object: {0}".format(e))
+                log.debug("Error getting instance object: {0}".format(e.message))
             except Exception, e:
                 log.debug("Error retrieving instance object: {0}".format(e))
         return self.instance
@@ -326,7 +326,7 @@ class EC2Interface(CloudInterface):
             try:
                 regions = tmp_conn.get_all_regions()
             except EC2ResponseError, e:
-                log.error("Cannot validate provided AWS credentials: %s" % e)
+                log.error("Cannot validate provided AWS credentials: %s" % e.message)
             for r in regions:
                 if zone in r.name:
                     self.region = r
@@ -350,7 +350,7 @@ class EC2Interface(CloudInterface):
                               self.ec2_conn.region.name)
                 except EC2ResponseError, e:
                     log.error("Cannot validate provided AWS credentials (A:%s, S:%s): %s"
-                              % (self.aws_access_key, self.aws_secret_key, e))
+                              % (self.aws_access_key, self.aws_secret_key, e.message))
                     self.ec2_conn = False
             except Exception, e:
                 log.error(e)
@@ -390,7 +390,7 @@ class EC2Interface(CloudInterface):
                     resource.add_tag(key, value)
                 except EC2ResponseError, e:
                     log.error("EC2ResponseError adding tag '%s:%s' to resource "
-                              "'%s': %s" % (key, value, resource, e))
+                              "'%s': %s" % (key, value, resource, e.message))
                     self.tags_supported = False
                 except AttributeError, ae:
                     log.error("AttributeError adding tag '%s:%s' to resource "
@@ -423,7 +423,7 @@ class EC2Interface(CloudInterface):
                 value = resource.tags.get(key, None)
             except EC2ResponseError, e:
                 log.error("Exception getting tag '%s' on resource '%s': %s" %
-                          (key, resource, e))
+                          (key, resource, e.message))
                 self.tags_supported = False
         if not value:
             resource_tags = self.tags.get(resource.id, {})
@@ -521,7 +521,7 @@ class EC2Interface(CloudInterface):
                     log.debug("Adding Instance %s" % instance)
                     self.app.manager.worker_instances.append(i)
         except EC2ResponseError, e:
-            err = "EC2 response error when starting worker nodes: %s" % str(e)
+            err = "EC2 response error when starting worker nodes: {0}".format(e.message)
             log.error(err)
             return False
         except BotoServerError, e:
@@ -582,7 +582,7 @@ class EC2Interface(CloudInterface):
                     log.debug("Adding Spot request {0} as an Instance".format(req.id))
                     self.app.manager.worker_instances.append(i)
         except EC2ResponseError, e:
-            log.error("Trouble issuing a spot instance request: {0}".format(e))
+            log.error("Trouble issuing a spot instance request: {0}".format(e.message))
             return False
         except Exception, e:
             log.error("An error when making a spot request: {0}".format(e))
@@ -617,7 +617,7 @@ class EC2Interface(CloudInterface):
                 return True
             else:
                 log.error(
-                    "EC2 exception terminating instance '%s': %s" % (instance_id, e))
+                    "EC2 exception terminating instance '%s': %s" % (instance_id, e.message))
         except Exception, ex:
             log.error(
                 "Exception terminating instance %s: %s" % (instance_id, ex))
@@ -631,7 +631,7 @@ class EC2Interface(CloudInterface):
             return True
         except EC2ResponseError, e:
             log.error("Trouble canceling spot request {0}: {1}".format(
-                request_id, e))
+                request_id, e.message))
             return False
 
     def _compose_worker_user_data(self):
@@ -701,7 +701,7 @@ class EC2Interface(CloudInterface):
                 size=size, zone=zone, snapshot=snapshot, volume_type=volume_type,
                 iops=iops)
         except EC2ResponseError as ec2e:
-            log.error("EC2ResponseError creating a volume: {0}".format(ec2e))
+            log.error("EC2ResponseError creating a volume: {0}".format(ec2e.message))
         return None
 
     def delete_volume(self, volume_id):
@@ -719,7 +719,7 @@ class EC2Interface(CloudInterface):
                 log.debug("Deleted volume {0}".format(volume_id))
         except EC2ResponseError as ec2e:
             log.error("EC2ResponseError deleting volume {0}: {1}"
-                      .format(volume_id, ec2e))
+                      .format(volume_id, ec2e.message))
         log.debug("Failed to delete volume {0}".format(volume_id))
         return False
 
@@ -765,7 +765,7 @@ class EC2Interface(CloudInterface):
                 log.debug("Deleted snapshot {0}".format(snapshot_id))
         except EC2ResponseError as ec2e:
             log.error("EC2ResponseError deleting snapshot {0}: {1}"
-                      .format(snapshot_id, ec2e))
+                      .format(snapshot_id, ec2e.message))
         log.debug("Failed to delete snapshot {0}".format(snapshot_id))
         return False
 
@@ -799,7 +799,7 @@ class EC2Interface(CloudInterface):
                 snapshot_ids=snapshot_ids, filters=filters)
         except EC2ResponseError, e:
             log.error("EC2ResponseError retrieving snapshot IDs {0}: {1}"
-                      .format(snapshot_ids, e))
+                      .format(snapshot_ids, e.message))
         return []
 
     def get_snapshot(self, snapshot_id):
@@ -869,7 +869,7 @@ class EC2Interface(CloudInterface):
                 }
             except EC2ResponseError, e:
                 log.error("EC2ResponseError getting snapshot {0} info: {1}"
-                          .format(snapshot_id, e))
+                          .format(snapshot_id, e.message))
         return snap_info
 
     def get_all_instances(self, instance_ids=None, filters=None):
@@ -906,5 +906,5 @@ class EC2Interface(CloudInterface):
             sg = self.get_ec2_connection().get_all_security_groups()[0]
             return sg.owner_id
         except EC2ResponseError as e:
-            log.debug("Trouble getting account ID: %s" % e)
+            log.debug("Trouble getting account ID: %s" % e.message)
             return None
