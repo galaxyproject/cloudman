@@ -1,4 +1,6 @@
 #
+# Live version of this file will get overwritten by CloudMan.
+#
 # See the slurm.conf man page for more information.
 #
 ClusterName=GalaxyCloudMan
@@ -23,6 +25,7 @@ KillWait=30
 Waittime=0
 SchedulerType=sched/backfill
 SelectType=select/cons_res
+SelectTypeParameters=CR_Core_Memory
 # FastSchedule=0
 TreeWidth=20
 # LOGGING
