@@ -1,3 +1,28 @@
+### CloudMan - March 24, 2016.
+* Update galaxyFS to include Galaxy 16.01 release.
+
+* Add advanced autoscaling controls. A user can now specify how long to allow
+  jobs to wait in the queue for, how many jobs to maintain in the queue and
+  by how many nodes to scale.
+
+* For AWS, added ability to specify volume IOPS (either via `iops` user data or
+  by entering your IOPS number on launch.usegalaxy.org). This allows to go
+  from previous 40-200 IOPS to max 20,000 IOPS now.
+
+* On AWS, built a new AMI (`ami-b45e59de`) with support for EBS-optimized
+  instances.
+
+* For AWS, added ability to launch clusters into non-default VPC subnets via
+  launch.usegalaxy.org.
+
+* When sharing a cluster with a custom galaxyIndices file system snapshot,
+  make sure it gets shared as well (thanks to @hackdna for reporting the bug).
+
+* Ensure the PostStartScript does not run before all the other services have
+  been added (thanks to @hackdna for reporting the bug).
+
+*  Several updates for starting ClouderaManager (thanks to @ddavidovic).
+
 ### CloudMan - December 18, 2015.
 * This is a minor update release.
 
