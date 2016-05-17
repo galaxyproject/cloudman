@@ -414,7 +414,6 @@ class ConsoleManager(BaseConsoleManager):
         # which calls add_preconfigured_services
         # Note that share_string overrides everything.
         if "share_string" in self.app.config:
-            # BUG TODO this currently happens on reboot, and shouldn't.
             self.init_shared_cluster(self.app.config['share_string'].strip())
         # else look if this is a restart of a previously existing cluster
         # and add appropriate services
@@ -621,6 +620,7 @@ class ConsoleManager(BaseConsoleManager):
         :param num_instances_to_add: Number of instances to add when scaling up.
         """
         if not self.service_registry.is_active('Autoscale'):
+            log.debug("Starting Autoscaling service...")
             as_svc = self.service_registry.get('Autoscale')
             if as_svc:
                 as_svc.as_min = as_min
