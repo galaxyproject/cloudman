@@ -1,3 +1,14 @@
+### CloudMan - May 25, 2016.
+* Update galaxyFS to include Galaxy 16.04 release.
+
+* Add a placeholder node to Slurm (with 64 CPUs). This allows Slurm to accept
+  jobs that request more resources than are currently available, hence allowing
+  Galaxy to submit jobs that will eventually get executed vs. leading to an error.
+
+* Fix displayed Galaxy file system size and usage for cloned clusters. Before,
+  the main page was showing the size of the transient file system instead of
+  the Galaxy file system.
+
 ### CloudMan - March 24, 2016.
 * Update galaxyFS to include Galaxy 16.01 release.
 
