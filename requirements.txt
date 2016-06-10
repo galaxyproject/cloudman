@@ -3,7 +3,6 @@ ansible==1.9.3
 astor==0.5
 boto>=2.29.1,<=2.34.0
 cm-api==8.0.0
-distribute>=0.6.19
 drmaa==0.7.6
 gitpython>=1.0.0
 hoover>=0.5.3
