@@ -413,39 +413,38 @@ def _unpack_cm():
         for extracted_file in os.listdir(os.path.join(CM_HOME, extracted_dir)):
             shutil.move(os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
 
-def _venvburrito_home_dir():
-    return os.getenv('HOME', '/home/ubuntu')
+def _cm_venv_path():
+    return os.path.join(CM_BOOT_PATH, '.venv')
 
-def _venvburrito_path():
-    home_dir = _venvburrito_home_dir()
-    vb_path = os.path.join(home_dir, '.venvburrito/startup.sh')
-    return vb_path
+def _cm_venv_activate_command():
+    return os.path.join(_cm_venv_path(), 'bin/activate')
 
-def _with_venvburrito(cmd):
-    home_dir = _venvburrito_home_dir()
-    vb_path = _venvburrito_path()
-    return "/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'".format(home_dir, vb_path, cmd)
+def _with_cm_venv(cmd):
+    return '. {0} && {1}'.format(_cm_venv_activate_command(), cmd)
 
-def _virtualenv_exists(venv_name='CM'):
-    '\n    Check if virtual-burrito is installed and if a virtualenv named ``venv_name``\n    exists. If so, return ``True``; ``False`` otherwise.\n    '
-    if os.path.exists(_venvburrito_path()):
-        log.debug('virtual-burrito seems to be installed')
-        cm_venv = _run(log, _with_venvburrito('lsvirtualenv | grep {0}'.format(venv_name)))
-        if (cm_venv and (venv_name in cm_venv)):
-            log.debug("'{0}' virtualenv found".format(venv_name))
-            return True
-    log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist".format(venv_name))
+def _cm_virtualenv_exists():
+    "\n    Check if cloudman's virtualenv exists. If so, return ``True``;\n    Otherwise, return ``False``.\n    "
+    if os.path.exists(_cm_venv_activate_command()):
+        log.debug('virtualenv seems to be installed')
+        return True
+    log.debug('virtualenv does not exist')
     return False
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None, ex_options=None):
+def _cm_create_virtualenv():
+    '\n    Creates a virtualenv for cloudman\n    '
+    _run(log, 'virtualenv {0}'.format(_cm_venv_path()))
+
+def _get_cm_control_command(action='--daemon', ex_cmd=None, ex_options=None):
     '\n    Compose a system level command used to control (i.e., start/stop) CloudMan.\n    Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``\n    or ``--reload``. Note that this method will check if a virtualenv\n    ``cm_venv_name`` exists and, if it does, the returned control command\n    will include activation of the virtualenv. If the extra command ``ex_cmd``\n    is provided, insert that command into the returned activation command.\n    If ``ex_options`` is provided, append those to the end of the command.\n\n    Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``\n    '
-    if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito('workon {0}; cd {1}; {3}; sh run.sh {2} {4}'.format(cm_venv_name, CM_HOME, action, ex_cmd, ex_options))
+    if _cm_virtualenv_exists():
+        cmd = _with_cm_venv('cd {0}; {1}; sh run.sh {2} {3}'.format(CM_HOME, ex_cmd, action, ex_options))
     else:
-        cmd = 'cd {0}; {2}; sh run.sh {1} {3}'.format(CM_HOME, action, ex_cmd, ex_options)
+        cmd = 'cd {0}; {1}; sh run.sh {2} {3}'.format(CM_HOME, ex_cmd, action, ex_options)
     return cmd
 
 def _start_cm():
+    if (not _cm_virtualenv_exists()):
+        _cm_create_virtualenv()
     src = os.path.join(CM_BOOT_PATH, USER_DATA_FILE)
     dest = os.path.join(CM_HOME, USER_DATA_FILE)
     log.debug("Copying user data file from '{0}' to '{1}'".format(src, dest))
@@ -498,11 +497,6 @@ def _system_message(message_contents):
 def main():
     global log
     log = _setup_global_logger()
-    if (not _virtualenv_exists()):
-        _run(log, 'easy_install oca')
-        _run(log, 'easy_install Mako==0.7.0')
-        _run(log, 'easy_install boto==2.30.0')
-        _run(log, 'easy_install hoover')
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     if (len(sys.argv) > 1):

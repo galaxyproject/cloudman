@@ -302,44 +302,38 @@ def _unpack_cm():
                 os.path.join(CM_HOME, extracted_dir, extracted_file), CM_HOME)
 
 
-def _venvburrito_home_dir():
-    return os.getenv('HOME', '/home/ubuntu')
+def _cm_venv_path():
+    return os.path.join(CM_BOOT_PATH, '.venv')
 
 
-def _venvburrito_path():
-    home_dir = _venvburrito_home_dir()
-    vb_path = os.path.join(home_dir, '.venvburrito/startup.sh')
-    return vb_path
+def _cm_venv_activate_command():
+    return os.path.join(_cm_venv_path(), 'bin/activate')
 
 
-def _with_venvburrito(cmd):
-    # Need to override LOG dir so when running as root
-    # it doesn't create files that cannot be modified by
-    # user (e.g. ubuntu).
-    home_dir = _venvburrito_home_dir()
-    vb_path = _venvburrito_path()
-    return ("/bin/bash -l -c 'VIRTUALENVWRAPPER_LOG_DIR=/tmp/; HOME={0}; . {1}; {2}'"
-            .format(home_dir, vb_path, cmd))
+def _with_cm_venv(cmd):
+    return (". {0} && {1}".format(_cm_venv_activate_command(), cmd))
 
 
-def _virtualenv_exists(venv_name='CM'):
+def _cm_virtualenv_exists():
     """
-    Check if virtual-burrito is installed and if a virtualenv named ``venv_name``
-    exists. If so, return ``True``; ``False`` otherwise.
+    Check if cloudman's virtualenv exists. If so, return ``True``;
+    Otherwise, return ``False``.
     """
-    if os.path.exists(_venvburrito_path()):
-        log.debug("virtual-burrito seems to be installed")
-        cm_venv = _run(log, _with_venvburrito('lsvirtualenv | grep {0}'.format(venv_name)))
-        if cm_venv and venv_name in cm_venv:
-            log.debug("'{0}' virtualenv found".format(venv_name))
-            return True
-    log.debug("virtual-burrito not installed or '{0}' virtualenv does not exist"
-              .format(venv_name))
+    if os.path.exists(_cm_venv_activate_command()):
+        log.debug("virtualenv seems to be installed")
+        return True
+    log.debug("virtualenv does not exist")
     return False
 
 
-def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None,
-                            ex_options=None):
+def _cm_create_virtualenv():
+    """
+    Creates a virtualenv for cloudman
+    """
+    _run(log, "virtualenv {0}".format(_cm_venv_path()))
+
+
+def _get_cm_control_command(action='--daemon', ex_cmd=None, ex_options=None):
     """
     Compose a system level command used to control (i.e., start/stop) CloudMan.
     Accepted values to the ``action`` argument are: ``--daemon``, ``--stop-daemon``
@@ -351,17 +345,18 @@ def _get_cm_control_command(action='--daemon', cm_venv_name='CM', ex_cmd=None,
 
     Example return string: ``cd /mnt/cm; [ex_cmd]; sh run.sh --daemon``
     """
-    if _virtualenv_exists(cm_venv_name):
-        cmd = _with_venvburrito("workon {0}; cd {1}; {3}; sh run.sh {2} {4}"
-                                .format(cm_venv_name, CM_HOME, action, ex_cmd,
-                                        ex_options))
+    if _cm_virtualenv_exists():
+        cmd = _with_cm_venv("cd {0}; {1}; sh run.sh {2} {3}"
+                            .format(CM_HOME, ex_cmd, action, ex_options))
     else:
-        cmd = ("cd {0}; {2}; sh run.sh {1} {3}"
-               .format(CM_HOME, action, ex_cmd, ex_options))
+        cmd = ("cd {0}; {1}; sh run.sh {2} {3}"
+               .format(CM_HOME, ex_cmd, action, ex_options))
     return cmd
 
 
 def _start_cm():
+    if not _cm_virtualenv_exists():
+        _cm_create_virtualenv()
     src = os.path.join(CM_BOOT_PATH, USER_DATA_FILE)
     dest = os.path.join(CM_HOME, USER_DATA_FILE)
     log.debug("Copying user data file from '{0}' to '{1}'".format(src, dest))
@@ -430,15 +425,6 @@ def _system_message(message_contents):
 def main():
     global log
     log = _setup_global_logger()
-    if not _virtualenv_exists():
-        # TODO: It would probably be best to just use CloudMan's
-        # ``requirements.txt`` file and make sure all the libs are installed
-        # vs. installing them individually here? Maybe as part of CloudMan's
-        # ``run.sh``?
-        _run(log, 'easy_install oca')  # temp only - this needs to be included in the AMI (incl. in CBL AMI!)
-        _run(log, 'easy_install Mako==0.7.0')  # required for Galaxy Cloud AMI ami-da58aab3
-        _run(log, 'easy_install boto==2.30.0')  # required for older AMIs
-        _run(log, 'easy_install hoover')  # required for Loggly based cloud logging
     with open(os.path.join(CM_BOOT_PATH, USER_DATA_FILE)) as ud_file:
         ud = yaml.load(ud_file)
     if len(sys.argv) > 1:
