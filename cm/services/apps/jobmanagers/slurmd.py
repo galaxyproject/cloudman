@@ -79,7 +79,7 @@ class SlurmdService(BaseJobManager):
             self.num_restarts = 0  # Reset the restart counter once we're running
         elif self.state != service_states.STARTING:
             self.state = service_states.ERROR
-            log.error("Slurm error: slurmd not runnnig; setting service state "
+            log.error("Slurm error: slurmd not running; setting service state "
                       "to {0}".format(self.state))
             if self.max_restarts > self.num_restarts:
                 self.num_restarts += 1
