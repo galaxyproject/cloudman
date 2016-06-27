@@ -137,5 +137,5 @@ class GalaxyReportsService(ApplicationService):
         elif self._running():
             self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:
-            log.error("Galaxy reports error; Galaxy reports not runnnig")
+            log.error("Galaxy reports error; Galaxy reports not running")
             self.state = service_states.ERROR
