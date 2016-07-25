@@ -185,7 +185,7 @@ class SlurmctldService(BaseJobManager):
     def add_node(self, instance):
         """
         Reconfigure the entire cluster to include all and only the instances in
-        state ``Runnning`` or ``Startup``.
+        state ``Running`` or ``Startup``.
 
         Note that as a consequence of how Slurm is administered (ie, at the
         cluster level vs. individual node level), this method does not use the
@@ -197,7 +197,7 @@ class SlurmctldService(BaseJobManager):
     def remove_node(self, instance):
         """
         Reconfigure the entire cluster to include all and only the instances in
-        state ``Runnning`` or ``Startup``.
+        state ``Running`` or ``Startup``.
 
         Note that as a consequence of how Slurm is administered (ie, at the
         cluster level vs. individual node level), this method does not use the
@@ -289,7 +289,7 @@ class SlurmctldService(BaseJobManager):
             self.num_restarts = 0  # Reset the restart counter once we're running
         elif self.state != service_states.STARTING:
             self.state = service_states.ERROR
-            log.error("Slurm error: slurmctld not runnnig; setting service state "
+            log.error("Slurm error: slurmctld not running; setting service state "
                       "to {0}".format(self.state))
             # Ocasionally, things just need another kick
             if self.max_restarts > self.num_restarts:

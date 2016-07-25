@@ -687,6 +687,6 @@ class SGEService(BaseJobManager):
             if self._check_sge():
                 self.state = service_states.RUNNING
         elif self.state != service_states.STARTING:
-            log.error("SGE error; SGE not runnnig")
+            log.error("SGE error; SGE not running")
             self.state = service_states.ERROR
         return self.state
