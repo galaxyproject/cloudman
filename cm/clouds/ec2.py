@@ -59,7 +59,7 @@ class EC2Interface(CloudInterface):
                 try:
                     url = 'http://169.254.169.254/latest/meta-data/instance-type'
                     log.debug('Gathering instance type via {0}; attempt {1}/5'
-                              .format(url, i+1))
+                              .format(url, i + 1))
                     fp = urllib.urlopen(url)
                     if fp.code == 200:
                         self.instance_type = fp.read()
@@ -689,10 +689,10 @@ class EC2Interface(CloudInterface):
                 iops = 20000
                 log.debug("Supplied IOPS %s were too high; set to %s." %
                           (self.app.config.user_data.get('iops'), iops))
-            if int(iops)/int(size) > 30:
+            if int(iops) / int(size) > 30:
                 iops = int(size) * 30
                 log.debug("Supplied IOPS ratio %s was too high; set IOPS to %s." %
-                          (int(self.app.config.user_data.get('iops'))/int(size),
+                          (int(self.app.config.user_data.get('iops')) / int(size),
                            iops))
         if not volume_type:
             volume_type = 'gp2'

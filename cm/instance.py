@@ -11,12 +11,12 @@ from boto.exception import EC2ResponseError
 
 from cm.services import ServiceRole
 from cm.services import ServiceType
-from cm.util import instance_lifecycle, instance_states, misc, spot_states, Time
+from cm.util import Time, instance_lifecycle, instance_states, misc, spot_states
 from cm.util.decorators import TestFlag
 
 log = logging.getLogger('cloudman')
 
-# Time well in past to seend reboot, last comm times with.
+# Time well in the past to seed reboot and last comm times with.
 TIME_IN_PAST = dt.datetime(2012, 1, 1, 0, 0, 0)
 
 
@@ -363,8 +363,8 @@ class Instance(object):
         # Because the hosts file is synced over the transientFS, give the FS
         # some time to become available before sending the msg
         if int(self.nfs_tfs):
-            self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | '
-                                                       + msg, self.id)
+            self.app.manager.console_monitor.conn.send('SYNC_ETC_HOSTS | ' +
+                                                       msg, self.id)
         else:
             log.debug("Transient FS on instance {0} not available (code {1}); not "
                       "syncing /etc/hosts".format(self.get_desc(), self.nfs_tfs))
