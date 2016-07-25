@@ -6,6 +6,7 @@ import logging.config
 import threading
 import time
 
+from boto.exception import BotoServerError
 from boto.exception import EC2ResponseError
 
 from cm.services import ServiceRole
@@ -461,6 +462,9 @@ class Instance(object):
                 except EC2ResponseError:
                     log.debug("ip_address for instance {0} not (yet?) available.".format(
                         self.get_id()))
+                except BotoServerError as bse:
+                    log.debug("Meta-data service unavailable (msg: {0})"
+                              .format(bse.message))
             else:
                 log.debug("ip_address for instance {0} with no instance object not available."
                           .format(self.get_id()))
