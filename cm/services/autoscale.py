@@ -168,8 +168,8 @@ class AutoscaleService(Service):
 
         This is a simple heuristic, best-effort implementation that looks at the
         mean time jobs are running and, if that time is greater than the
-        threshold (``self.mean_runtime_threshold``) and there are more queued
-        jobs then ``self.num_queued_jobs``, returns ``True``.
+        threshold (``self.mean_runtime_threshold``) and there are at least as
+        many queued jobs as ``self.num_queued_jobs``, returns ``True``.
         """
         q_jobs = self.get_queue_jobs()
         # log.debug('q_jobs: %s' % q_jobs)
@@ -177,7 +177,7 @@ class AutoscaleService(Service):
         qw_jobs_mean, qw_jobs_stdv = self.meanstdv(q_jobs['queued'])
         log.debug('Checking if slow job turnover: queued jobs: %s, avg runtime: %s'
                   % (len(q_jobs['queued']), r_jobs_mean))
-        if ((len(q_jobs['queued']) > self.num_queued_jobs and
+        if ((len(q_jobs['queued']) >= self.num_queued_jobs and
              r_jobs_mean > self.mean_runtime_threshold) or
             (len(q_jobs['queued']) > 0 and
              not self.app.manager.master_exec_host and
