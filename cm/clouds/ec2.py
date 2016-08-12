@@ -680,7 +680,7 @@ class EC2Interface(CloudInterface):
             iops = self.app.config.user_data.get('iops', None)
         if iops:
             volume_type = 'io1'
-            # Ensure min: 100; max: 20000; max 30:1 iops to size ratio
+            # Ensure min: 100; max: 20000; max 50:1 iops to size ratio
             if int(iops) < 100:
                 iops = 100
                 log.debug("Supplied IOPS %s were too low; set to %s." %
@@ -689,8 +689,8 @@ class EC2Interface(CloudInterface):
                 iops = 20000
                 log.debug("Supplied IOPS %s were too high; set to %s." %
                           (self.app.config.user_data.get('iops'), iops))
-            if int(iops) / int(size) > 30:
-                iops = int(size) * 30
+            if int(iops) / int(size) > 50:
+                iops = int(size) * 50
                 log.debug("Supplied IOPS ratio %s was too high; set IOPS to %s." %
                           (int(self.app.config.user_data.get('iops')) / int(size),
                            iops))
