@@ -369,7 +369,7 @@ def _get_cm(ud):
     elif ('default_bucket_url' in ud):
         url = os.path.join(ud['default_bucket_url'], CM_REMOTE_FILENAME)
     elif ('nectar' in ud.get('cloud_name', '').lower()):
-        url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'V1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
+        url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'v1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
     else:
         url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
     log.info(('Attempting to retrieve from from %s' % url))
@@ -508,8 +508,6 @@ def main():
     _install_conf_files(log, ud)
     _install_authorized_keys(log, ud)
     if ('no_start' not in ud):
-        if ('nectar' in ud.get('cloud_name', '').lower()):
-            _fix_etc_hosts()
         _start_nginx(ud)
         _start(ud)
     log.info(('---> %s done <---' % sys.argv[0]))
