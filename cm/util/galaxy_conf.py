@@ -237,7 +237,7 @@ class DirectoryGalaxyOptionManager(object):
             galaxy_config_dir = self.app.path_resolver.galaxy_config_dir
             config_file_path = join(galaxy_config_dir, self.conf_file_name)
             if not exists(config_file_path):
-                # Fresh install, take the oppertunity to just link in defaults
+                # Fresh install, take the opportunity to just link in defaults
                 sample_name = "%s.sample" % self.conf_file_name
                 defaults_source = join(galaxy_config_dir, sample_name)
                 symlink(defaults_source, defaults_destination)
@@ -261,4 +261,5 @@ class DirectoryGalaxyOptionManager(object):
         conf_file = join(conf_dir, conf_file_name)
         props_str = "\n".join(
             ["%s=%s" % (k, v) for k, v in properties.iteritems()])
-        open(conf_file, "w").write("[%s]\n%s" % (section, props_str))
+        with open(conf_file, "w") as f:
+            f.write("[%s]\n%s" % (section, props_str))

@@ -1562,6 +1562,18 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.error("Unknown storage type {0} for archive extraction."
                                       .format(storage_type))
+                    elif "transient" == fs_type or \
+                         self.cluster_storage_type == "transient":
+                        log.debug("Creating a transient file system named '{0}'"
+                                  .format(fs_template['name']))
+                        if 'archive_url' in fs_template:
+                            from_archive = {'url': fs_template['archive_url'],
+                                            'md5_sum': fs_template.get('archive_md5', None)}
+                            fs.add_transient_storage(from_archive=from_archive)
+                        else:
+                            fs.add_transient_storage()
+                    # Keep transient above volume conditional to avoid double volume creation
+                    # for galaxyFs and IndicesFs when cluster_storage_type = 'volume'
                     elif "volume" == fs_type or \
                          self.cluster_storage_type == 'volume':
                         size = max(fs_template.get('size', 10), fs_template.get('min_size', 1))
@@ -1580,16 +1592,6 @@ class ConsoleManager(BaseConsoleManager):
                                       "'{0}' of size {1}GB."
                                       .format(fs_template['name'], size))
                             fs.add_volume(size=size)
-                    elif "transient" == fs_type or \
-                         self.cluster_storage_type == "transient":
-                        log.debug("Creating a transient file system named '{0}'"
-                                  .format(fs_template['name']))
-                        if 'archive_url' in fs_template:
-                            from_archive = {'url': fs_template['archive_url'],
-                                            'md5_sum': fs_template.get('archive_md5', None)}
-                            fs.add_transient_storage(from_archive=from_archive)
-                        else:
-                            fs.add_transient_storage()
                     elif 'gluster' == fs_type and 'server' in fs_template:
                         log.debug("Creating a glusterfs-based filesystem named {0}"
                                   .format(fs_template['name']))

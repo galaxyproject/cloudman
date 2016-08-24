@@ -192,8 +192,13 @@ class OSInterface(EC2Interface):
         :return: If the volume was created successfully, return a boto instance
                  of the Volume object. Otherwise, return `None`.
         """
-        return super(OSInterface, self).create_volume(
-            size=size, zone=zone, snapshot=snapshot, volume_type=None, iops=None)
+        try:
+            return self.get_ec2_connection().create_volume(
+                size=size, zone=zone, snapshot=snapshot, volume_type=None,
+                iops=None)
+        except EC2ResponseError as ec2e:
+            log.error("EC2ResponseError creating a volume: {0}".format(ec2e.message))
+        return None
 
     def _launch_instances(self, num, instance_type, worker_ud, min_num=1):
         """
