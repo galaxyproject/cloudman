@@ -1046,7 +1046,8 @@ def add_to_etc_hosts(ip_address, hosts=[]):
 
     If a line with the provided ``ip_address`` already exist in the file, keep
     any existing hostnames and also add the otherwise not found new ``hosts``
-    to the given line.
+    to the given line (unless it's a loopback ip_address, in which case it will
+    be replaced by the ip_address passed into this method, with existing hostnames preserved).
     """
     try:
         if not ip_address:
@@ -1070,7 +1071,9 @@ def add_to_etc_hosts(ip_address, hosts=[]):
                 existing_line = l.strip()
         etc_hosts.close()
         if existing_line:
-            ip_address = existing_line.split()[0]
+            existing_ip_address = existing_line.split()[0]
+            # If loopback addresses exist, attempt to replace them
+            ip_address = ip_address if ("127.0.1.1" in existing_ip_address or "127.0.0.1" in existing_ip_address) else existing_ip_address
             hostnames = existing_line.split()[1:]
             for hostname in hosts:
                 if hostname not in hostnames:
