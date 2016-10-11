@@ -513,6 +513,8 @@ class ConsoleManager(BaseConsoleManager):
                                                       from_snapshot_id=att_vol.snapshot_id)
                             else:
                                 filesystem.add_volume(from_snapshot_id=snap)
+                    elif fs['kind'] == 'cvmfs':
+                        filesystem.add_cvmfs()
                     elif fs['kind'] == 'nfs':
                         filesystem.add_nfs(fs['nfs_server'], None, None, mount_options=fs.get('mount_options', None))
                     elif fs['kind'] == 'gluster':

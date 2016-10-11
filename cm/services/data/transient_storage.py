@@ -96,7 +96,7 @@ class TransientStorage(BlockStorage):
 
     def status(self):
         """
-        Update the status of this data service: ake sure the mount point exists
+        Update the status of this data service: make sure the mount point exists
         and that it is in /etc/exports for NFS
         """
         # log.debug("Checking the status of {0}".format(self.fs.mount_point))

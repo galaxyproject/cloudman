@@ -16,6 +16,7 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services.data import DataService
 from cm.services.data.mountablefs import MountableFS
+from cm.services.data.cvmfs import CVMFS
 from cm.services.data.volume import Volume
 from cm.services.data.bucket import Bucket
 from cm.services.data.transient_storage import TransientStorage
@@ -40,6 +41,7 @@ class Filesystem(DataService):
         self.transient_storage = []  # Instance's transient storage
         self.nfs_fs = None  # NFS file system object implementing this file system's device
         self.gluster_fs = None  # GlusterFs based file system object implementing this file system's device
+        self.cvmfs_fss = [] # CVMFS client file systems
         self.name = name  # File system name
         self.persistent = persistent  # Whether it should be part of the cluster config
         self.size = None  # Total size of this file system
@@ -49,7 +51,7 @@ class Filesystem(DataService):
         self.mount_point = mount_point if mount_point else os.path.join(
             self.app.path_resolver.mount_root, self.name)
         # Used to indicate a need to grow/expand the file system;
-        # This is a composite dict and the implementatin logic depends on the
+        # This is a composite dict and the implementation logic depends on the
         # keys so look around carefully (i.e., this should probably be turned
         # into a helper class)
         self.grow = {}
@@ -528,6 +530,11 @@ class Filesystem(DataService):
             for b in self.buckets:
                 if not b.s3fs_installed:
                     return
+        # CVMFS file system has its own process for checking status
+        if len(self.cvmfs_fss) > 0:
+            for fs in self.cvmfs_fss:
+                fs.status()
+            return
         # TODO: Move volume-specific checks into volume.py
         if self._service_transitioning():
             pass
@@ -616,3 +623,9 @@ class Filesystem(DataService):
         log.debug("Adding NFS server {0} to file system {1}".format(nfs_server, self.name))
         self.kind = 'nfs'
         self.nfs_fs = MountableFS(self, 'nfs', nfs_server, mount_options=mount_options)
+
+    def add_cvmfs(self):
+        """Add a reference to a CVMFS-based file system."""
+        log.debug("Adding CVMFS file system {0}".format(self.name))
+        self.kind = 'cvmfs'
+        self.cvmfs_fss.append(CVMFS(self, 'cvmfs'))
