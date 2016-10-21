@@ -41,9 +41,8 @@ class CVMFS(object):
         """Check if the mount point contains data and mark as running if so."""
         if os.listdir(self.fs.mount_point):
             self.fs.state = service_states.RUNNING
-            update_size_cmd = ("df --block-size 1 | grep {0}$ | "
-                               "awk '{print $2, $3, $5}'"
-                               .format(self.fs.mount_point))
+            update_size_cmd = ("df --block-size 1 | grep %s$ | awk "
+                               "'{print $2, $3, $5}'" % self.fs.mount_point)
             self.fs._update_size(cmd=update_size_cmd)
         else:
             self.fs.state = service_states.ERROR

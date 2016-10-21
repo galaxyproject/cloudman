@@ -485,10 +485,9 @@ class ConsoleManager(BaseConsoleManager):
 
     def add_preconfigured_filesystems(self):
         try:
-            # Process the current cluster config
-            log.debug("Processing filesystems in an existing cluster config")
             attached_volumes = self.get_attached_volumes()
             if 'filesystems' in self.app.config:
+                log.debug("Processing filesystems in an existing cluster config")
                 for fs in self.app.config.get('filesystems') or []:
                     err = False
                     filesystem = Filesystem(self.app, fs['name'], svc_roles=ServiceRole.from_string_array(
@@ -543,6 +542,8 @@ class ConsoleManager(BaseConsoleManager):
                         log.debug("Adding a previously existing filesystem '{0}' of "
                                   "kind '{1}'".format(fs['name'], fs['kind']))
                         self.activate_master_service(filesystem)
+            else:
+                log.debug("There are no pre-configured filesystems; continuing.")
             return True
         except Exception, e:
             log.error(
@@ -1446,7 +1447,7 @@ class ConsoleManager(BaseConsoleManager):
             # Add Galaxy Reports service
             self.activate_master_service(self.service_registry.get('GalaxyReports'))
             # Add Galaxy NodeJSProxy service
-            self.activate_master_service(self.service_registry.get('NodeJSProxy'))
+            # self.activate_master_service(self.service_registry.get('NodeJSProxy'))
         elif cluster_type == 'Data':
             pass
         else:
@@ -1498,7 +1499,9 @@ class ConsoleManager(BaseConsoleManager):
                 log.warn("Cluster template not defined or no filesystem templates "
                          "defined for cluster type {0}".format(cluster_type))
             else:
-                log.debug("Using {0} cluster template.".format(cluster_template))
+                log.debug("Using cluster template {0} with the following file "
+                          "system templates: {1}".format(cluster_template['name'],
+                                                         cluster_template['filesystem_templates']))
                 self.process_filesystem_templates(cluster_type, pss, storage_type,
                                                   cluster_template['filesystem_templates'])
         elif self.app.config.filesystem_templates:
@@ -1517,9 +1520,11 @@ class ConsoleManager(BaseConsoleManager):
             log.debug("Processing file system templates: {0}".format(filesystem_templates))
             attached_volumes = self.get_attached_volumes()
             for fs_template in [s for s in filesystem_templates if 'name' in s]:
-                log.debug("Processing file system template: {0}".format(fs_template['name']))
+                log.debug("Processing file system template {0}: {1}".format(
+                    fs_template['name'], fs_template))
                 fs = Filesystem(self.app, fs_template['name'],
-                                svc_roles=ServiceRole.from_string_array(fs_template.get('roles', None)))
+                                svc_roles=ServiceRole.from_string_array(fs_template.get('roles', None)),
+                                mount_point=fs_template.get('mount_point', None))
                 # Check if an already attached volume maps to the current filesystem
                 att_vol = self.get_vol_if_fs(attached_volumes, fs_template['name'])
                 if att_vol:
@@ -1564,6 +1569,10 @@ class ConsoleManager(BaseConsoleManager):
                         else:
                             log.error("Unknown storage type {0} for archive extraction."
                                       .format(storage_type))
+                    elif "cvmfs" == fs_type:
+                        log.debug("Adding a CVMFS-based file system named {0}"
+                                  .format(fs_template['name']))
+                        fs.add_cvmfs()
                     elif "transient" == fs_type or \
                          self.cluster_storage_type == "transient":
                         log.debug("Creating a transient file system named '{0}'"
@@ -2584,7 +2593,7 @@ class ConsoleMonitor(object):
                         elif srvc.kind == 'gluster':
                             fs['gluster_server'] = srvc.gluster_fs.device
                             fs['mount_options'] = srvc.gluster_fs.mount_options
-                        elif srvc.kind == 'transient':
+                        elif srvc.kind in ['transient', 'cvmfs']:
                             pass
                         else:
                             log.error("For filesystem {0}, unknown kind: {1}"

@@ -142,6 +142,8 @@ class Configuration(dict):
     @property
     def filesystem_templates(self):
         if 'filesystem_templates' not in self:
+            log.debug("filesystem_templates not found in config {0}; loading "
+                      "legacy snapshot data.".format(self))
             self['filesystem_templates'] = self.app.manager.load_legacy_snapshot_data()
         return self.get('filesystem_templates')
 

@@ -11,6 +11,7 @@ from cm.base.controller import BaseController
 from cm.framework import expose
 from cm.services import ServiceRole, ServiceType, service_states
 from cm.util.decorators import TestFlag
+from cm.util import cluster_status
 
 log = logging.getLogger('cloudman')
 
@@ -32,6 +33,8 @@ class CM(BaseController):
                 # Cloudman system messages from cm_boot exist
                 with open(paths.SYSTEM_MESSAGES_FILE) as f:
                     system_message = f.read()
+            default_data_size = self.app.manager.get_default_data_size() if \
+                self.app.manager.get_default_data_size() == cluster_status.READY else 1
             return trans.fill_template('index.mako',
                                        permanent_storage_size=permanent_storage_size,
                                        initial_cluster_type=initial_cluster_type,
@@ -42,7 +45,7 @@ class CM(BaseController):
                                        cloud_type=self.app.config.cloud_type,
                                        instance_types=instance_types,
                                        system_message=system_message,
-                                       default_data_size=self.app.manager.get_default_data_size(),
+                                       default_data_size=default_data_size,
                                        transient_fs_size=self.app.manager.transient_fs_size(),
                                        cluster_storage_type=self.app.manager.cluster_storage_type)
 
@@ -962,7 +965,8 @@ class CM(BaseController):
 
     @expose
     def update_users_CM(self, trans):
-        return json.dumps({'updated': self.app.manager.update_users_CM()})
+        pass
+        # return json.dumps({'updated': self.app.manager.update_users_CM()})
 
     @expose
     def masthead(self, trans):
