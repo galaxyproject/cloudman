@@ -19,9 +19,12 @@ supervisor_conf = """;
 [program:$supervisor_prog_name]
 directory       = $galaxy_home
 command         = $galaxy_home/lib/galaxy/web/proxy/js/lib/main.js \
-  --sessions database/session_map.sqlite --ip 0.0.0.0 --port $np_port
+  --sessions database/session_map.sqlite --ip 0.0.0.0 --port $np_port \
+  --cookie galaxysession --verbose
 autostart       = false
 autorestart     = unexpected
+redirect_stderr = true
+stdout_logfile  = /var/log/galaxy_node_proxy.log
 user            = $galaxy_user
 startsecs       = 5
 redirect_stderr = true
