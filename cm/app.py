@@ -9,6 +9,7 @@ from cm.util import misc, paths
 
 log = logging.getLogger('cloudman')
 logging.getLogger('boto').setLevel(logging.INFO)
+logging.getLogger('git').setLevel(logging.INFO)
 
 
 class CMLogHandler(logging.Handler):
