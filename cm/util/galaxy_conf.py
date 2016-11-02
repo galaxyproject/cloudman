@@ -47,7 +47,7 @@ def attempt_chown_galaxy(path, recursive=False):
 
 def populate_admin_users(option_manager, admins_list=[]):
     """
-    Galaxy admin users can be added by providing them in user data
+    Galaxy admin users can be set by providing them in user data
     (see below) or by calling this method and providing a user list.
     YAML format for user data for providing admin users
     (note that these users will still have to manually register
@@ -56,12 +56,10 @@ def populate_admin_users(option_manager, admins_list=[]):
      - user@example.com
      - user2@anotherexample.edu
     """
-    for admin in option_manager.app.config.get('admin_users', []):
-        if admin not in admins_list:
-            admins_list.append(admin)
+    admins_list = admins_list or option_manager.app.config.galaxy_admin_users
+    log.info('Setting Galaxy admin users to: %s' % admins_list)
     if len(admins_list) == 0:
         return False
-    log.info('Setting Galaxy admin users to: %s' % admins_list)
     option_manager.set_properties({"admin_users": ",".join(admins_list)})
 
 
@@ -144,7 +142,7 @@ def populate_galaxy_paths(option_manager):
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
         .format(path_resolver.psql_db_port)
     properties["use_pbkdf2"] = "False"  # Required for FTP
-    properties["len_file_path"] = join(path_resolver.galaxy_home, "tool-data", "len")
+    # properties["len_file_path"] = join(path_resolver.galaxy_home, "tool-data", "len")
     properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
     temp_dir = '/mnt/galaxy/tmp'

@@ -73,6 +73,7 @@ class Configuration(dict):
         self.config_dict = kwargs
         self._user_data = ud
         self._rebuild_combined_config()
+        self._galaxy_admin_users = ud.get('admin_users', [])
 
     def _rebuild_combined_config(self):
         """
@@ -150,6 +151,14 @@ class Configuration(dict):
     @property
     def cluster_templates(self):
         return self.get('cluster_templates', None)
+
+    @property
+    def galaxy_admin_users(self):
+        return self._galaxy_admin_users
+
+    @galaxy_admin_users.setter
+    def galaxy_admin_users(self, admins_list):
+        self._galaxy_admin_users = admins_list
 
     @property
     def root_dir(self):

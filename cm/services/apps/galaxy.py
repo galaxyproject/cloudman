@@ -281,6 +281,7 @@ class GalaxyService(ApplicationService):
         options (i.e., arbitrary options coming from user data), adjust system
         paths and set admin users.
         """
+        log.debug("Updating Galaxy config")
         if self.multiple_processes():
             populate_process_options(self.option_manager)
         populate_dynamic_options(self.option_manager)
@@ -289,10 +290,10 @@ class GalaxyService(ApplicationService):
 
     def add_galaxy_admin_users(self, admins_list=[]):
         """
-        Add email addresses provided as Galaxy admin users.
+        Set email addresses provided as Galaxy admin users.
 
         :type admins_list: list
         :param admins_list: A list of email addresses corresponding to
                             registered Galaxy users.
         """
-        populate_admin_users(self.option_manager, admins_list)
+        self.option_manager.app.config.galaxy_admin_users = admins_list
