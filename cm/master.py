@@ -597,10 +597,8 @@ class ConsoleManager(BaseConsoleManager):
         """
         Activate the `Autoscale` service.
 
-        Note that this method will automatically disable master node from
-        running jobs after autoscaling is activated. Also note that the
-        parameters are AND-ed (i.e., all need to be true before autoscaling
-        will trigger).
+        Note note that the parameters are AND-ed (i.e., all need to be true
+        before autoscaling will trigger).
 
         :type as_min: int
         :param as_min: The minimum number of worker nodes of maintain.
@@ -633,7 +631,6 @@ class ConsoleManager(BaseConsoleManager):
                 as_svc.mean_runtime_threshold = mean_runtime_threshold
                 as_svc.num_instances_to_add = num_instances_to_add
                 self.activate_master_service(as_svc)
-                self.toggle_master_as_exec_host(force_removal=True)
             else:
                 log.warning('Cannot find Autoscale service?')
         else:
@@ -950,9 +947,6 @@ class ConsoleManager(BaseConsoleManager):
             allows you to toggle the master instance as being or not being
             an execution host.
 
-            Note that if Austoscaling is on, running jobs on the master will be
-            disabled even if no workers exist.
-
             :type force_removal: bool
             :param force_removal: If True, go through the process of removing
                                   the instance from being an execution host
@@ -962,9 +956,6 @@ class ConsoleManager(BaseConsoleManager):
             :return: ``True`` if the instance is set as an execution host;
                      ``False`` otherwise.
         """
-        # When autoscaling is on, keep the master from running jobs
-        if self.service_registry.is_active('Autoscale'):
-            force_removal = True
         if self.master_exec_host or force_removal:
             log.debug("Setting master not to be an exec host.")
         else:
