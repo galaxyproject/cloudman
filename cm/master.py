@@ -63,9 +63,11 @@ class ConsoleManager(BaseConsoleManager):
             self.app.cloud_type == 'ec2' or self.app.cloud_type == 'openstack') else []
         self.manager_started = False
         self.cluster_manipulation_in_progress = False
-        # If this is set to False, the master instance will not be an execution
-        # host in SGE and thus not be running any jobs
+        # If False, the master instance will not be an execution
+        # host in the job manager and thus not be running any jobs
         self.master_exec_host = True
+        # If True, don't disable master from being an exec host
+        self.keep_master_exec_host = False
         self.initial_cluster_type = None
         self.cluster_storage_type = None
         self.service_registry = ServiceRegistry(self.app)
@@ -942,19 +944,21 @@ class ConsoleManager(BaseConsoleManager):
 
     def toggle_master_as_exec_host(self, force_removal=False):
         """
-            By default, the master instance running all the services is also
-            an execution host and is used to run job manager jobs. This method
-            allows you to toggle the master instance as being or not being
-            an execution host.
+        Toggle the master instance's role as a job manager execution host.
 
-            :type force_removal: bool
-            :param force_removal: If True, go through the process of removing
-                                  the instance from being an execution host
-                                  irrespective of the instance's current state.
+        By default, the master instance running all the services is also
+        an execution host and is used to run job manager jobs. This method
+        allows you to toggle the master instance as being or not being
+        an execution host.
 
-            :rtype: bool
-            :return: ``True`` if the instance is set as an execution host;
-                     ``False`` otherwise.
+        :type force_removal: bool
+        :param force_removal: If True, go through the process of removing
+                              the instance from being an execution host
+                              irrespective of the instance's current state.
+
+        :rtype: bool
+        :return: ``True`` if the instance is set as an execution host;
+                 ``False`` otherwise.
         """
         if self.master_exec_host or force_removal:
             log.debug("Setting master not to be an exec host.")
@@ -1310,8 +1314,10 @@ class ConsoleManager(BaseConsoleManager):
         log.debug("Adding {0}{1} {2} instance(s)".format(num_nodes,
                   ' spot' if spot_price else '', instance_type))
         # Remove master from execution queue automatically
-        if self.master_exec_host:
+        if self.master_exec_host and not self.keep_master_exec_host:
             self.toggle_master_as_exec_host(force_removal=True)
+        else:
+            log.debug("Not modifying master's exec host status.")
         self.app.cloud_interface.run_instances(num=num_nodes,
                                                instance_type=instance_type,
                                                spot_price=spot_price)

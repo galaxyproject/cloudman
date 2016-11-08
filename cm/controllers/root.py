@@ -803,16 +803,26 @@ class CM(BaseController):
 
     @expose
     def toggle_master_as_exec_host(self, trans):
+        """
+        Toggle the master instance's role as a job manager execution host.
+
+        Calling this method happens as a user-invoked action and it hence
+        sets an internal flag to stick with the user's preferred choice.
+        """
         if self.app.manager.toggle_master_as_exec_host() is True:
             comment = "Master is an execution host."
+            # This means the user wants to keep the master an exec host
+            self.app.manager.keep_master_exec_host = True
         else:
             comment = "Master is not an execution host."
+            self.app.manager.keep_master_exec_host = False
         return comment
 
     @expose
     def toggle_ssl(self, trans):
         """
         Toggle use of SSL for the nginx proxy server.
+
         This will generate a self-signed certificate and update nginx config to
         use it - note that this will result in a browser warning regarding an
         untrusted certificate. Also note that this only works on images that
