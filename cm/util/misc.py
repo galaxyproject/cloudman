@@ -784,7 +784,7 @@ def get_file_from_public_location(config, remote_filename, local_file):
 
     if not url and bucket:
         s3_host = config.get('s3_host', 's3.amazonaws.com')
-        s3_port = config.get('s3_port', 443)
+        s3_port = config.get('s3_port') or 443
         s3_conn_path = config.get('s3_conn_path', '/')
 
         s3_base_url = 'https://' + s3_host + ':' + str(s3_port) + '/'
