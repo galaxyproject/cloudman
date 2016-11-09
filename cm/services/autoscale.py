@@ -180,8 +180,9 @@ class AutoscaleService(Service):
         if ((len(q_jobs['queued']) >= self.num_queued_jobs and
              r_jobs_mean > self.mean_runtime_threshold) or
             (len(q_jobs['queued']) > 0 and
-             not self.app.manager.master_exec_host and
-             len(self.app.manager.worker_instances) == 0)):
+             ((not self.app.manager.master_exec_host and
+               len(self.app.manager.worker_instances) == 0) or
+              q_jobs.get('req_node_not_avail')))):
             return True
         return False
 
@@ -199,9 +200,11 @@ class AutoscaleService(Service):
         for job_manager_svc in self.app.manager.service_registry.active(
                 service_role=ServiceRole.JOB_MANAGER):
             jobs = job_manager_svc.jobs()
+            req_node_not_avail = False
             # log.debug("Autoscaling jobs: {0}".format(jobs))
             for job in jobs:
                 now = datetime.datetime.now()
+                req_node_not_avail = job.get('req_node_not_avail') or req_node_not_avail
                 if job.get('job_state') == 'running':
                     time_job_entered_state = job.get('time_job_entered_state',
                                                      datetime.datetime.now())
@@ -210,7 +213,8 @@ class AutoscaleService(Service):
                     time_job_entered_state = job.get('time_job_entered_state',
                                                      datetime.datetime.now)
                     queued_jobs.append(self.total_seconds(now - time_job_entered_state))
-        return {'running': running_jobs, 'queued': queued_jobs}
+        return {'running': running_jobs, 'queued': queued_jobs,
+                'req_node_not_avail': req_node_not_avail}
 
     def get_num_instances_to_remove(self):
         """Return the number of instance to remove during auto-DOWN-scaling.
