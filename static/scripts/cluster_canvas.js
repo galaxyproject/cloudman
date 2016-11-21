@@ -17,7 +17,7 @@ var old_instance_length = 1;
 
 if (TESTING == true){
     instances = [
-                {'id' : 'instance-1',
+                {'id' : 'i-23456789',
                 'ld' : '0 0 0',
                 'time_in_state' : 2,
                 'nfs_data' : 0,
@@ -28,7 +28,7 @@ if (TESTING == true){
                 'slurmd_running' : 0,
                 'worker_status' : 'Starting',
                 'instance_state' : 'running'},
-                {'id' : 'instance-2',
+                {'id' : 'i-12345678901234567',
                 'ld' : '0.38 0.20 0.50',
                 'time_in_state' : 2,
                 'nfs_data' : 0,
@@ -476,7 +476,7 @@ function refreshTip(){
             i_str += '<br/>Max nodes: <a class="editable">' + as_max + '</a>'
             i_str += '<br/><span id="adjust_autoscaling_link" style="text-decoration: underline; cursor:pointer;">Adjust limits?</span></p>'
         } else {
-            i_str = '<br/><br/>Autoscaling is <span style="color: red;">off</span>. Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">on</a>?'
+            i_str = '<br/><br/>Autoscaling is <span style="color: red;">off</span>.<br/> Turn <a id="toggle_autoscaling_link" style="text-decoration: underline; cursor: pointer;">on</a>?'
     	}
     	$('#cluster_view_tooltip').html(i_str);
 

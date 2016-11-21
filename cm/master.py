@@ -1924,13 +1924,13 @@ class ConsoleManager(BaseConsoleManager):
         self.cluster_manipulation_in_progress = False
         return True
 
-    @TestFlag([{"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-14--03-02/",
-                "snap": 'snap-743ddw12', "snap_progress": "100%", "visibility": 'Shared',
+    @TestFlag([{"bucket": "cm-c1af56930d19f34e698519141b236d3f/shared/2011-08-14--03-02/",
+                "snap": 'snap-12345678901234567', "snap_progress": "100%", "visibility": 'Shared',
                 "snap_desc": "Sample share description 1"},
-               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-19--10-49/",
-                "snap": 'snap-gf69348h', "snap_progress": "22%", "visibility": 'Public',
+               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/shared/2011-08-19--10-49/",
+                "snap": 'snap-23456789012345678', "snap_progress": "22%", "visibility": 'Public',
                 "snap_desc": "Sample share description 2"},
-               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/TESTshare/2011-08-19--10-49/",
+               {"bucket": "cm-c1af56930d19f34e698519141b236d3f/shared/2011-08-19--10-49/",
                 "snap": 'Missing-ERROR', "snap_progress": '', "visibility": 'Public',
                 "snap_desc": "Sample share description 3"}])
     @synchronized(s3_rlock)
@@ -2417,7 +2417,7 @@ class ConsoleManager(BaseConsoleManager):
             svc = self.service_registry.get(svc_name)
             svc.modify_htcondor("ALLOW_WRITE", new_worker_ip)
 
-    @TestFlag({'id': 'localtest', 'ld': "0.00 0.02 0.39",
+    @TestFlag({'id': 'i-00ac65d59858bd129', 'ld': "0.00 0.02 0.39",
                'time_in_state': 4321,
                'instance_type': 'tester', 'public_ip': "127.0.0.1"})
     def get_status_dict(self):

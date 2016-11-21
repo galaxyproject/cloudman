@@ -854,18 +854,18 @@ function get_shared_instances(){
                     for (n=0; n<(data.shared_instances).length; n++) {
                         var fn = function(i) {
                             var tr = $("<tr class='shared-instance-ttr' />");
-                            tr.append($('<td/>').text(data.shared_instances[i].visibility));
-                            tr.append($('<td/>').text(data.shared_instances[i].bucket));
-                            tr.append($('<td/>').text(data.shared_instances[i].snap_progress));
-                            tr.append($('<td/>').text(data.shared_instances[i].snap));
+                            tr.append($('<td width="5%"/>').text(data.shared_instances[i].visibility));
+                            tr.append($('<td width="62%"/>').text(data.shared_instances[i].bucket));
+                            tr.append($('<td width="5%"/>').text(data.shared_instances[i].snap_progress));
+                            tr.append($('<td width="23%"/>').text(data.shared_instances[i].snap));
                             anchor = $("<a>&nbsp;</a>").click(function () {
                                 show_confirm(data.shared_instances[i].bucket, data.shared_instances[i].snap);
                             }).addClass("del_scf");
-                            tr.append($('<td style="padding-left: 15px;" />').html(anchor));
+                            tr.append($('<td width="5%" style="padding-left: 15px;" />').html(anchor));
                             table.append(tr);
                             var tr2 = $('<tr/>');
                             tr2.append($('<th/>'));
-                            tr2.append($('<td colspan="4" class="shared-instance-desc" />').text(data.shared_instances[i].snap_desc));
+                            tr2.append($('<td width="62%" class="shared-instance-desc" />').text(data.shared_instances[i].snap_desc));
                             table.append(tr2);
                         };
                         fn(n);
