@@ -392,14 +392,13 @@ class Filesystem(DataService):
                     log.debug("Discovered a change of vol %s to '%s', attached as device '%s', for FS '%s'"
                               % ([vol.volume_id for vol in self.volumes], att_vol.id, device, self.name))
                     vol.update(att_vol)
-                    # If the new volume does not have tags (clusterName &
-                    # filesystem), add those
-                    if not self.app.cloud_interface.get_tag(att_vol, 'clusterName'):
+                    # If the new volume does not have tags, add those
+                    if not self.app.cloud_interface.get_tag(att_vol, 'Name'):
                         self.app.cloud_interface.add_tag(
-                            att_vol, 'clusterName', self.app.config['cluster_name'])
+                            att_vol, 'Name', self.app.config['cluster_name'])
                     if not self.app.cloud_interface.get_tag(att_vol, 'filesystem'):
                         self.app.cloud_interface.add_tag(att_vol, 'filesystem', self.name)
-                    self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
+                    # self.app.cloud_interface.add_tag(att_vol, 'Name', self.name)
                     # Update cluster configuration (i.e., persistent_data.yaml)
                     # in cluster's bucket
                     self.app.manager.console_monitor.store_cluster_config()

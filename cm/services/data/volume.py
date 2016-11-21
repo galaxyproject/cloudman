@@ -369,14 +369,14 @@ class Volume(BlockStorage):
         # to ensure the tags get assigned even if using an existing volume vs.
         # creating a new one)
         self.app.cloud_interface.add_tag(
-            self.volume, 'clusterName', self.app.config['cluster_name'])
+            self.volume, 'Name', self.app.config['cluster_name'])
         self.app.cloud_interface.add_tag(
             self.volume, 'bucketName', self.app.config['bucket_cluster'])
-        if filesystem:
-            self.app.cloud_interface.add_tag(self.volume, 'filesystem', filesystem)
-            self.app.cloud_interface.add_tag(self.volume, 'Name', "{0}FS".format(filesystem))
-            self.app.cloud_interface.add_tag(self.volume, 'roles',
-                                             ServiceRole.to_string(self.fs.svc_roles))
+        if self.fs:
+            self.app.cloud_interface.add_tag(
+                self.volume, 'filesystem', self.fs.get_full_name())
+            self.app.cloud_interface.add_tag(
+                self.volume, 'roles', ServiceRole.to_string(self.fs.svc_roles))
         return True
 
     def delete(self):
@@ -613,7 +613,7 @@ class Volume(BlockStorage):
                      "for status.".format(snapshot.id, self.volume_id, self.fs))
             self._derived_snapshots.append(snapshot)
             # Add tags to the newly created snapshot
-            self.app.cloud_interface.add_tag(snapshot, 'clusterName',
+            self.app.cloud_interface.add_tag(snapshot, 'Name',
                                              self.app.config['cluster_name'])
             self.app.cloud_interface.add_tag(
                 self.volume, 'bucketName', self.app.config['bucket_cluster'])
