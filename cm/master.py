@@ -1792,7 +1792,7 @@ class ConsoleManager(BaseConsoleManager):
                 except IndexError as e:
                     log.debug("Trouble getting GalaxyFS snapshot? %s" % e)
                     return False
-            elif ServiceRole.GALAXY_INDICES in svc.svc_roles:
+            elif ServiceRole.GALAXY_INDICES in svc.svc_roles and len(svc.volumes) > 0:
                 snaps_to_share.append(svc.volumes[0].from_snapshot_id)
         self._start_app_level_services()
         # Create a new folder-like structure inside cluster's bucket and copy
