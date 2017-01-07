@@ -20,12 +20,12 @@ class NginxService(ApplicationService):
         self.exe = self.app.path_resolver.nginx_executable
         self.conf_dir = self.app.path_resolver.nginx_conf_dir
         self.conf_file = self.app.path_resolver.nginx_conf_file  # Main conf file
-        self.ssl_is_on = False
-        # The list of services that Nginx service proxies
+        self.ssl_is_on = self.app.config.user_data.get('use_ssl', False)
         self.proxied_services = ['Galaxy', 'GalaxyReports', 'Pulsar',
                                  'ClouderaManager', 'Cloudgene']
         # A list of currently active CloudMan services being proxied
         self.active_proxied = []
+        self.was_started = False
 
     def start(self):
         """
@@ -33,6 +33,7 @@ class NginxService(ApplicationService):
         """
         log.debug("Starting Nginx service")
         self.start_webserver()
+        self.was_started = True
 
     def remove(self, synchronous=False):
         """
@@ -250,6 +251,10 @@ class NginxService(ApplicationService):
         """
         Check and update the status of the service.
         """
+        # Ensure the service start method gets called
+        if not self.was_started:
+            self.state = service_states.UNSTARTED
+            return
         # Check if nginx config needs to be reconfigured
         aa = self.app.manager.service_registry.all_active(names=True)
         for s in self.app.manager.service_registry.all_active():
