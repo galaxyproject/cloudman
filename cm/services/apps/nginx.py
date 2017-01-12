@@ -152,13 +152,14 @@ class NginxService(ApplicationService):
                 if setup_ssl:
                     log.debug("Using Nginx v1.4+ template w/ SSL")
                     # Generate a self-signed certificate
-                    log.info("Generating self-signed certificate for SSL encryption")
                     cert_home = "/root/.ssh/"
                     certfile = os.path.join(cert_home, "instance_selfsigned_cert.pem")
                     keyfile = os.path.join(cert_home, "instance_selfsigned_key.pem")
-                    misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
-                             "rsa:1024 -keyout " + keyfile + " -out " + certfile)
-                    misc.run("chmod 440 " + keyfile)
+                    if not os.path.exists(keyfile):
+                        log.info("Generating a self-signed certificate for SSL")
+                        misc.run("yes '' | openssl req -x509 -nodes -days 3650 -newkey "
+                                 "rsa:1024 -keyout " + keyfile + " -out " + certfile)
+                        misc.run("chmod 440 " + keyfile)
                     server_tmplt = conf_manager.NGINX_SERVER_SSL
                     self.ssl_is_on = True
                 else:

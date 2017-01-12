@@ -2615,6 +2615,7 @@ class ConsoleMonitor(object):
             cc['placement'] = self.app.cloud_interface.get_zone()
             cc['machine_image_id'] = self.app.cloud_interface.get_ami()
             cc['persistent_data_version'] = self.app.PERSISTENT_DATA_VERSION
+            cc['use_ssl'] = self.app.config.user_data.get('use_ssl', False)
             # If 'deployment_version' is not in UD, don't store it in the config
             if 'deployment_version' in self.app.config.user_data:
                 cc['deployment_version'] = self.app.config.user_data['deployment_version']
