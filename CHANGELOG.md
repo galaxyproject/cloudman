@@ -1,3 +1,35 @@
+### CloudMan - January, 2017.
+* Two updates to the galaxyFS, including Galaxy 16.07 and 16.10, both available
+  from https://launch.usegalaxy.org/. This includes a completely new install
+  of all the available tools.
+
+* **Important**: Update Galaxy job configuration so several tools will run
+  using 4 threads. This has an important implication in that if there are no
+  worker nodes available with the required number of nodes, jobs for those
+  tools will never run. The list of tools that have been configured to run this
+  way is available [here](https://github.com/galaxyproject/ansible-cloudman-galaxy-setup/blob/2ac53af58fea134ca6f3e1212657c1cc3379ec40/files/galaxy/job_conf.xml.cloud#L26).
+
+* Replaced volume-backed GalaxyIndices file system with a [CVMFS-backed file
+  system](https://cernvm.cern.ch/portal/filesystem). Clusters will no longer
+  create a volume for the indices FS but instead fetch the necessary data from
+  a replica service. Indices available via this service are the same as the
+  ones available on Galaxy Main. If you need additional reference genomes,
+  use the Data Managers and those will be installed on your galaxyFS.
+
+* A new machine image on AWS (`ami-3be8cd2c` in region `us-east-1` and
+  `ami-9ba490e8` in region `us-west-1`) with root file system size of 50GB to
+  accommodate appropriately sized cache (32GB) for the CVMFS. The image now
+  supports [AWS Enhanced Networking](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html).
+
+* Don't automatically disable the master from running jobs when autoscaling is
+  enabled.
+
+* Set cluster name as the Name tag for volumes.
+
+* Accommodate AWS long resource IDs.
+
+* Add ability to turn on SSL from start via user data (`use_ssl: True`).
+
 ### CloudMan - May 25, 2016.
 * Update galaxyFS to include Galaxy 16.04 release.
 
