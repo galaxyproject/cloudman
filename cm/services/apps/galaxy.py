@@ -40,8 +40,8 @@ class GalaxyService(ApplicationService):
             ServiceDependency(self, ServiceRole.GALAXY_POSTGRES),
             ServiceDependency(self, ServiceRole.GALAXY_DATA),
             ServiceDependency(self, ServiceRole.GALAXY_INDICES),
-            ServiceDependency(self, ServiceRole.GALAXY_TOOLS),
-            ServiceDependency(self, ServiceRole.PROFTPD)
+            # ServiceDependency(self, ServiceRole.PROFTPD),
+            ServiceDependency(self, ServiceRole.GALAXY_TOOLS)
         ]
         self.option_manager = galaxy_option_manager(app)
 
