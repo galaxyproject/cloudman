@@ -1,4 +1,5 @@
 import os
+import platform
 
 from cm.conftemplates import conf_manager
 from cm.util import misc
@@ -56,8 +57,13 @@ class NginxService(ApplicationService):
         self.reconfigure(setup_ssl=self.ssl_is_on)
         # Get a handle on the server process
         if not self._check_daemon('nginx'):
-            if misc.run(self.exe):
-                self.state == service_states.RUNNING
+            _, os_release, _ = platform.linux_distribution()
+            if '16.' in os_release:
+                if misc.run('systemctl start nginx'):
+                    self.state = service_states.RUNNING
+            else:
+                if misc.run(self.exe):
+                    self.state = service_states.RUNNING
 
     def reload(self):
         """
@@ -65,7 +71,11 @@ class NginxService(ApplicationService):
         """
         # TODO: run `nginx -t` before attemping to reload the process to make
         # sure the conf files are OK and thus reduce chances of screwing up
-        misc.run('{0} -c {1} -s reload'.format(self.exe, self.conf_file))
+        _, os_release, _ = platform.linux_distribution()
+        if '16.' in os_release:
+            misc.run('systemctl reload nginx')
+        else:
+            misc.run('{0} -c {1} -s reload'.format(self.exe, self.conf_file))
 
     def _define_upstream_servers(self):
         """
