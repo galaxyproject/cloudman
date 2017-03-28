@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 
 from cm.conftemplates import conf_manager
 from cm.util import misc
@@ -64,6 +65,14 @@ class NginxService(ApplicationService):
             else:
                 if misc.run(self.exe):
                     self.state = service_states.RUNNING
+
+    def get_installed_version(self):
+        """
+        Returns major.minor version of nginx as a tuple
+        """
+        version_str = misc.getoutput("{0} -v".format(self.exe))
+        m = re.search('nginx\/(\d).(\d+)', version_str)
+        return int(m.group(1)), int(m.group(2))
 
     def reload(self):
         """
@@ -155,7 +164,7 @@ class NginxService(ApplicationService):
             log.debug("Updating Nginx config at {0}".format(self.conf_file))
             params = {}
             # Customize the appropriate nginx template
-            if "1.4" in misc.getoutput("{0} -v".format(self.exe)):
+            if self.get_installed_version() >= (1, 4):
                 nginx_tmplt = conf_manager.NGINX_14_CONF_TEMPLATE
                 params = {'galaxy_user_name': paths.GALAXY_USER_NAME,
                           'nginx_conf_dir': self.conf_dir}
