@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import threading
 import time
+import platform
 
 import git
 
@@ -380,22 +381,21 @@ class ConsoleManager(BaseConsoleManager):
 
         # Always add a job manager service
         # Starting with Ubuntu 14.04, we transitioned to using Slurm
-        cmd = "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -f2 -d'='"
-        os_release = str(misc.run(cmd)).strip()
-        if os_release in ['14.04']:
-            log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
-                      .format(os_release))
-            self.activate_master_service(self.service_registry.get('Slurmctld'))
-            self.activate_master_service(self.service_registry.get('Slurmd'))
-            self.service_registry.remove('SGE')  # SGE or Slurm can exist, not both
-            self.service_registry.remove('Hadoop')  # Hadoop works only w/ SGE
-        else:
+        (_, os_release, _) = platform.linux_distribution()
+        if '12.' in os_release:
             log.debug("Running on Ubuntu {0}; using SGE as the cluster job manager"
                       .format(os_release))
             # from cm.services.apps.jobmanagers.sge import SGEService
             self.activate_master_service(self.service_registry.get('SGE'))
             self.service_registry.remove('Slurmctld')  # SGE or Slurm can exist, not both
             self.service_registry.remove('Slurmd')
+        else:
+            log.debug("Running on Ubuntu {0}; using Slurm as the cluster job manager"
+                      .format(os_release))
+            self.activate_master_service(self.service_registry.get('Slurmctld'))
+            self.activate_master_service(self.service_registry.get('Slurmd'))
+            self.service_registry.remove('SGE')  # SGE or Slurm can exist, not both
+            self.service_registry.remove('Hadoop')  # Hadoop works only w/ SGE
 
         # Always share instance transient storage over NFS
         tfs = Filesystem(self.app, 'transient_nfs', svc_roles=[ServiceRole.TRANSIENT_NFS])

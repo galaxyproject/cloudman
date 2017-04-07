@@ -9,9 +9,9 @@ import time
 import urllib
 import urlparse
 import yaml
+import platform
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
-import os
 import subprocess
 
 def _run(log, cmd):
@@ -266,17 +266,25 @@ def _start_nginx(ud):
         log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
     nginx_executable = _nginx_executable(log)
     log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
-    if (not _is_running(log, 'nginx')):
-        log.debug('nginx not running; will try and start it now')
-        if (not _run(log, nginx_executable)):
-            _run(log, '/etc/init.d/apache2 stop')
-            _run(log, '/etc/init.d/tntnet stop')
-            _run(log, nginx_executable)
+    _, os_release, _ = platform.linux_distribution()
+    if not _is_running(log, 'nginx'):
+        log.debug("nginx not running; will try and start it now")
+        if '16.' in os_release:
+            _run(log, 'systemctl start nginx')
+        else:
+            if not _run(log, nginx_executable):
+                _run(log, '/etc/init.d/apache2 stop')
+                _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
+                _run(log, nginx_executable)
     else:
-        log.debug('nginx already running; reloading it')
-        _run(log, '{0} -s reload'.format(nginx_executable))
-    if (rmdir or (len(os.listdir(upload_store_dir)) == 0)):
-        log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
+        # nginx already running, so reload
+        log.debug("nginx already running; reloading it")
+        if '16.' in os_release:
+            _run(log, 'systemctl reload nginx')
+        else:
+            _run(log, '{0} -s reload'.format(nginx_executable))
+    if rmdir or len(os.listdir(upload_store_dir)) == 0:
+        log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
 
 def _fix_nginx_upload(ud):
