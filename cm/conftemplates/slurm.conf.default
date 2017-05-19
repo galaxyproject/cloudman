@@ -21,6 +21,7 @@ SlurmctldTimeout=300
 SlurmdTimeout=60
 InactiveLimit=0
 MinJobAge=300
+MaxJobCount=200000
 KillWait=30
 Waittime=0
 SchedulerType=sched/backfill
