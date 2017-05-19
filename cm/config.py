@@ -189,7 +189,7 @@ class Configuration(dict):
 
     @property
     def multiple_processes(self):
-        return self.get("configure_multiple_galaxy_processes", False)
+        return self.get("configure_multiple_galaxy_processes", True)
 
     @property
     def condor_enabled(self):
