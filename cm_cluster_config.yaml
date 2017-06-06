@@ -1,6 +1,0 @@
-galaxy_home: /mnt/galaxyTools/galaxy-central
-services:
-- service: SGE
-- service: post_start_script
-- service: Postgres
-- service: Galaxy

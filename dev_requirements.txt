@@ -1,7 +1,0 @@
-## Requirements not needed by CloudMan runtime but useful for CloudMan
-## development.
-nose
-coverage
-mock
-# webtest
-# sphinx

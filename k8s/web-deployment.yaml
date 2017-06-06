@@ -1,0 +1,31 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: web
+  namespace: cloudman
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: web
+      name: web
+    spec:
+      containers:
+      - image: afgane/cloudman:latest
+        command:
+        - ./run_web.sh
+        imagePullPolicy: IfNotPresent
+        name: web
+        ports:
+        - containerPort: 8000
+          name: web
+          protocol: TCP

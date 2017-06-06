@@ -6,16 +6,8 @@ syntax: glob
 *.DS_Store
 *.pyc
 
-cm_webapp.pid
+cloudman/db.sqlite3
 
-# Config files
-cm_wsgi.ini
-userData.yaml
-snaps.yaml
-paster.log
-persistent_data.yaml
-
-# Local env for easier uploads
-cm.tar.gz
-update_cm.sh
-upload_cm_to_S3.py
+docs/_build/
+CM2.sublime-project
+CM2.sublime-workspace
