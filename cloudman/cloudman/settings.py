@@ -119,3 +119,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
 STATIC_URL = '/static/'
+
+# Env vars exposed by Kubernetes
+MY_POD_NAME = os.getenv('MY_POD_NAME', 'local')
+MY_POD_NAMESPACE = os.getenv('MY_POD_NAMESPACE', 'local')
+MY_POD_IP = os.getenv('MY_POD_IP', 'localhost')
