@@ -12,14 +12,15 @@ CloudMan repo base directory). If you need a local Kubernetes setup, try
 
 ```
 kubectl create -f k8s/namespace.yaml
+kubectl create -f k8s/configMap.yaml
 kubectl create -f k8s/web-deployment.yaml
 kubectl create -f k8s/web-service.yaml
 ```
-This will setup the necessary containers. Now, to access the app, do the
-following:
+This will setup the necessary container infrastructure. Now, to access the app,
+do the following:
 ```
 kubectl cluster-info  # Get cluster IP
-kubectl --namespace=cloudman describe svc web | grep NodePort # Get the port
+kubectl --namespace=cloudman describe svc cm-web | grep NodePort # Get the port
 ```
 Access the app at http://cluster-ip:port/
 

@@ -25,6 +25,10 @@ spec:
         image: nginx
         ports:
         - containerPort: 80
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/cloudman.conf
+          subPath: cloudman.conf
       - image: afgane/cloudman:latest
         command:
         - ./run_web.sh
@@ -45,3 +49,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
