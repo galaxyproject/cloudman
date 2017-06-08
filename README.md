@@ -23,8 +23,8 @@ kubectl --namespace=cloudman describe svc web | grep NodePort # Get the port
 ```
 Access the app at http://cluster-ip:port/
 
-To access a running pod within K8S, run
-`kubectl --namespace=cloudman exec -it <pod name> -- /bin/bash`
+To access a running container within a K8S pod, run
+`kubectl --namespace=cloudman exec -it <podName> -c <containerName> /bin/bash`
 
 
 To run locally, do

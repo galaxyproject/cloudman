@@ -1,17 +1,17 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
     app: web
-  name: web
+  name: cm-web-service
   namespace: cloudman
-
 spec:
-  ports:
-  - name: web
-    port: 8000
-    protocol: TCP
-    targetPort: 8000
+  type: NodePort
   selector:
     app: web
-  type: NodePort
+  ports:
+  - name: nginx-port
+    protocol: TCP
+    port: 8008
+    targetPort: 80
