@@ -18,7 +18,13 @@ from django.conf.urls import include
 from django.conf.urls import url
 from django.contrib import admin
 
+
 urlpatterns = [
-    # url(r'^create/', include('cmcreate.urls')),
+    url(r'^create/', include('cmcreate.urls')),
     url(r'^admin/', admin.site.urls),
 ]
+
+# Uncomment to have Gunicorn serve static content (dev only)
+# Also run: python manage.py collectstatic
+# from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+# urlpatterns += staticfiles_urlpatterns()

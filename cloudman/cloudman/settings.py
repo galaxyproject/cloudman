@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
+import manage
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'cmcreate',
 ]
 
@@ -117,7 +119,8 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
-
+SITE_ROOT = os.path.dirname(os.path.realpath(manage.__file__))
+STATIC_ROOT = os.path.join(SITE_ROOT, 'static')
 STATIC_URL = '/static/'
 
 # Env vars exposed by Kubernetes

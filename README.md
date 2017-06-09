@@ -52,7 +52,7 @@ To access the app, do the following:
 kubectl cluster-info  # Get cluster IP
 kubectl --namespace=cloudman describe svc | grep NodePort # Get the port
 ```
-Access the app at http://cluster-ip:port/
+Access the app at http://cluster-ip:port/create/v1/
 
 To access a running container within a K8S pod, run
 `kubectl --namespace=cloudman exec -it <podName> -c <containerName> /bin/bash`

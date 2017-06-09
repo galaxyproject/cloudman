@@ -9,5 +9,7 @@ syntax: glob
 cloudman/db.sqlite3
 
 docs/_build/
+static/
+
 CM2.sublime-project
 CM2.sublime-workspace

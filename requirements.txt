@@ -5,6 +5,7 @@ certifi==2017.4.17
 chardet==3.0.3
 Django==1.11.2
 djangorestframework==3.6.3
+drf-nested-routers==0.90.0
 gunicorn==19.7.1
 idna==2.5
 kombu==4.0.2
