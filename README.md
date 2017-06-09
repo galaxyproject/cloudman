@@ -13,26 +13,52 @@ infrastructure to have a complete environment properly set up.
 #### To use with [Kubernetes environment](http://kubernetes.io)
 To run the app in a Kubernetes cluster, run the following commands (from
 CloudMan repo base directory). If you need a local Kubernetes setup, try
-[Minikube](https://kubernetes.io/docs/getting-started-guides/minikube).
+[Minikube](https://kubernetes.io/docs/getting-started-guides/minikube). You
+will also need to setup [Helm](https://docs.helm.sh/using-helm/#quick-start).
+
+First clone the repo locally:
+```
+git clone https://github.com/galaxyproject/cloudman.git
+cd cloudman
+git checkout v2.0
+```
+
+Once you have the source code available, run the following command to deploy
+all the necessary components:
 
 ```
-kubectl create -f k8s/namespace.yaml
-kubectl create -f k8s/configMap.yaml
-kubectl create -f k8s/web-deployment.yaml
-kubectl create -f k8s/web-service.yaml
+helm install k8s/cloudman
 ```
-This will setup the necessary container infrastructure. Now, to access the app,
-do the following:
+
+To access the app, do the following:
 ```
 kubectl cluster-info  # Get cluster IP
-kubectl --namespace=cloudman describe svc cm-web | grep NodePort # Get the port
+kubectl --namespace=cloudman describe svc | grep NodePort # Get the port
 ```
-(To set the `cloudman` namespace as the default preference, use
-`kubectl config set-context $(kubectl config current-context) --namespace=cloudman`)
 Access the app at http://cluster-ip:port/
+
+To shut everything down, we'll need to retrieve the name of the current release
+and then delete it. Helm will clean up everything in a few moments.
+
+```
+helm ls  # Get the release name
+helm del <release name>
+```
+
+If you wish not to use Helm, you can deploy K8S config files by hand by
+executing the following commands, in this order:
+
+```
+kubectl create -f k8s/cm-namespace.yaml
+kubectl create -f k8s/cm-configMap.yaml
+kubectl create -f k8s/cm-deployment.yaml
+kubectl create -f k8s/cm-service.yaml
+```
 
 To access a running container within a K8S pod, run
 `kubectl --namespace=cloudman exec -it <podName> -c <containerName> /bin/bash`
+(To set the `cloudman` namespace as the default preference, use
+`kubectl config set-context $(kubectl config current-context) --namespace=cloudman`)
 
 #### To use with [Docker environment](https://docs.docker.com/engine)
 To run as a standalone Docker container, run
@@ -44,9 +70,9 @@ To access a running container instance, run
 #### To use without container infrastructure
 To run natively on the system, do
 ```
-git clone https://github.com/galaxyproject/cloudman.git && cd cloudman
-git checkout v2.0
+git clone https://github.com/galaxyproject/cloudman.git
 cd cloudman
+git checkout v2.0
 python manage.py migrate
 gunicorn cloudman.wsgi
 ```
