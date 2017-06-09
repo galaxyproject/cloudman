@@ -29,17 +29,10 @@ all the necessary components:
 ```
 helm install k8s/cloudman
 ```
-
-To access the app, do the following:
-```
-kubectl cluster-info  # Get cluster IP
-kubectl --namespace=cloudman describe svc | grep NodePort # Get the port
-```
-Access the app at http://cluster-ip:port/
+To access the app, run the command displayed at the end of the output.
 
 To shut everything down, we'll need to retrieve the name of the current release
 and then delete it. Helm will clean up everything in a few moments.
-
 ```
 helm ls  # Get the release name
 helm del <release name>
@@ -54,6 +47,12 @@ kubectl create -f k8s/cm-configMap.yaml
 kubectl create -f k8s/cm-deployment.yaml
 kubectl create -f k8s/cm-service.yaml
 ```
+To access the app, do the following:
+```
+kubectl cluster-info  # Get cluster IP
+kubectl --namespace=cloudman describe svc | grep NodePort # Get the port
+```
+Access the app at http://cluster-ip:port/
 
 To access a running container within a K8S pod, run
 `kubectl --namespace=cloudman exec -it <podName> -c <containerName> /bin/bash`
