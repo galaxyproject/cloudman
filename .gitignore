@@ -8,8 +8,12 @@ syntax: glob
 
 cloudman/db.sqlite3
 
+build
 docs/_build/
 static/
 
 CM2.sublime-project
 CM2.sublime-workspace
+
+/venv/
+/.tox/
