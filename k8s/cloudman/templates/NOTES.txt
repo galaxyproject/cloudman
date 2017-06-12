@@ -1,4 +1,4 @@
 Get the application URL by running this command:
 
-echo http://`kubectl get nodes --namespace cloudman -o jsonpath="{.items[0].status.addresses[0].address}"`:`kubectl get --namespace cloudman -o jsonpath="{.spec.ports[0].nodePort}" services {{ template "fullname" . }}-web`/create/v1
+echo http://`kubectl get nodes --namespace cloudman -o jsonpath="{.items[0].status.addresses[0].address}"`:`kubectl get --namespace cloudman -o jsonpath="{.spec.ports[0].nodePort}" services {{ template "fullname" . }}-web`/api/v1
 
