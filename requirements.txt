@@ -1,6 +1,6 @@
-celery==4.0.2
-Django==1.11.2
-djangorestframework==3.6.3
-drf-nested-routers==0.90.0
-gunicorn==19.7.1
-python-consul==0.7.0
+celery>=4.0.2
+Django>=1.11.2
+djangorestframework>=3.6.3
+drf-nested-routers>=0.90.0
+gunicorn>=19.7.1
+python-consul>=0.7.0
