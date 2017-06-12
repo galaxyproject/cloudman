@@ -127,3 +127,9 @@ STATIC_URL = '/static/'
 MY_POD_NAME = os.getenv('MY_POD_NAME', 'local')
 MY_POD_NAMESPACE = os.getenv('MY_POD_NAMESPACE', 'local')
 MY_POD_IP = os.getenv('MY_POD_IP', 'localhost')
+
+# Allow settings to be overridden in a cloudman/settings_local.py
+try:
+    from cloudman.settings_local import *  # noqa
+except ImportError:
+    pass
