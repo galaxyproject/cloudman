@@ -2,13 +2,14 @@
 
 from rest_framework import serializers
 from .api import CMInfrastructureAPI
-#from cloudbridge import CloudProviderFactory
+from cloudbridge.cloud.factory import CloudProviderFactory
 
 
 class CloudSerializer(serializers.Serializer):
     slug = serializers.CharField(read_only=True)
     name = serializers.CharField()
-    cloud_type = serializers.ChoiceField(choices=[('aws', 'AWS'), ('openstack', 'OpenStack')])
+    cloud_type = serializers.ChoiceField(
+        choices=[p for p in CloudProviderFactory().list_providers()])
     extra_data = serializers.SerializerMethodField()
 
     def get_extra_data(self, obj):
