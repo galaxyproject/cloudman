@@ -1,6 +1,8 @@
+"""Handle all requests related to a CloudMan instance."""
+import json
+
 from consul import Consul
 from django.template.defaultfilters import slugify
-import json
 
 
 class CMInfrastructureAPI(object):
