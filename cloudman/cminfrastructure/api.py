@@ -1,6 +1,8 @@
 from consul import Consul
-from django.template.defaultfilters import slugify
 import json
+
+from cminfrastructure.models import CMCloud
+from cminfrastructure.models import CMCloudNode
 
 
 class CMInfrastructureAPI(object):
@@ -13,17 +15,69 @@ class CMInfrastructureAPI(object):
         return self._clouds
 
 
-class CMCloudService(object):
+class CMService(object):
 
-    def __init__(self, config):
-        self.consul = Consul()
+    @property
+    def consul(self):
+        if not getattr(self, '_consul', None):
+            self._consul = Consul()
+        return self._consul
+
+    def __iter__(self):
+        for result in self.list():
+            yield result
+
+
+class CMCloudService(CMService):
+
+    def __init__(self, api):
+        self.api = api
 
     def list(self):
         _, data = self.consul.kv.get('infrastructure/clouds/', recurse=True)
-        return [json.loads(row['Value']) for row in data or [] if row]
+        return [CMCloud.from_kv(row) for row in data or [] if row]
+
+    def get(self, cloud_id):
+        """
+        Returns a CMCloud object
+        """
+        _, data = self.consul.kv.get(f'infrastructure/clouds/{cloud_id}')
+        return CMCloud.from_kv(data) if data else None
 
     def create(self, name, cloud_type):
-        slug = slugify(name)
-        cloud = {'name': name, 'cloud_type': cloud_type}
-        self.consul.kv.put(f'infrastructure/clouds/{slug}', json.dumps(cloud))
+        cloud = CMCloud(name, cloud_type)
+        self.consul.kv.put(f'infrastructure/clouds/{cloud.cloud_id}',
+                           cloud.to_json())
         return cloud
+
+
+class CMCloudNodeService(CMService):
+
+    def __init__(self, cloud):
+        self.cloud = cloud
+
+    def list(self):
+        """
+        Returns a CMCloudNode object
+        """
+        _, data = self.consul.kv.get(
+            f'infrastructure/clouds/{self.cloud.cloud_id}/instances/',
+            recurse=True)
+        return [CMCloudNode.from_kv(row)
+                for row in data or [] if row]
+
+    def get(self, instance_id):
+        """
+        Returns a CMCloud object
+        """
+        _, data = self.consul.kv.get(
+            'infrastructure/clouds/{self.cloud.cloud_id}'
+            '/instances/{instance_id}')
+        return CMCloud.from_kv(data) if data else None
+
+    def create(self, name, instance_type):
+        inst = CMCloudNode(self.cloud.cloud_id, name, instance_type)
+        self.consul.kv.put(
+            f'infrastructure/clouds/{self.cloud.cloud_id}/instances/{inst.id}',
+            inst.to_json())
+        return inst
