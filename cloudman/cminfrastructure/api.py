@@ -1,3 +1,4 @@
+"""CloudMan Service API"""
 from consul import Consul
 import json
 

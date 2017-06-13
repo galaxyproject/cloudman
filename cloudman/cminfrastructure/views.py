@@ -19,20 +19,22 @@ class InfrastructureView(APIView):
 
 
 class CloudViewSet(drf_helpers.CustomModelViewSet):
-    """
-    Returns list of clouds currently registered with CloudMan.
-    """
+    """Returns list of clouds currently registered with CloudMan."""
+
     permission_classes = (IsAuthenticated,)
     # Required for the Browsable API renderer to have a nice form.
     serializer_class = serializers.CMCloudSerializer
 
     def list_objects(self):
+        """Get a list of all registered clouds."""
         return CMInfrastructureAPI().clouds.list()
 
     def get_object(self):
-        provider = view_helpers.get_cloud_provider(self)
-        obj = provider.compute.images.get(self.kwargs["pk"])
-        return obj
+        """Get info about a specific cloud."""
+        pass
+        # provider = view_helpers.get_cloud_provider(self)
+        # obj = provider.compute.images.get(self.kwargs["pk"])
+        # return obj
 
 
 class CloudNodeViewSet(drf_helpers.CustomModelViewSet):
