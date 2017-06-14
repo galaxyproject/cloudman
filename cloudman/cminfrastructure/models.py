@@ -1,7 +1,6 @@
 from django.template.defaultfilters import slugify
 import cminfrastructure
 import inspect
-import json
 import uuid
 from abc import abstractstaticmethod
 
@@ -15,11 +14,7 @@ class CMBaseModel(object):
             lambda a: not(inspect.isroutine(a)) and not
             isinstance(a, cminfrastructure.api.CMService))
         js = {k: v for(k, v) in attr if not k.startswith('_')}
-        return json.dumps(js, sort_keys=True)
-
-    @classmethod
-    def from_kv(cls, kv):
-        return cls.from_json(json.loads(kv['Value']))
+        return js
 
     @abstractstaticmethod
     def from_json(val):

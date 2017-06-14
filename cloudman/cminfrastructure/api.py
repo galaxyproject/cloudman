@@ -1,9 +1,7 @@
 """CloudMan Service API."""
-from consul import Consul
-import json
-
 from cminfrastructure.models import CMCloud
 from cminfrastructure.models import CMCloudNode
+from .kvstore import ConsulKVStore
 
 
 class CMInfrastructureAPI(object):
@@ -18,11 +16,12 @@ class CMInfrastructureAPI(object):
 
 class CMService(object):
 
+    def __init__(self):
+        self._kvstore = ConsulKVStore()
+
     @property
-    def consul(self):
-        if not getattr(self, '_consul', None):
-            self._consul = Consul()
-        return self._consul
+    def kvstore(self):
+        return self._kvstore
 
     def __iter__(self):
         for result in self.list():
@@ -32,57 +31,51 @@ class CMService(object):
 class CMCloudService(CMService):
 
     def __init__(self, api):
+        super(CMCloudService, self).__init__()
         self.api = api
 
     def list(self):
-        _, data = self.consul.kv.get('infrastructure/clouds/', recurse=True,
-                                     keys=True, separator='/')
-        # Filter only the top-level keys for this layer
-        # (e.g., infrastructure/clouds/us-east-1)
-        return [self.get(row.split('/')[-1]) for row in data or [] if row and
-                row[-1] != '/']
+        return [CMCloud.from_json(val) for (_, val) in
+                self.kvstore.list('infrastructure/clouds/').items()]
 
     def get(self, cloud_id):
         """
         Returns a CMCloud object
         """
-        _, data = self.consul.kv.get(f'infrastructure/clouds/{cloud_id}')
-        return CMCloud.from_kv(data) if data else None
+        data = self.kvstore.get(f'infrastructure/clouds/{cloud_id}')
+        return CMCloud.from_json(data) if data else None
 
     def create(self, name, cloud_type):
         cloud = CMCloud(name, cloud_type)
-        self.consul.kv.put(f'infrastructure/clouds/{cloud.cloud_id}',
-                           cloud.to_json())
+        self.kvstore.put(f'infrastructure/clouds/{cloud.cloud_id}',
+                         cloud.to_json())
         return cloud
 
 
 class CMCloudNodeService(CMService):
 
     def __init__(self, cloud):
+        super(CMCloudNodeService, self).__init__()
         self.cloud = cloud
 
     def list(self):
         """
         Returns a CMCloudNode object
         """
-        _, data = self.consul.kv.get(
-            f'infrastructure/clouds/{self.cloud.cloud_id}/instances/',
-            recurse=True)
-        return [CMCloudNode.from_kv(row)
-                for row in data or [] if row]
+        return [CMCloudNode.from_json(val) for (_, val) in self.kvstore.list(
+            f'infrastructure/clouds/{self.cloud.cloud_id}/instances/').items()]
 
     def get(self, instance_id):
         """
         Returns a CMCloud object
         """
-        _, data = self.consul.kv.get(
-            'infrastructure/clouds/{self.cloud.cloud_id}'
+        data = self.kvstore.get(
+            f'infrastructure/clouds/{self.cloud.cloud_id}'
             '/instances/{instance_id}')
-        return CMCloudNode.from_kv(data) if data else None
+        return CMCloudNode.from_json(data) if data else None
 
     def create(self, name, instance_type):
         inst = CMCloudNode(self.cloud.cloud_id, name, instance_type)
-        self.consul.kv.put(
-            f'infrastructure/clouds/{self.cloud.cloud_id}/instances/{inst.id}',
-            inst.to_json())
+        self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}/'
+                         f'instances/{inst.id}', inst.to_json())
         return inst
