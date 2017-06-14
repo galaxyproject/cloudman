@@ -1,4 +1,4 @@
-"""CloudMan Service API"""
+"""CloudMan Service API."""
 from consul import Consul
 import json
 
@@ -35,8 +35,12 @@ class CMCloudService(CMService):
         self.api = api
 
     def list(self):
-        _, data = self.consul.kv.get('infrastructure/clouds/', recurse=True)
-        return [CMCloud.from_kv(row) for row in data or [] if row]
+        _, data = self.consul.kv.get('infrastructure/clouds/', recurse=True,
+                                     keys=True, separator='/')
+        # Filter only the top-level keys for this layer
+        # (e.g., infrastructure/clouds/us-east-1)
+        return [self.get(row.split('/')[-1]) for row in data or [] if row and
+                row[-1] != '/']
 
     def get(self, cloud_id):
         """
@@ -74,7 +78,7 @@ class CMCloudNodeService(CMService):
         _, data = self.consul.kv.get(
             'infrastructure/clouds/{self.cloud.cloud_id}'
             '/instances/{instance_id}')
-        return CMCloud.from_kv(data) if data else None
+        return CMCloudNode.from_kv(data) if data else None
 
     def create(self, name, instance_type):
         inst = CMCloudNode(self.cloud.cloud_id, name, instance_type)
