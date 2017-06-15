@@ -14,7 +14,7 @@ install:
   - pip install tox
   - pip install coveralls
 before_script:
-  - wget -qO- https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_darwin_amd64.zip | tar xvz -C .
+  - wget -O- https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_darwin_amd64.zip | tar xvz -C .
   - ./consul agent -dev
 script:
   - tox -e $TOX_ENV
