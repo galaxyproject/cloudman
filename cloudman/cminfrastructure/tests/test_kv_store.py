@@ -37,7 +37,7 @@ class KVStoreTest(unittest.TestCase):
         for (k, v) in self.TEST_DATA.items():
             self.kvstore.put(k, v)
 
-        results = self.kvstore.list('parent3/')
+        results = self.kvstore.list('parent4/')
         self.assertEqual(len(results), 0)
 
     def test_list_first_level(self):

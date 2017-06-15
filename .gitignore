@@ -9,6 +9,7 @@ syntax: glob
 cloudman/db.sqlite3
 cloudman/cloudman/settings_local.py
 
+.tox
 build
 docs/_build/
 static/
