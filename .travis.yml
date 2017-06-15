@@ -5,7 +5,7 @@ os:
   - linux
 #  - osx
 env:
-  - TOX_ENV=py35
+  - TOX_ENV=py36
 matrix:
   fast_finish: true
   allow_failures:
@@ -14,8 +14,9 @@ install:
   - pip install tox
   - pip install coveralls
 before_script:
-  - wget -O- https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_darwin_amd64.zip | tar xvz -C .
-  - ./consul agent -dev
+  - wget 'https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_linux_amd64.zip'
+  - unzip "consul_0.8.4_linux_amd64.zip"
+  - ./consul agent -dev &
 script:
   - tox -e $TOX_ENV
 after_success:
