@@ -37,6 +37,13 @@ class KVStore(object):
         pass
 
     @abstractmethod
+    def delete(self, key):
+        """
+        Deletes object with given key
+        """
+        pass
+
+    @abstractmethod
     def list(self, key):
         """
         Returns a dict of key value
@@ -68,6 +75,9 @@ class ConsulKVStore(KVStore):
 
     def put(self, key, value):
         self.consul.kv.put(key, json.dumps(value))
+
+    def delete(self, key):
+        self.consul.kv.delete(key)
 
     def list(self, key):
         if not key.endswith("/"):

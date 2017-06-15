@@ -31,10 +31,7 @@ class CloudViewSet(drf_helpers.CustomModelViewSet):
 
     def get_object(self):
         """Get info about a specific cloud."""
-        pass
-        # provider = view_helpers.get_cloud_provider(self)
-        # obj = provider.compute.images.get(self.kwargs["pk"])
-        # return obj
+        return CMInfrastructureAPI().clouds.get(self.kwargs["pk"])
 
 
 class CloudNodeViewSet(drf_helpers.CustomModelViewSet):
