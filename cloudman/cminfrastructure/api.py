@@ -70,7 +70,7 @@ class CMCloudNodeService(CMService):
         """
         Returns a CMCloudNode object
         """
-        return [CMCloudNode.from_json(self.api, val) for (_, val) in
+        return [CMCloudNode.from_json(self.cloud.api, val) for (_, val) in
                 self.kvstore.list(f'infrastructure/clouds/'
                                   f'{self.cloud.cloud_id}/instances/').items()]
 
@@ -80,11 +80,12 @@ class CMCloudNodeService(CMService):
         """
         data = self.kvstore.get(
             f'infrastructure/clouds/{self.cloud.cloud_id}'
-            '/instances/{instance_id}')
-        return CMCloudNode.from_json(self.api, data) if data else None
+            f'/instances/{instance_id}')
+        return CMCloudNode.from_json(self.cloud.api, data) if data else None
 
     def create(self, name, instance_type):
-        inst = CMCloudNode(self.api, self.cloud.cloud_id, name, instance_type)
+        inst = CMCloudNode(self.cloud.api, self.cloud.cloud_id, name,
+                           instance_type)
         self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}/'
                          f'instances/{inst.id}', inst.to_json())
         return inst

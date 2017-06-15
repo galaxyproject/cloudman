@@ -50,6 +50,8 @@ class CloudNodeViewSet(drf_helpers.CustomModelViewSet):
             return []
 
     def get_object(self):
-        provider = view_helpers.get_cloud_provider(self)
-        obj = provider.compute.images.get(self.kwargs["pk"])
-        return obj
+        cloud = CMInfrastructureAPI().clouds.get(self.kwargs["cloud_pk"])
+        if cloud:
+            return cloud.nodes.get(self.kwargs["pk"])
+        else:
+            return None
