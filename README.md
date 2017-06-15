@@ -1,5 +1,13 @@
 An all-new codebase for [CloudMan](http://cloudman.irb.hr/) - a cloud manager.
 
+.. image:: https://coveralls.io/repos/github/galaxyproject/cloudlaunch/badge.svg?branch=v2.0
+   :target: https://coveralls.io/github/galaxyproject/cloudlaunch?branch=v2.0
+   :alt: Test Coverage Report
+
+.. image:: https://travis-ci.org/galaxyproject/cloudlaunch.svg?branch=v2.0
+   :target: https://travis-ci.org/galaxyproject/cloudlaunch
+   :alt: Travis Build Status
+
 ----
 ## To start using CloudMan
 
