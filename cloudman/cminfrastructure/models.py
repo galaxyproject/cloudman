@@ -31,11 +31,11 @@ class CMBaseModel(object):
 
 class CMCloud(CMBaseModel):
 
-    def __init__(self, api, name, cloud_type):
+    def __init__(self, api, name, provider_id):
         super(CMCloud, self).__init__(api)
         self.cloud_id = slugify(name)
         self.name = name
-        self.cloud_type = cloud_type
+        self.provider_id = provider_id
         self.nodes = cminfrastructure.api.CMCloudNodeService(self)
 
     def delete(self):
@@ -43,7 +43,44 @@ class CMCloud(CMBaseModel):
 
     @staticmethod
     def from_json(api, val):
-        return CMCloud(api, val['name'], val.get('cloud_type'))
+        return CMCloud(api, val['name'], val.get('provider_id'))
+
+
+class CMAWSCloud(CMCloud):
+
+    def __init__(self, api, name, aws_access_key, aws_secret_key,
+                 ec2_region_name, ec2_region_endpoint, ec2_conn_path="/",
+                 ec2_is_secure=True, ec2_port=None, s3_host, s3_conn_path="/",
+                 s3_is_secure=True, s3_port=None):
+        super(CMCloud, self).__init__(api, name, "aws")
+        self.aws_access_key = aws_access_key
+        self.aws_secret_key = aws_secret_key
+        self.ec2_region_name = ec2_region_name
+        self.ec2_region_endpoint = ec2_region_endpoint
+        self.ec2_conn_path = ec2_conn_path
+        self.ec2_is_secure = ec2_is_secure
+        self.ec2_port = ec2_port
+        self.s3_host = s3_host
+        self.s3_conn_path = s3_conn_path
+        self.s3_is_secure = s3_is_secure
+        self.s3_port = s3_port
+        self.s3_port = s3_port
+
+
+class CMOpenStackCloud(CMCloud):
+
+    def __init__(self, api, name, username, password, project_name, auth_url,
+                 region_name, identity_api_version, project_domain_name=None,
+                 user_domain_name=None):
+        super(CMCloud, self).__init__(api, name, "aws")
+        self.username = username
+        self.password = password
+        self.project_name = project_name
+        self.auth_url = auth_url
+        self.region_name = region_name
+        self.identity_api_version = identity_api_version
+        self.project_domain_name = project_domain_name
+        self.user_domain_name = user_domain_name
 
 
 class CMCloudNode(CMBaseModel):

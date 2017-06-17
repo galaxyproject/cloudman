@@ -50,8 +50,8 @@ class CMCloudService(CMService):
         data = self.kvstore.get(f'infrastructure/clouds/{cloud_id}')
         return CMCloud.from_json(self.api, data) if data else None
 
-    def create(self, name, cloud_type):
-        cloud = CMCloud(self.api, name, cloud_type)
+    def create(self, name, provider_id):
+        cloud = CMCloud(self.api, name, provider_id)
         self.kvstore.put(f'infrastructure/clouds/{cloud.cloud_id}',
                          cloud.to_json())
         return cloud
