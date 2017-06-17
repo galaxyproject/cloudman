@@ -11,9 +11,11 @@ class CMCloudServiceTests(APITestCase):
 
     # TODO: Check that attempting to create an existing
     # object raises exception
-    # TODO: Add test for updating objects 
+    # TODO: Add test for updating objects
     CLOUD_DATA = {'name': 'testcloud1',
-                  'cloud_type': 'aws'
+                  'provider_id': 'aws',
+                  'provider_config': {'access_key': 'dummy',
+                                      'secret_key': 'dummy'}
                   }
 
     def setUp(self):
@@ -53,7 +55,9 @@ class CMCloudServiceTests(APITestCase):
 class CMCloudNodeServiceTests(APITestCase):
 
     CLOUD_DATA = {'name': 'testcloud2',
-                  'cloud_type': 'openstack'
+                  'provider_id': 'openstack',
+                  'provider_config': {'access_key': 'dummy',
+                                      'secret_key': 'dummy'}
                   }
 
     NODE_DATA = {'name': 'testvm1',

@@ -50,8 +50,8 @@ class CMCloudService(CMService):
         data = self.kvstore.get(f'infrastructure/clouds/{cloud_id}')
         return CMCloud.from_json(self.api, data) if data else None
 
-    def create(self, name, provider_id):
-        cloud = CMCloud(self.api, name, provider_id)
+    def create(self, name, provider_id, provider_config):
+        cloud = CMCloud(self.api, name, provider_id, provider_config)
         self.kvstore.put(f'infrastructure/clouds/{cloud.cloud_id}',
                          cloud.to_json())
         return cloud
@@ -67,29 +67,25 @@ class CMCloudNodeService(CMService):
         self.cloud = cloud
 
     def list(self):
-        """
-        Returns a CMCloudNode object
-        """
         return [CMCloudNode.from_json(self.cloud.api, val) for (_, val) in
                 self.kvstore.list(f'infrastructure/clouds/'
                                   f'{self.cloud.cloud_id}/instances/').items()]
 
-    def get(self, instance_id):
+    def get(self, node_id):
         """
         Returns a CMCloud object
         """
-        data = self.kvstore.get(
-            f'infrastructure/clouds/{self.cloud.cloud_id}'
-            f'/instances/{instance_id}')
+        data = self.kvstore.get(f'infrastructure/clouds/{self.cloud.cloud_id}'
+                                f'/instances/{node_id}')
         return CMCloudNode.from_json(self.cloud.api, data) if data else None
 
     def create(self, name, instance_type):
-        inst = CMCloudNode(self.cloud.api, self.cloud.cloud_id, name,
+        node = CMCloudNode(self.cloud.api, self.cloud.cloud_id, name,
                            instance_type)
-        self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}/'
-                         f'instances/{inst.id}', inst.to_json())
-        return inst
+        self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}'
+                         f'/instances/{node.id}', node.to_json())
+        return node
 
-    def delete(self, cloud_id, inst_id):
-        self.kvstore.delete(
-            f'infrastructure/clouds/{cloud_id}/instances/{inst_id}')
+    def delete(self, cloud_id, node_id):
+        self.kvstore.delete(f'infrastructure/clouds/{cloud_id}'
+                            f'/instances/{node_id}')
