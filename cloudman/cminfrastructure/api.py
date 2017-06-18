@@ -1,6 +1,9 @@
 """CloudMan Service API."""
 from cminfrastructure.models import CMCloud
 from cminfrastructure.models import CMCloudNode
+from cminfrastructure.models import CMNodeTask
+from cminfrastructure.models import CMCreateNodeTask
+from cminfrastructure.models import CMTaskFactory
 from .kvstore import ConsulKVStore
 
 
@@ -84,8 +87,50 @@ class CMCloudNodeService(CMService):
                            instance_type)
         self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}'
                          f'/instances/{node.id}', node.to_json())
+        # Kick off instance creation
+        node.tasks.create("create_node")
         return node
 
     def delete(self, cloud_id, node_id):
         self.kvstore.delete(f'infrastructure/clouds/{cloud_id}'
                             f'/instances/{node_id}')
+
+
+class CMNodeTaskService(CMService):
+
+    def __init__(self, node):
+        super(CMNodeTaskService, self).__init__()
+        self.node = node
+
+    def list(self):
+        """
+        Returns a CMCloudNode object
+        """
+        return [CMNodeTask.from_json(self.node.cloud.api, val) for (_, val) in
+                self.kvstore.list(f'infrastructure/clouds/'
+                                  f'{self.cloud.cloud_id}/instances'
+                                  f'/{self.node.id}/tasks').items()]
+
+    def get(self, task_id):
+        """
+        Returns a CMCloud object
+        """
+        data = self.kvstore.get(
+            f'infrastructure/clouds/{self.cloud.cloud_id}'
+            f'/instances/{self.node.id}/tasks/{task_id}')
+        return CMNodeTask.from_json(self.node.cloud.api,
+                                    data) if data else None
+
+    def create(self, task_type):
+        task = CMTaskFactory().create(self.node.api, task_type, self.node)
+        # Perform the task so task_id is populated
+        self.kvstore.put(f'infrastructure/clouds/{self.node.cloud_id}/'
+                         f'instances/{self.node.id}/tasks/{task.task_id}',
+                         task.to_json())
+        task.execute()
+        return task
+
+    def delete(self, cloud_id, inst_id, task_id):
+        self.kvstore.delete(
+            f'infrastructure/clouds/{cloud_id}/instances/{inst_id}'
+            f'/tasks/{task_id}')
