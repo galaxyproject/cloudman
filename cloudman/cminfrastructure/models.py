@@ -5,7 +5,6 @@ import uuid
 import types
 from abc import abstractstaticmethod
 from abc import abstractmethod
-from cminfrastructure import tasks
 
 
 class CMBaseModel(object):
@@ -96,8 +95,8 @@ class CMCreateNodeTask(CMNodeTask):
                                                node_id, task_id=task_id)
 
     def execute(self):
-        tasks.create_node.apply_async((self.cloud_id, self.node_id),
-                                      task_id=self.task_id)
+        cminfrastructure.tasks.create_node.apply_async(
+            (self.cloud_id, self.node_id), task_id=self.task_id)
 
 
 class CMTaskFactory():

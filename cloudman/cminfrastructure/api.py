@@ -1,9 +1,8 @@
 """CloudMan Service API."""
-from cminfrastructure.models import CMCloud
-from cminfrastructure.models import CMCloudNode
-from cminfrastructure.models import CMNodeTask
-from cminfrastructure.models import CMCreateNodeTask
-from cminfrastructure.models import CMTaskFactory
+from .models import CMCloud
+from .models import CMCloudNode
+from .models import CMNodeTask
+from .models import CMTaskFactory
 from .kvstore import ConsulKVStore
 
 
@@ -128,6 +127,13 @@ class CMNodeTaskService(CMService):
                          f'instances/{self.node.id}/tasks/{task.task_id}',
                          task.to_json())
         task.execute()
+        return task
+
+    def update(self, task):
+        # Perform the task so task_id is populated
+        self.kvstore.put(f'infrastructure/clouds/{self.node.cloud_id}/'
+                         f'instances/{self.node.id}/tasks/{task.task_id}',
+                         task.to_json())
         return task
 
     def delete(self, cloud_id, inst_id, task_id):
