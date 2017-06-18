@@ -5,5 +5,8 @@ if [ ! -f $CONSUL_PATH/consul ]; then
    wget -O- https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_darwin_amd64.zip | tar xvz -C $CONSUL_PATH
 fi
 $CONSUL_PATH/consul agent -dev &
-python ./cloudman/manage.py runserver
+cd cloudman
+/usr/local/Cellar/rabbitmq/3.6.9/sbin/rabbitmq-server &
+celery -E -A cloudman worker -l debug &
+python manage.py runserver
 

@@ -5,3 +5,4 @@ drf-nested-routers>=0.90.0
 gunicorn>=19.7.1
 python-consul>=0.7.0
 cloudbridge>=0.3.2
+celery>=4.0.2
