@@ -46,9 +46,6 @@ class CMCloudService(CMService):
                 self.kvstore.list('infrastructure/clouds/').items()]
 
     def get(self, cloud_id):
-        """
-        Returns a CMCloud object
-        """
         data = self.kvstore.get(f'infrastructure/clouds/{cloud_id}')
         return CMCloud.from_json(self.api, data) if data else None
 
@@ -74,9 +71,6 @@ class CMCloudNodeService(CMService):
                                   f'{self.cloud.cloud_id}/instances/').items()]
 
     def get(self, node_id):
-        """
-        Returns a CMCloud object
-        """
         data = self.kvstore.get(f'infrastructure/clouds/{self.cloud.cloud_id}'
                                 f'/instances/{node_id}')
         return CMCloudNode.from_json(self.cloud.api, data) if data else None
@@ -90,8 +84,8 @@ class CMCloudNodeService(CMService):
         node.tasks.create("create_node")
         return node
 
-    def delete(self, cloud_id, node_id):
-        self.kvstore.delete(f'infrastructure/clouds/{cloud_id}'
+    def delete(self, node_id):
+        self.kvstore.delete(f'infrastructure/clouds/{self.cloud.cloud_id}'
                             f'/instances/{node_id}')
 
 
@@ -102,26 +96,21 @@ class CMNodeTaskService(CMService):
         self.node = node
 
     def list(self):
-        """
-        Returns a CMCloudNode object
-        """
-        return [CMNodeTask.from_json(self.node.cloud.api, val) for (_, val) in
+        return [CMNodeTask.from_json(self.node.api, val) for (_, val) in
                 self.kvstore.list(f'infrastructure/clouds/'
-                                  f'{self.cloud.cloud_id}/instances'
+                                  f'{self.node.cloud_id}/instances'
                                   f'/{self.node.id}/tasks').items()]
 
     def get(self, task_id):
-        """
-        Returns a CMCloud object
-        """
         data = self.kvstore.get(
-            f'infrastructure/clouds/{self.cloud.cloud_id}'
+            f'infrastructure/clouds/{self.node.cloud_id}'
             f'/instances/{self.node.id}/tasks/{task_id}')
-        return CMNodeTask.from_json(self.node.cloud.api,
+        return CMNodeTask.from_json(self.node.api,
                                     data) if data else None
 
-    def create(self, task_type):
-        task = CMTaskFactory().create(self.node.api, task_type, self.node)
+    def create(self, task_type, task_params=None):
+        task = CMTaskFactory().create(self.node.api, self.node, task_type,
+                                      task_params=task_params)
         # Perform the task so task_id is populated
         self.kvstore.put(f'infrastructure/clouds/{self.node.cloud_id}/'
                          f'instances/{self.node.id}/tasks/{task.task_id}',
@@ -136,7 +125,7 @@ class CMNodeTaskService(CMService):
                          task.to_json())
         return task
 
-    def delete(self, cloud_id, inst_id, task_id):
+    def delete(self, task_id):
         self.kvstore.delete(
-            f'infrastructure/clouds/{cloud_id}/instances/{inst_id}'
-            f'/tasks/{task_id}')
+            f'infrastructure/clouds/{self.node.cloud_id}/instances/'
+            f'{self.node.id}/tasks/{task_id}')

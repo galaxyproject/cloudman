@@ -62,7 +62,7 @@ class CMCloudNode(CMBaseModel):
         self.tasks = cminfrastructure.api.CMNodeTaskService(self)
 
     def delete(self):
-        self.api.clouds.delete(self.cloud_id)
+        self.api.clouds.get(self.cloud_id).nodes.delete(self.cloud_id)
 
     @staticmethod
     def from_json(api, val):
@@ -72,12 +72,17 @@ class CMCloudNode(CMBaseModel):
 
 class CMNodeTask(CMBaseModel):
 
-    def __init__(self, api, task_type, cloud_id, node_id, task_id=None):
+    def __init__(self, api, task_type, cloud_id, node_id, task_id=None,
+                 task_params=None):
         super(CMNodeTask, self).__init__(api)
         self.task_id = task_id or str(uuid.uuid4())
         self.task_type = task_type
         self.cloud_id = cloud_id
         self.node_id = node_id
+        self.task_params = task_params
+        self.status = 'NOT_STARTED'
+        self.message = None
+        self.stack_trace = None
 
     @abstractmethod
     def execute(self):
@@ -87,6 +92,11 @@ class CMNodeTask(CMBaseModel):
     def from_json(api, val):
         return CMTaskFactory.from_json(api, val)
 
+    def delete(self):
+        cloud = self.api.clouds.get(self.cloud_id)
+        node = cloud.nodes.get(self.node_id)
+        node.tasks.delete(self.task_id)
+
 
 class CMCreateNodeTask(CMNodeTask):
 
@@ -95,13 +105,13 @@ class CMCreateNodeTask(CMNodeTask):
                                                node_id, task_id=task_id)
 
     def execute(self):
-        cminfrastructure.tasks.create_node.apply_async(
-            (self.cloud_id, self.node_id), task_id=self.task_id)
+        cminfrastructure.tasks.create_node.delay(self.cloud_id, self.node_id,
+                                                 task_id=self.task_id)
 
 
 class CMTaskFactory():
 
-    def create(self, api, task_type, node):
+    def create(self, api, node, task_type, task_params=None):
         if task_type == "create_node":
             return CMCreateNodeTask(api, node.cloud_id, node.id)
         else:
@@ -111,6 +121,10 @@ class CMTaskFactory():
     def from_json(api, val):
         task_type = val.get("task_type")
         if task_type == "create_node":
-            return CMCreateNodeTask(api, val['task_type'], val['task_params'],
+            task = CMCreateNodeTask(api, val['cloud_id'], val['node_id'],
                                     task_id=val['task_id'])
+            task.status = val['status']
+            task.message = val.get('message')
+            task.stack_trace = val.get('stack_trace')
+            return task
         return None

@@ -12,13 +12,15 @@ def populate_task_status(node, task_id, status, message=None,
     task.status = 'FAILED'
     task.message = message
     task.stack_trace = stack_trace
-    node.tasks.save(task)
+    node.tasks.update(task)
 
 
 @shared_task
 def create_node(cloud_id, node_id, task_id=None):
     """Launch a VM create task on the given cloud"""
-    node = CMInfrastructureAPI().clouds.get(cloud_id).get(node_id)
+    node = CMInfrastructureAPI().clouds.get(cloud_id).nodes.get(node_id)
+    populate_task_status(node, task_id, "IN_PROGRESS",
+                         message="Launching a new node")
     try:
         if len(node.tasks.list()) > 0:
             raise InvalidStateException("A create task has already been run"
