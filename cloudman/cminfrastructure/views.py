@@ -36,7 +36,7 @@ class CloudViewSet(drf_helpers.CustomModelViewSet):
 
 class CloudNodeViewSet(drf_helpers.CustomModelViewSet):
     """
-    Returns list of clouds currently registered with CloudMan.
+    Returns a list of nodes currently registered with CloudMan.
     """
     permission_classes = (IsAuthenticated,)
     # Required for the Browsable API renderer to have a nice form.
@@ -53,5 +53,30 @@ class CloudNodeViewSet(drf_helpers.CustomModelViewSet):
         cloud = CMInfrastructureAPI().clouds.get(self.kwargs["cloud_pk"])
         if cloud:
             return cloud.nodes.get(self.kwargs["pk"])
+        else:
+            return None
+
+
+class CloudNodeTaskViewSet(drf_helpers.CustomModelViewSet):
+    """
+    Returns a list of per node tasks
+    """
+    permission_classes = (IsAuthenticated,)
+    # Required for the Browsable API renderer to have a nice form.
+    serializer_class = serializers.CMCloudNodeTaskSerializer
+
+    def list_objects(self):
+        cloud = CMInfrastructureAPI().clouds.get(self.kwargs["cloud_pk"])
+        node = cloud.nodes.get(self.kwargs["node_pk"])
+        if node:
+            return node.tasks.list()
+        else:
+            return []
+
+    def get_object(self):
+        cloud = CMInfrastructureAPI().clouds.get(self.kwargs["cloud_pk"])
+        node = cloud.nodes.get(self.kwargs["node_pk"])
+        if node:
+            return node.tasks.get(self.kwargs["pk"])
         else:
             return None
