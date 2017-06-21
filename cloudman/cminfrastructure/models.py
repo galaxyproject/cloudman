@@ -109,20 +109,34 @@ class CMCreateNodeTask(CMNodeTask):
                                                  task_id=self.task_id)
 
 
+class CMDeleteNodeTask(CMNodeTask):
+
+    def __init__(self, api, cloud_id, node_id, task_id=None):
+        super(CMDeleteNodeTask, self).__init__(api, "delete_node", cloud_id,
+                                               node_id, task_id=task_id)
+
+    def execute(self):
+        cminfrastructure.tasks.delete_node.delay(self.cloud_id, self.node_id,
+                                                 task_id=self.task_id)
+
+
 class CMTaskFactory():
 
-    def create(self, api, node, task_type, task_params=None):
+    def create(self, api, cloud_id, node_id, task_type,
+               task_id=None, task_params=None):
         if task_type == "create_node":
-            return CMCreateNodeTask(api, node.cloud_id, node.id)
+            return CMCreateNodeTask(api, cloud_id, node_id)
+        elif task_type == "delete_node":
+            return CMDeleteNodeTask(api, cloud_id, node_id)
         else:
             raise ValueError(f"Unknown task_type: {task_type}")
 
     @staticmethod
     def from_json(api, val):
         task_type = val.get("task_type")
-        if task_type == "create_node":
-            task = CMCreateNodeTask(api, val['cloud_id'], val['node_id'],
-                                    task_id=val['task_id'])
+        if task_type in ("create_node", "delete_node"):
+            task = CMTaskFactory().create(api, val['cloud_id'], val['node_id'],
+                                          task_type, task_id=val['task_id'])
             task.status = val['status']
             task.message = val.get('message')
             task.stack_trace = val.get('stack_trace')

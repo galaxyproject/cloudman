@@ -109,7 +109,8 @@ class CMNodeTaskService(CMService):
                                     data) if data else None
 
     def create(self, task_type, task_params=None):
-        task = CMTaskFactory().create(self.node.api, self.node, task_type,
+        task = CMTaskFactory().create(self.node.api, self.node.cloud_id,
+                                      self.node.id, task_type,
                                       task_params=task_params)
         # Perform the task so task_id is populated
         self.kvstore.put(f'infrastructure/clouds/{self.node.cloud_id}/'

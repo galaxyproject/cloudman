@@ -33,3 +33,23 @@ def create_node(cloud_id, node_id, task_id=None):
         populate_task_status(node, task_id, "FAILED",
                              str(e), traceback.format_exc())
         raise e
+
+
+@shared_task
+def delete_node(cloud_id, node_id, task_id=None):
+    """Delete a vm on the given cloud"""
+    node = CMInfrastructureAPI().clouds.get(cloud_id).nodes.get(node_id)
+    populate_task_status(node, task_id, "IN_PROGRESS",
+                         message="Deleting node")
+    try:
+        if len(node.tasks.list()) > 0:
+            raise InvalidStateException("A delete task has already been run"
+                                        " for this node and cannot be rerun.")
+        log.debug("Deleting VM")
+        populate_task_status(node, task_id, "SUCCESS",
+                             message="Successfully deleted")
+        return None
+    except Exception as e:
+        populate_task_status(node, task_id, "FAILED",
+                             str(e), traceback.format_exc())
+        raise e
