@@ -6,3 +6,7 @@ image:
   repository: afgane/cloudman
   tag: latest
   pullPolicy: Always
+
+rabbitmq:
+    rabbitmqUsername: guest
+    rabbitmqPassword: guest

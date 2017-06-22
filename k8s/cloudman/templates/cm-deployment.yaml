@@ -18,6 +18,11 @@ spec:
       name: {{ template "fullname" . }}
     spec:
       containers:
+      - name: rabbitmq
+        image: rabbitmq
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5672
       - name: consul
         image: consul
         imagePullPolicy: Always
