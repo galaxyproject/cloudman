@@ -18,6 +18,20 @@ spec:
       name: {{ template "fullname" . }}
     spec:
       containers:
+      - name: consul
+        image: consul
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8500
+          name: ui-port
+        - containerPort: 8301
+          name: serflan
+        - containerPort: 8302
+          name: serfwan
+        - containerPort: 8600
+          name: consuldns
+        - containerPort: 8300
+          name: server
       - name: nginx
         image: nginx
         ports:
