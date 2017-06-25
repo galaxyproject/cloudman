@@ -1,6 +1,8 @@
         # This file is maintained by CloudMan.
         # Changes will be overwritten!
 
+        add_header Access-Control-Allow-Origin *;
+
         location / {
             proxy_pass  http://galaxy_app;
             proxy_set_header   X-Forwarded-Host $$host;
