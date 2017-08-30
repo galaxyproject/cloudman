@@ -15,6 +15,7 @@
         ssl on;
         ssl_certificate         /root/.ssh/instance_selfsigned_cert.pem;
         ssl_certificate_key     /root/.ssh/instance_selfsigned_key.pem;
+        ssl_protocols           TLSv1 TLSv1.1 TLSv1.2;
 
         include $nginx_conf_dir/sites-enabled/*.locations;
     }
