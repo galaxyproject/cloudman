@@ -110,6 +110,11 @@ Push it to Dockerhub with:
     docker push afgane/cloudman:latest
 
 
+To update Chart dependencies, edit ``k8s/cloudman/requirements.yaml`` to
+include a dependent chart and run ``helm dependency update k8s/cloudman/``.
+Commit the dependent chart into this repo so it is ready for consumption at
+deployment time.
+
 .. _`CloudMan`: http://cloudman.irb.hr/
 .. _`Kubernetes environment`: http://kubernetes.io
 .. _`Minikube`: https://kubernetes.io/docs/getting-started-guides/minikube
