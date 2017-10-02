@@ -34,31 +34,53 @@ class CMBaseModel(object):
 
 class CMCloud(CMBaseModel):
 
-    def __init__(self, api, name, provider_id, provider_config):
+    def __init__(self, api, name, provider_id, provider_config,
+                 default_image_id=None, default_login_user=None,
+                 default_subnet=None, default_sec_group=None,
+                 default_zone=None, default_user_kp=None):
         super(CMCloud, self).__init__(api)
         self.cloud_id = slugify(name)
         self.name = name
         self.provider_id = provider_id
         self.provider_config = provider_config
+        self.default_image_id = default_image_id
+        self.default_login_user = default_login_user
+        self.default_subnet = default_subnet
+        self.default_sec_group = default_sec_group
+        self.default_zone = default_zone
+        self.default_user_kp = default_user_kp
         self.nodes = cminfrastructure.api.CMCloudNodeService(self)
+
+    def save(self):
+        self.api.clouds.delete(self.cloud_id)
 
     def delete(self):
         self.api.clouds.delete(self.cloud_id)
 
     @staticmethod
     def from_json(api, val):
-        return CMCloud(api, val['name'], val.get('provider_id'),
-                       val.get('provider_config'))
+        return CMCloud(api, val['name'], val['provider_id'],
+                       val['provider_config'],
+                       default_image_id=val.get('default_image_id'),
+                       default_login_user=val.get('default_login_user'),
+                       default_subnet=val.get('default_subnet'),
+                       default_sec_group=val.get('default_sec_group'),
+                       default_zone=val.get('default_zone'),
+                       default_user_kp=val.get('default_user_kp'))
 
 
 class CMCloudNode(CMBaseModel):
 
-    def __init__(self, api, cloud_id, name, instance_type, node_id=None):
+    def __init__(self, api, cloud_id, name, instance_type, node_id=None,
+                 instance_id=None, public_ips=None, private_ips=None):
         super(CMCloudNode, self).__init__(api)
         self.id = node_id or str(uuid.uuid4())
         self.cloud_id = cloud_id
         self.name = name
         self.instance_type = instance_type
+        self.instance_id = instance_id
+        self.public_ips = public_ips
+        self.private_ips = private_ips
         self.tasks = cminfrastructure.api.CMNodeTaskService(self)
 
     def delete(self):
@@ -67,7 +89,10 @@ class CMCloudNode(CMBaseModel):
     @staticmethod
     def from_json(api, val):
         return CMCloudNode(api, val['cloud_id'], val['name'],
-                           val['instance_type'], node_id=val['id'])
+                           val['instance_type'], node_id=val['id'],
+                           instance_id=val.get('instance_id'),
+                           public_ips=val.get('public_ips'),
+                           private_ips=val.get('private_ips'))
 
 
 class CMNodeTask(CMBaseModel):
@@ -125,9 +150,9 @@ class CMTaskFactory():
     def create(self, api, cloud_id, node_id, task_type,
                task_id=None, task_params=None):
         if task_type == "create_node":
-            return CMCreateNodeTask(api, cloud_id, node_id)
+            return CMCreateNodeTask(api, cloud_id, node_id, task_id=task_id)
         elif task_type == "delete_node":
-            return CMDeleteNodeTask(api, cloud_id, node_id)
+            return CMDeleteNodeTask(api, cloud_id, node_id, task_id=task_id)
         else:
             raise ValueError(f"Unknown task_type: {task_type}")
 

@@ -145,7 +145,7 @@ class CMNodeTaskServiceTests(APITestCase):
         # Creating a node should have spawned a create task
         response = self.client.get(url, format='json')
         self.assertEqual(len(response.data), 1, "Creating a node"
-                         "should have spawned a task")
+                         " should have spawned a task")
 
         # Attempting to create the task again should create a task
         response = self.client.post(url, self.TASK_DATA, format='json')
@@ -159,8 +159,8 @@ class CMNodeTaskServiceTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.TASK_DATA,
                                       response.data)
-        self.assertEqual(response.data['status'], "FAILED", "Attempting to create"
-                         " a node twice should have failed")
+        self.assertEqual(response.data['status'], "FAILED", "Attempting to"
+                         " create a node twice should have failed")
 
         # delete the object
         url = reverse('nodetask-detail', args=[cloud_id, node_id, task_id])

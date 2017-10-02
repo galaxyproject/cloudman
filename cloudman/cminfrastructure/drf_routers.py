@@ -51,7 +51,8 @@ class HybridRoutingMixin(object):
             # The view name has to have suffix "-list" due to specifics
             # of the DefaultRouter implementation.
             ret.append(
-                url(regex, viewset.as_view(), name='{0}-list'.format(basename)))
+                url(regex, viewset.as_view(), name='{0}-list'.format(
+                    basename)))
 
         return ret
 
@@ -64,5 +65,6 @@ class HybridSimpleRouter(HybridRoutingMixin, routers.SimpleRouter):
     pass
 
 
-class HybridNestedRouter(HybridRoutingMixin, nested_routers.NestedSimpleRouter):
+class HybridNestedRouter(HybridRoutingMixin,
+                         nested_routers.NestedSimpleRouter):
     pass

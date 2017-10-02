@@ -6,3 +6,6 @@ gunicorn>=19.7.1
 python-consul>=0.7.0
 cloudbridge>=0.3.2
 celery>=4.0.2
+# for generation of pub/prv keys
+cryptography>=1.9
+pydevd>=1.0.0

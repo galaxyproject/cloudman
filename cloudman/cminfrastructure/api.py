@@ -81,7 +81,7 @@ class CMCloudNodeService(CMService):
         self.kvstore.put(f'infrastructure/clouds/{self.cloud.cloud_id}'
                          f'/instances/{node.id}', node.to_json())
         # Kick off instance creation
-        node.tasks.create("create_node")
+        node.tasks.create("create_node", instance_type)
         return node
 
     def delete(self, node_id):
