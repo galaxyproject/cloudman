@@ -223,36 +223,37 @@ def _get_cm(ud):
     if use_object_store and 'access_key' in ud and 'secret_key' in ud:
         if ud['access_key'] is not None and ud['secret_key'] is not None:
             s3_conn = _get_s3connection(ud)
+    cm_remote_filename = ud.get('cm_remote_filename', CM_REMOTE_FILENAME)
     # Test for existence of user's bucket and download appropriate CM instance
     if s3_conn:  # if not use_object_store, then s3_connection never gets attempted
         if 'bucket_cluster' in ud:
             # Try to retrieve user's instance of CM
-            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], cm_remote_filename):
                 log.info("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster'])
                 if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'],
-                                         CM_REMOTE_FILENAME, local_cm_file):
+                                         cm_remote_filename, local_cm_file):
                     # _write_cm_revision_to_file(s3_conn, ud['bucket_cluster'])
                     log.info("Restored Cloudman from bucket_cluster %s" %
                              (ud['bucket_cluster']))
                     return True
         # ELSE: Attempt to retrieve default instance of CM from local s3
-        if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
+        if _get_file_from_bucket(log, s3_conn, default_bucket_name, cm_remote_filename, local_cm_file):
             log.info("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (
-                CM_REMOTE_FILENAME, default_bucket_name))
+                cm_remote_filename, default_bucket_name))
             # _write_cm_revision_to_file(s3_conn, default_bucket_name)
             return True
     # ELSE try from local S3
     if 's3_url' in ud:
-        url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
+        url = os.path.join(ud['s3_url'], default_bucket_name, cm_remote_filename)
     elif 'cloudman_repository' in ud:
         url = ud.get('cloudman_repository')
     elif ('default_bucket_url' in ud):
-        url = os.path.join(ud['default_bucket_url'], CM_REMOTE_FILENAME)
+        url = os.path.join(ud['default_bucket_url'], cm_remote_filename)
     elif 'nectar' in ud.get('cloud_name', '').lower():
-        url = "https://{0}:{1}{2}{3}{4}/{5}".format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'v1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
+        url = "https://{0}:{1}{2}{3}{4}/{5}".format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'v1/AUTH_377/', default_bucket_name, cm_remote_filename)
     else:
         url = os.path.join(
-            AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
+            AMAZON_S3_URL, default_bucket_name, cm_remote_filename)
     log.info("Attempting to retrieve from from %s" % (url))
     return _run(log, "wget --output-document='%s' '%s'" % (local_cm_file, url))
 
@@ -261,10 +262,11 @@ def _write_cm_revision_to_file(s3_conn, bucket_name):
     """ Get the revision number associated with the CM_REMOTE_FILENAME and save
     it locally to CM_REV_FILENAME """
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
-        rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME,
+        cm_remote_filename = ud.get('cm_remote_filename', CM_REMOTE_FILENAME)
+        rev = _get_file_metadata(s3_conn, bucket_name, cm_remote_filename,
                                  'revision')
         log.debug("Revision of remote file '%s' from bucket '%s': %s" % (
-            CM_REMOTE_FILENAME, bucket_name, rev))
+            cm_remote_filename, bucket_name, rev))
         if rev:
             rev_file.write(rev)
         else:

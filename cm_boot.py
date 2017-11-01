@@ -12,6 +12,7 @@ import yaml
 import platform
 from boto.exception import BotoServerError, S3ResponseError
 from boto.s3.connection import OrdinaryCallingFormat, S3Connection, SubdomainCallingFormat
+import os
 import subprocess
 
 def _run(log, cmd):
@@ -266,25 +267,23 @@ def _start_nginx(ud):
         log.error('Could not find nginx.conf: {0}'.format(nginx_conf_file))
     nginx_executable = _nginx_executable(log)
     log.debug("Using '{0}' as the nginx executable".format(nginx_executable))
-    _, os_release, _ = platform.linux_distribution()
-    if not _is_running(log, 'nginx'):
-        log.debug("nginx not running; will try and start it now")
-        if '16.' in os_release:
+    (_, os_release, _) = platform.linux_distribution()
+    if (not _is_running(log, 'nginx')):
+        log.debug('nginx not running; will try and start it now')
+        if ('16.' in os_release):
             _run(log, 'systemctl start nginx')
-        else:
-            if not _run(log, nginx_executable):
-                _run(log, '/etc/init.d/apache2 stop')
-                _run(log, '/etc/init.d/tntnet stop')  # On Ubuntu 12.04, this server also starts?
-                _run(log, nginx_executable)
+        elif (not _run(log, nginx_executable)):
+            _run(log, '/etc/init.d/apache2 stop')
+            _run(log, '/etc/init.d/tntnet stop')
+            _run(log, nginx_executable)
     else:
-        # nginx already running, so reload
-        log.debug("nginx already running; reloading it")
-        if '16.' in os_release:
+        log.debug('nginx already running; reloading it')
+        if ('16.' in os_release):
             _run(log, 'systemctl reload nginx')
         else:
             _run(log, '{0} -s reload'.format(nginx_executable))
-    if rmdir or len(os.listdir(upload_store_dir)) == 0:
-        log.debug("Deleting tmp dir for nginx {0}".format(upload_store_dir))
+    if (rmdir or (len(os.listdir(upload_store_dir)) == 0)):
+        log.debug('Deleting tmp dir for nginx {0}'.format(upload_store_dir))
         _run(log, 'rm -rf {0}'.format(upload_store_dir))
 
 def _fix_nginx_upload(ud):
@@ -360,34 +359,36 @@ def _get_cm(ud):
     if (use_object_store and ('access_key' in ud) and ('secret_key' in ud)):
         if ((ud['access_key'] is not None) and (ud['secret_key'] is not None)):
             s3_conn = _get_s3connection(ud)
+    cm_remote_filename = ud.get('cm_remote_filename', CM_REMOTE_FILENAME)
     if s3_conn:
         if ('bucket_cluster' in ud):
-            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME):
+            if _key_exists_in_bucket(log, s3_conn, ud['bucket_cluster'], cm_remote_filename):
                 log.info(("CloudMan found in cluster bucket '%s'." % ud['bucket_cluster']))
-                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], CM_REMOTE_FILENAME, local_cm_file):
+                if _get_file_from_bucket(log, s3_conn, ud['bucket_cluster'], cm_remote_filename, local_cm_file):
                     log.info(('Restored Cloudman from bucket_cluster %s' % ud['bucket_cluster']))
                     return True
-        if _get_file_from_bucket(log, s3_conn, default_bucket_name, CM_REMOTE_FILENAME, local_cm_file):
-            log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (CM_REMOTE_FILENAME, default_bucket_name)))
+        if _get_file_from_bucket(log, s3_conn, default_bucket_name, cm_remote_filename, local_cm_file):
+            log.info(("Retrieved CloudMan (%s) from bucket '%s' via local s3 connection" % (cm_remote_filename, default_bucket_name)))
             return True
     if ('s3_url' in ud):
-        url = os.path.join(ud['s3_url'], default_bucket_name, CM_REMOTE_FILENAME)
+        url = os.path.join(ud['s3_url'], default_bucket_name, cm_remote_filename)
     elif ('cloudman_repository' in ud):
         url = ud.get('cloudman_repository')
     elif ('default_bucket_url' in ud):
-        url = os.path.join(ud['default_bucket_url'], CM_REMOTE_FILENAME)
+        url = os.path.join(ud['default_bucket_url'], cm_remote_filename)
     elif ('nectar' in ud.get('cloud_name', '').lower()):
-        url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'v1/AUTH_377/', default_bucket_name, CM_REMOTE_FILENAME)
+        url = 'https://{0}:{1}{2}{3}{4}/{5}'.format(ud['s3_host'], ud['s3_port'], ud['s3_conn_path'], 'v1/AUTH_377/', default_bucket_name, cm_remote_filename)
     else:
-        url = os.path.join(AMAZON_S3_URL, default_bucket_name, CM_REMOTE_FILENAME)
+        url = os.path.join(AMAZON_S3_URL, default_bucket_name, cm_remote_filename)
     log.info(('Attempting to retrieve from from %s' % url))
     return _run(log, ("wget --output-document='%s' '%s'" % (local_cm_file, url)))
 
 def _write_cm_revision_to_file(s3_conn, bucket_name):
     ' Get the revision number associated with the CM_REMOTE_FILENAME and save\n    it locally to CM_REV_FILENAME '
     with open(os.path.join(CM_HOME, CM_REV_FILENAME), 'w') as rev_file:
-        rev = _get_file_metadata(s3_conn, bucket_name, CM_REMOTE_FILENAME, 'revision')
-        log.debug(("Revision of remote file '%s' from bucket '%s': %s" % (CM_REMOTE_FILENAME, bucket_name, rev)))
+        cm_remote_filename = ud.get('cm_remote_filename', CM_REMOTE_FILENAME)
+        rev = _get_file_metadata(s3_conn, bucket_name, cm_remote_filename, 'revision')
+        log.debug(("Revision of remote file '%s' from bucket '%s': %s" % (cm_remote_filename, bucket_name, rev)))
         if rev:
             rev_file.write(rev)
         else:
