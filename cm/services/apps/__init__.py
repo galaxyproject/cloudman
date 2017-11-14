@@ -40,7 +40,7 @@ class ApplicationService(Service):
             alive_daemon_pid = None
             system_service = service
             # Galaxy deamon is named 'paster' so handle this special case
-            special_services = {"galaxy": "python", "galaxyreports": "python", "pulsar": "paster"}
+            special_services = {"galaxy": "python", "galaxyreports": "uwsgi", "pulsar": "paster"}
             system_service = special_services.get(service, service)  # Default back to just service
             alive_daemon_pid = commands.getoutput(
                 "ps -o comm,pid -p %s | grep %s | awk '{print $2}'" % (daemon_pid, system_service))
