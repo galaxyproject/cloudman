@@ -1,4 +1,14 @@
-### CloudMan - January, 2017.
+### CloudMan - May 2017.
+* On AWS, Galaxy 17.05 is available
+
+* An updated tool set, for the current list see 
+  [this file](https://github.com/galaxyproject/galaxy-cloudman-playbook/blob/master/files/usegalaxy_main_tool_list.yaml)
+
+* Slurm job manager configuration changes to improve job performance, 
+  including the ability to queue up to 200,000 jobs
+* Fixed remote logging via [Loggly](https://www.loggly.com/)
+
+### CloudMan - January 2017.
 * Two updates to the galaxyFS, including Galaxy 16.07 and 16.10, both available
   from https://launch.usegalaxy.org/. This includes a completely new install
   of all the available tools.

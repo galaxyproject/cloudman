@@ -1,11 +1,11 @@
 amqplib==1.0.2
 ansible==1.9.3
 astor==0.5
-boto>=2.29.1,<=2.34.0
+#boto>=2.29.1,<=2.34.0
+boto==2.45.0
 cm-api==8.0.0
 drmaa==0.7.6
 gitpython>=1.0.0
-hoover>=0.5.3
 Mako>=0.6.1
 MarkupSafe==0.23
 oca>=0.2.3
@@ -15,6 +15,7 @@ PasteScript==2.0.2
 pulsar-app==0.5.0
 PyYAML>=3.10
 requests>=0.13.1
+requests_futures==0.9.7
 Routes==2.2
 setproctitle>=1.1.8
 sh>=1.11

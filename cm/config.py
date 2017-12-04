@@ -1,9 +1,12 @@
 """Universe configuration builder."""
 import logging
 import logging.config
+import logging.handlers
 import os
 import sys
-import hoover
+import traceback
+
+from requests_futures.sessions import FuturesSession
 
 import cm.util.paths as paths
 
@@ -186,7 +189,7 @@ class Configuration(dict):
 
     @property
     def multiple_processes(self):
-        return self.get("configure_multiple_galaxy_processes", False)
+        return self.get("configure_multiple_galaxy_processes", True)
 
     @property
     def condor_enabled(self):
@@ -318,6 +321,38 @@ def configure_logging(config):
     # Add loggly handler
     loggly_token = config.get('cm_loggly_token', None)
     if loggly_token is not None:
-        loggly_handler = hoover.LogglyHttpHandler(token=loggly_token)
+        loggly_handler = HTTPSHandler(
+            url="https://logs-01.loggly.com/inputs/{0}/tag/python"
+            .format(loggly_token))
         loggly_handler.setFormatter(formatter)
         log.addHandler(loggly_handler)
+        # requests is chatty with our default log level so elevate its level
+        logging.getLogger('requests').setLevel(logging.INFO)
+
+session = FuturesSession()
+
+
+class HTTPSHandler(logging.Handler):
+    """A custom log handler for POSTing logs to an HTTPS server."""
+
+    def __init__(self, url, fqdn=False, localname=None, facility=None):
+        logging.Handler.__init__(self)
+        self.url = url
+        self.fqdn = fqdn
+        self.localname = localname
+        self.facility = facility
+
+    def get_full_message(self, record):
+        if record.exc_info:
+            return '\n'.join(traceback.format_exception(*record.exc_info))
+        else:
+            return record.getMessage()
+
+    def emit(self, record):
+        try:
+            payload = self.format(record)
+            session.post(self.url, data=payload)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)

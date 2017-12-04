@@ -7,6 +7,8 @@ from ConfigParser import SafeConfigParser
 from pwd import getpwnam
 from grp import getgrnam
 
+from xml.dom.minidom import parse
+
 from .misc import run
 
 import logging
@@ -31,7 +33,7 @@ def attempt_chown_galaxy(path, recursive=False):
     """
     if os.access(path, os.W_OK):  # don't attempt on read-only paths
         try:
-            log.debug("Attemping to chown to galaxy for {0}".format(path))
+            log.debug("Attempting to chown to galaxy for {0}".format(path))
             galaxy_uid = getpwnam("galaxy")[2]
             galaxy_gid = getgrnam("galaxy")[2]
             chown(path, galaxy_uid, galaxy_gid)
@@ -57,9 +59,9 @@ def populate_admin_users(option_manager, admins_list=[]):
      - user2@anotherexample.edu
     """
     admins_list = admins_list or option_manager.app.config.galaxy_admin_users
-    log.info('Setting Galaxy admin users to: %s' % admins_list)
     if len(admins_list) == 0:
         return False
+    log.info('Setting Galaxy admin users to: %s' % admins_list)
     option_manager.set_properties({"admin_users": ",".join(admins_list)})
 
 
@@ -82,12 +84,15 @@ def populate_dynamic_options(option_manager):
 # to configure Galaxy's options.
 def populate_process_options(option_manager):
     """
+    Configure Galaxy's options.
+
     Use `option_manager` to populate process (handler, manager, web) sections
-    for Galaxy.
+    for Galaxy. Also adjust job_conf.xml to account for process setup.
     """
+    log.debug("Populating Galaxy process options")
     app = option_manager.app
     web_thread_count = int(app.config.web_thread_count)
-    handler_thread_count = int(app.config.get("handler_thread_count", 1))
+    handler_thread_count = int(app.config.get("handler_thread_count", 3))
     # Setup web threads
     [__add_server_process(option_manager, i, "web", 8080)
      for i in range(web_thread_count)]
@@ -99,6 +104,7 @@ def populate_process_options(option_manager):
     process_properties = {"job_manager": "manager0",
                           "job_handlers": ",".join(handlers)}
     option_manager.set_properties(process_properties)
+    _update_job_conf(app, handler_thread_count)
 
 
 def __add_server_process(option_manager, index, prefix, initial_port):
@@ -107,6 +113,7 @@ def __add_server_process(option_manager, index, prefix, initial_port):
     threads = app.config.get("threadpool_workers", "7")
     server_options = {"use": "egg:Paste#http",
                       "port": port,
+                      "host": "127.0.0.1",
                       "use_threadpool": True,
                       "threadpool_workers": threads
                       }
@@ -119,6 +126,37 @@ def __add_server_process(option_manager, index, prefix, initial_port):
                                   section="server:%s" % server_name,
                                   description="server_%s" % server_name)
     return server_name
+
+
+def _update_job_conf(app, num_handlers, plugin_id='slurm'):
+    """
+    Update Galaxy job_conf.xml.
+
+    At the moment, only job handlers are set. Number of handlers are added that
+    correspond to ``num_handlers``.
+    """
+    galaxy_config_dir = app.path_resolver.galaxy_config_dir
+    job_conf_file_path = join(galaxy_config_dir, 'job_conf.xml')
+    log.debug("Updating Galaxy's job conf file {0}".format(job_conf_file_path))
+
+    jc = parse(job_conf_file_path)
+    handlers_el = jc.getElementsByTagName('handlers')[0]
+    doc_root = jc.documentElement
+
+    hs_el = jc.createElement('handlers')
+    hs_el.setAttribute('default', 'handlers')
+    for i in range(num_handlers):
+        h_el = jc.createElement('handler')
+        h_el.setAttribute('id', 'handler%d' % i)
+        h_el.setAttribute('tags', 'handlers')
+        hs_el.appendChild(h_el)
+        p_el = jc.createElement('plugin')
+        p_el.setAttribute('id', plugin_id)
+        h_el.appendChild(p_el)
+    doc_root.replaceChild(hs_el, handlers_el)
+
+    with open(job_conf_file_path, 'w') as f:
+        jc.writexml(f)
 
 
 # Abstraction for interacting with Galaxy's options
@@ -141,8 +179,6 @@ def populate_galaxy_paths(option_manager):
     path_resolver = option_manager.app.path_resolver
     properties["database_connection"] = "postgres://galaxy@localhost:{0}/galaxy"\
         .format(path_resolver.psql_db_port)
-    properties["use_pbkdf2"] = "False"  # Required for FTP
-    # properties["len_file_path"] = join(path_resolver.galaxy_home, "tool-data", "len")
     properties["tool_dependency_dir"] = join(path_resolver.galaxy_tools, "tools")
     properties["file_path"] = join(path_resolver.galaxy_data, "files")
     temp_dir = '/mnt/galaxy/tmp'
@@ -155,8 +191,9 @@ def populate_galaxy_paths(option_manager):
     # but a relation to the required files is necessary so here it is.
     # properties['tool_config_file'] = "tool_conf.xml,shed_tool_conf.xml"
     tool_config_files = []
-    for tcf in ['tool_conf.xml', 'shed_tool_conf.xml']:
-        tool_config_files.append(join(path_resolver.galaxy_config_dir, tcf))
+    for tcf in ['tool_conf.xml', 'shed_tool_conf.xml', 'shed_tool_conf_cloud.xml']:
+        if exists(join(path_resolver.galaxy_config_dir, tcf)):
+            tool_config_files.append(join(path_resolver.galaxy_config_dir, tcf))
     properties['tool_config_file'] = ','.join(tool_config_files)
     properties["job_working_directory"] = join(temp_dir, "job_working_directory")
     properties["cluster_files_directory"] = join(temp_dir, "pbs")
@@ -164,7 +201,7 @@ def populate_galaxy_paths(option_manager):
     properties["library_import_dir"] = join(temp_dir, "library_import_dir")
     properties["nginx_upload_store"] = join(path_resolver.galaxy_data, "upload_store")
     properties['ftp_upload_site'] = option_manager.app.cloud_interface.get_public_ip()
-    # Allow user data options to override these, spefically database.
+    # Allow user data options to override these, specifically the database.
     priority_offset = -1
     option_manager.set_properties(properties, description="paths", priority_offset=priority_offset)
 
@@ -190,7 +227,8 @@ class FileGalaxyOptionManager(object):
         """
         galaxy_config_dir = self.app.path_resolver.galaxy_config_dir
         config_file_path = join(galaxy_config_dir, OPTIONS_FILE_NAME)
-        log.debug("Rewriting Galaxy's main config file: {0}".format(config_file_path))
+        log.debug("Rewriting Galaxy's main config file {0} with properties {1}"
+                  .format(config_file_path, properties))
         input_config_file_path = config_file_path
         if not exists(input_config_file_path):
             input_config_file_path = "%s.sample" % config_file_path

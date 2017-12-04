@@ -1,6 +1,8 @@
         # This file is maintained by CloudMan.
         # Changes will be overwritten!
 
+        add_header Access-Control-Allow-Origin *;
+
         location / {
             proxy_pass  http://galaxy_app;
             proxy_set_header   X-Forwarded-Host $$host;
@@ -27,14 +29,14 @@
         }
 
         # Global GIE configuration
-        location /galaxy/gie_proxy {
-            proxy_pass http://localhost:8800/galaxy/gie_proxy;
+        location /gie_proxy {
+            proxy_pass http://localhost:8800/gie_proxy;
             proxy_redirect off;
         }
 
         # Project Jupyter / IPython specific. Other IEs may require their own routes.
-        location ~ ^/galaxy/gie_proxy/jupyter/(?<nbtype>[^/]+)/api/kernels(?<rest>.*?)$$ {
-            proxy_pass http://localhost:8800/galaxy/gie_proxy/$$nbtype/api/kernels$$rest;
+        location ~ ^/gie_proxy/jupyter/(?<nbtype>[^/]+)/api/kernels(?<rest>.*?)$$ {
+            proxy_pass http://localhost:8800/gie_proxy/jupyter/$$nbtype/api/kernels$$rest;
             proxy_redirect off;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $$http_upgrade;
