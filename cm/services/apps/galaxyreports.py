@@ -10,8 +10,10 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util.galaxy_conf import DirectoryGalaxyOptionManager
+from cm.util.galaxy_conf import attempt_chown_galaxy
 
 import logging
+from cm.conftemplates import conf_manager
 log = logging.getLogger('cloudman')
 DEFAULT_REPORTS_PORT = 9001
 
@@ -29,6 +31,8 @@ class GalaxyReportsService(ApplicationService):
             ServiceDependency(self, ServiceRole.GALAXY),
             ServiceDependency(self, ServiceRole.GALAXY_POSTGRES)
         ]
+        self.conf_file = os.path.join(self.app.path_resolver.galaxy_home,
+                                      'config/reports.yml')
 
     def __repr__(self):
         return "Galaxy Reports service on port {0}".format(DEFAULT_REPORTS_PORT)
@@ -61,6 +65,14 @@ class GalaxyReportsService(ApplicationService):
         misc.make_dir(file_path, owner='galaxy')
         tmp_file_path = os.path.join(self.app.path_resolver.galaxy_home, "database/tmp")
         misc.make_dir(tmp_file_path, owner='galaxy')
+
+        # Create the new reports config
+        params = {
+            'galaxy_db_port': self.app.path_resolver.psql_db_port
+        }
+        template = conf_manager.load_conf_template(conf_manager.GALAXY_REPORTS_TEMPLATE)
+        misc.write_template_file(template, params, self.conf_file)
+        attempt_chown_galaxy(self.conf_file)
 
     def remove(self, synchronous=False):
         """
