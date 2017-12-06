@@ -10,8 +10,10 @@ from cm.services import service_states
 from cm.services import ServiceRole
 from cm.services import ServiceDependency
 from cm.util.galaxy_conf import DirectoryGalaxyOptionManager
+from cm.util.galaxy_conf import attempt_chown_galaxy
 
 import logging
+from cm.conftemplates import conf_manager
 log = logging.getLogger('cloudman')
 DEFAULT_REPORTS_PORT = 9001
 
@@ -29,7 +31,8 @@ class GalaxyReportsService(ApplicationService):
             ServiceDependency(self, ServiceRole.GALAXY),
             ServiceDependency(self, ServiceRole.GALAXY_POSTGRES)
         ]
-        self.conf_dir = os.path.join(self.app.path_resolver.galaxy_home, 'reports.conf.d')
+        self.conf_file = os.path.join(self.app.path_resolver.galaxy_home,
+                                      'config/reports.yml')
 
     def __repr__(self):
         return "Galaxy Reports service on port {0}".format(DEFAULT_REPORTS_PORT)
@@ -43,47 +46,33 @@ class GalaxyReportsService(ApplicationService):
         self.status()
         if not self.state == service_states.RUNNING:
             self._setup()
-            started = self._run("start")
+            started = self._run("--daemon")
             if not started:
                 log.warn("Failed to setup or run galaxy reports server.")
                 self.state = service_states.ERROR
 
     def _setup(self):
         log.debug("Running GalaxyReportsService _setup")
-        reports_option_manager = DirectoryGalaxyOptionManager(self.app,
-                                                              conf_dir=self.conf_dir,
-                                                              conf_file_name='reports.ini')
-        reports_option_manager.setup()
-        file_path = os.path.join(self.app.path_resolver.galaxy_data, "files")
+        # WORKAROUND: The run_reports.sh command refers to a parameter
+        # named --safe-pidfile which is not supported by the uwsgi binary.
+        # Replace it with --pidfile instead.
+        patch_start_command = ("sudo sed -i \"s/--safe-pidfile/--pidfile/g"
+                               "\" %s/scripts/common_startup_functions.sh"
+                               % self.galaxy_home)
+        misc.run(patch_start_command)
+        # Create default output dir for files
+        file_path = os.path.join(self.app.path_resolver.galaxy_home, "database/files")
         misc.make_dir(file_path, owner='galaxy')
-        new_file_path = os.path.join(self.app.path_resolver.galaxy_data, "tmp")
-        main_props = {
-            'database_connection': "postgres://galaxy@localhost:{0}/galaxy"
-                                   .format(self.app.path_resolver.psql_db_port),
-            'filter-with': 'proxy-prefix',
-            'file_path': file_path,
-            'new_file_path': new_file_path,
-            'paste.app_factory': 'galaxy.webapps.reports.buildapp:app_factory',
-            'use_new_layout': 'true'
+        tmp_file_path = os.path.join(self.app.path_resolver.galaxy_home, "database/tmp")
+        misc.make_dir(tmp_file_path, owner='galaxy')
+
+        # Create the new reports config
+        params = {
+            'galaxy_db_port': self.app.path_resolver.psql_db_port
         }
-        proxy_props = {
-            'use': 'egg:PasteDeploy#prefix',
-            'prefix': '/reports',
-        }
-        server_props = {
-            'use': "egg:Paste#http",
-            'port': 9001,
-            'host': '127.0.0.1',
-            'use_threadpool': 'true',
-            'threadpool_workers': 10
-        }
-        reports_option_manager.set_properties(server_props, section='server:main',
-                                              description='server_main_props')
-        reports_option_manager.set_properties(main_props, section='app:main',
-                                              description='app_main_props')
-        reports_option_manager.set_properties(proxy_props,
-                                              section='filter:proxy-prefix',
-                                              description='proxy_prefix_props')
+        template = conf_manager.load_conf_template(conf_manager.GALAXY_REPORTS_TEMPLATE)
+        misc.write_template_file(template, params, self.conf_file)
+        attempt_chown_galaxy(self.conf_file)
 
     def remove(self, synchronous=False):
         """
@@ -100,7 +89,7 @@ class GalaxyReportsService(ApplicationService):
             if not self._running():
                 log.debug("Galaxy Reports is already not running.")
                 self.state = service_states.SHUT_DOWN
-            elif self._run("stop"):
+            elif self._run("--stop-daemon"):
                 self.state = service_states.SHUT_DOWN
                 # Move all log files
                 subprocess.call("bash -c 'for f in $GALAXY_HOME/reports_webapp.log; do mv \"$f\" \"$f.%s\"; done'" %
@@ -115,8 +104,8 @@ class GalaxyReportsService(ApplicationService):
                       .format(self.name, self.state))
 
     def _run(self, args):
-        command = '%s - galaxy -c "export GALAXY_REPORTS_CONFIG_DIR=\'%s\'; sh $GALAXY_HOME/run_reports.sh %s"' % (
-            paths.P_SU, self.conf_dir, args)
+        command = '%s - galaxy -c "sh $GALAXY_HOME/run_reports.sh %s"' % (
+            paths.P_SU, args)
         return misc.run(command)
 
     def _running(self):

@@ -225,7 +225,10 @@ class NginxService(ApplicationService):
                 reports_conf_file = os.path.join(self.conf_dir, 'sites-enabled', 'reports.locations')
                 if reports_svc:
                     reports_tmplt = conf_manager.NGINX_GALAXY_REPORTS
-                    params = {'reports_port': reports_svc.reports_port}
+                    params = {
+                        'galaxy_home': paths.P_GALAXY_HOME,
+                        'reports_port': reports_svc.reports_port
+                    }
                     self._write_template_file(reports_tmplt, params, reports_conf_file)
                 else:
                     misc.delete_file(reports_conf_file)

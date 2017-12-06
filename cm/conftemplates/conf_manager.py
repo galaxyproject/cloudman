@@ -29,22 +29,27 @@ SLURM_CONF_TEMPLATE = "slurm.conf"
 
 SUPERVISOR_TEMPLATE = "supervisord.conf"
 
+GALAXY_REPORTS_TEMPLATE = "reports.yml"
+
 
 def find_conf_template(conf_file_name):
     """
-    Checks whether an overridden template exists, or falls back to the default template if not
+    Checks whether an overridden template exists, or falls back to the default
+    template if not
     """
     filepath = os.path.join(CONF_TEMPLATE_OVERRIDE_PATH, conf_file_name)
     if not os.path.exists(filepath):
-        return os.path.join(CONF_TEMPLATE_DEFAULT_PATH, conf_file_name + ".default")
+        return os.path.join(CONF_TEMPLATE_DEFAULT_PATH,
+                            conf_file_name + ".default")
     else:
         return filepath
 
+
 def load_conf_template(conf_file_name):
     """Loads and returns the given text file as a string Template.
-    The file will be loaded from CONF_TEMPLATE_OVERRIDE_PATH first, but if it does
-    not exist, it will append the .default extension and load that file from
-    the CONF_TEMPLATE_DEFAULT_PATH instead.
+    The file will be loaded from CONF_TEMPLATE_OVERRIDE_PATH first, but if it
+    does not exist, it will append the .default extension and load that file
+    from the CONF_TEMPLATE_DEFAULT_PATH instead.
 
     Positional arguments:
     conf_file_name -- The name of the conf template

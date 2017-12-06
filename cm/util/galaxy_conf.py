@@ -156,7 +156,7 @@ def _update_job_conf(app, num_handlers, plugin_id='slurm'):
     doc_root.replaceChild(hs_el, handlers_el)
 
     with open(job_conf_file_path, 'w') as f:
-        jc.writexml(f)
+        f.write(jc.toprettyxml())
 
 
 # Abstraction for interacting with Galaxy's options
