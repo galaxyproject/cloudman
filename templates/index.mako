@@ -30,7 +30,7 @@ vertical-align: top;
                 <a class="middle-button action-button" original-title="Remove worker nodes..." id="scale_down_button">Remove worker nodes <img src="/cloud/static/images/downarrow.png"></a>
             </li>
             <li style='display:inline;width:150px;'>
-                <a id='dns' href='' original-title="Access Galaxy" class="action-button right-button">Access Galaxy</a>
+                <a id='dns' href='' original-title="Access Dashboard" class="action-button right-button">Access Dashboard</a>
             </li>
         </ul>
 

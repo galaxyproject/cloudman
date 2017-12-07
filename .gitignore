@@ -19,3 +19,4 @@ persistent_data.yaml
 cm.tar.gz
 update_cm.sh
 upload_cm_to_S3.py
+/venv/

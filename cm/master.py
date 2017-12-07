@@ -457,7 +457,7 @@ class ConsoleManager(BaseConsoleManager):
                                misc.get_hostname(),
                                'master'])
         # Set the default hostname
-        misc.set_hostname(self.app.cloud_interface.get_local_hostname())
+        # misc.set_hostname(self.app.cloud_interface.get_local_hostname())
         log.info("Completed the initial cluster startup process. {0}".format(
             cc_detail))
         return True
