@@ -65,10 +65,10 @@ try:
     # Get only the first 3 chars of the version since that's all that's used
     # for dir name
     pg_ver = load = (commands.getoutput(
-        "dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
+        "locate bin/postgres | xargs -i xargs '{}' -V  | awk '{print $NF}'")).strip()[:3]
     P_PG_HOME = "/usr/lib/postgresql/{0}/bin".format(pg_ver)
 except Exception, e:
-    P_PG_HOME = "/usr/lib/postgresql/9.3/bin"
+    P_PG_HOME = "/usr/lib/postgresql/9.5/bin"
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_HOME to '{1}'"\
         .format(e, P_PG_HOME)
 
@@ -76,10 +76,10 @@ try:
     # Get only the first 3 chars of the version since that's all that's used
     # for dir name
     pg_ver = load = (commands.getoutput(
-        "dpkg -s postgresql | grep Version | cut -f2 -d':'")).strip()[:3]
+        "locate bin/postgres | xargs -i xargs '{}' -V  | awk '{print $NF}'")).strip()[:3]
     P_PG_CONF = "/etc/postgresql/{0}/main/postgresql.conf".format(pg_ver)
 except Exception, e:
-    P_PG_CONF = "/etc/postgresql/9.3/main/postgresql.conf"
+    P_PG_CONF = "/etc/postgresql/9.5/main/postgresql.conf"
     print "[paths.py] Exception setting PostgreSQL path: {0}\nSet paths.P_PG_CONF to '{1}'"\
         .format(e, P_PG_CONF)
 
