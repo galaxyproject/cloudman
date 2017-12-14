@@ -398,6 +398,13 @@ class Volume(BlockStorage):
         """
         Get a list of system devices as an iterable list of strings.
         """
+        if self.app.config.cloud_type == 'ec2':
+            # c5/m5 on AWS mounts EBS volumes as NVMe:
+            # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html
+            # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+            for itype in ['c5', 'm5']:
+                if itype in self.app.cloud_interface.get_type():
+                    return frozenset(glob('/dev/nvme[0-26]n1'))
         return frozenset(glob('/dev/*d[a-z]'))
 
     def _increment_device_id(self, device_id):
@@ -436,24 +443,37 @@ class Volume(BlockStorage):
         """
         Returns a list of possible devices to attempt to attempt to attach to.
 
-        If using virtio, then the devices get attached as ``/dev/vd?``.
-        Newer Ubuntu kernels might get devices attached as ``/dev/xvd?``.
-        Otherwise, it'll probably get attached as ``/dev/sd?``
-        If either ``/dev/vd?`` or ``/dev/xvd?`` devices exist, then we know to
-        use the next of those. Otherwise, test ``/dev/sd?``, ``/dev/xvd?``, then ``/dev/vd?``.
+        If using virtio, then the devices get attached as ``/dev/vd?``. Newer
+        Ubuntu kernels might get devices attached as ``/dev/xvd?`` or
+        ``/dev/nvme[0-9]n1``. Otherwise, it'll probably get attached as
+        ``/dev/sd?`` If either ``/dev/nvme[0-26]n1``, ``/dev/vd?``, or
+        ``/dev/xvd?`` devices exist, then we know to use the next of those.
+        Otherwise, test ``/dev/sd?``, ``/dev/xvd?``, then ``/dev/vd?``.
 
-        **This is so totally not thread-safe.** If other devices get attached externally,
-        the device id may already be in use when we get there.
+        **This is so totally not thread-safe.** If other devices get attached
+        externally, the device id may already be in use when we get there.
         """
         if not devices:
             devices = self._get_device_list()
         device_map = map(lambda x: (x.split(
             '/')[-1], x), devices)  # create a dict of id:/dev/id from devices
-        # in order, we want vd?, xvd?, or sd?
+        # In order, we want: nmve, vd?, xvd?, or sd?
+        nvme = sorted((d[1] for d in device_map if d[0][0:4] == 'nvme'))
         vds = sorted((d[1] for d in device_map if d[0][0] == 'v'))
         xvds = sorted((d[1] for d in device_map if d[0][0:2] == 'xv'))
         sds = sorted((d[1] for d in device_map if d[0][0] == 's'))
-        if vds:
+        if nvme:
+            # So far, this option applies to AWS only:
+            # At the API call, an EBS volume get needs to specify a device name
+            # as '/dev/sd[f-p] but Ubuntu will register it as /dev/nvme* so
+            # based on the number of already available nvme devices, figure
+            # out the next API device ID. The process accounts for less than
+            # six additional volumes being attached...
+            potential_device_ids = ['f', 'g', 'h', 'i', 'j', 'k']
+            lnd = '/dev/sd%s' % potential_device_ids[len(nvme) - 1]
+            log.debug("Likely next attach device: %s" % lnd)
+            return (lnd,)
+        elif vds:
             return (self._increment_device_id(vds[-1]),)
         elif xvds:
             return (self._increment_device_id(xvds[-1]),)
