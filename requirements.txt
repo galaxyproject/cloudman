@@ -1,11 +1,11 @@
-celery>=4.0.2
-Django>=1.11.2
-djangorestframework>=3.6.3
+celery>=4.1.0
+Django>=2.0.0
+djangorestframework>=3.7.7
 drf-nested-routers>=0.90.0
 gunicorn>=19.7.1
 python-consul>=0.7.0
-cloudbridge>=0.3.2
-celery>=4.0.2
+cloudbridge>=0.3.3
 # for generation of pub/prv keys
 cryptography>=1.9
+# for eclipse debugging
 pydevd>=1.0.0
