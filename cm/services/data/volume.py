@@ -202,19 +202,26 @@ class Volume(BlockStorage):
                 self.device = attach_device
             elif attach_device:
                 # Attach device is different than the system device so figure it out
-                log.debug("Volume {0} (attached as {1}) is visible a different "
+                log.debug("Volume {0} (attached as {1}) is visible as a different "
                           "device? Checking now...".format(vol.id, attach_device))
                 try:
                     device_id = attach_device[-1]  # Letter-only based device IDs (e.g., /dev/xvdc)
                     if (str(device_id).isdigit()):
                         device_id = attach_device[-2:]  # Number-based device IDs (e.g., /dev/sdg1)
                     attach_device = '/dev/xvd' + device_id
-                    log.debug("Trying visible device {0}...".format(attach_device))
+                    # Reconsider attach_device for certain AWS instance types
+                    for itype in ['c5', 'm5']:
+                        if itype in self.app.cloud_interface.get_type():
+                            dev_letters = {'f': 1, 'g': 2, 'h': 3, 'i': 4}
+                            attach_device = '/dev/nvme{0}n1'.format(dev_letters[device_id])
                 except Exception, e:
                     log.error("Attach device's ID ({0}) too short? {1}".format(
                         attach_device, e))
+                log.debug("Checking if device {0} is visible...".format(attach_device))
                 if run('ls {0}'.format(attach_device), quiet=True):
                     self.device = attach_device
+                    log.debug("Volume {0} is available as device {1}.".format(
+                              vol.id, self.device))
                 else:
                     log.error("Problems discovering volume {0} attach device {1} vs. system device ?"
                               .format(vol.id, attach_device))
@@ -464,11 +471,11 @@ class Volume(BlockStorage):
         sds = sorted((d[1] for d in device_map if d[0][0] == 's'))
         if nvme:
             # So far, this option applies to AWS only:
-            # At the API call, an EBS volume get needs to specify a device name
+            # At the API call, an EBS volume needs to specify a device name
             # as '/dev/sd[f-p] but Ubuntu will register it as /dev/nvme* so
             # based on the number of already available nvme devices, figure
             # out the next API device ID. The process accounts for less than
-            # six additional volumes being attached...
+            # six additional volumes being attached.
             potential_device_ids = ['f', 'g', 'h', 'i', 'j', 'k']
             lnd = '/dev/sd%s' % potential_device_ids[len(nvme) - 1]
             log.debug("Likely next attach device: %s" % lnd)
