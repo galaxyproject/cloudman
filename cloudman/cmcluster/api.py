@@ -37,4 +37,3 @@ class CMClusterService(CMService):
 
     def delete(self, cluster_id):
         return models.CMCluster.objects.delete(cluster_id)
-
