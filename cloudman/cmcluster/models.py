@@ -2,6 +2,7 @@ from django.db import models
 from django.db import transaction
 
 from cloudlaunch import models as cl_models
+from azure.mgmt.resource.resources.v2016_02_01.models import deployment
 
 
 class CMCluster(models.Model):
@@ -46,9 +47,13 @@ class CMClusterNodeContainer(object):
         return CMClusterNode.objects.get(id=node_id)
 
     @transaction.atomic
-    def create(self, name, deployment_template):
-        deployment = cl_models.ApplicationDeployment.create(**deployment_template)
-        return CMCluster.objects.create(
+    def create(self, name, instance_type):
+        print(instance_type)
+        token = get_or_create_token(user_id)
+        client = APIClient(request.host, request.port, token=token)
+        deployment = client.Deployment.create()
+        cl_models.ApplicationDeployment.objects.create(**instance_type)
+        return CMClusterNode.objects.create(
             name=name, cluster=self.cluster, deployment=deployment)
 
     def delete(self, node_id):

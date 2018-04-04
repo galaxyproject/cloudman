@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 
 import manage
 import os
+import cloudlaunchserver
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +31,6 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -38,10 +38,30 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
+    'django.contrib.sites',
+    'nested_admin',
+    'smart_selects',
+    'corsheaders',
+    'rest_framework.authtoken',
+    'rest_auth',
+    'allauth',
+    'allauth.account',
+    'rest_auth.registration',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.github',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.twitter',
     'djcloudbridge',
+    'public_appliances',
     'cloudlaunch',
-    'cmcluster',
+    # rest framework must come after cloudlaunch so templates can be overridden
+    'rest_framework',
+    'django_celery_results',
+    'django_celery_beat',
+    'django_countries',
+    'django_filters',
+    'cmcluster'
 ]
 
 MIDDLEWARE = [
