@@ -10,4 +10,4 @@ cryptography>=1.9
 pydevd>=1.0.0
 git+git://github.com/gvlproject/cloudbridge#egg=cloudbridge
 git+git://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
-cloudlaunch-server
+cloudlaunch-server>=0.1.1
