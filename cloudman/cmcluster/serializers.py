@@ -4,6 +4,7 @@ from rest_framework import serializers
 from cloudlaunch import serializers as cl_serializers
 from .drf_helpers import CustomHyperlinkedIdentityField
 from cmcluster.api import CloudManAPI
+from rest_framework.exceptions import ValidationError
 
 
 class CMClusterSerializer(serializers.Serializer):
@@ -16,7 +17,7 @@ class CMClusterSerializer(serializers.Serializer):
                                            lookup_url_kwarg='cluster_pk')
 
     def create(self, valid_data):
-        return CloudManAPI().clusters.create(
+        return CloudManAPI(self.context['request']).clusters.create(
             valid_data.get('name'), valid_data.get('cluster_type'),
             valid_data.get('connection_settings'))
 
@@ -30,6 +31,9 @@ class CMClusterNodeSerializer(serializers.Serializer):
 
     def create(self, valid_data):
         cluster_id = self.context['view'].kwargs.get("cluster_pk")
-        cluster = CloudManAPI().clusters.get(cluster_id)
+        cluster = CloudManAPI(self.context['request']).clusters.get(cluster_id)
+        if not cluster:
+            raise ValidationError("Specified cluster id: %s does not exist"
+                                  % cluster_id)
         return cluster.nodes.create(
             valid_data.get('name'), valid_data.get('instance_type'))

@@ -16,12 +16,11 @@ Including another URLconf
 """
 from django.conf.urls import include
 from django.conf.urls import url
-from django.contrib import admin
 
 
 urlpatterns = [
-    url(r'^api/v1/', include('cmcluster.urls')),
-    url(r'^admin/', admin.site.urls),
+    url(r'^cloudman/api/v1/', include('cmcluster.urls')),
+    url(r'^cloudlaunch/', include('cloudlaunchserver.urls')),
 ]
 
 # Uncomment to have Gunicorn serve static content (dev only)

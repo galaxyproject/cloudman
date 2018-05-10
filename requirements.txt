@@ -11,3 +11,4 @@ pydevd>=1.0.0
 git+git://github.com/gvlproject/cloudbridge#egg=cloudbridge
 git+git://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
 cloudlaunch-server>=0.1.1
+git+git://github.com/CloudVE/cloudlaunch-cli
