@@ -15,7 +15,9 @@ class CMCloudServiceTests(APITestCase):
     # TODO: Add test for updating objects
     CLUSTER_DATA = {'name': 'testcluster1',
                     'cluster_type': 'KUBE_RANCHER',
-                    'connection_settings': {'target_cloud': 'amazon-us-east-n-virginia'}
+                    'connection_settings': {
+                        'target_cloud': 'amazon-us-east-n-virginia'
+                        }
                     }
 
     def setUp(self):
@@ -57,7 +59,9 @@ class CMClusterNodeServiceTests(APILiveServerTestCase):
 
     CLUSTER_DATA = {'name': 'testcluster2',
                     'cluster_type': 'KUBE_RANCHER',
-                    'connection_settings': {'target_cloud': 'amazon-us-east-n-virginia'}
+                    'connection_settings': {
+                        'target_cloud': 'amazon-us-east-n-virginia'
+                        }
                     }
 
     NODE_DATA = {'name': 'testvm1',

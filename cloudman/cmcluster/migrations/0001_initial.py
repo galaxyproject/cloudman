@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('updated', models.DateTimeField(auto_now=True)),
                 ('name', models.CharField(max_length=60)),
                 ('cluster_type', models.CharField(max_length=255)),
-                ('connection_settings', models.TextField(blank=True, help_text='External provider specific settings for this cluster.', max_length=16384, null=True)),
+                ('_connection_settings', models.TextField(blank=True, db_column='connection_settings', help_text='External provider specific settings for this cluster.', max_length=16384, null=True)),
             ],
         ),
         migrations.CreateModel(

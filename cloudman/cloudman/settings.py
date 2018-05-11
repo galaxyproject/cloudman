@@ -4,7 +4,7 @@ Django settings for cloudman project.
 from cloudlaunchserver.settings import *
 
 
-DEBUG=True
+DEBUG = True
 
 # Application definition
 INSTALLED_APPS += [
