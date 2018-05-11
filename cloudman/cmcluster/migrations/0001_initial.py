@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=60)),
-                ('cluster', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='nodes', to='cmcluster.CMCluster')),
+                ('cluster', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='node_list', to='cmcluster.CMCluster')),
                 ('deployment', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='cm_cluster_node', to='cloudlaunch.ApplicationDeployment')),
             ],
         ),

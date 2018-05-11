@@ -1,6 +1,7 @@
 from django.db import models
 
 from cloudlaunch import models as cl_models
+import json
 
 
 class CMCluster(models.Model):
@@ -11,9 +12,23 @@ class CMCluster(models.Model):
     updated = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=60)
     cluster_type = models.CharField(max_length=255, blank=False, null=False)
-    connection_settings = models.TextField(
+    _connection_settings = models.TextField(
         max_length=1024 * 16, help_text="External provider specific settings "
-        "for this cluster.", blank=True, null=True)
+        "for this cluster.", blank=True, null=True,
+        db_column='connection_settings')
+
+    @property
+    def connection_settings(self):
+        return json.loads(self._connection_settings)
+
+    @connection_settings.setter
+    def connection_settings(self, value):
+        """
+        Save the connection_settings value.
+
+        .. seealso:: connection_settings property getter
+        """
+        self._connection_settings = json.dumps(value)
 
 
 class CMClusterNode(models.Model):

@@ -1,12 +1,10 @@
 """CloudMan Service API."""
 import abc
-import json
-
-from django.db import transaction
 
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
 from . import models
+from rest_framework.exceptions import ValidationError
 
 
 class CMServiceContext(object):
@@ -110,11 +108,7 @@ class CMClusterTemplate(object):
 
     @property
     def connection_settings(self):
-        value = self.cluster.connection_settings
-        if value:
-            return json.loads(value)
-        else:
-            return {}
+        return self.cluster.connection_settings
 
     @abc.abstractmethod
     def add_node(self, name, size):
@@ -149,9 +143,9 @@ class CMRancherTemplate(CMClusterTemplate):
     def add_node(self, name, size):
         params = {
             'name': name,
-            'application': 'kube_rancher_cloud',
+            'application': 'cl_test_app',
             'target_cloud': self.connection_settings.get('target_cloud'),
-            'application_version': '0.1.0',
+            'application_version': '16.04',
             'config_app': {
                 'config_cloudlaunch': {
                     'vmType': size,
@@ -173,7 +167,10 @@ class CMRancherTemplate(CMClusterTemplate):
                 }
             }
         }
-        return self.context.cloudlaunch_client.deployments.create(**params)
+        try:
+            return self.context.cloudlaunch_client.deployments.create(**params)
+        except Exception as e:
+            raise ValidationError(str(e))
 
     def remove_node(self, node):
         return self.context.cloudlaunch_client.deployments.delete(
@@ -200,7 +197,9 @@ class CMClusterNodeService(CMService):
 
     def create(self, name, instance_type):
         template = self.cluster.service.get_cluster_template(self.cluster)
-        deployment = template.add_node(name, instance_type)
+        cli_deployment = template.add_node(name, instance_type)
+        deployment = cl_models.ApplicationDeployment.objects.get(
+            pk=cli_deployment.id)
         return models.CMClusterNode.objects.create(
             name=name, cluster=self.cluster, deployment=deployment)
 
