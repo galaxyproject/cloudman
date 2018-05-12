@@ -15,10 +15,6 @@ services:
 install:
   - pip install tox
   - pip install coveralls
-before_script:
-  - wget 'https://releases.hashicorp.com/consul/0.8.4/consul_0.8.4_linux_amd64.zip'
-  - unzip "consul_0.8.4_linux_amd64.zip"
-  - ./consul agent -dev &
 script:
   - tox -e $TOX_ENV
 after_success:

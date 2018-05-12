@@ -15,6 +15,8 @@ ROOT_URLCONF = 'cloudman.urls'
 
 WSGI_APPLICATION = 'cloudman.wsgi.application'
 
+
+
 CLOUDLAUNCH_PATH_PREFIX = os.environ.get('CLOUDLAUNCH_PATH_PREFIX', '/cloudlaunch')
 STATIC_URL = CLOUDLAUNCH_PATH_PREFIX + '/static/'
 REST_SCHEMA_BASE_URL = CLOUDLAUNCH_PATH_PREFIX + '/'
