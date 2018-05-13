@@ -1,6 +1,5 @@
 """Utility functions used throughout the CloudMan framework."""
 import operator
-from importlib import import_module
 
 
 def getattrd(obj, name):
@@ -9,10 +8,3 @@ def getattrd(obj, name):
         return operator.attrgetter(name)(obj)
     except AttributeError:
         return None
-
-
-def import_class(name):
-    """Import a dot-separated class name."""
-    parts = name.rsplit('.', 1)
-    cls = getattr(import_module(parts[0]), parts[1])
-    return cls
