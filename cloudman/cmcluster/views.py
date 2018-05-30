@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from cmcluster import drf_helpers
+from djcloudbridge import drf_helpers
 from cmcluster import serializers
 from .api import CloudManAPI
 

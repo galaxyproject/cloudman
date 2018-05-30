@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from cloudlaunch import serializers as cl_serializers
-from .drf_helpers import CustomHyperlinkedIdentityField
+from djcloudbridge.drf_helpers import CustomHyperlinkedIdentityField
 from cmcluster.api import CloudManAPI
 from rest_framework.exceptions import ValidationError
 

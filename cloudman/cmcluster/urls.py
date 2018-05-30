@@ -4,8 +4,8 @@ from django.conf.urls import include
 from django.conf.urls import url
 
 from cmcluster import views
-from .drf_routers import HybridDefaultRouter
-from .drf_routers import HybridNestedRouter
+from djcloudbridge.drf_routers import HybridDefaultRouter
+from djcloudbridge.drf_routers import HybridNestedRouter
 
 
 router = HybridDefaultRouter()
