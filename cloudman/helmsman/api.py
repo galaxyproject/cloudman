@@ -1,4 +1,7 @@
 """CloudMan Service API."""
+import json
+import os
+from django.core.exceptions import ObjectDoesNotExist
 
 
 class HelmsManAPI(object):
@@ -40,10 +43,23 @@ class HMChartService(object):
         self.api = api
 
     def list(self):
-        return []
+        return [
+            self.get('galaxy')
+        ]
 
-    def get(self, node_id):
-        return {}
+    def get(self, chart_id):
+        if not chart_id == 'galaxy':
+            raise ObjectDoesNotExist('Chart: %s does not exist' % chart_id)
+        file_path = os.path.join(os.path.dirname(__file__),
+                                 './schemas/galaxy.json')
+        with open(file_path) as f:
+            config = json.load(f)
+        return {
+            'id': 'galaxy',
+            'name': 'Galaxy',
+            'access_address': '/galaxy',
+            'config': config
+        }
 
     def create(self, name, instance_type):
         raise Exception("Not implemented")

@@ -12,6 +12,7 @@ class HMChartRepoSerializer(serializers.Serializer):
 class HMChartSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
+    access_address = serializers.CharField()
     config = serializers.DictField()
     repo = HMChartRepoSerializer(read_only=True)
 
