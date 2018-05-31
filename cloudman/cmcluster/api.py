@@ -143,28 +143,12 @@ class CMRancherTemplate(CMClusterTemplate):
     def add_node(self, name, size):
         params = {
             'name': name,
-            'application': 'cl_test_app',
+            'application': 'cm_rancher_kubernetes_plugin',
             'target_cloud': self.connection_settings.get('target_cloud'),
-            'application_version': '16.04',
+            'application_version': '0.1.0',
             'config_app': {
-                'config_cloudlaunch': {
-                    'vmType': size,
-                    'rootStorageType': 'instance',
-                    'placementZone': None,
-                    'keyPair': None,
-                    'network': None,
-                    'subnet': None,
-                    'gateway': None,
-                    'staticIP': None,
-                    'customImageID': None,
-                    'provider_settings': {
-                        'ebsOptimised': None,
-                        'volumeIOPS': None,
-                    }
-                },
-                'config_kube_rancher_cloud': {
-                    'action': 'add_node'
-                }
+                'connecting_settings': self.cluster.connection_settings,
+                'rancher_action': 'add_node'
             }
         }
         try:

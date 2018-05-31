@@ -1,0 +1,33 @@
+[
+{
+  "model": "cloudlaunch.application",
+  "pk": "cm_rancher_kubernetes_plugin",
+  "fields": {
+    "added": "2016-06-27T22:10:17.212Z",
+    "updated": "2017-12-22T21:38:44.060Z",
+    "name": "Rancher Kubernetes Plugin",
+    "status": "LIVE",
+    "summary": "A rancher kubernetes plugin for cloudman",
+    "maintainer": "cloudve.org",
+    "description": "A rancher kubernetes plugin for cloudman",
+    "info_url": "",
+    "icon_url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Logo-ubuntu_no%28r%29-black_orange-hex.svg?download",
+    "default_launch_config": "",
+    "default_version": 1,
+    "display_order": 1000,
+    "category": []
+  }
+},
+{
+  "model": "cloudlaunch.applicationversion",
+  "pk": 1,
+  "fields": {
+    "application": "cm_rancher_kubernetes_plugin",
+    "version": "0.1.0",
+    "frontend_component_path": "",
+    "frontend_component_name": "",
+    "backend_component_name": "cmcluster.plugins.rancher_kubernetes_app.RancherKubernetesApp",
+    "default_launch_config": ""
+  }
+}
+]
