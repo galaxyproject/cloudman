@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from djcloudbridge import drf_helpers
-from cmcluster import serializers
+from . import serializers
 from .api import CloudManAPI
 
 

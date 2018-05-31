@@ -8,7 +8,8 @@ DEBUG = True
 
 # Application definition
 INSTALLED_APPS += [
-    'cmcluster'
+    'cmcluster',
+    'helmsman',
 ]
 
 ROOT_URLCONF = 'cloudman.urls'
