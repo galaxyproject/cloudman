@@ -19,4 +19,9 @@ class HMChartSerializer(serializers.Serializer):
 
     def create(self, valid_data):
         return HelmsManAPI(self.context['request']).charts.create(
-            valid_data.get('name'), valid_data.get('config'))
+            valid_data.get('name'), valid_data.get('config'),
+            valid_data.get('schema'))
+
+    def update(self, chart, validated_data):
+        chart.get('config', {}).update(validated_data.get('config'))
+        return chart
