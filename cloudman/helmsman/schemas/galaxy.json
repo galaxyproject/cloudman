@@ -35,12 +35,12 @@
             },
             "database_engine_option_server_side_cursors": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If large database query results are causing memory or response time issues in\nthe Galaxy process, leave the result on the server instead.  This option..."
             },
             "database_query_profiling_proxy": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Log all database transactions, can be useful for debugging and performance\nprofiling.  Logging is done via Python's 'logging' module under the qualnam..."
             },
             "database_template": {
@@ -55,7 +55,7 @@
             },
             "enable_per_request_sql_debugging": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable's a per request sql debugging option. If this is set to true, append\n?sql_debug=1 to web request URLs to enable detailed logging on the backend..."
             },
             "install_database_connection": {
@@ -65,7 +65,7 @@
             },
             "database_auto_migrate": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Setting the following option to true will cause Galaxy to automatically\nmigrate the database forward after updates. This is not recommended for produc..."
             },
             "file_path": {
@@ -124,7 +124,7 @@
             },
             "conda_debug": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Pass debug flag to conda commands.\n"
             },
             "conda_ensure_channels": {
@@ -134,7 +134,7 @@
             },
             "conda_auto_install": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Set to True to instruct Galaxy to look for and install missing tool\ndependencies before each job runs.\n"
             },
             "conda_auto_init": {
@@ -144,12 +144,12 @@
             },
             "conda_copy_dependencies": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "You must set this to True if conda_prefix and job_working_directory are not on the same\nvolume, or some conda dependencies will fail to execute at job..."
             },
             "use_cached_dependency_manager": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Certain dependency resolvers (namely Conda) take a considerable amount of\ntime to build an isolated job environment in the job_working_directory if th..."
             },
             "tool_dependency_cache_dir": {
@@ -174,7 +174,7 @@
             },
             "enable_beta_mulled_containers": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable Galaxy to fetch Docker containers registered with quay.io generated\nfrom tool requirements resolved through conda. These containers (when\navail..."
             },
             "containers_resolvers_config_file": {
@@ -194,7 +194,7 @@
             },
             "enable_tool_shed_check": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable automatic polling of relative tool sheds to see if any updates\nare available for installed repositories.  Ideally only one Galaxy\nserver proces..."
             },
             "hours_between_check": {
@@ -204,7 +204,7 @@
             },
             "manage_dependency_relationships": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable use of an in-memory registry with bi-directional relationships between\nrepositories (i.e., in addition to lists of dependencies for a repositor..."
             },
             "tool_data_table_config_path": {
@@ -249,7 +249,7 @@
             },
             "datatypes_disable_auto": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Disable the 'Auto-detect' option for file uploads\n"
             },
             "visualization_plugins_directory": {
@@ -263,7 +263,7 @@
             },
             "interactive_environment_swarm_mode": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "To run interactive environment containers in Docker Swarm mode (on an\nexisting swarm), set this option to True and set `docker_connect_port` in the\nIE..."
             },
             "swarm_manager_config_file": {
@@ -358,7 +358,7 @@
             },
             "smtp_ssl": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If your SMTP server requires SSL from the beginning of the connection\n"
             },
             "mailing_join_addr": {
@@ -393,7 +393,7 @@
             },
             "user_activation_on": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "User account activation feature global flag.  If set to \"False\", the rest of\nthe Account activation configuration is ignored and user activation is\ndi..."
             },
             "activation_grace_period": {
@@ -433,7 +433,7 @@
             },
             "message_box_visible": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Show a message box under the masthead.\n"
             },
             "message_box_content": {
@@ -513,7 +513,7 @@
             },
             "biostar_never_authenticate": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable integration with a custom Biostar instance.\n"
             },
             "citation_url": {
@@ -597,7 +597,7 @@
             },
             "apache_xsendfile": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "For help on configuring the Advanced proxy features, see:\nhttp://usegalaxy.org/production\n\nApache can handle file downloads (Galaxy-to-user) via mod_x..."
             },
             "nginx_x_accel_redirect_base": {
@@ -607,7 +607,7 @@
             },
             "upstream_gzip": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If using compression in the upstream proxy server, use this option to disable\ngzipping of library .tar.gz and .zip archives, since the proxy server wi..."
             },
             "x_frame_options": {
@@ -667,12 +667,12 @@
             },
             "dynamic_proxy_debug": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable verbose debugging of Galaxy-managed dynamic proxy.\n"
             },
             "dynamic_proxy_external_proxy": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "The dynamic proxy is proxied by an external proxy (e.g. apache frontend to\nnodejs to wrap connections in SSL).\n"
             },
             "dynamic_proxy_prefix": {
@@ -717,12 +717,12 @@
             },
             "database_engine_option_echo": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Print database operations to the server log (warning, quite verbose!).\n"
             },
             "database_engine_option_echo_pool": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Print database pool operations to the server log (warning, quite verbose!).\n"
             },
             "log_events": {
@@ -737,7 +737,7 @@
             },
             "fluent_log": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Fluentd configuration.  Various events can be logged to the fluentd instance\nconfigured below by enabling fluent_log.\n"
             },
             "fluent_host": {
@@ -762,7 +762,7 @@
             },
             "serve_xss_vulnerable_mimetypes": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "By default Galaxy will serve non-HTML tool output that may potentially\ncontain browser executable JavaScript content as plain text.  This will for\nins..."
             },
             "allowed_origin_hostnames": {
@@ -772,22 +772,22 @@
             },
             "trust_jupyter_notebook_conversion": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Set the following to True to use Jupyter nbconvert to build HTML from Jupyter\nnotebooks in Galaxy histories.  This process may allow users to execute\n..."
             },
             "debug": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Debug enables access to various config options useful for development and\ndebugging: use_lint, use_profile, use_printdebug and use_interactive.  It\nal..."
             },
             "use_lint": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Check for WSGI compliance.\n"
             },
             "use_profile": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Run the Python profiler on each request.\n"
             },
             "use_printdebug": {
@@ -807,7 +807,7 @@
             },
             "use_heartbeat": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Write thread status periodically to 'heartbeat.log',  (careful, uses disk\nspace rapidly!).  Useful to determine why your processes may be consuming a\n..."
             },
             "heartbeat_interval": {
@@ -846,7 +846,7 @@
             },
             "statsd_influxdb": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If you are using telegraf to collect these metrics and then sending\nthem to InfluxDB, Galaxy can provide more nicely tagged metrics.\nInstead of sendin..."
             },
             "library_import_dir": {
@@ -861,7 +861,7 @@
             },
             "user_library_import_dir_auto_creation": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If user_library_import_dir is set, this option will auto create a library\nimport directory for every user (based on their email) upon login.\n"
             },
             "user_library_import_symlink_whitelist": {
@@ -871,12 +871,12 @@
             },
             "user_library_import_check_permissions": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "In conjunction or alternatively, Galaxy can restrict user library imports to\nthose files that the user can read (by checking basic unix permissions).\n..."
             },
             "allow_path_paste": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Allow admins to paste filesystem paths during upload. For libraries this\nadds an option to the admin library upload tool allowing admins to paste\nfile..."
             },
             "disable_library_comptypes": {
@@ -925,7 +925,7 @@
             },
             "tool_enable_ngram_search": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable/ disable Ngram-search for tools. It makes tool\nsearch results tolerant for spelling mistakes in the query\nby dividing the query into multiple n..."
             },
             "tool_ngram_minsize": {
@@ -950,7 +950,7 @@
             },
             "use_remote_user": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "User authentication can be delegated to an upstream proxy server (usually\nApache).  The upstream proxy should set a REMOTE_USER header in the request...."
             },
             "remote_user_maildomain": {
@@ -975,7 +975,7 @@
             },
             "normalize_remote_user_email": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If your proxy and/or authentication source does not normalize e-mail\naddresses or user names being passed to Galaxy - set the following option\nto True..."
             },
             "single_user": {
@@ -989,12 +989,12 @@
             },
             "require_login": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Force everyone to log in (disable anonymous access).\n"
             },
             "show_welcome_with_login": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Show the site's welcome page (see welcome_url) alongside the login page\n(even if require_login is True)\n"
             },
             "allow_user_creation": {
@@ -1004,17 +1004,17 @@
             },
             "allow_user_deletion": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Allow administrators to delete accounts.\n"
             },
             "allow_user_impersonation": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Allow administrators to log in as other users (useful for debugging)\n"
             },
             "show_user_prepopulate_form": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "When using LDAP for authentication, allow administrators to pre-populate users\nusing an additional form on 'Create new user'\n"
             },
             "allow_user_dataset_purge": {
@@ -1024,17 +1024,17 @@
             },
             "new_user_dataset_access_role_default_private": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "By default, users' data will be public, but setting this to True will cause\nit to be private.  Does not affect existing users and data, only ones crea..."
             },
             "expose_user_name": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Expose user list.  Setting this to True will expose the user list to\nauthenticated users.  This makes sharing datasets in smaller galaxy instances\nmuc..."
             },
             "expose_user_email": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Expose user list.  Setting this to True will expose the user list to\nauthenticated users.  This makes sharing datasets in smaller galaxy instances\nmuc..."
             },
             "fetch_url_whitelist": {
@@ -1043,7 +1043,7 @@
             },
             "enable_beta_gdpr": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enables GDPR Compliance mode. This makes several changes to the way\nGalaxy logs and exposes data externally such as removing emails and\nusernames from..."
             },
             "enable_beta_ts_api_install": {
@@ -1053,7 +1053,7 @@
             },
             "enable_beta_containers_interface": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable the new container interface for Interactive Environments\n"
             },
             "tool_submission_burst_threads": {
@@ -1068,7 +1068,7 @@
             },
             "enable_beta_workflow_modules": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable beta workflow modules that should not yet be considered part of Galaxy's\nstable API.\n"
             },
             "force_beta_workflow_scheduled_min_steps": {
@@ -1078,12 +1078,12 @@
             },
             "force_beta_workflow_scheduled_for_collections": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Following options only apply to workflows scheduled using the legacy workflow\nrun API (running workflows via a POST to /api/workflows).\nForce usage of..."
             },
             "parallelize_workflow_scheduling_within_histories": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If multiple job handlers are enabled, allow Galaxy to schedule workflow invocations\nin multiple handlers simultaneously. This is discouraged because i..."
             },
             "maximum_workflow_invocation_duration": {
@@ -1098,12 +1098,12 @@
             },
             "history_local_serial_workflow_scheduling": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Force serial scheduling of workflows within the context of a particular history\n"
             },
             "enable_openid": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable authentication via OpenID.  Allows users to log in to their Galaxy\naccount by authenticating with an OpenID provider.\n"
             },
             "openid_config_file": {
@@ -1118,7 +1118,7 @@
             },
             "enable_oidc": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enables and disables OpenID Connect (OIDC) support.\n"
             },
             "oidc_config_file": {
@@ -1148,12 +1148,12 @@
             },
             "enable_tool_tags": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable tool tags (associating tools with tags).  This has its own option\nsince its implementation has a few performance implications on startup for\nla..."
             },
             "enable_unique_workflow_defaults": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable a feature when running workflows.  When enabled, default datasets\nare selected for \"Set at Runtime\" inputs from the history such that the\nsame ..."
             },
             "myexperiment_url": {
@@ -1188,27 +1188,27 @@
             },
             "enable_quotas": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable enforcement of quotas.  Quotas can be set from the Admin interface.\n"
             },
             "expose_dataset_path": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "This option allows users to see the full path of datasets via the \"View\nDetails\" option in the history. This option also exposes the command line to\nn..."
             },
             "expose_potentially_sensitive_job_metrics": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "This option allows users to see the job metrics (except for environment\nvariables).\n"
             },
             "enable_legacy_sample_tracking_api": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Enable the API for sample tracking\n"
             },
             "enable_data_manager_user_view": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Allow non-admin users to view available Data Manager options.\n"
             },
             "data_manager_config_file": {
@@ -1242,7 +1242,7 @@
             },
             "use_tasked_jobs": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "This enables splitting of jobs into tasks, if specified by the particular tool\nconfig.\nThis is a new feature and not recommended for production server..."
             },
             "local_task_queue_workers": {
@@ -1267,7 +1267,7 @@
             },
             "outputs_to_working_directory": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "This option will override tool output paths to write outputs to the job\nworking directory (instead of to the file_path) and the job manager will move\n..."
             },
             "retry_job_output_collection": {
@@ -1327,7 +1327,7 @@
             },
             "cache_user_job_count": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "If using job concurrency limits (configured in job_config_file), several\nextra database queries must be performed to determine the number of jobs a\nus..."
             },
             "tool_filters": {
@@ -1369,7 +1369,7 @@
             },
             "enable_communication_server": {
                 "type": "boolean",
-                "default": "",
+                "default": false,
                 "description": "Galaxy real time communication server settings\n"
             },
             "communication_server_host": {

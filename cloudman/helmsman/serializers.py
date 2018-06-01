@@ -13,6 +13,7 @@ class HMChartSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
     access_address = serializers.CharField()
+    schema = serializers.DictField()
     config = serializers.DictField()
     repo = HMChartRepoSerializer(read_only=True)
 

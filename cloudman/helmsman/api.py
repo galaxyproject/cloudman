@@ -53,12 +53,15 @@ class HMChartService(object):
         file_path = os.path.join(os.path.dirname(__file__),
                                  './schemas/galaxy.json')
         with open(file_path) as f:
-            config = json.load(f)
+            schema = json.load(f)
         return {
             'id': 'galaxy',
             'name': 'Galaxy',
             'access_address': '/galaxy',
-            'config': config
+            'schema': schema,
+            'config': {
+                'admin_users': 'admin@galaxyproject.org'
+            }
         }
 
     def create(self, name, instance_type):

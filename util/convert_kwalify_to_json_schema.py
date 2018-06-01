@@ -69,7 +69,12 @@ def transform_schema(schema):
             pass
         else:
             if not val:
-                json_schema[key] = ""
+                # Assume undefined bools are false so diffing works on the
+                # front-end
+                if schema.get('type') == 'bool':
+                    json_schema[key] = False
+                else:
+                    json_schema[key] = ""
             elif isinstance(val, dict):
                 json_schema[key] = transform_schema(val)
             else:
