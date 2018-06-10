@@ -26,11 +26,11 @@ class ChartRepoViewSet(drf_helpers.CustomModelViewSet):
 
     def list_objects(self):
         """Get a list of all registered repository."""
-        return HelmsManAPI(self.request).repositories.list()
+        return HelmsManAPI(request=self.request).repositories.list()
 
     def get_object(self):
         """Get info about a specific repository."""
-        return HelmsManAPI(self.request).repositories.get(self.kwargs["pk"])
+        return HelmsManAPI(request=self.request).repositories.get(self.kwargs["pk"])
 
 
 class ChartViewSet(drf_helpers.CustomModelViewSet):
@@ -42,8 +42,8 @@ class ChartViewSet(drf_helpers.CustomModelViewSet):
 
     def list_objects(self):
         """Get a list of all registered charts."""
-        return HelmsManAPI(self.request).charts.list()
+        return HelmsManAPI(request=self.request).charts.list()
 
     def get_object(self):
         """Get info about a specific chart."""
-        return HelmsManAPI(self.request).charts.get(self.kwargs["pk"])
+        return HelmsManAPI(request=self.request).charts.get(self.kwargs["pk"])
