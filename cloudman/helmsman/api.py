@@ -2,6 +2,7 @@
 import json
 import os
 from .rancher import RancherClient
+from .helm.client import HelmAPI
 from django.core.exceptions import ObjectDoesNotExist
 
 
@@ -96,6 +97,8 @@ class HMChartService(HelmsManService):
         super(HMChartService, self).__init__(context)
 
     def list(self):
+        HelmAPI().releases.list()
+        HelmAPI().repositories.list()
         return [
             self.get('galaxy')
         ]
