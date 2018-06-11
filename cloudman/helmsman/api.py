@@ -2,7 +2,7 @@
 import json
 import os
 from .rancher import RancherClient
-from .helm.client import HelmAPI
+from .helm.client import HelmClient, HelmValueHandling
 from django.core.exceptions import ObjectDoesNotExist
 
 
@@ -97,8 +97,6 @@ class HMChartService(HelmsManService):
         super(HMChartService, self).__init__(context)
 
     def list(self):
-        HelmAPI().releases.list()
-        HelmAPI().repositories.list()
         return [
             self.get('galaxy')
         ]
@@ -123,11 +121,16 @@ class HMChartService(HelmsManService):
     def create(self, name, instance_type):
         raise Exception("Not implemented")
 
-    def update(self, chart, updated_vals):
-        rchart = self.context.rancher_client.list_installed_charts()[0]
-        rchart['answers'].update(updated_vals.get('config', {}))
-        rchart = self.context.rancher_client.update_installed_chart(rchart)
-        chart.get('config', {}).update(rchart.get('answers', {}))
+    def update(self, chart, config_updates):
+        helm_config = {'galaxy_conf': config_updates}
+        releases = HelmClient().releases.list()
+        for release in releases:
+            if "galaxy" in release.get("CHART", ""):
+                HelmClient().releases.update(
+                    release.get("NAME"),
+                    "galaxy/galaxy-stable",
+                    helm_config, value_handling=HelmValueHandling.REUSE)
+                chart.get('config', {}).update(config_updates)
         return chart
 
     def delete(self, node_id):

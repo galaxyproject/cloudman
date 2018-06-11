@@ -24,4 +24,4 @@ class HMChartSerializer(serializers.Serializer):
 
     def update(self, chart, validated_data):
         return HelmsManAPI(request=self.context['request']).charts.update(
-            chart, validated_data)
+            chart, validated_data.get('config'))
