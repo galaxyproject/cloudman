@@ -108,14 +108,14 @@ class HelmRepositoryService(HelmService):
         data = helpers.run_list_command(["helm", "repo", "list"])
         return data
 
-    def get(self, release_name):
-        return {}
+    def update(self):
+        return helpers.run_command(["helm", "repo", "update"])
 
-    def create(self, chart_name):
-        raise Exception("Not implemented")
+    def create(self, repo_name, url):
+        return helpers.run_command(["helm", "repo", "add", repo_name, url])
 
-    def delete(self, release_name):
-        raise Exception("Not implemented")
+    def delete(self, repo_name):
+        return helpers.run_command(["helm", "repo", "remove", repo_name])
 
 
 class HelmChartService(HelmService):
