@@ -26,6 +26,14 @@ class HelmClient(HelmService):
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
 
+    def helm_init(self, upgrade=False, wait=False):
+        cmd = ["helm", "init"]
+        if upgrade:
+            cmd += ["--upgrade"]
+        if wait:
+            cmd += ["--wait"]
+        return helpers.run_command(cmd)
+
     @property
     def releases(self):
         return self._release_svc

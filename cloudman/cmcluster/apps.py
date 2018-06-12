@@ -6,4 +6,6 @@ class CmClusterConfig(AppConfig):
     name = 'cmcluster'
 
     def ready(self):
+        print("Setting up kube environment")
         CMRancherTemplate(context=None, cluster=None).setup()
+        print("kube environment successfully setup")
