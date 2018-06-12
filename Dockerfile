@@ -2,16 +2,27 @@ FROM python:3.6-alpine
 
 ENV PYTHONUNBUFFERED 1
 
+ENV KUBE_LATEST_VERSION=v1.10.4
+ENV HELM_VERSION=v2.9.1
+ENV HELM_FILENAME=helm-${HELM_VERSION}-linux-amd64.tar.gz
+
 RUN apk update \
     # psycopg2 dependencies
-    && apk add --virtual build-deps gcc python3-dev musl-dev \
-    && apk add postgresql-dev \
+    && apk add --no-cache --virtual build-deps gcc python3-dev musl-dev \
+    && apk add --no-cache postgresql-dev \
     # CFFI dependencies
-    && apk add libffi-dev openssl-dev py-cffi \
+    && apk --no-cache add libffi-dev py-cffi \
     # git for cloning requirements dependencies
-    && apk add git \
+    && apk --no-cache add git \
     # For pynacl
-    && apk add make linux-headers
+    && apk --no-cache add make linux-headers \
+    \
+    # Install latest kubectl & helm
+    && apk add --no-cache curl \
+    && curl -L https://storage.googleapis.com/kubernetes-release/release/${KUBE_LATEST_VERSION}/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+    && curl -L https://storage.googleapis.com/kubernetes-helm/${HELM_FILENAME} | tar xz && mv linux-amd64/helm /bin/helm && rm -rf linux-amd64 \
+    && chmod +x /usr/local/bin/kubectl \
+    && rm /var/cache/apk/*
 
 # Create cloudman user environment
 RUN adduser -D -g '' cloudman \
