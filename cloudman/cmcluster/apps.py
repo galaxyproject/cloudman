@@ -6,6 +6,10 @@ class CmClusterConfig(AppConfig):
     name = 'cmcluster'
 
     def ready(self):
-        print("Setting up kube environment")
-        CMRancherTemplate(context=None, cluster=None).setup()
-        print("kube environment successfully setup")
+        try:
+            print("Setting up kube environment")
+            CMRancherTemplate(context=None, cluster=None).setup()
+            print("kube environment successfully setup")
+        except Exception as e:
+            print("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
+                  "An error occurred while setting up Rancher!!: ", e)

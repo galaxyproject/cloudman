@@ -6,6 +6,13 @@ class HelmsmanConfig(AppConfig):
     name = 'helmsman'
 
     def ready(self):
+        try:
+            self.setup_helmsman()
+        except Exception as e:
+            print("HelmsManConfig.ready()->setup_helmsman(): An error occurred"
+                  " while setting up HelmsMan!!: ", e)
+
+    def setup_helmsman(self):
         client = HelmClient()
         print("Initializing tiller...")
         client.helm_init(wait=True)
