@@ -1,10 +1,8 @@
 """CloudMan Service API."""
-import abc
-
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
 from . import models
-from rest_framework.exceptions import ValidationError
+from .cluster_templates import CMClusterTemplate
 
 
 class CMServiceContext(object):
@@ -98,73 +96,6 @@ class CMClusterService(CMService):
 
     def get_cluster_template(self, cluster):
         return CMClusterTemplate.get_template_for(self.context, cluster)
-
-
-class CMClusterTemplate(object):
-
-    def __init__(self, context, cluster):
-        self.context = context
-        self.cluster = cluster
-
-    @property
-    def connection_settings(self):
-        return self.cluster.connection_settings
-
-    @abc.abstractmethod
-    def add_node(self, name, size):
-        pass
-
-    @abc.abstractmethod
-    def remove_node(self):
-        pass
-
-    @abc.abstractmethod
-    def activate_autoscaling(self, min_nodes=0, max_nodes=None, size=None):
-        pass
-
-    @abc.abstractmethod
-    def deactivate_autoscaling(self):
-        pass
-
-    @staticmethod
-    def get_template_for(context, cluster):
-        if cluster.cluster_type == "KUBE_RANCHER":
-            return CMRancherTemplate(context, cluster)
-        else:
-            raise KeyError("Cannon get cluster template for unknown cluster "
-                           "type: %s" % cluster.cluster_type)
-
-
-class CMRancherTemplate(CMClusterTemplate):
-
-    def __init__(self, context, cluster):
-        super(CMRancherTemplate, self).__init__(context, cluster)
-
-    def add_node(self, name, size):
-        params = {
-            'name': name,
-            'application': 'cm_rancher_kubernetes_plugin',
-            'target_cloud': self.connection_settings.get('target_cloud'),
-            'application_version': '0.1.0',
-            'config_app': {
-                'connecting_settings': self.cluster.connection_settings,
-                'rancher_action': 'add_node'
-            }
-        }
-        try:
-            return self.context.cloudlaunch_client.deployments.create(**params)
-        except Exception as e:
-            raise ValidationError(str(e))
-
-    def remove_node(self, node):
-        return self.context.cloudlaunch_client.deployments.delete(
-            node.deployment.id)
-
-    def activate_autoscaling(self, min_nodes=0, max_nodes=None, size=None):
-        pass
-
-    def deactivate_autoscaling(self):
-        pass
 
 
 class CMClusterNodeService(CMService):

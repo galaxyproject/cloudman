@@ -17,16 +17,20 @@ class RancherAuth(AuthBase):
 
 class RancherClient(object):
 
+    KUBE_CONFIG_URL = ("{rancher_url}/v3/cluster/{cluster_id}"
+                       "?action=generateKubeconfig")
     INSTALLED_APP_URL = ("{rancher_url}/v3/projects/{project_id}/app"
                          "?targetNamespace=galaxy-ns")
 
-    def __init__(self, rancher_url, token, project_id):
+    def __init__(self, rancher_url, token, cluster_id, project_id):
         self.rancher_url = rancher_url
         self.token = token
+        self.cluster_id = cluster_id
         self.project_id = project_id
 
     def format_url(self, url):
         return url.format(rancher_url=self.rancher_url,
+                          cluster_id=self.cluster_id,
                           project_id=self.project_id)
 
     def get_auth(self):
@@ -50,3 +54,6 @@ class RancherClient(object):
     def update_installed_chart(self, data):
         r = self._api_put(data.get('links').get('self'), data)
         return r
+
+    def fetch_kube_config(self):
+        return self._api_post(self.KUBE_CONFIG_URL, data=None).get('config')

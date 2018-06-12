@@ -1,7 +1,6 @@
 """CloudMan Service API."""
 import json
 import os
-from .rancher import RancherClient
 from .helm.client import HelmClient, HelmValueHandling
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -19,23 +18,6 @@ class HMServiceContext(object):
     @property
     def user(self):
         return self._user
-
-    @property
-    def rancher_url(self):
-        return os.environ.get('RANCHER_URL')
-
-    @property
-    def rancher_token(self):
-        return os.environ.get('RANCHER_TOKEN')
-
-    @property
-    def rancher_project_id(self):
-        return os.environ.get('RANCHER_PROJECT_ID')
-
-    @property
-    def rancher_client(self):
-        return RancherClient(self.rancher_url, self.rancher_token,
-                             self.rancher_project_id)
 
     @classmethod
     def from_request(cls, request):
@@ -61,16 +43,16 @@ class HelmsManAPI(HelmsManService):
     def __init__(self, request=None):
         context = HMServiceContext.from_request(request)
         super(HelmsManAPI, self).__init__(context)
-        self._repositories = HMChartRepoService(context)
-        self._charts = HMChartService(context)
+        self._repo_svc = HMChartRepoService(context)
+        self._chart_svc = HMChartService(context)
 
     @property
     def repositories(self):
-        return self._repositories
+        return self._repo_svc
 
     @property
     def charts(self):
-        return self._charts
+        return self._chart_svc
 
 
 class HMChartRepoService(HelmsManService):
