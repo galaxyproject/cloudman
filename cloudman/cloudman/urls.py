@@ -20,7 +20,7 @@ from django.conf.urls import url
 
 urlpatterns = [
     url(r'^cloudman/api/v1/', include('cmcluster.urls')),
-    url(r'^cloudlaunch/', include('cloudlaunchserver.urls')),
+    url(r'^cloudman/', include('cloudlaunchserver.urls')),
 ]
 
 # Uncomment to have Gunicorn serve static content (dev only)
