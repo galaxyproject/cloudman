@@ -76,8 +76,8 @@ class CMRancherTemplate(CMClusterTemplate):
         return os.environ.get('RANCHER_URL')
 
     @property
-    def rancher_token(self):
-        return os.environ.get('RANCHER_TOKEN')
+    def rancher_api_key(self):
+        return os.environ.get('RANCHER_API_KEY')
 
     @property
     def rancher_cluster_id(self):
@@ -89,7 +89,7 @@ class CMRancherTemplate(CMClusterTemplate):
 
     @property
     def rancher_client(self):
-        return RancherClient(self.rancher_url, self.rancher_token,
+        return RancherClient(self.rancher_url, self.rancher_api_key,
                              self.rancher_cluster_id,
                              self.rancher_project_id)
 

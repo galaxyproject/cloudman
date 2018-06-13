@@ -11,20 +11,20 @@ class RancherAuth(AuthBase):
     def __call__(self, r):
         # modify and return the request
         r.headers['content-type'] = "application/json"
-        r.headers['authorization'] = "Bearer " + self.client.token
+        r.headers['authorization'] = "Bearer " + self.client.api_key
         return r
 
 
 class RancherClient(object):
 
-    KUBE_CONFIG_URL = ("{rancher_url}/v3/cluster/{cluster_id}"
+    KUBE_CONFIG_URL = ("{rancher_url}/v3/clusters/{cluster_id}"
                        "?action=generateKubeconfig")
     INSTALLED_APP_URL = ("{rancher_url}/v3/projects/{project_id}/app"
                          "?targetNamespace=galaxy-ns")
 
-    def __init__(self, rancher_url, token, cluster_id, project_id):
+    def __init__(self, rancher_url, api_key, cluster_id, project_id):
         self.rancher_url = rancher_url
-        self.token = token
+        self.api_key = api_key
         self.cluster_id = cluster_id
         self.project_id = project_id
 
