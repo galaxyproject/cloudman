@@ -26,8 +26,10 @@ class HelmClient(HelmService):
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
 
-    def helm_init(self, upgrade=False, wait=False):
+    def helm_init(self, service_account=None, upgrade=False, wait=False):
         cmd = ["helm", "init"]
+        if service_account:
+            cmd += ["--service-account", service_account]
         if upgrade:
             cmd += ["--upgrade"]
         if wait:

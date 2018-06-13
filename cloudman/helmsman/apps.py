@@ -1,3 +1,4 @@
+import subprocess
 import logging as log
 from django.apps import AppConfig
 from .helm.client import HelmClient
@@ -17,8 +18,19 @@ class HelmsmanConfig(AppConfig):
 
     def setup_helmsman(self):
         client = HelmClient()
+        print("Initializing kube roles for tiller...")
+        # FIXME: Check whether tiller role exists instead of ignoring exception
+        try:
+            cmd = (
+                "kubectl create serviceaccount --namespace kube-system tiller"
+                " && kubectl create clusterrolebinding tiller-cluster-rule"
+                " --clusterrole=cluster-admin"
+                " --serviceaccount=kube-system:tiller")
+            subprocess.check_output(cmd, shell=True)
+        except Exception:
+            log.exception("Could not create tiller role bindings")
         print("Initializing tiller...")
-        client.helm_init(wait=True)
+        client.helm_init(service_account="tiller", wait=True)
         print("Adding default repos...")
         client.repositories.create(
             "galaxyproject",
