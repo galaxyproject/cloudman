@@ -1,4 +1,5 @@
 import subprocess
+import os
 import logging as log
 from django.apps import AppConfig
 from .helm.client import HelmClient
@@ -9,7 +10,8 @@ class HelmsmanConfig(AppConfig):
 
     def ready(self):
         try:
-            self.setup_helmsman()
+            if os.environ.get("HELMSMAN_AUTO_DEPLOY"):
+                self.setup_helmsman()
         except Exception as e:
             log.exception("HelmsManConfig.ready()->setup_helmsman(): An error"
                           " occurred while setting up HelmsMan!!: ")

@@ -3,6 +3,7 @@ pydevd>=1.0.0
 # get latest package versions for now
 git+git://github.com/gvlproject/cloudbridge#egg=cloudbridge
 git+git://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
-git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
+# Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+git://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli
+git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
 -e ".[prod]"

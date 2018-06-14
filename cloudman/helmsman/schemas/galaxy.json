@@ -711,7 +711,7 @@
                 "description": "Verbosity of console log messages.  Acceptable values can be found here:\nhttps://docs.python.org/2/library/logging.html#logging-levels\nA custom debug ..."
             },
             "logging": {
-                "type": "object",
+                "type": "string",
                 "default": "galaxy.config.LOGGING_CONFIG_DEFAULT",
                 "description": "Controls where and how the server logs messages. If unset, the default is to log all messages to standard\noutput at the level defined by the `log_leve..."
             },
