@@ -83,6 +83,13 @@ class HMChartService(HelmsManService):
             self.get('galaxy')
         ]
 
+    def _get_galaxy_release(self):
+        releases = HelmClient().releases.list()
+        for release in releases:
+            if "galaxy" in release.get("CHART", ""):
+                return release
+        return {}
+
     def get(self, chart_id):
         if not chart_id == 'galaxy':
             raise ObjectDoesNotExist('Chart: %s does not exist' % chart_id)
@@ -90,29 +97,39 @@ class HMChartService(HelmsManService):
                                  './schemas/galaxy.json')
         with open(file_path) as f:
             schema = json.load(f)
+        galaxy_rel = self._get_galaxy_release()
+        if galaxy_rel:
+            # Get entire chart state, including chart default values
+            val = HelmClient().releases.get_values(galaxy_rel.get("NAME"),
+                                                   get_all=True)
+            config = val.get('galaxy_conf')
+        else:
+            config = {}
         return {
             'id': 'galaxy',
             'name': 'Galaxy',
             'access_address': '/galaxy',
             'schema': schema,
-            'config': {
-                'admin_users': 'admin@galaxyproject.org'
+            'config': config
             }
-        }
 
     def create(self, name, instance_type):
         raise Exception("Not implemented")
 
     def update(self, chart, config_updates):
-        helm_config = {'galaxy_conf': config_updates}
-        releases = HelmClient().releases.list()
-        for release in releases:
-            if "galaxy" in release.get("CHART", ""):
-                HelmClient().releases.update(
-                    release.get("NAME"),
-                    "galaxy/galaxy-stable",
-                    helm_config, value_handling=HelmValueHandling.REUSE)
-                chart.get('config', {}).update(config_updates)
+        galaxy_rel = self._get_galaxy_release()
+        # 1. Retrieve chart's current user-defined values
+        cur_vals = HelmClient().releases.get_values(galaxy_rel.get("NAME"))
+        # 2. Add the latest differences on top
+        if cur_vals:
+            cur_vals.get('galaxy_conf').update(config_updates)
+        else:
+            cur_vals = {'galaxy_conf': config_updates}
+        # 3. Apply the updated config to the chart
+        HelmClient().releases.update(galaxy_rel.get("NAME"),
+                                     "galaxyproject/galaxy-stable",
+                                     cur_vals)
+        chart.get('config', {}).update(cur_vals.get('galaxy_conf'))
         return chart
 
     def delete(self, node_id):

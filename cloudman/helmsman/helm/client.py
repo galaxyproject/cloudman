@@ -1,5 +1,6 @@
 """A wrapper around the helm commandline client"""
 import shutil
+import yaml
 from . import helpers
 from enum import Enum
 
@@ -107,6 +108,16 @@ class HelmReleaseService(HelmService):
 
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
+
+    def get_values(self, release_name, get_all=False):
+        """
+        get_all=True will also dump chart default values.
+        get_all=False will only return user overridden values.
+        """
+        cmd = ["helm", "get", "values", release_name]
+        if get_all:
+            cmd += ["--all"]
+        return yaml.load(helpers.run_command(cmd))
 
 
 class HelmRepositoryService(HelmService):
