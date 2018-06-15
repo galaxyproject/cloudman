@@ -8,9 +8,33 @@ DEBUG = True
 
 # Application definition
 INSTALLED_APPS += [
+    'bossoidc',
+    'djangooidc',
     'cmcluster',
-    'helmsman',
+    'helmsman'
 ]
+
+AUTHENTICATION_BACKENDS += [
+    'django.contrib.auth.backends.ModelBackend',
+    'bossoidc.backend.OpenIdConnectBackend'
+]
+
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'oidc_auth.authentication.BearerTokenAuthentication',
+    )
+
+# KeyCloak realm url
+auth_uri = os.environ.get("OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master"
+# Client ID configured in the Auth Server
+client_id = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
+# URL of the client 
+public_uri = os.environ.get("OIDC_PUBLIC_URI") or "http://localhost:4200/cloudman"
+
+from bossoidc.settings import *
+configure_oidc(auth_uri, client_id, public_uri)  # NOTE: scope is optional and can be left out
+
 
 ROOT_URLCONF = 'cloudman.urls'
 

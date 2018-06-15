@@ -6,4 +6,8 @@ git+git://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+git://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli
 git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
+# for openid connect
+git+git://github.com/CloudVE/django-oidc#egg=django-oidc
+git+https://github.com/jhuapl-boss/drf-oidc-auth.git
+git+https://github.com/jhuapl-boss/boss-oidc.git
 -e ".[prod]"
