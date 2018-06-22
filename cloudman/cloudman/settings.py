@@ -14,7 +14,7 @@ INSTALLED_APPS += [
     'helmsman'
 ]
 
-AUTHENTICATION_BACKENDS += [
+AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'bossoidc.backend.OpenIdConnectBackend'
 ]
