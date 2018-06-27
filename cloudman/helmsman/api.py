@@ -110,7 +110,8 @@ class HMChartService(HelmsManService):
             'name': 'Galaxy',
             'access_address': '/galaxy',
             'schema': schema,
-            'config': config
+            'config': config,
+            'state': 'installed'
             }
 
     def create(self, name, instance_type):
@@ -132,5 +133,11 @@ class HMChartService(HelmsManService):
         chart.get('config', {}).update(cur_vals.get('galaxy_conf'))
         return chart
 
-    def delete(self, node_id):
+    def rollback(self, chart, revision=None):
+        galaxy_rel = self._get_galaxy_release()
+        # Roll back to immediately preceding revision if revision=None
+        HelmClient().releases.rollback(galaxy_rel.get("NAME"), revision)
+        return self.get('galaxy')
+
+    def delete(self, chart_id):
         raise Exception("Not implemented")

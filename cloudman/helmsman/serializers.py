@@ -16,6 +16,7 @@ class HMChartSerializer(serializers.Serializer):
     schema = serializers.DictField()
     config = serializers.DictField()
     repo = HMChartRepoSerializer(read_only=True)
+    state = serializers.CharField()
 
     def create(self, valid_data):
         return HelmsManAPI(request=self.context['request']).charts.create(
@@ -23,5 +24,8 @@ class HMChartSerializer(serializers.Serializer):
             valid_data.get('schema'))
 
     def update(self, chart, validated_data):
+        if validated_data.get('state') == "rollback":
+            return (HelmsManAPI(request=self.context['request']).charts
+                    .rollback(chart))
         return HelmsManAPI(request=self.context['request']).charts.update(
             chart, validated_data.get('config'))

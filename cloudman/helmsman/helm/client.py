@@ -106,6 +106,20 @@ class HelmReleaseService(HelmService):
 
         return helpers.run_command(cmd)
 
+    def history(self, release_name):
+        data = helpers.run_list_command(["helm", "history", release_name])
+        return data
+
+    def rollback(self, release_name, revision=None):
+        if not revision:
+            history = self.history(release_name)
+            if history and len(history) > 1:
+                # Rollback to previous
+                revision = history[-2].get('REVISION')
+            else:
+                return
+        return helpers.run_command(["helm", "rollback", release_name, revision])
+
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
 
