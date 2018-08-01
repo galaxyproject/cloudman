@@ -116,7 +116,9 @@ class GalaxyService(ApplicationService):
             # to bring single process case inline with defaults for for multiple
             # process case (i.e. when GALAXY_RUN_ALL is set and multiple servers
             # are defined).
-            self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
+            # self.extra_daemon_args = "--pid-file=main.pid --log-file=main.log"
+            # No longer required
+            pass
         if to_be_started and self.remaining_start_attempts > 0:
             self.status()
             if not self.configured:
