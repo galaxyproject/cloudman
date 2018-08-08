@@ -1,0 +1,10 @@
+        ## This file is managed by CloudMan and will be overwritten!
+        ## If you want to override it, copy the original template from
+        ## /mnt/cm/cm/conftemplates to /opt/cloudman/config/conftemplates/
+        ## and modify as desired.
+
+        location /cloudgene {
+            proxy_pass  http://127.0.0.1:$cg_port/cloudgene;
+            proxy_set_header   X-Forwarded-Host $$host;
+            proxy_set_header   X-Forwarded-For  $$proxy_add_x_forwarded_for;
+        }
