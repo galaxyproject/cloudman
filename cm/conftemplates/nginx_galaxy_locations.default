@@ -20,7 +20,7 @@
         }
 
         location /galaxy/static/scripts {
-            alias $galaxy_home/static/scripts/packed;
+            alias $galaxy_home/static/scripts;
             expires 24h;
         }
 
