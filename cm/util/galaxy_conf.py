@@ -7,9 +7,8 @@ from ConfigParser import SafeConfigParser
 from pwd import getpwnam
 from grp import getgrnam
 
-from xml.dom.minidom import parse
-
-from .misc import run
+from cm.conftemplates import conf_manager
+from cm.util import misc
 
 import logging
 log = logging.getLogger('cloudman')
@@ -44,7 +43,7 @@ def attempt_chown_galaxy(path, recursive=False):
                     for f in files:
                         chown(join(root, f), galaxy_uid, galaxy_gid)
         except BaseException:
-            run("chown galaxy:galaxy '%s'" % path)
+            misc.run("chown galaxy:galaxy '%s'" % path)
 
 
 def populate_admin_users(option_manager, admins_list=[]):
@@ -139,24 +138,16 @@ def _update_job_conf(app, num_handlers, plugin_id='slurm'):
     job_conf_file_path = join(galaxy_config_dir, 'job_conf.xml')
     log.debug("Updating Galaxy's job conf file {0}".format(job_conf_file_path))
 
-    jc = parse(job_conf_file_path)
-    handlers_el = jc.getElementsByTagName('handlers')[0]
-    doc_root = jc.documentElement
-
-    hs_el = jc.createElement('handlers')
-    hs_el.setAttribute('default', 'handlers')
+    template = conf_manager.load_conf_template(
+        conf_manager.GALAXY_JOB_CONF_TEMPLATE)
+    handler_xml = ""
     for i in range(num_handlers):
-        h_el = jc.createElement('handler')
-        h_el.setAttribute('id', 'handler%d' % i)
-        h_el.setAttribute('tags', 'handlers')
-        hs_el.appendChild(h_el)
-        p_el = jc.createElement('plugin')
-        p_el.setAttribute('id', plugin_id)
-        h_el.appendChild(p_el)
-    doc_root.replaceChild(hs_el, handlers_el)
-
-    with open(job_conf_file_path, 'w') as f:
-        f.write(jc.toprettyxml())
+        handler_xml += ('\t\t<handler id="handler{0}" tags="handlers" />\n'
+                        .format(i))
+    params = {
+        'cloudman_handlers': handler_xml
+    }
+    misc.write_template_file(template, params, job_conf_file_path)
 
 
 # Abstraction for interacting with Galaxy's options

@@ -30,6 +30,7 @@ SLURM_CONF_TEMPLATE = "slurm.conf"
 SUPERVISOR_TEMPLATE = "supervisord.conf"
 
 GALAXY_REPORTS_TEMPLATE = "reports.yml"
+GALAXY_JOB_CONF_TEMPLATE = "job_conf.xml"
 
 
 def find_conf_template(conf_file_name):
