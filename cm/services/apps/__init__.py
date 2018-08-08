@@ -71,7 +71,7 @@ class ApplicationService(Service):
         elif service == 'sge':
             pid_file = '%s/qmaster.pid' % self.app.path_resolver.sge_cell
         elif service == 'galaxy':
-            pid_file = '%s/galaxy.pid' % self.app.path_resolver.galaxy_home
+            pid_file = '%s/main.pid' % self.app.path_resolver.galaxy_home
         elif service == 'galaxyreports':
             pid_file = '%s/reports_webapp.pid' % self.app.path_resolver.galaxy_home
         elif service == 'pulsar':
