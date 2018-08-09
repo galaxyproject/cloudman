@@ -906,7 +906,7 @@ class CM(BaseController):
         g_s = self.app.manager.get_services(svc_role=ServiceRole.GALAXY)
         if g_s and g_s[0].state == service_states.RUNNING:
             try:
-                dns = 'http://%s/galaxy' % trans.request.host_url
+                dns = '%s/galaxy' % trans.request.host_url
             except:
                 # Default to the old method in case of error.
                 dns = 'http://%s/galaxy' % str(self.app.cloud_interface.get_public_hostname())
