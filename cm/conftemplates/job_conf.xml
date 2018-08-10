@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+<!-- This file is managed by CloudMan and will be overwritten!
+     If you want to override it, copy the original template from
+     /mnt/cm/cm/conftemplates to /opt/cloudman/config/conftemplates/
+     and modify as desired.
+-->
+<job_conf>
+    <plugins>
+        <plugin id="dynamic" type="runner">
+            <param id="rules_module">galaxy.jobs.rules</param>
+        </plugin>
+        <plugin id="slurm" load="galaxy.jobs.runners.slurm:SlurmJobRunner" type="runner"/>
+        <plugin id="pulsar_rest" load="galaxy.jobs.runners.pulsar:PulsarRESTJobRunner" type="runner"/>
+        <plugin id="local" load="galaxy.jobs.runners.local:LocalJobRunner" type="runner" workers="4"/>
+    </plugins>
+    <handlers default="handlers">
+        $cloudman_handlers
+    </handlers>
+    <destinations default="default_dynamic_job_wrapper">
+        <!-- Slurm specific destinations -->
+        <destination id="slurm_cluster" runner="slurm"/>
+        <destination id="slurm_2slots" runner="slurm">
+            <param id="nativeSpecification">--ntasks=2</param>
+        </destination>
+        <destination id="slurm_4slots" runner="slurm">
+            <param id="nativeSpecification">--ntasks=4</param>
+        </destination>
+        <destination id="slurm_8slots" runner="slurm">
+            <param id="nativeSpecification">--ntasks=8</param>
+        </destination>
+        <destination id="slurm_16slots" runner="slurm">
+            <param id="nativeSpecification">--ntasks=16</param>
+        </destination>
+
+        <!-- Dynamic destinations -->
+        <destination id="mapping_dynamic" runner="dynamic">
+            <param id="type">python</param>
+            <param id="function">mapping_dynamic_job_wrapper</param>
+        </destination>
+        <destination id="default_dynamic_job_wrapper" runner="dynamic">
+            <param id="type">python</param>
+            <param id="function">default_dynamic_job_wrapper</param>
+        </destination>
+
+        <!-- pulsar config -->
+        <destination id="pulsar_server" runner="pulsar_rest">
+            <param id="url">http://pulsar_server_ip:pulsar_server_port/</param>
+        </destination>
+        
+        <!-- local destination -->
+        <destination id="local_runner" runner="local"/>
+    </destinations>
+
+    <tools>
+        <!-- Need to specify no multi-threading for GATK Depth of Coverage -->
+        <tool destination="slurm_cluster" id="toolshed.g2.bx.psu.edu/repos/iuc/gatk2/gatk2_depth_of_coverage/2.8.0"/>
+    </tools>
+
+</job_conf>

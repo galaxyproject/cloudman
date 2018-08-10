@@ -1,0 +1,10 @@
+## This file is managed by CloudMan and will be overwritten!
+## If you want to override it, copy the original template from
+## /mnt/cm/cm/conftemplates to /opt/cloudman/config/conftemplates/
+## and modify as desired.
+
+## USER defined bits
+CONDOR_HOST=$host
+HIGHPORT=9700
+LOWPORT=9600
+DAEMON_LIST=MASTER, STARTD, SCHEDD
