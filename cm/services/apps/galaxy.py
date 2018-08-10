@@ -222,7 +222,7 @@ class GalaxyService(ApplicationService):
             pass
         else:
             if self.state == service_states.STARTING and \
-                    (datetime.utcnow() - self.last_state_change_time).seconds < 60:
+                    (datetime.utcnow() - self.last_state_change_time).seconds < 200:
                 # Give Galaxy a minutes to start; otherwise, because
                 # the monitor is running as a separate thread, it often happens
                 # that the .pid file is not yet created after the Galaxy process

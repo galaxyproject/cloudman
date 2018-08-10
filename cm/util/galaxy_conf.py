@@ -239,10 +239,18 @@ class FileGalaxyOptionManager(object):
 
 
 class DirectoryGalaxyOptionManager(object):
-
     """
-    When `galaxy_conf_dir` in specified in UserData this is used to
-    manage Galaxy's options.
+    Use `galaxy_conf_dir` dir from user data to manage Galaxy's config options.
+
+    If `galaxy_conf_dir` is supplied as part of user data, use files found in
+    that directory to generate a new `galaxy.ini` config file based on the
+    files in the given dir. The files in the supplied dir need to start with a
+    three digit number (e.g., `010_galaxy.ini`) and the files are traversed in
+    numerical order to generate the final `galaxy.ini` placed in Galaxy's
+    config dir. Larger numbers override any values found in files starting with
+    a smaller number. The `galaxy_conf_dir` path must point to a standalone
+    directory (i.e., different from Galaxy's main config directory) and the
+    directory does not need to exist at start (CloudMan will create it).
     """
 
     def __init__(self, app, conf_dir=None, conf_file_name=OPTIONS_FILE_NAME):
@@ -260,7 +268,9 @@ class DirectoryGalaxyOptionManager(object):
     def __initialize_galaxy_config_dir(self):
         conf_dir = self.conf_dir
         if not exists(conf_dir):
+            log.debug("Creating Galaxy conf dir: {0}".format(conf_dir))
             makedirs(conf_dir)
+            attempt_chown_galaxy(conf_dir)
             defaults_destination = join(conf_dir, "010_%s" % self.conf_file_name)
             galaxy_config_dir = self.app.path_resolver.galaxy_config_dir
             config_file_path = join(galaxy_config_dir, self.conf_file_name)
@@ -268,19 +278,33 @@ class DirectoryGalaxyOptionManager(object):
                 # Fresh install, take the opportunity to just link in defaults
                 sample_name = "%s.sample" % self.conf_file_name
                 defaults_source = join(galaxy_config_dir, sample_name)
+                log.debug("Init new Galaxy config from {0} to {1}"
+                          .format(defaults_source, defaults_destination))
                 symlink(defaults_source, defaults_destination)
             else:
                 # CloudMan has previously been run without the galaxy_conf_dir
-                # option enabled. Users may have made modifications to
-                # universe_wsgi.ini that I guess we should preserve for
-                # backward compatibility.
+                # option enabled. Use that galaxy.ini file as a basis by
+                # copying to the conf dir with a low override number.
                 defaults_source = join(galaxy_config_dir, self.conf_file_name)
+                log.debug("Init existing Galaxy config from {0} to {1}"
+                          .format(defaults_source, defaults_destination))
                 copyfile(defaults_source, defaults_destination)
+                attempt_chown_galaxy(defaults_destination)
+        else:
+            log.debug("Galaxy conf dir {0} already exists.".format(conf_dir))
+        readme_file = os.path.join(conf_dir, 'README')
+        with open(readme_file, "w") as f:
+            f.write("Override any values in galaxy.ini by creating a file \n "
+                    "with a name that starts with a larger number from the \n"
+                    "file where the value is already defined. New values can \n"
+                    "also be set. Besides the number, the rest of the file \n"
+                    "name does not matter. After defining the values, \n"
+                    "restart Galaxy via CloudMan.\n")
+        attempt_chown_galaxy(readme_file)
 
     def set_properties(self, properties, section="app:main", description=None, priority_offset=0):
         if not properties:
             return
-
         priority = int(self.app.config.get("galaxy_option_priority", "400")) + priority_offset
         conf_dir = self.conf_dir
         if description is None:
@@ -291,3 +315,6 @@ class DirectoryGalaxyOptionManager(object):
             ["%s=%s" % (k, v) for k, v in properties.iteritems()])
         with open(conf_file, "w") as f:
             f.write("[%s]\n%s" % (section, props_str))
+        attempt_chown_galaxy(conf_file)
+        log.debug("Wrote partial Galaxy conf file {0} with properties {1}"
+                  .format(conf_file, properties.items()))
