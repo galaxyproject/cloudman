@@ -5,8 +5,11 @@ import threading
 import socket
 # import re
 
-from ansible.runner import Runner
-from ansible.inventory import Inventory
+# Ansible <v2 has a security vulnerability and v2 has a different API
+# Disabling Cloudera manager as don't believe it's used by anyone any more.
+# from ansible.runner import Runner
+# from ansible.inventory import Inventory
+
 from cm_api.api_client import ApiResource  # Cloudera Manager API
 from cm_api.api_client import ApiException
 # from cm_api.endpoints.clusters import ApiCluster
@@ -150,17 +153,19 @@ class ClouderaManagerService(ApplicationService):
         for l in lif:
             log.debug("Updating PostgreSQL conf file {0} setting: {1}".format(pg_conf, l))
             regexp = ' '.join(l.split(' ')[:2])
-            try:
-                Runner(inventory=Inventory(['localhost']),
-                       transport='local',
-                       become=True,
-                       become_user='postgres',
-                       module_name="lineinfile",
-                       module_args=('dest={0} backup=yes line="{1}" owner=postgres regexp="{2}"'
-                                    .format(pg_conf, l, regexp))
-                       ).run()
-            except Exception, e:
-                log.error("Exception updating psql conf {0}: {1}".format(l, e))
+            log.warning("(1) Configuring DB has been disabled!")
+            # Requires upgrade to Ansible v2
+            # try:
+            #     Runner(inventory=Inventory(['localhost']),
+            #            transport='local',
+            #            become=True,
+            #            become_user='postgres',
+            #            module_name="lineinfile",
+            #            module_args=('dest={0} backup=yes line="{1}" owner=postgres regexp="{2}"'
+            #                         .format(pg_conf, l, regexp))
+            #            ).run()
+            # except Exception, e:
+            #     log.error("Exception updating psql conf {0}: {1}".format(l, e))
         # Restart psql
         misc.run("service postgresql restart")
         # Add required roles to the main Postgres server
@@ -168,17 +173,19 @@ class ClouderaManagerService(ApplicationService):
         for role in roles:
             log.debug("Adding PostgreSQL role {0} (with pwd: {1})".format(role,
                       self.db_pwd))
-            try:
-                Runner(inventory=Inventory(['localhost']),
-                       transport='local',
-                       become=True,
-                       become_user='postgres',
-                       module_name="postgresql_user",
-                       module_args=("name={0} role_attr_flags=LOGIN password={1}"
-                                    .format(role, self.db_pwd))
-                       ).run()
-            except Exception, e:
-                log.error("Exception creating psql role {0}: {1}".format(role, e))
+            log.warning("(2) Configuring DB has been disabled!")
+            # Requires upgrade to Ansible v2
+            # try:
+            #     Runner(inventory=Inventory(['localhost']),
+            #            transport='local',
+            #            become=True,
+            #            become_user='postgres',
+            #            module_name="postgresql_user",
+            #            module_args=("name={0} role_attr_flags=LOGIN password={1}"
+            #                         .format(role, self.db_pwd))
+            #            ).run()
+            # except Exception, e:
+            #     log.error("Exception creating psql role {0}: {1}".format(role, e))
         # Create required databases
         databases = ['scm', 'amon', 'rman', 'metastore']
         for db in databases:
@@ -186,20 +193,22 @@ class ClouderaManagerService(ApplicationService):
             if db == 'metastore':
                 owner = 'hive'
             log.debug("Creating database {0} with owner {1}".format(db, owner))
-            try:
-                r = Runner(inventory=Inventory(['localhost']),
-                           transport='local',
-                           become=True,
-                           become_user='postgres',
-                           module_name="postgresql_db",
-                           module_args=("name={0} owner={1} encoding='UTF-8'"
-                                        .format(db, owner))
-                           ).run()
-                if r.get('contacted', {}).get('localhost', {}).get('failed'):
-                    msg = r.get('contacted', {}).get('localhost', {}).get('msg', 'N/A')
-                    log.error("Creating the database filed: {0}".format(msg))
-            except Exception, e:
-                log.error("Exception creating database {0}: {1}".format(db, e))
+            log.warning("(3) Configuring DB has been disabled!")
+            # Requires upgrade to Ansible v2
+            # try:
+            #     r = Runner(inventory=Inventory(['localhost']),
+            #                transport='local',
+            #                become=True,
+            #                become_user='postgres',
+            #                module_name="postgresql_db",
+            #                module_args=("name={0} owner={1} encoding='UTF-8'"
+            #                             .format(db, owner))
+            #                ).run()
+            #     if r.get('contacted', {}).get('localhost', {}).get('failed'):
+            #         msg = r.get('contacted', {}).get('localhost', {}).get('msg', 'N/A')
+            #         log.error("Creating the database filed: {0}".format(msg))
+            # except Exception, e:
+            #     log.error("Exception creating database {0}: {1}".format(db, e))
         # Alter one of the DBs
         sql_cmds = [
             "ALTER DATABASE metastore SET standard_conforming_strings = off"

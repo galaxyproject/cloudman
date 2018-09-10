@@ -1,7 +1,5 @@
 import os
 import tarfile
-# from ansible.runner import Runner
-# from ansible.inventory import Inventory
 
 from cm.util import misc
 import cm.util.paths as paths

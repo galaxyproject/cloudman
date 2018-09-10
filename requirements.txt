@@ -1,5 +1,5 @@
 amqplib==1.0.2
-ansible==1.9.3
+# ansible==1.9.3  # Security vulnerability in version 1.9.3
 astor==0.5
 #boto>=2.29.1,<=2.34.0
 boto==2.45.0
