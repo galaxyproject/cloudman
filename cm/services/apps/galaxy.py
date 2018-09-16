@@ -11,6 +11,7 @@ from cm.services import ServiceDependency
 from cm.util import paths
 from cm.util import misc
 from cm.util.decorators import TestFlag, delay
+from cm.util.galaxy_conf import attempt_chown_galaxy
 from cm.util.galaxy_conf import galaxy_option_manager
 from cm.util.galaxy_conf import populate_process_options
 from cm.util.galaxy_conf import populate_dynamic_options
@@ -149,6 +150,7 @@ class GalaxyService(ApplicationService):
                 self.update_galaxy_config()
                 start_command = self.galaxy_run_command(
                     "%s --daemon" % self.extra_daemon_args)
+                attempt_chown_galaxy(self.galaxy_home)
                 if misc.run(start_command):
                     self.remaining_start_attempts -= 1
                 elif self.remaining_start_attempts > 0:
