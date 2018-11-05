@@ -9,7 +9,10 @@
         <plugin id="dynamic" type="runner">
             <param id="rules_module">galaxy.jobs.rules</param>
         </plugin>
-        <plugin id="slurm" load="galaxy.jobs.runners.slurm:SlurmJobRunner" type="runner"/>
+        <plugin id="slurm" load="galaxy.jobs.runners.slurm:SlurmJobRunner" type="runner">
+            <param id="internalexception_state">error</param>
+            <param id="internalexception_retries">10</param>
+        </plugin>
         <plugin id="pulsar_rest" load="galaxy.jobs.runners.pulsar:PulsarRESTJobRunner" type="runner"/>
         <plugin id="local" load="galaxy.jobs.runners.local:LocalJobRunner" type="runner" workers="4"/>
     </plugins>
