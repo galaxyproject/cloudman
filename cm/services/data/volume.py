@@ -405,14 +405,10 @@ class Volume(BlockStorage):
         """
         Get a list of system devices as an iterable list of strings.
         """
-        if self.app.config.cloud_type == 'ec2':
-            # c5/m5 on AWS mounts EBS volumes as NVMe:
-            # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html
-            # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
-            for itype in ['c5', 'm5']:
-                if itype in self.app.cloud_interface.get_type():
-                    return frozenset(glob('/dev/nvme[0-26]n1'))
-        return frozenset(glob('/dev/*d[a-z]'))
+        # c5/m5 on AWS mounts EBS volumes as NVMe:
+        # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html
+        # http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+        return frozenset(glob('/dev/nvme[0-26]n1') + glob('/dev/*d[a-z]'))
 
     def _increment_device_id(self, device_id):
         """
