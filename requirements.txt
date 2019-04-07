@@ -11,4 +11,4 @@ git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
 git+git://github.com/jhuapl-boss/django-oidc#egg=django-oidc
 git+git://github.com/jhuapl-boss/boss-oidc.git#egg=bossoidc
 git+https://github.com/jhuapl-boss/drf-oidc-auth.git
--e ".[prod]"
+-e ".[test]"

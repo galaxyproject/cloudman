@@ -6,6 +6,10 @@ from rest_framework.test import APITestCase, APILiveServerTestCase
 from unittest.mock import patch
 from unittest.mock import PropertyMock
 
+import responses
+
+from .util import EnvironmentVarGuard
+
 
 # Create your tests here.
 class CMCloudServiceTests(APITestCase):
@@ -60,15 +64,6 @@ class CMClusterNodeServiceTests(APILiveServerTestCase):
                     'cluster_type': 'KUBE_RANCHER',
                     'connection_settings': {
                         'deployment_target_id': 3,
-                        'config_rancher_kube': {
-                            'RANCHER_NODE_COMMAND':
-                                'sudo docker run -d --privileged --restart=unless-stopped --net=host'
-                                ' -v /etc/kubernetes:/etc/kubernetes -v /var/run:/var/run rancher/rancher-agent:v2.1.8'
-                                '--server https://127.0.0.1:4430'
-                                '--token 7qmnqabcdefg25dummy'
-                                '--ca-checksum 18d5a93febcdc7f1363330922cbe35765b78efa1379d4c3e7735b1ee57d92578'
-                                '--worker'
-                        },
                         'target_cloud': 'amazon-us-east-n-virginia'
                         }
                     }
@@ -92,6 +87,7 @@ class CMClusterNodeServiceTests(APILiveServerTestCase):
     def tearDown(self):
         self.client.logout()
 
+    @responses.activate
     def test_crud_cluster_node(self):
         """
         Ensure we can register a new node with cloudman.
@@ -101,9 +97,15 @@ class CMClusterNodeServiceTests(APILiveServerTestCase):
         response = self.client.post(url, self.CLUSTER_DATA, format='json')
         cluster_id = response.data['id']
 
-        url = reverse('node-list', args=[cluster_id])
-        response = self.client.post(url, self.NODE_DATA, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+        with EnvironmentVarGuard() as env:
+            env['RANCHER_URL'] = 'http://localhost:4430'
+            env['RANCHER_API_KEY'] = 'abcd'
+            responses.add(responses.POST, 'http://localhost:4430/v3/clusterregistrationtoken',
+                          json={'nodeCommand': 'docker run rancher --worker'}, status=200)
+            responses.add_passthru('http://localhost')
+            url = reverse('node-list', args=[cluster_id])
+            response = self.client.post(url, self.NODE_DATA, format='json')
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
 
         # check it exists
         url = reverse('node-detail', args=[cluster_id, response.data['id']])
