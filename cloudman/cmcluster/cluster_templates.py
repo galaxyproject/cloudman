@@ -100,8 +100,10 @@ class CMRancherTemplate(CMClusterTemplate):
             'deployment_target_id': self.connection_settings.get('deployment_target_id'),
             'application_version': '0.1.0',
             'config_app': {
-                'config_rancher_kube': self.cluster.connection_settings.get('config_rancher_kube'),
-                'rancher_action': 'add_node'
+                'rancher_action': 'add_node',
+                'config_rancher_kube': {
+                    'rancher_node_command': self.rancher_client.get_cluster_registration_command()
+                }
             }
         }
         try:

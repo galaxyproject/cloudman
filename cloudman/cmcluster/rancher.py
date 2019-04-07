@@ -21,6 +21,7 @@ class RancherClient(object):
                        "?action=generateKubeconfig")
     INSTALLED_APP_URL = ("{rancher_url}/v3/projects/{project_id}/app"
                          "?targetNamespace=galaxy-ns")
+    NODE_COMMAND_URL = "{rancher_url}/v3/clusterregistrationtoken"
 
     def __init__(self, rancher_url, api_key, cluster_id, project_id):
         self.rancher_url = rancher_url
@@ -57,3 +58,10 @@ class RancherClient(object):
 
     def fetch_kube_config(self):
         return self._api_post(self.KUBE_CONFIG_URL, data=None).get('config')
+
+    def get_cluster_registration_command(self):
+        return self._api_post(
+            self.NODE_COMMAND_URL,
+            data={"type": "clusterRegistrationToken",
+                  "clusterId": f"{self.cluster_id}"}
+        ).get('nodeCommand')
