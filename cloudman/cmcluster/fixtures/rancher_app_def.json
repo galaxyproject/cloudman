@@ -27,7 +27,8 @@
     "frontend_component_path": "",
     "frontend_component_name": "",
     "backend_component_name": "cmcluster.plugins.rancher_kubernetes_app.RancherKubernetesApp",
-    "default_launch_config": ""
+    "default_launch_config": "{\r\n   \"config_cloudlaunch\":{\r\n      \"firewall\":[\r\n         {\r\n            \"securityGroup\":\"cloudlaunch-vm\",\r\n            \"rules\":[\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"22\",\r\n                  \"to\":\"22\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"443\",\r\n                  \"to\":\"443\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"udp\",\r\n                  \"from\":\"8472\",\r\n                  \"to\":\"8472\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"9099\",\r\n                  \"to\":\"9099\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"10254\",\r\n                  \"to\":\"10254\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"6443\",\r\n                  \"to\":\"6443\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               }\r\n            ]\r\n         }\r\n      ]\r\n   }\r\n}",
+    "default_target": null
   }
 }
 ]
