@@ -7,8 +7,8 @@ git+git://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
 git+git://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli
 git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
 # for openid connect
-oic==0.13.0  # Fix this at this version or django-oidc acts up
-git+git://github.com/CloudVE/django-oidc#egg=django-oidc
-git+git://github.com/CloudVE/boss-oidc.git#egg=bossoidc
+# oic==0.13.0  # Fix this at this version or django-oidc acts up
+git+git://github.com/jhuapl-boss/django-oidc#egg=django-oidc
+git+git://github.com/jhuapl-boss/boss-oidc.git#egg=bossoidc
 git+https://github.com/jhuapl-boss/drf-oidc-auth.git
 -e ".[prod]"
