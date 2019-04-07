@@ -25,8 +25,10 @@ class RancherKubernetesApp(BaseVMAppPlugin):
             " must be provided. config_rancher_kube entry not found in"
             " app_config.")
         user_data = "#!/bin/bash\n"
-        user_data += get_required_val(rancher_config,
-                                      "RANCHER_NODE_COMMAND")
+        user_data += get_required_val(
+            rancher_config, "RANCHER_NODE_COMMAND",
+            "The rancher node command for adding the worker node must be"
+            "included as part of config_rancher_kube")
         return user_data
 
     def deploy(self, name, task, app_config, provider_config, **kwargs):

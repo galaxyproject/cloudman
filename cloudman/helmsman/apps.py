@@ -25,7 +25,7 @@ class HelmsmanConfig(AppConfig):
         try:
             cmd = (
                 "kubectl create serviceaccount --namespace kube-system tiller"
-                " && kubectl create clusterrolebinding tiller-cluster-rule"
+                " && kubectl create clusterrolebinding tiller-cluster-role"
                 " --clusterrole=cluster-admin"
                 " --serviceaccount=kube-system:tiller")
             subprocess.check_output(cmd, shell=True)

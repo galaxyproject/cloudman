@@ -21,11 +21,11 @@ class CMServiceContext(object):
 
     @property
     def cloudlaunch_url(self):
-        return 'http://localhost:8000/cloudlaunch/api/v1/'
+        return 'http://localhost:8000/cloudman/cloudlaunch/api/v1/'
 
     @property
     def cloudlaunch_token(self):
-        token_obj, _ = cl_models.Token.objects.get_or_create(user=self.user)
+        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user=self.user)
         return token_obj.key
 
     @property

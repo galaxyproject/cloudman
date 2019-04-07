@@ -97,10 +97,10 @@ class CMRancherTemplate(CMClusterTemplate):
         params = {
             'name': name,
             'application': 'cm_rancher_kubernetes_plugin',
-            'target_cloud': self.connection_settings.get('target_cloud'),
+            'deployment_target_id': self.connection_settings.get('deployment_target_id'),
             'application_version': '0.1.0',
             'config_app': {
-                'connecting_settings': self.cluster.connection_settings,
+                'config_rancher_kube': self.cluster.connection_settings.get('config_rancher_kube'),
                 'rancher_action': 'add_node'
             }
         }

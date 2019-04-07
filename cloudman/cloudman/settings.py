@@ -3,6 +3,7 @@ Django settings for cloudman project.
 """
 from cloudlaunchserver.settings import *
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DEBUG = True
 
@@ -19,11 +20,7 @@ AUTHENTICATION_BACKENDS = [
     'bossoidc.backend.OpenIdConnectBackend'
 ]
 
-REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
-        'oidc_auth.authentication.BearerTokenAuthentication',
-    )
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += ('oidc_auth.authentication.BearerTokenAuthentication',)
 
 # KeyCloak realm url
 auth_uri = os.environ.get("OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master"
@@ -47,7 +44,7 @@ ROOT_URLCONF = 'cloudman.urls'
 WSGI_APPLICATION = 'cloudman.wsgi.application'
 
 
-CLOUDLAUNCH_PATH_PREFIX = os.environ.get('CLOUDLAUNCH_PATH_PREFIX', '/cloudlaunch')
+CLOUDLAUNCH_PATH_PREFIX = os.environ.get('CLOUDLAUNCH_PATH_PREFIX', '/cloudman/cloudlaunch')
 STATIC_URL = CLOUDLAUNCH_PATH_PREFIX + '/static/'
 REST_SCHEMA_BASE_URL = CLOUDLAUNCH_PATH_PREFIX + '/'
 
