@@ -25,7 +25,8 @@ class CMServiceContext(object):
 
     @property
     def cloudlaunch_token(self):
-        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user=self.user)
+        # Always perform internal tasks as the admin user
+        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user="admin")
         return token_obj.key
 
     @property
