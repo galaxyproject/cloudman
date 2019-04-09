@@ -1,5 +1,7 @@
 """A wrapper around the helm commandline client"""
+import logging as log
 import shutil
+import subprocess
 import yaml
 from . import helpers
 from enum import Enum
@@ -26,6 +28,21 @@ class HelmClient(HelmService):
     def _check_environment(self):
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
+
+    def install_helm(self):
+        # FIXME: Check whether tiller role exists instead of ignoring exception
+        try:
+            cmd = (
+                "kubectl create serviceaccount --namespace kube-system tiller"
+                " && kubectl create clusterrolebinding tiller-cluster-role"
+                " --clusterrole=cluster-admin"
+                " --serviceaccount=kube-system:tiller")
+            helpers.run_command(cmd)
+        except subprocess.CalledProcessError as e:
+            log.exception("Could not create tiller role bindings. "
+                          "Reason: {0}".format(e.output))
+        print("Initializing tiller...")
+        self.helm_init(service_account="tiller", wait=True)
 
     def helm_init(self, service_account=None, upgrade=False, wait=False):
         cmd = ["helm", "init"]
