@@ -38,6 +38,6 @@ class Command(BaseCommand):
         else:
             client.repositories.update()
             print(f"Installing chart {repo_name}/{chart_name} into namespace"
-                  " {namespace}")
+                  f" {namespace}")
             client.releases.create(f"{repo_name}/{chart_name}", namespace,
                                    release_name=release_name, version=version)
