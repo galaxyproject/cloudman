@@ -6,9 +6,9 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'Loads cloudman bootstrap data in base64 format. The bootstrap' \
-           'data should contain cloud connection and credentials info for' \
-           'the admin user'
+    help = 'Creates a CloudMan cluster. Currently supported cluster' \
+           'types: RANCHER_KUBE. Specify rancher connection settings in yaml' \
+           'format in the settings_file.'
 
     def add_arguments(self, parser):
         parser.add_argument('name')

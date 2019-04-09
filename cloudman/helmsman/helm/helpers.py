@@ -3,11 +3,12 @@ import io
 import subprocess
 
 
-def run_command(command):
+def run_command(command, shell=False):
     """
     Runs a command and returns stdout
     """
-    return subprocess.check_output(command, universal_newlines=True, shell=True)
+    return subprocess.check_output(command, universal_newlines=True,
+                                   shell=shell)
 
 
 def run_list_command(command):

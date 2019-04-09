@@ -37,7 +37,7 @@ class HelmClient(HelmService):
                 " && kubectl create clusterrolebinding tiller-cluster-role"
                 " --clusterrole=cluster-admin"
                 " --serviceaccount=kube-system:tiller")
-            helpers.run_command(cmd)
+            helpers.run_command(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             log.exception("Could not create tiller role bindings. "
                           "Reason: {0}".format(e.output))
