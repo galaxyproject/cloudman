@@ -17,6 +17,10 @@ class CMClusterTemplate(object):
         return self.cluster.connection_settings
 
     @abc.abstractmethod
+    def setup(self):
+        pass
+
+    @abc.abstractmethod
     def add_node(self, name, size):
         pass
 
@@ -45,6 +49,11 @@ class CMRancherTemplate(CMClusterTemplate):
 
     def __init__(self, context, cluster):
         super(CMRancherTemplate, self).__init__(context, cluster)
+        settings = cluster.connection_settings
+        self._rancher_url = settings.get('rancher_url')
+        self._rancher_api_key = settings.get('rancher_api_key')
+        self._rancher_cluster_id = settings.get('rancher_cluster_id')
+        self._rancher_project_id = settings.get('rancher_project_id')
 
     def setup(self):
         """
@@ -73,19 +82,19 @@ class CMRancherTemplate(CMClusterTemplate):
 
     @property
     def rancher_url(self):
-        return os.environ.get('RANCHER_URL')
+        return self._rancher_url
 
     @property
     def rancher_api_key(self):
-        return os.environ.get('RANCHER_API_KEY')
+        return self._rancher_api_key
 
     @property
     def rancher_cluster_id(self):
-        return os.environ.get('RANCHER_CLUSTER_ID')
+        return self._rancher_cluster_id
 
     @property
     def rancher_project_id(self):
-        return os.environ.get('RANCHER_PROJECT_ID')
+        return self._rancher_project_id
 
     @property
     def rancher_client(self):
@@ -102,7 +111,9 @@ class CMRancherTemplate(CMClusterTemplate):
             'config_app': {
                 'rancher_action': 'add_node',
                 'config_rancher_kube': {
-                    'rancher_node_command': self.rancher_client.get_cluster_registration_command()
+                    'rancher_node_command': (
+                        self.rancher_client.get_cluster_registration_command()
+                        + " --worker")
                 }
             }
         }
