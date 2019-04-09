@@ -17,7 +17,7 @@ class CMClusterSerializer(serializers.Serializer):
                                            lookup_url_kwarg='cluster_pk')
 
     def create(self, valid_data):
-        return CloudManAPI(self.context['request']).clusters.create(
+        return CloudManAPI.from_request(self.context['request']).clusters.create(
             valid_data.get('name'), valid_data.get('cluster_type'),
             valid_data.get('connection_settings'))
 
@@ -31,7 +31,7 @@ class CMClusterNodeSerializer(serializers.Serializer):
 
     def create(self, valid_data):
         cluster_id = self.context['view'].kwargs.get("cluster_pk")
-        cluster = CloudManAPI(self.context['request']).clusters.get(cluster_id)
+        cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
         if not cluster:
             raise ValidationError("Specified cluster id: %s does not exist"
                                   % cluster_id)

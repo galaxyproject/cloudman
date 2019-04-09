@@ -29,8 +29,9 @@ class HelmsmanConfig(AppConfig):
                 " --clusterrole=cluster-admin"
                 " --serviceaccount=kube-system:tiller")
             subprocess.check_output(cmd, shell=True)
-        except Exception:
-            log.exception("Could not create tiller role bindings")
+        except subprocess.CalledProcessError as e:
+            log.exception("Could not create tiller role bindings. "
+                          "Reason: {0}".format(e.output))
         print("Initializing tiller...")
         client.helm_init(service_account="tiller", wait=True)
         print("Adding default repos...")

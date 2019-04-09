@@ -56,10 +56,14 @@ class CMService(object):
 
 class CloudManAPI(CMService):
 
-    def __init__(self, request):
-        context = CMServiceContext.from_request(request)
+    def __init__(self, context):
         super(CloudManAPI, self).__init__(context)
         self._clusters = CMClusterService(context)
+
+    @classmethod
+    def from_request(cls, request):
+        context = CMServiceContext.from_request(request)
+        return cls(context)
 
     @property
     def clusters(self):

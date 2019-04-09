@@ -26,11 +26,12 @@ class ClusterViewSet(drf_helpers.CustomModelViewSet):
 
     def list_objects(self):
         """Get a list of all registered clusters."""
-        return CloudManAPI(self.request).clusters.list()
+        return CloudManAPI.from_request(self.request).clusters.list()
 
     def get_object(self):
         """Get info about a specific cloud."""
-        return CloudManAPI(self.request).clusters.get(self.kwargs["pk"])
+        return CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["pk"])
 
 
 class ClusterNodeViewSet(drf_helpers.CustomModelViewSet):
@@ -42,14 +43,16 @@ class ClusterNodeViewSet(drf_helpers.CustomModelViewSet):
     serializer_class = serializers.CMClusterNodeSerializer
 
     def list_objects(self):
-        cluster = CloudManAPI(self.request).clusters.get(self.kwargs["cluster_pk"])
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
         if cluster:
             return cluster.nodes.list()
         else:
             return []
 
     def get_object(self):
-        cluster = CloudManAPI(self.request).clusters.get(self.kwargs["cluster_pk"])
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
         if cluster:
             return cluster.nodes.get(self.kwargs["pk"])
         else:
