@@ -1,7 +1,7 @@
 from django.db import models
 
 from cloudlaunch import models as cl_models
-import json
+import yaml
 
 
 class CMCluster(models.Model):
@@ -19,7 +19,7 @@ class CMCluster(models.Model):
 
     @property
     def connection_settings(self):
-        return json.loads(self._connection_settings)
+        return yaml.safe_load(self._connection_settings)
 
     @connection_settings.setter
     def connection_settings(self, value):
@@ -28,7 +28,7 @@ class CMCluster(models.Model):
 
         .. seealso:: connection_settings property getter
         """
-        self._connection_settings = json.dumps(value)
+        self._connection_settings = yaml.dump(value, default_flow_style=False)
 
 
 class CMClusterNode(models.Model):
