@@ -26,7 +26,7 @@ class CMServiceContext(object):
     @property
     def cloudlaunch_token(self):
         # Always perform internal tasks as the admin user
-        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user="admin")
+        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user=self.user)
         return token_obj.key
 
     @property
@@ -38,7 +38,9 @@ class CMServiceContext(object):
     @classmethod
     def from_request(cls, request):
         # Construct and return an instance of CMServiceContext
-        return cls(user=request.user)
+        # For now, ignore request.user and always carry out actions
+        # as the admin.
+        return cls(user="admin")
 
 
 class CMService(object):
@@ -92,7 +94,10 @@ class CMClusterService(CMService):
         obj = models.CMCluster.objects.create(
             name=name, cluster_type=cluster_type,
             connection_settings=connection_settings)
-        return self.add_child_services(obj)
+        cluster = self.add_child_services(obj)
+        template = self.get_cluster_template(cluster)
+        template.setup()
+        return cluster
 
     def delete(self, cluster_id):
         obj = models.CMCluster.objects.get(id=cluster_id)

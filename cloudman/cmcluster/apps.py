@@ -11,7 +11,16 @@ class CmClusterConfig(AppConfig):
         try:
             if os.environ.get("HELMSMAN_AUTO_DEPLOY"):
                 print("Setting up kube environment")
-                CMRancherTemplate(context=None, cluster=None).setup()
+                from . import api
+                cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
+                settings = {
+                    'rancher_url': os.environ.get('RANCHER_URL'),
+                    'rancher_api_key': os.environ.get('RANCHER_API_KEY'),
+                    'rancher_cluster_id': os.environ.get('RANCHER_CLUSTER_ID'),
+                    'rancher_project_id': os.environ.get('RANCHER_PROJECT_ID')
+                }
+                cmapi.clusters.create("default", "KUBE_RANCHER",
+                                      connection_settings=settings)
                 print("kube environment successfully setup")
         except Exception as e:
             log.exception("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
