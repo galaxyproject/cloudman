@@ -1,3 +1,5 @@
+Django==2.0.0
+# moto==1.1.11
 # for eclipse debugging
 pydevd>=1.0.0
 # get latest package versions for now
@@ -11,4 +13,4 @@ git+git://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
 git+git://github.com/jhuapl-boss/django-oidc#egg=django-oidc
 git+git://github.com/jhuapl-boss/boss-oidc.git#egg=bossoidc
 git+https://github.com/jhuapl-boss/drf-oidc-auth.git
--e ".[test]"
+-e ".[prod]"
