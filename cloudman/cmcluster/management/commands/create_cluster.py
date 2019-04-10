@@ -25,7 +25,7 @@ class Command(BaseCommand):
     def create_cluster(name, cluster_type, settings):
         try:
             print("Setting up kube environment")
-            from . import api
+            from cmcluster import api
             cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
             cmapi.clusters.create("default", "KUBE_RANCHER",
                                   connection_settings=settings)
