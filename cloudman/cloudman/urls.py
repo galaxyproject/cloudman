@@ -19,9 +19,9 @@ from django.conf.urls import url
 
 
 urlpatterns = [
-    url(r'^cloudman/api/v1/', include('cmcluster.urls')),
-    url(r'^cloudman/', include('cloudlaunchserver.urls')),
-    url(r'cloudman/openid/', include('djangooidc.urls')),
+    url(r'^api/v1/', include('cmcluster.urls')),
+    url(r'^cloudlaunch/', include('cloudlaunchserver.urls')),
+    url(r'^openid/', include('djangooidc.urls')),
 ]
 
 # Uncomment to have Gunicorn serve static content (dev only)
