@@ -3,6 +3,8 @@ import os
 import yaml
 from rest_framework.exceptions import ValidationError
 from .rancher import RancherClient
+from cloudlaunch import models as cl_models
+from djcloudbridge import models as cb_models
 import subprocess
 
 
@@ -49,7 +51,7 @@ class CMRancherTemplate(CMClusterTemplate):
 
     def __init__(self, context, cluster):
         super(CMRancherTemplate, self).__init__(context, cluster)
-        settings = cluster.connection_settings
+        settings = cluster.connection_settings.get('rancher_config')
         self._rancher_url = settings.get('rancher_url')
         self._rancher_api_key = settings.get('rancher_api_key')
         self._rancher_cluster_id = settings.get('rancher_cluster_id')
@@ -70,7 +72,7 @@ class CMRancherTemplate(CMClusterTemplate):
         with open(new_cfg_path, "w") as f:
             f.write(kube_config)
         # Activate the new cluster's context
-        current_context = yaml.load(kube_config).get('current-context')
+        current_context = yaml.safe_load(kube_config).get('current-context')
         # If an existing config is present, merge download config into it.
         # based on: https://github.com/kubernetes/kubernetes/issues/46381
         merge_cmd = (f"KUBECONFIG={cfg_path}:{new_cfg_path} kubectl config"
@@ -103,10 +105,18 @@ class CMRancherTemplate(CMClusterTemplate):
                              self.rancher_project_id)
 
     def add_node(self, name, size):
+        settings = self.cluster.connection_settings
+        target_zone = settings.get('cloud_config', {}).get('target', {}).get('target_zone', {})
+        cloud_id = target_zone.get('cloud', {}).get('id')
+        region_id = target_zone.get('region', {}).get('region_id')
+        zone_id = target_zone.get('zone_id')
+        zone = cb_models.Zone.get(zone_id=zone_id, region__region_id=region_id,
+                                  region__cloud__id=cloud_id)
+        deployment_target = cl_models.CloudDeploymentTarget.object.get(target_zone=zone)
         params = {
             'name': name,
             'application': 'cm_rancher_kubernetes_plugin',
-            'deployment_target_id': self.connection_settings.get('deployment_target_id'),
+            'deployment_target_id': deployment_target.id,
             'application_version': '0.1.0',
             'config_app': {
                 'rancher_action': 'add_node',
@@ -114,6 +124,12 @@ class CMRancherTemplate(CMClusterTemplate):
                     'rancher_node_command': (
                         self.rancher_client.get_cluster_registration_command()
                         + " --worker")
+                },
+                'config_cloudlaunch': {
+                    'vmType': (size or settings.get('app_config', {})
+                                .get('config_cloudlaunch', {}).get('vmType')),
+                    'keyPair': (settings.get('app_config', {})
+                                .get('config_cloudlaunch', {}).get('keyPair'))
                 }
             }
         }

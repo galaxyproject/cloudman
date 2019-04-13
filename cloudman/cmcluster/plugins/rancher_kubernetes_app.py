@@ -29,6 +29,7 @@ class RancherKubernetesApp(BaseVMAppPlugin):
             rancher_config, "rancher_node_command",
             "The rancher node command for adding the worker node must be"
             "included as part of config_rancher_kube")
+        user_data += "\n"
         return user_data
 
     def deploy(self, name, task, app_config, provider_config, **kwargs):
