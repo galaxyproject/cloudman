@@ -110,9 +110,9 @@ class CMRancherTemplate(CMClusterTemplate):
         cloud_id = target_zone.get('cloud', {}).get('id')
         region_id = target_zone.get('region', {}).get('region_id')
         zone_id = target_zone.get('zone_id')
-        zone = cb_models.Zone.get(zone_id=zone_id, region__region_id=region_id,
-                                  region__cloud__id=cloud_id)
-        deployment_target = cl_models.CloudDeploymentTarget.object.get(target_zone=zone)
+        zone = cb_models.Zone.objects.get(zone_id=zone_id, region__region_id=region_id,
+                                          region__cloud__id=cloud_id)
+        deployment_target = cl_models.CloudDeploymentTarget.objects.get(target_zone=zone)
         params = {
             'name': name,
             'application': 'cm_rancher_kubernetes_plugin',

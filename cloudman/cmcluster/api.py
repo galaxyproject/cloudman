@@ -1,4 +1,5 @@
 """CloudMan Service API."""
+import uuid
 from django.contrib.auth import get_user_model
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
@@ -123,7 +124,8 @@ class CMClusterNodeService(CMService):
     def get(self, node_id):
         return models.CMClusterNode.objects.get(id=node_id)
 
-    def create(self, name, instance_type):
+    def create(self, instance_type):
+        name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.service.get_cluster_template(self.cluster)
         cli_deployment = template.add_node(name, instance_type)
         deployment = cl_models.ApplicationDeployment.objects.get(

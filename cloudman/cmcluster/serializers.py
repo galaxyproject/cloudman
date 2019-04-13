@@ -24,7 +24,7 @@ class CMClusterSerializer(serializers.Serializer):
 
 class CMClusterNodeSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
-    name = serializers.CharField()
+    name = serializers.CharField(read_only=True)
     cluster = CMClusterSerializer(read_only=True)
     instance_type = serializers.CharField(write_only=True)
     deployment = cl_serializers.DeploymentSerializer(read_only=True)
@@ -35,5 +35,4 @@ class CMClusterNodeSerializer(serializers.Serializer):
         if not cluster:
             raise ValidationError("Specified cluster id: %s does not exist"
                                   % cluster_id)
-        return cluster.nodes.create(
-            valid_data.get('name'), valid_data.get('instance_type'))
+        return cluster.nodes.create(valid_data.get('instance_type'))
