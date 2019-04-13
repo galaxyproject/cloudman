@@ -11,7 +11,7 @@ class Command(BaseCommand):
                             help='Reference to the chart. e.g. cloudve/cloudman')
         parser.add_argument('--namespace', default="default", required=False,
                             help='namespace to install chart into')
-        parser.add_argument('--release_name',required=False,
+        parser.add_argument('--release_name', required=False,
                             help='name to give release')
         parser.add_argument('--chart_ver', required=False,
                             help='version of chart to install. defaults'

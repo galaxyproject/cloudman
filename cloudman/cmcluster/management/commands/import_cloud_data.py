@@ -1,27 +1,38 @@
 import argparse
 import base64
 import json
+import yaml
 from django.core.management.base import BaseCommand, CommandError
 from djcloudbridge import models as cb_models
 from cloudlaunch import models as cl_models
 
 
 class Command(BaseCommand):
-    help = 'Loads cloudman bootstrap data in base64 format. The bootstrap' \
+    help = 'Loads initial cloud data in base64 format. The cloud ' \
            'data should contain cloud connection and credentials info for' \
            'the admin user'
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=argparse.FileType('r'))
+        parser.add_argument('--format', required=False, default="base64yaml",
+                            choices=['yaml', 'json', 'base64yaml'],
+                            help='Format that the data is encoded in')
 
     def handle(self, *args, **options):
         data = options['filename'].read()
-        decoded_data = base64.b64decode(data).decode('utf-8')
-        self.import_bootstrap_data(json.loads(decoded_data))
+        format = options['format']
+        if format == "base64yaml":
+            data = base64.b64decode(data).decode('utf-8')
+
+        if format == "json":
+            decoded_data = json.loads(data)
+        elif format == "yaml" or format == "base64yaml":
+            decoded_data = yaml.safe_load(data)
+        self.load_cloud_data(decoded_data)
 
     @staticmethod
-    def import_bootstrap_data(json_data):
-        config = json_data.get('target_config')
+    def load_cloud_data(json_data):
+        config = json_data.get('cloud_config')
         target = config.get('target')
         image = config.get('image')
         zone = target.get('target_zone')
@@ -54,6 +65,7 @@ class Command(BaseCommand):
 
         # create region
         region_id = region.pop('region_id')
+        region.pop('resourcetype', None)
         region['cloud'] = cloud_obj
         region_obj, _ = region_model.objects.get_or_create(
             region_id=region_id, defaults={**region})
