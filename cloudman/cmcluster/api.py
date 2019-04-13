@@ -1,4 +1,5 @@
 """CloudMan Service API."""
+from django.contrib.auth import get_user_model
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
 from . import models
@@ -21,12 +22,13 @@ class CMServiceContext(object):
 
     @property
     def cloudlaunch_url(self):
-        return 'http://localhost:8000/cloudman/cloudlaunch/api/v1/'
+        return 'http://localhost:8000/cloudlaunch/api/v1/'
 
     @property
     def cloudlaunch_token(self):
         # Always perform internal tasks as the admin user
-        token_obj, _ = cl_models.AuthToken.objects.get_or_create(user=self.user)
+        token_obj, _ = cl_models.AuthToken.objects.get_or_create(
+            name='cloudman', user=self.user)
         return token_obj.key
 
     @property
@@ -40,7 +42,8 @@ class CMServiceContext(object):
         # Construct and return an instance of CMServiceContext
         # For now, ignore request.user and always carry out actions
         # as the admin.
-        return cls(user="admin")
+        admin_user = get_user_model().objects.get(username="admin")
+        return cls(user=admin_user)
 
 
 class CMService(object):

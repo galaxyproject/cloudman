@@ -13,5 +13,5 @@ router.register(r'repositories', views.ChartRepoViewSet,
 router.register(r'charts', views.ChartViewSet,
                 base_name='charts')
 urlpatterns = [
-    url(r'', include(router.urls)),
+    url(r'^', include(router.urls)),
 ]

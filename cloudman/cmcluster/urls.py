@@ -22,8 +22,8 @@ cluster_router = HybridNestedRouter(router, r'clusters',
 cluster_router.register(r'nodes', views.ClusterNodeViewSet,
                         base_name='node')
 
-cluster_regex_pattern = r''
+cluster_regex_pattern = r'^'
 urlpatterns = [
-    url(r'', include(router.urls)),
+    url(r'^', include(router.urls)),
     url(cluster_regex_pattern, include(cluster_router.urls))
 ]
