@@ -22,7 +22,8 @@ class Command(BaseCommand):
         data = options['filename'].read()
         format = options['format']
         if format == "base64yaml":
-            data = base64.b64decode(data).decode('utf-8')
+            # Pad data: https://gist.github.com/perrygeo/ee7c65bb1541ff6ac770
+            data = base64.b64decode(data + "===").decode('utf-8')
 
         if format == "json":
             decoded_data = json.loads(data)
