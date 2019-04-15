@@ -16,7 +16,7 @@ class Command(BaseCommand):
         parser.add_argument('name')
         parser.add_argument('cluster_type')
         parser.add_argument('settings_file', type=argparse.FileType('r'))
-        parser.add_argument('--format', required=False, default="base64yaml",
+        parser.add_argument('--format', required=False, default="yaml",
                             choices=['yaml', 'json', 'base64yaml'],
                             help='Format that the data is encoded in')
 

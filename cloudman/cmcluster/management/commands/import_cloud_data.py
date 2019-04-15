@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=argparse.FileType('r'))
-        parser.add_argument('--format', required=False, default="base64yaml",
+        parser.add_argument('--format', required=False, default="yaml",
                             choices=['yaml', 'json', 'base64yaml'],
                             help='Format that the data is encoded in')
 
