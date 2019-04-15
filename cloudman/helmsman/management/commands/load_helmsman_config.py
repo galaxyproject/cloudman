@@ -18,6 +18,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
+        call_command("setup_helm")
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
         for chart in settings.get('charts'):

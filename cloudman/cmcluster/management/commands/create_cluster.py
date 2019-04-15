@@ -39,14 +39,12 @@ class Command(BaseCommand):
     @staticmethod
     def create_cluster(name, cluster_type, settings):
         try:
-            print("Setting up kube environment")
+            print("Creating cluster: {0}, type: cluster_type".format(name, cluster_type))
             from cmcluster import api
             cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
             cmapi.clusters.create("default", "KUBE_RANCHER",
                                   connection_settings=settings)
             print("kube environment successfully setup")
         except Exception as e:
-            log.exception("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
-                          "An error occurred while setting up Rancher!!:")
-            print("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
-                  "An error occurred while setting up Rancher!!: ", e)
+            log.exception("An error occurred while creating the initial cluster!!:")
+            print("An error occurred while creating the initial cluster!!:", e)
