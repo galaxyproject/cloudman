@@ -24,7 +24,7 @@ class Command(BaseCommand):
         for chart in settings.get('charts'):
             extra_args = {}
             if chart.get('namespace'):
-                extra_args["--namespace"] = chart.get('namespace')
+                extra_args["namespace"] = chart.get('namespace')
             if chart.get('version'):
-                extra_args["--version"] = chart.get('version')
+                extra_args["version"] = chart.get('version')
             call_command("add_chart", chart.get('name'), **extra_args)
