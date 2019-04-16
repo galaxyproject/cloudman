@@ -59,13 +59,14 @@ RUN useradd -ms /bin/bash cloudman \
     && mkdir -p /app \
     && chown cloudman:cloudman /app -R \
     && apt-get -qq update && apt-get install -y --no-install-recommends \
+        git-core \
         python-psycopg2 \
         python3-pip \
         python3-setuptools \
     && apt-get autoremove -y && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/*
 
-WORKDIR /app/
+WORKDIR /app/cloudman/
 
 # Copy cloudman files to final image
 COPY --chown=cloudman:cloudman --from=stage1 /app /app
@@ -82,4 +83,6 @@ USER cloudman
 # gunicorn will listen on this port
 EXPOSE 8000
 
-CMD /app/venv/bin/gunicorn -b :8000 --access-logfile - --error-logfile - --log-level debug cloudman.wsgi
+CMD /app/venv/bin/gunicorn -k gevent -b :8000 --access-logfile - --error-logfile - --log-level debug cloudman.wsgi
+#CMD /app/venv/bin/python /app/cloudman/manage.py runserver
+
