@@ -2,6 +2,8 @@
 from celery.utils.log import get_task_logger
 
 from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
+from cloudlaunch.configurers import AnsibleAppConfigurer
+
 from rest_framework.serializers import ValidationError
 
 log = get_task_logger('cloudlaunch')
@@ -24,13 +26,14 @@ class RancherKubernetesApp(BaseVMAppPlugin):
             app_config, "config_rancher_kube", "Rancher configuration data"
             " must be provided. config_rancher_kube entry not found in"
             " app_config.")
-        user_data = "#!/bin/bash\n"
-        user_data += get_required_val(
-            rancher_config, "rancher_node_command",
-            "The rancher node command for adding the worker node must be"
-            "included as part of config_rancher_kube")
-        user_data += "\n"
-        return user_data
+        #user_data = "#!/bin/bash\n"
+        #user_data += get_required_val(
+        #    rancher_config, "rancher_node_command",
+        #    "The rancher node command for adding the worker node must be"
+        #    "included as part of config_rancher_kube")
+        #user_data += "\n"
+        #return user_data
+        return app_config
 
     def deploy(self, name, task, app_config, provider_config, **kwargs):
         """
@@ -57,3 +60,19 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         # key += get_required_val(rancher_config, "RANCHER_API_KEY")
         # Contact rancher API and delete node
         return super(RancherKubernetesApp, self).delete(provider, deployment)
+
+    def _get_configurer(self, app_config):
+        # CloudMan2 can only be configured with ansible
+        return RancherKubernetesAnsibleAppConfigurer()
+
+
+class RancherKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
+    """Add CloudMan2 specific vars to playbook."""
+
+    def configure(self, app_config, provider_config):
+        playbook_vars = [
+            ('rancher_node_command', app_config.get('rancher_config', {}).get(
+                'rancher_node_command'))
+        ]
+        return super().configure(app_config, provider_config,
+                                 playbook_vars=playbook_vars)

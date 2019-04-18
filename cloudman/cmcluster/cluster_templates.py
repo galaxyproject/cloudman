@@ -105,6 +105,7 @@ class CMRancherTemplate(CMClusterTemplate):
                              self.rancher_project_id)
 
     def add_node(self, name, size):
+        print("Adding node: {0} of size: {1}".format(name, size))
         settings = self.cluster.connection_settings
         target_zone = settings.get('cloud_config', {}).get('target', {}).get('target_zone', {})
         cloud_id = target_zone.get('cloud', {}).get('id')
@@ -125,6 +126,12 @@ class CMRancherTemplate(CMClusterTemplate):
                         self.rancher_client.get_cluster_registration_command()
                         + " --worker")
                 },
+                "config_appliance": {
+                    "sshUser": "ubuntu",
+                    "runner": "ansible",
+                    "repository": "https://github.com/CloudVE/ansible-cm2-rancher-node",
+                    "inventoryTemplate": "https://gist.githubusercontent.com/afgane/1651c5c1395400ce8ab97a546293d571/raw/98e1da15a2936bcb23dd5fca1ff88259e9c80f3b/i2"
+                },
                 'config_cloudlaunch': {
                     'vmType': (size or settings.get('app_config', {})
                                 .get('config_cloudlaunch', {}).get('vmType')),
@@ -134,6 +141,7 @@ class CMRancherTemplate(CMClusterTemplate):
             }
         }
         try:
+            print("Launching node with settings: {0}".format(params))
             return self.context.cloudlaunch_client.deployments.create(**params)
         except Exception as e:
             raise ValidationError(str(e))

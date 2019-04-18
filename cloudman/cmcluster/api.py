@@ -23,7 +23,7 @@ class CMServiceContext(object):
 
     @property
     def cloudlaunch_url(self):
-        return 'http://localhost:8000/cloudlaunch/api/v1/'
+        return 'http://localhost:8000/cloudman/cloudlaunch/api/v1/'
 
     @property
     def cloudlaunch_token(self):

@@ -23,10 +23,10 @@ schema_view = get_schema_view(title='CloudMan API', url=settings.REST_SCHEMA_BAS
                               urlconf='cloudman.urls')
 
 urlpatterns = [
-    url(r'^cloudlaunch/', include('cloudlaunchserver.urls')),
-    url(r'^api/v1/', include('cmcluster.urls')),
-    url(r'^api/v1/schema/$', schema_view),
-    url(r'^openid/', include('djangooidc.urls')),
+    url(r'^cloudman/', include('cloudlaunchserver.urls')),
+    url(r'^cloudman/api/v1/', include('cmcluster.urls')),
+    url(r'^cloudman/api/v1/schema/$', schema_view),
+    url(r'^cloudman/openid/', include('djangooidc.urls')),
 ]
 
 # Uncomment to have Gunicorn serve static content (dev only)
