@@ -54,6 +54,8 @@ class Command(BaseCommand):
             cloud_model = cb_models.GCPCloud
             region_model = cb_models.GCPRegion
             credentials_model = cb_models.GCPCredentials
+            credentials['gcp_service_creds_dict'] = json.dumps(
+                credentials['gcp_service_creds_dict'])
         elif cloud_type == 'OpenStackCloud':
             cloud_model = cb_models.OpenStackCloud
             region_model = cb_models.OpenStackRegion

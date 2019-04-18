@@ -7,6 +7,7 @@
 
 .git
 .tox
+.venv
 venv
 venv3
 docs
