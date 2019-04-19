@@ -30,6 +30,10 @@ class CMCluster(models.Model):
         """
         self._connection_settings = yaml.dump(value, default_flow_style=False)
 
+    class Meta:
+        verbose_name = "Cluster"
+        verbose_name_plural = "Clusters"
+
 
 class CMClusterNode(models.Model):
     name = models.CharField(max_length=60)
@@ -43,3 +47,6 @@ class CMClusterNode(models.Model):
         cl_models.ApplicationDeployment, models.CASCADE,
         related_name="cm_cluster_node")
 
+    class Meta:
+        verbose_name = "Cluster Node"
+        verbose_name_plural = "Cluster Nodes"

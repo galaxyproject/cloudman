@@ -23,6 +23,10 @@ class Migration(migrations.Migration):
                 ('cluster_type', models.CharField(max_length=255)),
                 ('_connection_settings', models.TextField(blank=True, db_column='connection_settings', help_text='External provider specific settings for this cluster.', max_length=16384, null=True)),
             ],
+            options={
+                'verbose_name': 'Cluster',
+                'verbose_name_plural': 'Clusters',
+            },
         ),
         migrations.CreateModel(
             name='CMClusterNode',
@@ -32,5 +36,9 @@ class Migration(migrations.Migration):
                 ('cluster', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='node_list', to='cmcluster.CMCluster')),
                 ('deployment', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='cm_cluster_node', to='cloudlaunch.ApplicationDeployment')),
             ],
+            options={
+                'verbose_name': 'Cluster Node',
+                'verbose_name_plural': 'Cluster Nodes',
+            },
         ),
     ]
