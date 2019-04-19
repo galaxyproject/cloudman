@@ -38,6 +38,7 @@ public_uri = os.environ.get("OIDC_PUBLIC_URI") or "http://localhost:4200/cloudma
 OIDC_ALLOW_DYNAMIC_OP = False
 
 from bossoidc.settings import *
+BOSSOIDC_PRESERVE_EXISTING_USER = True
 
 LOGIN_URL = "/openid/openid/KeyCloak"
 LOGOUT_URL = "/openid/logout"
