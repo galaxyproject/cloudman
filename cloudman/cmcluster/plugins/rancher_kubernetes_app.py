@@ -71,7 +71,7 @@ class RancherKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
 
     def configure(self, app_config, provider_config):
         playbook_vars = [
-            ('rancher_node_command', app_config.get('rancher_config', {}).get(
+            ('rancher_node_command', app_config.get('config_rancher_kube', {}).get(
                 'rancher_node_command'))
         ]
         return super().configure(app_config, provider_config,
