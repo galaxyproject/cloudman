@@ -83,6 +83,6 @@ USER cloudman
 # gunicorn will listen on this port
 EXPOSE 8000
 
-CMD /bin/bash -c "source /app/venv/bin/activate && /app/venv/bin/gunicorn -k gevent -b :8000 --access-logfile - --error-logfile - --log-level debug cloudman.wsgi"
+CMD /bin/bash -c "source /app/venv/bin/activate && /app/venv/bin/gunicorn -k gevent -b :8000 --access-logfile - --error-logfile - --log-level info cloudman.wsgi"
 #CMD /app/venv/bin/python /app/cloudman/manage.py runserver
 

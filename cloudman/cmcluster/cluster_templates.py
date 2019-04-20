@@ -130,16 +130,16 @@ class CMRancherTemplate(CMClusterTemplate):
                     "sshUser": "ubuntu",
                     "runner": "ansible",
                     "repository": "https://github.com/CloudVE/ansible-cm2-rancher-node",
-                    "inventoryTemplate": "https://gist.githubusercontent.com/afgane/1651c5c1395400ce8ab97a546293d571/raw/98e1da15a2936bcb23dd5fca1ff88259e9c80f3b/i2"
+                    "inventoryTemplate": ("https://gist.githubusercontent.com/afgane/"
+                                          "1651c5c1395400ce8ab97a546293d571/raw/98e1d"
+                                          "a15a2936bcb23dd5fca1ff88259e9c80f3b/i2")
                 },
-                'config_cloudlaunch': {
-                    'vmType': (size or settings.get('app_config', {})
-                                .get('config_cloudlaunch', {}).get('vmType')),
-                    'keyPair': (settings.get('app_config', {})
-                                .get('config_cloudlaunch', {}).get('keyPair'))
-                }
+                'config_cloudlaunch': (settings.get('app_config', {})
+                                       .get('config_cloudlaunch', {}))
             }
         }
+        if size:
+            params['config_app']['config_cloudlaunch']['vmType'] = size
         try:
             print("Launching node with settings: {0}".format(params))
             return self.context.cloudlaunch_client.deployments.create(**params)
