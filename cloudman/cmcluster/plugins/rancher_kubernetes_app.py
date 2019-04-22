@@ -43,7 +43,7 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         want this method to perform the app http check and prefer to handle
         it in the child class.
         """
-        result = super(RancherKubernetesApp, self).deploy(
+        result = super().deploy(
             name, task, app_config, provider_config)
         return result
 
@@ -59,7 +59,7 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         """
         # key += get_required_val(rancher_config, "RANCHER_API_KEY")
         # Contact rancher API and delete node
-        return super(RancherKubernetesApp, self).delete(provider, deployment)
+        return super().delete(provider, deployment)
 
     def _get_configurer(self, app_config):
         # CloudMan2 can only be configured with ansible

@@ -1,1 +1,9 @@
+brotlipy
+git+https://github.com/gvlproject/cloudbridge#egg=cloudbridge[test]
+git+https://github.com/CloudVE/djcloudbridge#egg=djcloudbridge[test]
+# Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
+git+https://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli[test]
+git+https://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server[test]
 -r requirements.txt
+-e ".[test]"
+sqlalchemy
