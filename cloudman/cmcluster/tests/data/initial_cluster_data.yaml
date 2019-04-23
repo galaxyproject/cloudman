@@ -1,0 +1,73 @@
+app_config:
+  config_appliance:
+    inventoryTemplate:
+    repository: https://github.com/CloudVE/ansible-cloudman2
+    runner: ansible
+    sshUser: ubuntu
+  config_cloudlaunch:
+    customImageID: null
+    firewall:
+    - rules:
+      - cidr: 0.0.0.0/0
+        from: "22"
+        protocol: tcp
+        to: "22"
+      securityGroup: cloudlaunch-cm2
+    gateway: null
+    keyPair: null
+    network: null
+    provider_settings:
+      ebsOptimised: null
+      volumeIOPS: null
+    rootStorageType: instance
+    staticIP: null
+    subnet: null
+    vmType: m2.large
+  config_cloudman2:
+    clusterPassword: 123456
+    cm_boot_image: cloudve/cloudman-boot
+    pulsarOnly: false
+cloud_config:
+  credentials:
+    cloud_id: aws
+    default: true
+    id: 176
+    name: Amazon
+    aws_access_key: dummy_key
+    aws_secret_key: dummy_secret
+  image:
+    description: Ubuntu 16.04 with Docker
+    image_id: ami-123456
+    name: Ubuntu 16.04 with Docker
+  target:
+    id: 25
+    resourcetype: CloudDeploymentTarget
+    target_zone:
+      cloud:
+        id: aws
+        name: Amazon Web Services
+        resourcetype: AWSCloud
+      name: us-east1
+      region:
+        cloud: aws
+        id: 22
+        name: us-east1
+        region_id: amazon-us-east
+        resourcetype: AWSRegion
+      zone_id: default
+host_config:
+  host_address: 127.0.0.1
+  run_cmd: null
+  ssh_private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MSomeREASONABLECcontentBAQEFAASCBKkwggSlAgEAAoIBAQDV8ZKINVKPejyt
+    e1KdtdUcj4zA9d3R0qI6UrrZICaXCiCST8Wyd0GbtDxElwMx1I4Wvce4r4ESZcdO
+        zZZdd8whRDbQDY0lYJrXGpoZvg==
+    -----END PRIVATE KEY-----
+  ssh_public_key: ssh-rsa AAAASomeKey/0DV
+  ssh_user: ubuntu
+rancher_config:
+  rancher_url: https://127.0.0.1:4430
+  rancher_api_key: token-bf4j5:sometoken
+  rancher_cluster_id: c-abcd1
+  rancher_project_id: c-abcd1:p-7zr5p
