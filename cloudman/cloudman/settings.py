@@ -17,7 +17,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 INSTALLED_APPS += [
     'bossoidc',
     'djangooidc',
-    'cmcluster',
+    'clusterman',
     'helmsman'
 ]
 

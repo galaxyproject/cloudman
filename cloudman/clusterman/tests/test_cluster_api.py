@@ -42,7 +42,7 @@ class CMClusterServiceTestBase(APITestCase):
     # fixtures = ['initial_test_data.json']
 
     def setUp(self):
-        self.patcher = patch('cmcluster.cluster_templates.CMRancherTemplate.fetch_kube_config',
+        self.patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
                              new_callable=PropertyMock,
                              return_value=load_kube_config)
         self.patcher.start()
@@ -115,7 +115,7 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
 
     def setUp(self):
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
-        self.patcher = patch('cmcluster.api.CMServiceContext.cloudlaunch_url',
+        self.patcher = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
                              new_callable=PropertyMock,
                              return_value=cloudlaunch_url)
         self.patcher.start()

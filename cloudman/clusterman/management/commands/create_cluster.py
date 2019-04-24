@@ -40,7 +40,7 @@ class Command(BaseCommand):
     def create_cluster(name, cluster_type, settings):
         try:
             print("Creating cluster: {0}, type: cluster_type".format(name, cluster_type))
-            from cmcluster import api
+            from clusterman import api
             cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
             cmapi.clusters.create("default", "KUBE_RANCHER",
                                   connection_settings=settings)

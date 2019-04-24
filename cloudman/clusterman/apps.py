@@ -4,8 +4,8 @@ import os
 from django.apps import AppConfig
 
 
-class CmClusterConfig(AppConfig):
-    name = 'cmcluster'
+class ClusterManConfig(AppConfig):
+    name = 'clusterman'
 
     def ready(self):
         # FIXME: Hack to download the initial kube config file
@@ -13,7 +13,7 @@ class CmClusterConfig(AppConfig):
         # startup script
         if os.environ.get("HELMSMAN_AUTO_DEPLOY"):
             try:
-                from cmcluster import api
+                from clusterman import api
                 cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
                 print("Setting up kube environment")
                 clusters = cmapi.clusters.list()
@@ -21,7 +21,7 @@ class CmClusterConfig(AppConfig):
                 template.setup()
                 print("kube environment successfully setup")
             except Exception as e:
-                log.exception("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
+                log.exception("ClusterManConfig.ready()->CMRancherTemplate.setup(): "
                               "An error occurred while setting up Rancher!!:")
-                print("CmClusterConfig.ready()->CMRancherTemplate.setup(): "
+                print("ClusterManConfig.ready()->CMRancherTemplate.setup(): "
                       "An error occurred while setting up Rancher!!: ", e)

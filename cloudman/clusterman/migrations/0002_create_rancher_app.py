@@ -24,7 +24,7 @@ def import_data(apps, schema_editor, filename):
 
     try:
         # Call loaddata command
-        call_command('loaddata', filename, app_label='cmcluster')
+        call_command('loaddata', filename, app_label='clusterman')
     finally:
         # Restore old _get_model() function
         serializers.python._get_model = old_get_model
@@ -37,7 +37,7 @@ def import_rancher_app(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('cmcluster', '0001_initial'),
+        ('clusterman', '0001_initial'),
     ]
 
     operations = [
