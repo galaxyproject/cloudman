@@ -30,22 +30,21 @@ REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += ('oidc_auth.authentication.B
 
 OIDC_ENABLED = os.environ.get('OIDC_ENABLED', False)
 
+# KeyCloak realm url
+auth_uri = os.environ.get("OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master"
+# Client ID configured in the Auth Server
+client_id = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
+# URL of the client
+public_uri = os.environ.get("OIDC_PUBLIC_URI") or "http://localhost:4200/cloudman"
+
+OIDC_ALLOW_DYNAMIC_OP = False
+
+from bossoidc.settings import *
+BOSSOIDC_PRESERVE_EXISTING_USER = True
+
 if OIDC_ENABLED:
-    # KeyCloak realm url
-    auth_uri = os.environ.get("OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master"
-    # Client ID configured in the Auth Server
-    client_id = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
-    # URL of the client
-    public_uri = os.environ.get("OIDC_PUBLIC_URI") or "http://localhost:4200/cloudman"
-
-    OIDC_ALLOW_DYNAMIC_OP = False
-
-    from bossoidc.settings import *
-    BOSSOIDC_PRESERVE_EXISTING_USER = True
-
     LOGIN_URL = "/openid/openid/KeyCloak"
     LOGOUT_URL = "/openid/logout"
-
     configure_oidc(auth_uri, client_id, public_uri)  # NOTE: scope is optional and can be left out
 else:
     OIDC_PROVIDERS = {}
