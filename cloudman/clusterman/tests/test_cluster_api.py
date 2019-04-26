@@ -39,8 +39,6 @@ class CMClusterServiceTestBase(APITestCase):
         'connection_settings': load_cluster_data()
     }
 
-    # fixtures = ['initial_test_data.json']
-
     def setUp(self):
         self.patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
                              new_callable=PropertyMock,

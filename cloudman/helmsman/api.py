@@ -67,10 +67,10 @@ class HMChartRepoService(HelmsManService):
         return {}
 
     def create(self, name, cluster_type, connection_settings):
-        raise Exception("Not implemented")
+        raise NotImplementedError()
 
     def delete(self, cluster_id):
-        raise Exception("Not implemented")
+        raise NotImplementedError()
 
 
 class HMChartService(HelmsManService):
@@ -114,8 +114,8 @@ class HMChartService(HelmsManService):
             'state': 'installed'
             }
 
-    def create(self, name, instance_type):
-        raise Exception("Not implemented")
+    def create(self, name, config, schema):
+        raise NotImplementedError()
 
     def update(self, chart, config_updates):
         galaxy_rel = self._get_galaxy_release()
@@ -140,4 +140,4 @@ class HMChartService(HelmsManService):
         return self.get('galaxy')
 
     def delete(self, chart_id):
-        raise Exception("Not implemented")
+        raise NotImplementedError()
