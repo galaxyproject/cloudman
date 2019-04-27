@@ -15,10 +15,15 @@ class MockHelm(object):
 
     """ Mocks all calls to the helm command"""
     def __init__(self, testcase):
-        self.patcher = patch('helmsman.helm.helpers.run_command',
-                             self.mock_run_command)
-        self.patcher.start()
-        testcase.addCleanup(self.patcher.stop)
+        self.patch1 = patch(
+            'helmsman.helm.client.HelmClient._check_environment',
+            return_value=True)
+        self.patch2 = patch('helmsman.helm.helpers.run_command',
+                            self.mock_run_command)
+        self.patch1.start()
+        self.patch2.start()
+        testcase.addCleanup(self.patch2.stop)
+        testcase.addCleanup(self.patch1.stop)
 
     def mock_run_command(self, command, shell=False):
         prog = None
@@ -30,7 +35,7 @@ class MockHelm(object):
         if prog.startswith("helm init"):
             # pretend to succeed
             pass
-        if prog.startswith("helm list"):
+        elif prog.startswith("helm list"):
             return (
                 "NAME             	REVISION	UPDATED                 	STATUS  	CHART            	APP VERSION	NAMESPACE\n"
                 "turbulent-markhor	12      	Fri Apr 19 05:33:37 2019	DEPLOYED	cloudlaunch-0.2.0	2.0.2      	cloudlaunch")
