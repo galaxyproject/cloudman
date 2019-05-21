@@ -32,7 +32,7 @@ class Command(BaseCommand):
                                      version):
         repo_name, chart_name = chart_ref.split("/")
         existing_release = [r for r in client.releases.list()
-                            if chart_name in r.get('CHART')]
+                            if chart_name == client.releases.parse_chart_name(r.get('CHART'))]
         if existing_release:
             print(f"Chart {repo_name}/{chart_name} already installed.")
         else:

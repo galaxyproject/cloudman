@@ -84,9 +84,11 @@ class HMChartService(HelmsManService):
         ]
 
     def _get_galaxy_release(self):
-        releases = HelmClient().releases.list()
+        client = HelmClient()
+        releases = client.releases.list()
         for release in releases:
-            if "galaxy" in release.get("CHART", ""):
+            if "galaxy" == client.releases.parse_chart_name(
+                    release.get('CHART')):
                 return release
         return {}
 
@@ -102,13 +104,13 @@ class HMChartService(HelmsManService):
             # Get entire chart state, including chart default values
             val = HelmClient().releases.get_values(galaxy_rel.get("NAME"),
                                                    get_all=True)
-            config = val.get('galaxy_conf')
+            config = val.get('configs', {})
         else:
             config = {}
         return {
             'id': 'galaxy',
             'name': 'Galaxy',
-            'access_address': '/galaxy',
+            'access_address': '/galaxy/',
             'schema': schema,
             'config': config,
             'state': 'installed'
@@ -123,14 +125,18 @@ class HMChartService(HelmsManService):
         cur_vals = HelmClient().releases.get_values(galaxy_rel.get("NAME"))
         # 2. Add the latest differences on top
         if cur_vals:
-            cur_vals.get('galaxy_conf').update(config_updates)
+            config = cur_vals.get('configs', {})
+            config.update(config_updates)
         else:
-            cur_vals = {'galaxy_conf': config_updates}
+            cur_vals = {
+                'configs': config_updates
+            }
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(galaxy_rel.get("NAME"),
                                      "galaxyproject/galaxy-stable",
                                      cur_vals)
-        chart.get('config', {}).update(cur_vals.get('galaxy_conf'))
+        config = cur_vals.get('configs', {})
+        chart.get('config', {}).update(config)
         return chart
 
     def rollback(self, chart, revision=None):
