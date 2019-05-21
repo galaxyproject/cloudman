@@ -1,7 +1,9 @@
 """A wrapper around the helm commandline client"""
 import logging as log
+import shlex
 import shutil
 import subprocess
+import tempfile
 import yaml
 from . import helpers
 from enum import Enum
@@ -85,6 +87,19 @@ class HelmReleaseService(HelmService):
     def get(self, release_name):
         return {}
 
+    def _set_values_and_run_command(self, cmd, values):
+        """
+        Handles helm values by writing values to a temporary file,
+        after which the command is run. The temporary file is cleaned
+        up on exit from this method. This allows special values like braces
+        to be handled without complex escaping, which the helm --set flag
+        can't handle.
+        """
+        with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
+            yaml.dump(values, stream=f, default_flow_style=False)
+            cmd += ["-f", f.name]
+            return helpers.run_command(cmd)
+
     def create(self, chart, namespace, release_name=None,
                values=None, version=None):
         cmd = ["helm", "install", chart]
@@ -95,10 +110,7 @@ class HelmReleaseService(HelmService):
             cmd += ["--name", release_name]
         if version:
             cmd += ["--version", version]
-        if values:
-            for key, val in helpers.flatten_dict(values).items():
-                cmd += ["--set", f"{key}={val}"]
-        return helpers.run_command(cmd)
+        return self._set_values_and_run_command(cmd, values)
 
     def update(self, release_name, chart, values=None,
                value_handling=HelmValueHandling.DEFAULT):
@@ -110,18 +122,13 @@ class HelmReleaseService(HelmService):
         """
         cmd = ["helm", "upgrade", release_name, chart]
 
-        if values:
-            for key, val in helpers.flatten_dict(values).items():
-                cmd += ["--set", f"{key}={val}"]
-
         if value_handling == value_handling.RESET:
             cmd += ["--reset-values"]
         elif value_handling == value_handling.REUSE:
             cmd += ["--reuse-values"]
         else:  # value_handling.DEFAULT
             pass
-
-        return helpers.run_command(cmd)
+        return self._set_values_and_run_command(cmd, values)
 
     def history(self, release_name):
         data = helpers.run_list_command(["helm", "history", release_name])
@@ -140,7 +147,7 @@ class HelmReleaseService(HelmService):
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
 
-    def get_values(self, release_name, get_all=False):
+    def get_values(self, release_name, get_all=True):
         """
         get_all=True will also dump chart default values.
         get_all=False will only return user overridden values.

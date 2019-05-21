@@ -95,10 +95,6 @@ class HMChartService(HelmsManService):
     def get(self, chart_id):
         if not chart_id == 'galaxy':
             raise ObjectDoesNotExist('Chart: %s does not exist' % chart_id)
-        file_path = os.path.join(os.path.dirname(__file__),
-                                 './schemas/galaxy.json')
-        with open(file_path) as f:
-            schema = json.load(f)
         galaxy_rel = self._get_galaxy_release()
         if galaxy_rel:
             # Get entire chart state, including chart default values
@@ -111,7 +107,6 @@ class HMChartService(HelmsManService):
             'id': 'galaxy',
             'name': 'Galaxy',
             'access_address': '/galaxy/',
-            'schema': schema,
             'config': config,
             'state': 'installed'
             }
@@ -133,7 +128,7 @@ class HMChartService(HelmsManService):
             }
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(galaxy_rel.get("NAME"),
-                                     "galaxyproject/galaxy-stable",
+                                     "cloudve/galaxy",
                                      cur_vals)
         config = cur_vals.get('configs', {})
         chart.get('config', {}).update(config)
