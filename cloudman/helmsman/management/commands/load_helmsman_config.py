@@ -1,5 +1,5 @@
 import argparse
-import logging as log
+import tempfile
 import yaml
 
 from django.core.management import call_command
@@ -27,4 +27,11 @@ class Command(BaseCommand):
                 extra_args["namespace"] = chart.get('namespace')
             if chart.get('version'):
                 extra_args["version"] = chart.get('version')
-            call_command("add_chart", chart.get('name'), **extra_args)
+            if chart.get('values'):
+                values = chart.get('values')
+                with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
+                    yaml.dump(values, stream=f, default_flow_style=False)
+                    extra_args["values_file"] = f.name
+                    call_command("add_chart", chart.get('name'), **extra_args)
+            else:
+                call_command("add_chart", chart.get('name'), **extra_args)
