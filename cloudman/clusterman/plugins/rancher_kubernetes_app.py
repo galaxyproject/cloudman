@@ -2,6 +2,7 @@
 from celery.utils.log import get_task_logger
 
 from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
+from cloudlaunch.backend_plugins.cloudman2_app import get_iam_handler_for
 from cloudlaunch.configurers import AnsibleAppConfigurer
 
 from rest_framework.serializers import ValidationError
@@ -64,6 +65,27 @@ class RancherKubernetesApp(BaseVMAppPlugin):
     def _get_configurer(self, app_config):
         # CloudMan2 can only be configured with ansible
         return RancherKubernetesAnsibleAppConfigurer()
+
+    def _provision_host(self, name, task, app_config, provider_config):
+        provider = provider_config.get('cloud_provider')
+        handler_class = get_iam_handler_for(provider.PROVIDER_ID)
+        if handler_class:
+            provider = provider_config.get('cloud_provider')
+            handler = handler_class(provider)
+            provider_config['extra_provider_args'] = \
+                handler.create_iam_policy()
+        result = super()._provision_host(name, task, app_config, provider_config)
+        # Add required cluster tag for AWS
+        if provider.PROVIDER_ID == "aws":
+            inst_id = result['cloudLaunch'].get('instance').get('id')
+            cluster_id = app_config.get('config_rancher_kube', {}).get(
+                'rancher_cluster_id')
+            inst = provider.compute.instances.get(inst_id)
+            # pylint:disable=protected-access
+            inst._ec2_instance.create_tags(
+                Tags=[{'Key': f'kubernetes.io/cluster/{cluster_id}',
+                       'Value': "owned"}])
+        return result
 
 
 class RancherKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):

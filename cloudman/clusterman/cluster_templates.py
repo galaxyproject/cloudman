@@ -122,6 +122,7 @@ class CMRancherTemplate(CMClusterTemplate):
             'config_app': {
                 'rancher_action': 'add_node',
                 'config_rancher_kube': {
+                    'rancher_cluster_id': self.rancher_cluster_id,
                     'rancher_node_command': (
                         self.rancher_client.get_cluster_registration_command()
                         + " --worker")
