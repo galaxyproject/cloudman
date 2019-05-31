@@ -65,7 +65,7 @@ REQS_BASE = [
 
 REQS_PROD = ([
     # postgres database driver
-    'psycopg2',
+    'psycopg2-binary',
     'gunicorn'] + REQS_BASE
 )
 
