@@ -38,15 +38,17 @@ class MockHelm(object):
         elif prog.startswith("helm list"):
             return (
                 "NAME             	REVISION	UPDATED                 	STATUS  	CHART            	APP VERSION	NAMESPACE\n"
-                "turbulent-markhor	12      	Fri Apr 19 05:33:37 2019	DEPLOYED	cloudlaunch-0.2.0	2.0.2      	cloudlaunch")
+                "turbulent-markhor	12      	Fri Apr 19 05:33:37 2019	DEPLOYED	cloudlaunch-0.2.0	2.0.2      	cloudlaunch\n"
+                "precise-sparrow	1       	Wed Jun 19 18:02:26 2019	DEPLOYED	galaxy-3.0.0	v19.05     	gvl")
         elif prog.startswith("helm install"):
             # pretend to succeed
             pass
+        elif prog.startswith("helm get values"):
+            return "hello: world"
         elif prog.startswith("kubectl create"):
             # pretend to succeed
             pass
         else:
-            # pretend to succeed
             raise Exception("Unrecognised command: {0}".format(prog))
 
 
@@ -77,10 +79,18 @@ class RepoServiceTests(HelmsManServiceTestBase):
 class ChartServiceTests(HelmsManServiceTestBase):
 
     CHART_DATA = {
-        'name': 'Galaxy',
-        'access_address': "/galaxy",
-        'config': {},
-        'state': "installed"
+        'id': 'precise-sparrow',
+        'name': 'galaxy',
+        'display_name': 'Galaxy',
+        'chart_version': '3.0.0',
+        'app_version': 'v19.05',
+        'project': 'gvl',
+        'access_address': "/galaxy/",
+        'state': "DEPLOYED",
+        'updated': "Wed Jun 19 18:02:26 2019",
+        'values': {
+            'hello': 'world'
+        }
     }
 
     def test_crud_chart(self):
@@ -90,7 +100,7 @@ class ChartServiceTests(HelmsManServiceTestBase):
         # create the object
         url = reverse('charts-list')
         with self.assertRaises(NotImplementedError):
-            response = self.client.post(url, self.CHART_DATA, format='json')
+            self.client.post(url, self.CHART_DATA, format='json')
 
         # list existing objects
         url = reverse('charts-list')
@@ -98,7 +108,7 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # check it exists
-        url = reverse('charts-detail', args=[response.data['results'][0]['id']])
+        url = reverse('charts-detail', args=[response.data['results'][1]['id']])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.CHART_DATA,
