@@ -46,7 +46,7 @@ class Command(BaseCommand):
                   f" {namespace}")
             if values_file:
                 with open(values_file, 'r') as f:
-                    values = yaml.load(f)
+                    values = yaml.safe_load(f)
             else:
                 values = None
             client.releases.create(f"{repo_name}/{chart_name}", namespace,

@@ -155,7 +155,7 @@ class HelmReleaseService(HelmService):
         cmd = ["helm", "get", "values", release_name]
         if get_all:
             cmd += ["--all"]
-        return yaml.load(helpers.run_command(cmd))
+        return yaml.safe_load(helpers.run_command(cmd))
 
     @staticmethod
     def parse_chart_name(name):
@@ -163,7 +163,15 @@ class HelmReleaseService(HelmService):
         Parses a chart name-version string such as galaxy-cvmfs-csi-1.0.0 and
         returns the name portion (e.g. galaxy-cvmfs-csi) only
         """
-        return name[:name.rfind("-")] if name else name
+        return name.rpartition("-")[0] if name else name
+
+    @staticmethod
+    def parse_chart_version(name):
+        """
+        Parses a chart name-version string such as galaxy-cvmfs-csi-1.0.0 and
+        returns the version portion (e.g. 1.0.0) only
+        """
+        return name.rpartition("-")[2] if name else name
 
 
 class HelmRepositoryService(HelmService):

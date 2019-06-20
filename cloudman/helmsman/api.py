@@ -79,66 +79,55 @@ class HMChartService(HelmsManService):
         super(HMChartService, self).__init__(context)
 
     def list(self):
-        return [
-            self.get('galaxy')
-        ]
-
-    def _get_galaxy_release(self):
         client = HelmClient()
         releases = client.releases.list()
-        for release in releases:
-            if "galaxy" == client.releases.parse_chart_name(
-                    release.get('CHART')):
-                return release
-        return {}
+        return [
+            {
+                'id': release.get('NAME'),
+                'name': client.releases.parse_chart_name(
+                    release.get('CHART')),
+                'display_name': client.releases.parse_chart_name(
+                    release.get('CHART')).title(),
+                'chart_version': client.releases.parse_chart_version(
+                    release.get('CHART')),
+                'app_version': release.get("APP VERSION"),
+                'project': release.get("NAMESPACE"),
+                'state': release.get("STATUS"),
+                'updated': release.get("UPDATED"),
+                'access_address': '/%s/' % client.releases.parse_chart_name(
+                    release.get('CHART')),
+                'values': HelmClient().releases.get_values(
+                    release.get("NAME"), get_all=True)
+            }
+            for release in releases
+        ]
 
     def get(self, chart_id):
-        if not chart_id == 'galaxy':
-            raise ObjectDoesNotExist('Chart: %s does not exist' % chart_id)
-        galaxy_rel = self._get_galaxy_release()
-        if galaxy_rel:
-            # Get entire chart state, including chart default values
-            val = HelmClient().releases.get_values(galaxy_rel.get("NAME"),
-                                                   get_all=True)
-            config = val.get('configs', {})
-        else:
-            config = {}
-        return {
-            'id': 'galaxy',
-            'name': 'Galaxy',
-            'access_address': '/galaxy/',
-            'config': config,
-            'state': 'installed'
-            }
+        charts = (c for c in self.list() if c.get('id') == chart_id)
+        return next(charts, {})
 
-    def create(self, name, config, schema):
+    def create(self, name, values):
         raise NotImplementedError()
 
-    def update(self, chart, config_updates):
-        galaxy_rel = self._get_galaxy_release()
+    def update(self, chart, values):
         # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(galaxy_rel.get("NAME"))
+        cur_vals = HelmClient().releases.get_values(chart.get("id"))
         # 2. Add the latest differences on top
         if cur_vals:
-            config = cur_vals.get('configs', {})
-            config.update(config_updates)
+            cur_vals.update(values)
         else:
-            cur_vals = {
-                'configs': config_updates
-            }
+            cur_vals = values
         # 3. Apply the updated config to the chart
-        HelmClient().releases.update(galaxy_rel.get("NAME"),
-                                     "cloudve/galaxy",
+        HelmClient().releases.update(chart.get("id"),
+                                     "cloudve/%s" % chart.get("name"),
                                      cur_vals)
-        config = cur_vals.get('configs', {})
-        chart.get('config', {}).update(config)
+        chart.get('values', {}).update(cur_vals)
         return chart
 
     def rollback(self, chart, revision=None):
-        galaxy_rel = self._get_galaxy_release()
         # Roll back to immediately preceding revision if revision=None
-        HelmClient().releases.rollback(galaxy_rel.get("NAME"), revision)
-        return self.get('galaxy')
+        HelmClient().releases.rollback(chart.get("id"), revision)
+        return self.get(chart.get("id"))
 
     def delete(self, chart_id):
         raise NotImplementedError()
