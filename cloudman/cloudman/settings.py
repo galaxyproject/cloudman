@@ -18,7 +18,8 @@ INSTALLED_APPS += [
     'bossoidc',
     'djangooidc',
     'clusterman',
-    'helmsman'
+    'helmsman',
+    'projman'
 ]
 
 AUTHENTICATION_BACKENDS = [
