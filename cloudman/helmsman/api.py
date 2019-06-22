@@ -1,4 +1,4 @@
-"""CloudMan Service API."""
+"""HelmsMan Service API."""
 from .helm.client import HelmClient
 
 
@@ -31,7 +31,7 @@ class HMServiceContext(object):
 
 
 class HelmsManService(object):
-    """Marker interface for CloudMan services"""
+    """Marker interface for HelmsMan services"""
     def __init__(self, context):
         self._context = context
 
@@ -87,33 +87,28 @@ class HMChartService(HelmsManService):
         client = HelmClient()
         releases = client.releases.list()
         return [
-            {
-                'id': release.get('NAME'),
-                'name': client.releases.parse_chart_name(
-                    release.get('CHART')),
-                'display_name': client.releases.parse_chart_name(
-                    release.get('CHART')).title(),
-                'chart_version': client.releases.parse_chart_version(
-                    release.get('CHART')),
-                'app_version': release.get("APP VERSION"),
-                'namespace': release.get("NAMESPACE"),
-                'state': release.get("STATUS"),
-                'updated': release.get("UPDATED"),
-                'access_address': '/%s/' % client.releases.parse_chart_name(
-                    release.get('CHART')),
-                'values': HelmClient().releases.get_values(
+            HelmChart(
+                self,
+                id=release.get('NAME'),
+                name=client.releases.parse_chart_name(release.get('CHART')),
+                namespace=release.get("NAMESPACE"),
+                chart_version=client.releases.parse_chart_version(release.get('CHART')),
+                app_version=release.get("APP VERSION"),
+                state=release.get("STATUS"),
+                updated=release.get("UPDATED"),
+                values=HelmClient().releases.get_values(
                     release.get("NAME"), get_all=True)
-            }
+            )
             for release in releases
         ]
 
     def get(self, chart_id):
-        charts = (c for c in self.list() if c.get('id') == chart_id)
-        return next(charts, {})
+        charts = (c for c in self.list() if c.id == chart_id)
+        return next(charts, None)
 
     def _get_from_namespace(self, namespace, chart_name):
-        matches = [c for c in self.list() if c.get('namespace') == namespace
-                   and c.get('name') == chart_name]
+        matches = [c for c in self.list() if c.namespace == namespace
+                   and c.name == chart_name]
         if matches:
             return matches[0]
         else:
@@ -138,23 +133,44 @@ class HMChartService(HelmsManService):
 
     def update(self, chart, values):
         # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.get("id"))
+        cur_vals = HelmClient().releases.get_values(chart.id)
         # 2. Add the latest differences on top
         if cur_vals:
             cur_vals.update(values)
         else:
             cur_vals = values
         # 3. Apply the updated config to the chart
-        HelmClient().releases.update(chart.get("id"),
-                                     "cloudve/%s" % chart.get("name"),
-                                     cur_vals)
-        chart.get('values', {}).update(cur_vals)
+        HelmClient().releases.update(
+            chart.id, "cloudve/%s" % chart.name, cur_vals)
+        chart.values.update(cur_vals)
         return chart
 
     def rollback(self, chart, revision=None):
         # Roll back to immediately preceding revision if revision=None
-        HelmClient().releases.rollback(chart.get("id"), revision)
-        return self.get(chart.get("id"))
+        HelmClient().releases.rollback(chart.id, revision)
+        return self.get(chart.id)
 
     def delete(self, chart_id):
         raise NotImplementedError()
+
+
+class HelmsManResource(object):
+    """Marker interface for HelmsMan resources"""
+    def __init__(self, service):
+        self.service = service
+
+
+class HelmChart(HelmsManResource):
+
+    def __init__(self, service, id, name, namespace, **kwargs):
+        super().__init__(service)
+        self.id = id
+        self.name = name
+        self.namespace = namespace
+        self.display_name = self.name.title()
+        self.chart_version = kwargs.get('chart_version')
+        self.app_version = kwargs.get('app_version')
+        self.state = kwargs.get('state')
+        self.updated = kwargs.get('updated')
+        self.access_address = '/%s/' % name
+        self.values = kwargs.get('values') or {}
