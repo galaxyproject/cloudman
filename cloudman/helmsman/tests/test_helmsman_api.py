@@ -64,12 +64,13 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.CHART_DATA, response.data)
 
-        # # delete the object
-        # url = reverse('charts-detail', args=[response.data['id']])
-        # response = self.client.delete(url)
-        # self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        #
-        # # check it no longer exists
-        # url = reverse('clusters-list')
-        # response = self.client.get(url)
-        # self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # delete the object
+        url = reverse('charts-detail', args=[response.data['id']])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # check it no longer exists
+        url = reverse('charts-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)

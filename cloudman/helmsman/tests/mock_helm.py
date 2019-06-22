@@ -39,12 +39,15 @@ class MockHelm(object):
         parser = argparse.ArgumentParser(prog='helm')
         subparsers = parser.add_subparsers(help='Available Commands')
 
+        # Helm init
         parser_init = subparsers.add_parser('init', help='init Helm')
         parser_init.set_defaults(func=self._helm_init)
 
+        # Helm list
         parser_list = subparsers.add_parser('list', help='list releases')
         parser_list.set_defaults(func=self._helm_list)
 
+        # Helm install
         parser_inst = subparsers.add_parser('install', help='install a chart')
         parser_inst.add_argument(
             'chart', type=str, help='chart name')
@@ -54,13 +57,15 @@ class MockHelm(object):
             '-f', '--values', type=str, help='value files')
         parser_inst.set_defaults(func=self._helm_install)
 
-        parser_repo = subparsers.add_parser('repo', help='install a chart')
+        # Helm repo commands
+        parser_repo = subparsers.add_parser('repo', help='repo commands')
         subparser_repo = parser_repo.add_subparsers()
         p_repo_update = subparser_repo.add_parser('update', help='update repo')
         p_repo_update.set_defaults(func=self._helm_repo_update)
         p_repo_add = subparser_repo.add_parser('add', help='install repo')
         p_repo_add.set_defaults(func=self._helm_repo_add)
 
+        # Helm get
         parser_get = subparsers.add_parser(
             'get', help='download a named release')
         subparser_get = parser_get.add_subparsers()
@@ -77,6 +82,12 @@ class MockHelm(object):
             'manifest', help='download manifest for a release')
         p_get_manifest.set_defaults(func=self._helm_get_manifest)
 
+        # Helm delete
+        parser_list = subparsers.add_parser('delete', help='delete a release')
+        parser_list.add_argument('release', type=str, help='release name')
+        parser_list.set_defaults(func=self._helm_delete)
+
+        # evaluate command
         args = parser.parse_args(command)
         return args.func(args)
 
@@ -134,6 +145,14 @@ class MockHelm(object):
     def _helm_get_manifest(self, args):
         # pretend to succeed
         pass
+
+    def _helm_delete(self, args):
+        matches = [chart for chart in self.installed_charts
+                   if chart.get('NAME') == args.release]
+        if matches:
+            self.installed_charts.remove(matches[0])
+        else:
+            return 'Error: release: "%s" not found' % args.release
 
     def mock_run_command(self, command, shell=False):
         if isinstance(command, list):

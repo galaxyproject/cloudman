@@ -150,14 +150,17 @@ class HMChartService(HelmsManService):
         HelmClient().releases.rollback(chart.id, revision)
         return self.get(chart.id)
 
-    def delete(self, chart_id):
-        raise NotImplementedError()
+    def delete(self, chart):
+        HelmClient().releases.delete(chart.id)
 
 
 class HelmsManResource(object):
     """Marker interface for HelmsMan resources"""
     def __init__(self, service):
         self.service = service
+
+    def delete(self):
+        raise NotImplementedError()
 
 
 class HelmChart(HelmsManResource):
@@ -174,3 +177,6 @@ class HelmChart(HelmsManResource):
         self.updated = kwargs.get('updated')
         self.access_address = '/%s/' % name
         self.values = kwargs.get('values') or {}
+
+    def delete(self):
+        self.service.delete(self)
