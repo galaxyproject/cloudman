@@ -2,7 +2,7 @@ import yaml
 
 from django.core.management.base import BaseCommand
 
-from ...helm.client import HelmClient
+from ...api import HelmsManAPI, ChartExistsException
 
 
 class Command(BaseCommand):
@@ -28,27 +28,22 @@ class Command(BaseCommand):
 
     @staticmethod
     def add_chart(chart_ref, namespace, release_name, version, values_file):
-        client = HelmClient()
-        Command.install_if_not_exist(client, chart_ref, namespace, release_name,
+        Command.install_if_not_exist(chart_ref, namespace, release_name,
                                      version, values_file)
 
     @staticmethod
-    def install_if_not_exist(client, chart_ref, namespace, release_name,
+    def install_if_not_exist(chart_ref, namespace, release_name,
                              version, values_file):
+        client = HelmsManAPI()
         repo_name, chart_name = chart_ref.split("/")
-        existing_release = [r for r in client.releases.list()
-                            if chart_name == client.releases.parse_chart_name(r.get('CHART'))]
-        if existing_release:
+        values = None
+        if values_file:
+            with open(values_file, 'r') as f:
+                values = yaml.safe_load(f)
+        print(f"Installing chart {repo_name}/{chart_name} into namespace"
+              f" {namespace}")
+        try:
+            client.charts.create(repo_name, chart_name, namespace,
+                                 release_name, version, values)
+        except ChartExistsException as e:
             print(f"Chart {repo_name}/{chart_name} already installed.")
-        else:
-            client.repositories.update()
-            print(f"Installing chart {repo_name}/{chart_name} into namespace"
-                  f" {namespace}")
-            if values_file:
-                with open(values_file, 'r') as f:
-                    values = yaml.safe_load(f)
-            else:
-                values = None
-            client.releases.create(f"{repo_name}/{chart_name}", namespace,
-                                   release_name=release_name, version=version,
-                                   values=values)

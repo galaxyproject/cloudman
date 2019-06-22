@@ -1,8 +1,13 @@
 """CloudMan Service API."""
-import json
-import os
-from .helm.client import HelmClient, HelmValueHandling
-from django.core.exceptions import ObjectDoesNotExist
+from .helm.client import HelmClient
+
+
+class HelmsmanException(Exception):
+    pass
+
+
+class ChartExistsException(HelmsmanException):
+    pass
 
 
 class HMServiceContext(object):
@@ -91,7 +96,7 @@ class HMChartService(HelmsManService):
                 'chart_version': client.releases.parse_chart_version(
                     release.get('CHART')),
                 'app_version': release.get("APP VERSION"),
-                'project': release.get("NAMESPACE"),
+                'namespace': release.get("NAMESPACE"),
                 'state': release.get("STATUS"),
                 'updated': release.get("UPDATED"),
                 'access_address': '/%s/' % client.releases.parse_chart_name(
@@ -106,8 +111,30 @@ class HMChartService(HelmsManService):
         charts = (c for c in self.list() if c.get('id') == chart_id)
         return next(charts, {})
 
-    def create(self, name, values):
-        raise NotImplementedError()
+    def _get_from_namespace(self, namespace, chart_name):
+        matches = [c for c in self.list() if c.get('namespace') == namespace
+                   and c.get('name') == chart_name]
+        if matches:
+            return matches[0]
+        else:
+            return None
+
+    def create(self, repo_name, chart_name, namespace,
+               release_name=None, version=None, values=None):
+        client = HelmClient()
+        existing_release = [
+            r for r in client.releases.list()
+            if chart_name == client.releases.parse_chart_name(r.get('CHART'))
+        ]
+        if existing_release:
+            raise ChartExistsException(
+                f"Chart {repo_name}/{chart_name} already installed.")
+        else:
+            client.repositories.update()
+            client.releases.create(f"{repo_name}/{chart_name}", namespace,
+                                   release_name=release_name, version=version,
+                                   values=values)
+        return self._get_from_namespace(namespace, chart_name)
 
     def update(self, chart, values):
         # 1. Retrieve chart's current user-defined values

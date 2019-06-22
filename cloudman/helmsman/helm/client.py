@@ -101,7 +101,7 @@ class HelmReleaseService(HelmService):
             return helpers.run_command(cmd)
 
     def create(self, chart, namespace, release_name=None,
-               values=None, version=None):
+               version=None, values=None):
         cmd = ["helm", "install", chart]
 
         if namespace:

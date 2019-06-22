@@ -11,20 +11,23 @@ class HMChartRepoSerializer(serializers.Serializer):
 
 class HMChartSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
-    name = serializers.CharField(read_only=True)
+    name = serializers.CharField()
     display_name = serializers.CharField(read_only=True)
-    chart_version = serializers.CharField(read_only=True)
+    chart_version = serializers.CharField(allow_blank=True, required=False)
     app_version = serializers.CharField(read_only=True)
-    project = serializers.CharField(read_only=True)
+    namespace = serializers.CharField()
     state = serializers.CharField(read_only=True)
     updated = serializers.CharField(read_only=True)
     access_address = serializers.CharField(read_only=True)
     values = serializers.DictField()
     repo = HMChartRepoSerializer(read_only=True)
+    repo_name = serializers.CharField(write_only=True, allow_blank=True, required=False)
 
     def create(self, valid_data):
         return HelmsManAPI(request=self.context['request']).charts.create(
-            valid_data.get('name'), valid_data.get('values'))
+            valid_data.get('repo_name', 'cloudve'), valid_data.get('name'),
+            valid_data.get('namespace'), valid_data.get('release_name'),
+            valid_data.get('chart_version'), valid_data.get('values'))
 
     def update(self, chart, validated_data):
         if validated_data.get('state') == "rollback":
