@@ -82,6 +82,10 @@ class PMProjectService(PMService):
         if obj:
             obj.delete()
 
+    def find(self, name):
+        return self.add_child_services(
+            models.CMProject.objects.get(name=name))
+
 
 class PMProjectChartService(PMService):
 
