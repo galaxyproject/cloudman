@@ -45,11 +45,15 @@ class HelmsManService(object):
 
 class HelmsManAPI(HelmsManService):
 
-    def __init__(self, request=None):
-        context = HMServiceContext.from_request(request)
+    def __init__(self, context):
         super(HelmsManAPI, self).__init__(context)
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
+
+    @classmethod
+    def from_request(cls, request):
+        context = HMServiceContext.from_request(request)
+        return cls(context)
 
     @property
     def repositories(self):

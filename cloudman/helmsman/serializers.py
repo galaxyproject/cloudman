@@ -24,14 +24,14 @@ class HMChartSerializer(serializers.Serializer):
     repo_name = serializers.CharField(write_only=True, allow_blank=True, required=False)
 
     def create(self, valid_data):
-        return HelmsManAPI(request=self.context['request']).charts.create(
+        return HelmsManAPI.from_request(self.context['request']).charts.create(
             valid_data.get('repo_name', 'cloudve'), valid_data.get('name'),
             valid_data.get('namespace'), valid_data.get('release_name'),
             valid_data.get('chart_version'), valid_data.get('values'))
 
     def update(self, chart, validated_data):
         if validated_data.get('state') == "rollback":
-            return (HelmsManAPI(request=self.context['request']).charts
+            return (HelmsManAPI.from_request(self.context['request']).charts
                     .rollback(chart))
-        return HelmsManAPI(request=self.context['request']).charts.update(
+        return HelmsManAPI.from_request(self.context['request']).charts.update(
             chart, validated_data.get('values'))
