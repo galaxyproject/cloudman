@@ -17,10 +17,9 @@ class PMProjectSerializer(serializers.Serializer):
 
 
 class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
-    project = PMProjectSerializer()
-
-    class Meta:
-        exclude = ('namespace', )
+    # remove the inherited field
+    namespace = None
+    project = PMProjectSerializer(read_only=True)
 
     def create(self, valid_data):
         project_id = self.context['view'].kwargs.get("project_pk")
