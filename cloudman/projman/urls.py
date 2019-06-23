@@ -18,6 +18,8 @@ project_router = HybridNestedRouter(router, r'projects',
 project_router.register(r'charts', views.ProjectChartViewSet,
                         base_name='chart')
 
+app_name = "projman"
+
 cluster_regex_pattern = r'^'
 urlpatterns = [
     url(r'^', include(router.urls)),

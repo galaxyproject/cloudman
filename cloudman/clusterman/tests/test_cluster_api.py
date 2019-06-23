@@ -64,7 +64,7 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         Ensure we can register a new cluster with cloudman.
         """
         # create the object
-        url = reverse('clusters-list')
+        url = reverse('clusterman:clusters-list')
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
                       json={'config': load_kube_config()}, status=200)
         response = self.client.post(url, self.CLUSTER_DATA, format='json')
@@ -72,19 +72,19 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
                          response.content)
 
         # check it exists
-        url = reverse('clusters-detail', args=[response.data['id']])
+        url = reverse('clusterman:clusters-detail', args=[response.data['id']])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.CLUSTER_DATA,
                                       response.data)
 
         # delete the object
-        url = reverse('clusters-detail', args=[response.data['id']])
+        url = reverse('clusterman:clusters-detail', args=[response.data['id']])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # check it no longer exists
-        url = reverse('clusters-list')
+        url = reverse('clusterman:clusters-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -126,7 +126,7 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         Ensure we can register a new node with cloudman.
         """
         # create the object
-        url = reverse('clusters-list')
+        url = reverse('clusterman:clusters-list')
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
                       json={'config': load_kube_config()}, status=200)
         response = self.client.post(url, self.CLUSTER_DATA, format='json')
@@ -135,12 +135,12 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
                       json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         responses.add_passthru('http://localhost')
-        url = reverse('node-list', args=[cluster_id])
+        url = reverse('clusterman:node-list', args=[cluster_id])
         response = self.client.post(url, self.NODE_DATA, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
 
         # check it exists
-        url = reverse('node-detail', args=[cluster_id, response.data['id']])
+        url = reverse('clusterman:node-detail', args=[cluster_id, response.data['id']])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # self.assertDictContainsSubset({'vmType': 'm1.medium'},
@@ -149,11 +149,11 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         #                                .get('config_cloudlaunch')))
 
         # delete the object
-        url = reverse('node-detail', args=[cluster_id, response.data['id']])
+        url = reverse('clusterman:node-detail', args=[cluster_id, response.data['id']])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # check it no longer exists
-        url = reverse('node-list', args=[cluster_id])
+        url = reverse('clusterman:node-list', args=[cluster_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

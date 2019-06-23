@@ -12,6 +12,9 @@ router.register(r'repositories', views.ChartRepoViewSet,
                 base_name='repositories')
 router.register(r'charts', views.ChartViewSet,
                 base_name='charts')
+
+app_name = "helmsman"
+
 urlpatterns = [
     url(r'^', include(router.urls)),
 ]
