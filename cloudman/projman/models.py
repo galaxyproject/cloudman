@@ -13,3 +13,6 @@ class CMProject(models.Model):
     class Meta:
         verbose_name = "Project"
         verbose_name_plural = "Projects"
+
+    def __str__(self):
+        return "{0} ({1})".format(self.name, self.id)

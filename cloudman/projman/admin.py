@@ -1,3 +1,9 @@
+"""Models exposed via Django Admin."""
 from django.contrib import admin
 
-# Register your models here.
+from . import models
+
+
+@admin.register(models.CMProject)
+class CMProjectAdmin(admin.ModelAdmin):
+    ordering = ('added',)
