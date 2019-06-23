@@ -25,6 +25,7 @@ schema_view = get_schema_view(title='CloudMan API', url=settings.REST_SCHEMA_BAS
 urlpatterns = [
     url(r'^cloudman/', include('cloudlaunchserver.urls')),
     url(r'^cloudman/api/v1/', include('clusterman.urls')),
+    url(r'^cloudman/api/v1/', include('projman.urls')),
     url(r'^cloudman/api/v1/schema/$', schema_view),
     url(r'^cloudman/openid/', include('djangooidc.urls')),
 ]
