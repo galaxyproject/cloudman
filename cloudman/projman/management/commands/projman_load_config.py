@@ -18,6 +18,6 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
-        for chart in settings.get('charts'):
-            if chart.get('namespace'):
-                call_command("projman_create_project", chart.get('namespace'))
+        for project in settings.get('projects'):
+            if project.get('name'):
+                call_command("projman_create_project", project.get('name'))
