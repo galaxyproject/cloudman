@@ -124,10 +124,11 @@ class HMChartService(HelmsManService):
         existing_release = [
             r for r in client.releases.list()
             if chart_name == client.releases.parse_chart_name(r.get('CHART'))
+            and namespace == r.get('NAMESPACE')
         ]
         if existing_release:
             raise ChartExistsException(
-                f"Chart {repo_name}/{chart_name} already installed.")
+                f"Chart {repo_name}/{chart_name} already installed in namespace {namespace}.")
         else:
             client.repositories.update()
             client.releases.create(f"{repo_name}/{chart_name}", namespace,
