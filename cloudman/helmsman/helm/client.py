@@ -45,6 +45,7 @@ class HelmClient(HelmService):
                           "Reason: {0}".format(e.output))
         print("Initializing tiller...")
         self.helm_init(service_account="tiller", wait=True)
+        print("Tiller initialized.")
 
     def helm_init(self, service_account=None, upgrade=False, wait=False):
         cmd = ["helm", "init"]
