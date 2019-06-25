@@ -8,7 +8,7 @@ def run_command(command, shell=False):
     Runs a command and returns stdout
     """
     return subprocess.check_output(command, universal_newlines=True,
-                                   shell=shell)
+                                   shell=shell, encoding='utf-8')
 
 
 def run_list_command(command):
