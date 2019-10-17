@@ -1,4 +1,4 @@
-Django==2.0.0
+Django==2.0.12
 gunicorn[gevent]
 # moto==1.1.11
 # for eclipse debugging
