@@ -25,7 +25,6 @@ class Command(BaseCommand):
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
         for chartKey in settings.get('charts'):
-            chart = settings.get('charts').get(chartKey)
             extra_args = {}
             if chart.get('namespace'):
                 extra_args["namespace"] = chart.get('namespace')
