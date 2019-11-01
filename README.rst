@@ -1,4 +1,4 @@
-CloudMan is a cloud infrastructure and application manager, primarily for Galaxy
+CloudMan is a cloud infrastructure and application manager, primarily for Galaxy.
 
 .. image:: https://coveralls.io/repos/github/galaxyproject/cloudman/badge.svg?branch=v2.0
    :target: https://coveralls.io/github/galaxyproject/cloudman?branch=v2.0
@@ -8,14 +8,12 @@ CloudMan is a cloud infrastructure and application manager, primarily for Galaxy
    :target: https://travis-ci.org/galaxyproject/cloudman
    :alt: Travis Build Status
 
-
-CloudMan is intended to be installed via the CloudMan Helm chart, available
-here: https://github.com/cloudve/cloudman-helm
-
+Installation
+------------
+CloudMan is intended to be installed via the `CloudMan Helm chart`_.
 
 Run locally for development
 ---------------------------
-
 .. code-block:: bash
 
     git clone https://github.com/galaxyproject/cloudman.git
@@ -25,11 +23,11 @@ Run locally for development
     gunicorn --log-level debug cloudman.wsgi
 
 The CloudMan API will be available at http://127.0.0.1:8000/cloudman/api/v1/
+
 To add the UI, see https://github.com/cloudve/cloudman-ui
 
 Build Docker image
 ------------------
-
 To build a Docker image, run ``docker build -t galaxy/cloudman:latest .``
 Push it to Dockerhub with:
 
@@ -37,3 +35,5 @@ Push it to Dockerhub with:
 
     docker login
     docker push galaxy/cloudman:latest
+
+.. _`CloudMan Helm chart`: https://github.com/cloudve/cloudman-helm
