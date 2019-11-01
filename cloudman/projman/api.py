@@ -73,7 +73,7 @@ class PMProjectService(PMService):
 
     def create(self, name):
         obj = models.CMProject.objects.create(
-            name=name)
+            name=name, owner=self.context.user)
         project = self.add_child_services(obj)
         return project
 
