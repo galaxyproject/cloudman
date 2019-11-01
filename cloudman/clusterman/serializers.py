@@ -11,7 +11,7 @@ class CMClusterSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
     cluster_type = serializers.CharField()
-    connection_settings = serializers.DictField()
+    connection_settings = serializers.DictField(write_only=True)
     nodes = CustomHyperlinkedIdentityField(view_name='node-list',
                                            lookup_field='cluster_id',
                                            lookup_url_kwarg='cluster_pk')

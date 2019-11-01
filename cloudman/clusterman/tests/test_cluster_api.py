@@ -75,7 +75,9 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         url = reverse('clusterman:clusters-detail', args=[response.data['id']])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertDictContainsSubset(self.CLUSTER_DATA,
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data,
                                       response.data)
 
         # delete the object
