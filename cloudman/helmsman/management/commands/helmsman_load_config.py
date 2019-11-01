@@ -24,7 +24,7 @@ class Command(BaseCommand):
             print("An exception occurred during helm init:", str(e))
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
-        for chart in settings.get('charts'):
+        for chart in settings.get('charts', {}).values():
             extra_args = {}
             if chart.get('namespace'):
                 extra_args["namespace"] = chart.get('namespace')
