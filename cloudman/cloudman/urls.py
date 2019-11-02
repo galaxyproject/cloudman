@@ -23,6 +23,7 @@ schema_view = get_schema_view(title='CloudMan API', url=settings.REST_SCHEMA_BAS
                               urlconf='cloudman.urls')
 
 urlpatterns = [
+    url(r'^cloudman/cloudlaunch/cloudlaunch/api/v1/auth/user/', include('cloudlaunchserver.urls')),
     url(r'^cloudman/', include('cloudlaunchserver.urls')),
     url(r'^cloudman/api/v1/', include('clusterman.urls')),
     url(r'^cloudman/api/v1/', include('helmsman.urls')),

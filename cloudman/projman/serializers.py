@@ -1,7 +1,7 @@
 """DRF serializers for the CloudMan Create API endpoints."""
 
 from rest_framework import serializers
-from cloudlaunch import serializers as cl_serializers
+from djcloudbridge import serializers as dj_serializers
 from helmsman import serializers as helmsman_serializers
 from .api import ProjManAPI
 from rest_framework.exceptions import ValidationError
@@ -31,3 +31,15 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
             valid_data.get('repo_name', 'cloudve'), valid_data.get('name'),
             valid_data.get('release_name'), valid_data.get('chart_version'),
             valid_data.get('values'))
+
+
+class UserSerializer(dj_serializers.UserDetailsSerializer):
+    permissions = serializers.SerializerMethodField()
+
+    def get_permissions(self, user_obj):
+        return {
+            'is_admin': user_obj.is_staff
+        }
+
+    class Meta(dj_serializers.UserDetailsSerializer.Meta):
+        fields = dj_serializers.UserDetailsSerializer.Meta.fields + ('permissions',)
