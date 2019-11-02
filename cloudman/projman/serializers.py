@@ -10,6 +10,17 @@ from rest_framework.exceptions import ValidationError
 class PMProjectSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
+    permissions = serializers.SerializerMethodField()
+
+    def get_permissions(self, project):
+        """
+        Implementation of permissions field
+        """
+        user = self.context['view'].request.user
+        return {
+            'add_project': user.has_perm('projects.add_project', project),
+            'delete_project': user.has_perm('projects.delete_project', project)
+        }
 
     def create(self, valid_data):
         return ProjManAPI.from_request(self.context['request']).projects.create(
@@ -20,6 +31,18 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
     # remove the inherited field
     namespace = None
     project = PMProjectSerializer(read_only=True)
+    permissions = serializers.SerializerMethodField()
+
+    def get_permissions(self, chart):
+        """
+        Implementation of permissions field
+        """
+        user = self.context['view'].request.user
+        return {
+            'add_chart': user.has_perm('charts.add_chart', chart),
+            'change_chart': user.has_perm('charts.change_chart', chart),
+            'delete_chart': user.has_perm('charts.delete_chart', chart)
+        }
 
     def create(self, valid_data):
         project_id = self.context['view'].kwargs.get("project_pk")
@@ -31,6 +54,14 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
             valid_data.get('repo_name', 'cloudve'), valid_data.get('name'),
             valid_data.get('release_name'), valid_data.get('chart_version'),
             valid_data.get('values'))
+
+    def update(self, chart, validated_data):
+        project_id = self.context['view'].kwargs.get("project_pk")
+        project = ProjManAPI.from_request(self.context['request']).projects.get(project_id)
+        if not project:
+            raise ValidationError("Specified project id: %s does not exist"
+                                  % project_id)
+        return project.charts.update(chart, validated_data)
 
 
 class UserSerializer(dj_serializers.UserDetailsSerializer):
