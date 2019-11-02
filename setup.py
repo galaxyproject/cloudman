@@ -58,6 +58,9 @@ REQS_BASE = [
     'drf-nested-routers>=0.90.0',
     # For DRF filtering by querystring
     'django-filter>=1.1.0',
+    # ======== Permissions =========
+    # object level permissions for django auth
+    'rules',
     # ======== CloudLaunch =========
     'cloudlaunch-server>=0.1.1',
     'cloudlaunch-cli'

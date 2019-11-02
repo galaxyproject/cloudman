@@ -36,6 +36,17 @@ class PMService(object):
         """
         return self._context
 
+    def has_permissions(self, scopes, obj=None):
+        if not isinstance(scopes, list):
+            scope = [scopes]
+        return self.context.user.has_perms(scope, obj)
+
+    def check_permissions(self, scopes, obj=None):
+        if not self.has_permissions(scopes, obj):
+            raise PermissionError(
+                "Object does not exist or you do not have permissions to "
+                "perform '%s'" % (scopes,))
+
 
 class ProjManAPI(PMService):
 
@@ -64,14 +75,18 @@ class PMProjectService(PMService):
         return project
 
     def list(self):
-        return list(map(self.add_child_services,
-                        models.CMProject.objects.all()))
+        return list(map(
+            self.add_child_services,
+            (proj for proj in models.CMProject.objects.all()
+             if self.has_permissions('projects.view_project', proj))))
 
     def get(self, project_id):
-        return self.add_child_services(
-            models.CMProject.objects.get(id=project_id))
+        obj = models.CMProject.objects.get(id=project_id)
+        self.check_permissions('projects.view_project', obj)
+        return self.add_child_services(obj)
 
     def create(self, name):
+        self.check_permissions('projects.create_project')
         obj = models.CMProject.objects.create(
             name=name, owner=self.context.user)
         project = self.add_child_services(obj)
@@ -79,13 +94,17 @@ class PMProjectService(PMService):
 
     def delete(self, project_id):
         obj = models.CMProject.objects.get(id=project_id)
+        self.check_permissions('projects.delete_project', obj)
         if obj:
             obj.delete()
 
     def find(self, name):
         try:
-            return self.add_child_services(
-                models.CMProject.objects.get(name=name))
+            obj = models.CMProject.objects.get(name=name)
+            if self.has_permissions('projects.view_project', obj):
+                return self.add_child_services(obj)
+            else:
+                return None
         except models.CMProject.DoesNotExist:
             return None
 
