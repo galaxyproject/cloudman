@@ -19,10 +19,13 @@ INSTALLED_APPS += [
     'djangooidc',
     'clusterman',
     'helmsman',
-    'projman'
+    'projman',
+    # Discover and apply permission rules in each project
+    'rules.apps.AutodiscoverRulesConfig'
 ]
 
 AUTHENTICATION_BACKENDS = [
+    'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend',
     'bossoidc.backend.OpenIdConnectBackend'
 ]
@@ -59,6 +62,10 @@ WSGI_APPLICATION = 'cloudman.wsgi.application'
 STATIC_URL = CLOUDLAUNCH_PATH_PREFIX + '/cloudman/static/'
 FORCE_SCRIPT_NAME = CLOUDLAUNCH_PATH_PREFIX
 REST_SCHEMA_BASE_URL = CLOUDLAUNCH_PATH_PREFIX + "/cloudman/cloudlaunch/"
+
+REST_AUTH_SERIALIZERS = {
+    'USER_DETAILS_SERIALIZER': 'projman.serializers.UserSerializer'
+}
 
 DATABASES = {
     'default': {

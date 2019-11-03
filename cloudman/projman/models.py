@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -9,6 +10,8 @@ class CMProject(models.Model):
     updated = models.DateTimeField(auto_now=True)
     # Each project corresponds to a k8s namespace and therefore, must be unique
     name = models.CharField(max_length=60, unique=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              null=False)
 
     class Meta:
         verbose_name = "Project"
