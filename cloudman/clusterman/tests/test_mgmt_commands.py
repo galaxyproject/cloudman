@@ -32,7 +32,7 @@ class CommandsTestCase(TestCase):
         self.patcher.start()
         self.addCleanup(self.patcher.stop)
         self.client.force_login(
-            User.objects.get_or_create(username='admin')[0])
+            User.objects.get_or_create(username='admin', is_superuser=True)[0])
 
     def tearDown(self):
         self.client.logout()

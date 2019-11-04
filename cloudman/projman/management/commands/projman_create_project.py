@@ -1,10 +1,8 @@
-import argparse
-import base64
 import logging as log
-import json
-import yaml
 
 from django.core.management.base import BaseCommand
+
+from django.contrib.auth.models import User
 
 
 class Command(BaseCommand):
@@ -22,7 +20,8 @@ class Command(BaseCommand):
         try:
             print("Creating project: {0}".format(name))
             from projman import api
-            pmapi = api.ProjManAPI(api.PMServiceContext(user="admin"))
+            admin = User.objects.filter(is_superuser=True).first()
+            pmapi = api.ProjManAPI(api.PMServiceContext(user=admin))
             if not pmapi.projects.find(name):
                 pmapi.projects.create(name)
                 print("Project created successfully.")

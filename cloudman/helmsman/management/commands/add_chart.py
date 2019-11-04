@@ -1,5 +1,6 @@
 import yaml
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from ...api import HelmsManAPI, HMServiceContext, ChartExistsException
@@ -34,7 +35,8 @@ class Command(BaseCommand):
     @staticmethod
     def install_if_not_exist(chart_ref, namespace, release_name,
                              version, values_file):
-        client = HelmsManAPI(HMServiceContext(user="admin"))
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
         repo_name, chart_name = chart_ref.split("/")
         values = None
         if values_file:

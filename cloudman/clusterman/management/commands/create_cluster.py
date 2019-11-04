@@ -4,6 +4,7 @@ import logging as log
 import json
 import yaml
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 
@@ -41,7 +42,8 @@ class Command(BaseCommand):
         try:
             print("Creating cluster: {0}, type: cluster_type".format(name, cluster_type))
             from clusterman import api
-            cmapi = api.CloudManAPI(api.CMServiceContext(user="admin"))
+            admin = User.objects.filter(is_superuser=True).first()
+            cmapi = api.CloudManAPI(api.CMServiceContext(user=admin))
             cluster = cmapi.clusters.create(name, cluster_type,
                                             connection_settings=settings)
             template = cmapi.clusters.get_cluster_template(cluster)
