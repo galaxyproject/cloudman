@@ -19,7 +19,8 @@ class MockHelm(object):
         self.patch2.start()
         testcase.addCleanup(self.patch2.stop)
         testcase.addCleanup(self.patch1.stop)
-        self.list_field_name = ["NAME", "REVISION", "UPDATED", "STATUS", "CHART", "APP VERSION", "NAMESPACE"]
+        self.chart_list_field_name = ["NAME", "REVISION", "UPDATED", "STATUS",
+                                      "CHART", "APP VERSION", "NAMESPACE"]
         self.installed_charts = [
             {
                 'NAME': 'turbulent-markhor',
@@ -34,6 +35,13 @@ class MockHelm(object):
                 }
             }
         ]
+        self.repo_list_field_name = ["NAME", "URL"]
+        self.installed_repos = {
+            'stable': {
+                'NAME': 'stable',
+                'URL': 'https://kubernetes-charts.storage.googleapis.com'
+            }
+        }
 
     def _parse_helm_command(self, command):
         parser = argparse.ArgumentParser(prog='helm')
@@ -41,6 +49,10 @@ class MockHelm(object):
 
         # Helm init
         parser_init = subparsers.add_parser('init', help='init Helm')
+        parser_init.add_argument(
+            '--service-account', type=str, help='service account', default=None)
+        parser_init.add_argument(
+            '--wait', help='wait till initialized', action='store_true')
         parser_init.set_defaults(func=self._helm_init)
 
         # Helm list
@@ -63,7 +75,11 @@ class MockHelm(object):
         p_repo_update = subparser_repo.add_parser('update', help='update repo')
         p_repo_update.set_defaults(func=self._helm_repo_update)
         p_repo_add = subparser_repo.add_parser('add', help='install repo')
+        p_repo_add.add_argument('name', type=str, help='repo name')
+        p_repo_add.add_argument('url', type=str, help='repo url')
         p_repo_add.set_defaults(func=self._helm_repo_add)
+        p_repo_list = subparser_repo.add_parser('list', help='list repos')
+        p_repo_list.set_defaults(func=self._helm_repo_list)
 
         # Helm get
         parser_get = subparsers.add_parser(
@@ -98,8 +114,8 @@ class MockHelm(object):
     def _helm_list(self, args):
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.list_field_name, delimiter="\t",
-                                    extrasaction='ignore')
+            writer = csv.DictWriter(output, fieldnames=self.chart_list_field_name,
+                                    delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             writer.writerows(self.installed_charts)
             return output.getvalue()
@@ -128,8 +144,21 @@ class MockHelm(object):
         pass
 
     def _helm_repo_add(self, args):
-        # pretend to succeed
-        pass
+        repo = {
+            'NAME': args.name,
+            'URL': args.url
+        }
+        self.installed_repos[args.name] = repo
+        return '"%s" has been added to your repositories' % args.name
+
+    def _helm_repo_list(self, args):
+        with StringIO() as output:
+            writer = csv.DictWriter(output, fieldnames=self.repo_list_field_name,
+                                    delimiter="\t", extrasaction='ignore')
+            writer.writeheader()
+            for val in self.installed_repos.values():
+                writer.writerow(val)
+            return output.getvalue()
 
     def _helm_get_values(self, args):
         matches = [chart for chart in self.installed_charts
