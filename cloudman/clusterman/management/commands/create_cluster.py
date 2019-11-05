@@ -40,14 +40,13 @@ class Command(BaseCommand):
     @staticmethod
     def create_cluster(name, cluster_type, settings):
         try:
-            print("Creating cluster: {0}, type: cluster_type".format(name, cluster_type))
+            print("Creating cluster: {0}, type: cluster_type".format(
+                name, cluster_type))
             from clusterman import api
             admin = User.objects.filter(is_superuser=True).first()
             cmapi = api.CloudManAPI(api.CMServiceContext(user=admin))
-            cluster = cmapi.clusters.create(name, cluster_type,
-                                            connection_settings=settings)
-            template = cmapi.clusters.get_cluster_template(cluster)
-            template.setup()
+            cmapi.clusters.create(
+                name, cluster_type, connection_settings=settings)
             print("cluster created successfully.")
         except Exception as e:
             log.exception("An error occurred while creating the initial cluster!!:")

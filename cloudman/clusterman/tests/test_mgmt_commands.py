@@ -11,18 +11,19 @@ from djcloudbridge import models as cb_models
 from clusterman import models as cm_models
 
 
-def load_kube_config(kube_config_path):
+TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
+
+
+def load_kube_config():
+    kube_config_path = os.path.join(TEST_DATA_PATH, 'kube_config.yaml')
     with open(kube_config_path) as f:
         return f.read()
 
 
 class CommandsTestCase(TestCase):
 
-    TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
     INITIAL_CLUSTER_DATA = os.path.join(
         TEST_DATA_PATH, 'initial_cluster_data.yaml')
-    KUBE_CONFIG = load_kube_config(
-        os.path.join(TEST_DATA_PATH, 'kube_config.yaml'))
 
     def setUp(self):
         super().setUp()

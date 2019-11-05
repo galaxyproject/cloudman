@@ -22,8 +22,7 @@ class ProjectServiceTests(ProjManManServiceTestBase):
     def _create_project(self):
         # create the object
         url = reverse('projman:projects-list')
-        response = self.client.post(url, self.PROJECT_DATA, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return self.client.post(url, self.PROJECT_DATA, format='json')
 
     def _list_project(self):
         # list existing objects
@@ -44,8 +43,7 @@ class ProjectServiceTests(ProjManManServiceTestBase):
     def _delete_project(self, project_id):
         # delete the object
         url = reverse('projman:projects-detail', args=[project_id])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        return self.client.delete(url)
 
     def _check_no_projects_exist(self):
         # check it no longer exists
@@ -58,17 +56,19 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         """
         Ensure we can register a new project
         """
-        self._create_project()
+        response = self._create_project()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         project_id = self._list_project()
         project_id = self._check_project_exists(project_id)
-        self._delete_project(project_id)
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_projects_exist()
 
     def test_create_unauthorized(self):
         self.client.force_login(
             User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
-        with self.assertRaises(PermissionError):
-            self._create_project()
+        response = self._create_project()
+        self.assertEquals(response.status_code, 403, response.data)
         self._check_no_projects_exist()
 
     def test_list_unauthorized(self):
@@ -81,8 +81,8 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         project_id_then = self._list_project()
         self.client.force_login(
             User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
-        with self.assertRaises(PermissionError):
-            self._delete_project(project_id_then)
+        response = self._delete_project(project_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         self.client.force_login(
             User.objects.get(username='projadmin'))
         project_id_now = self._list_project()
@@ -123,8 +123,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
 
     def _create_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
-        response = self.client.post(url, self.CHART_DATA, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return self.client.post(url, self.CHART_DATA, format='json')
+
 
     def _list_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
@@ -144,8 +144,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
 
     def _delete_project_chart(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        return self.client.delete(url)
 
     def _check_no_project_charts_exist(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
@@ -160,13 +159,15 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         # create the parent project
         project_id = self._create_project()
         # create the project chart
-        self._create_project_chart(project_id)
+        response = self._create_project_chart(project_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         # list existing objects
         chart_id = self._list_project_chart(project_id)
         # check it exists
         chart_id = self._check_project_chart_exists(project_id, chart_id)
         # delete the object
-        self._delete_project_chart(project_id, chart_id)
+        response = self._delete_project_chart(project_id, chart_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         # check it no longer exists
         self._check_no_project_charts_exist(project_id)
 
@@ -174,8 +175,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         project_id = self._create_project()
         self.client.force_login(
             User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
-        with self.assertRaises(PermissionError):
-            self._create_project_chart(project_id)
+        response = self._create_project_chart(project_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         self._check_no_project_charts_exist(project_id)
 
     def test_chart_delete_unauthorized(self):
@@ -184,8 +185,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         chart_id_then = self._list_project_chart(project_id)
         self.client.force_login(
             User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
-        with self.assertRaises(PermissionError):
-            self._delete_project_chart(project_id, chart_id_then)
+        response = self._delete_project_chart(project_id, chart_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         self.client.force_login(
             User.objects.get(username='projadmin'))
         chart_id_now = self._list_project_chart(project_id)

@@ -1,7 +1,7 @@
 """ProjMan Service API."""
-import uuid
 from . import models
 from helmsman.api import HelmsManAPI, HMServiceContext
+from rest_framework.exceptions import PermissionDenied
 
 
 class PMServiceContext(object):
@@ -46,7 +46,7 @@ class PMService(object):
             self.raise_no_permissions(scopes)
 
     def raise_no_permissions(self, scopes):
-        raise PermissionError(
+        raise PermissionDenied(
             "Object does not exist or you do not have permissions to "
             "perform '%s'" % (scopes,))
 
