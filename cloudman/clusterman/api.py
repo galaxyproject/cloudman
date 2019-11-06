@@ -1,6 +1,8 @@
 """CloudMan Service API."""
 import uuid
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import PermissionDenied
+
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
 from . import models
@@ -40,11 +42,7 @@ class CMServiceContext(object):
 
     @classmethod
     def from_request(cls, request):
-        # Construct and return an instance of CMServiceContext
-        # For now, ignore request.user and always carry out actions
-        # as the admin.
-        admin_user = get_user_model().objects.get(username="admin")
-        return cls(user=admin_user)
+        return cls(user=request.user)
 
 
 class CMService(object):
@@ -58,6 +56,20 @@ class CMService(object):
         Returns the currently associated service context.
         """
         return self._context
+
+    def has_permissions(self, scopes, obj=None):
+        if not isinstance(scopes, list):
+            scope = [scopes]
+        return self.context.user.has_perms(scope, obj)
+
+    def check_permissions(self, scopes, obj=None):
+        if not self.has_permissions(scopes, obj):
+            self.raise_no_permissions(scopes)
+
+    def raise_no_permissions(self, scopes):
+        raise PermissionDenied(
+            "Object does not exist or you do not have permissions to "
+            "perform '%s'" % (scopes,))
 
 
 class CloudManAPI(CMService):
@@ -88,13 +100,16 @@ class CMClusterService(CMService):
 
     def list(self):
         return list(map(self.add_child_services,
-                        models.CMCluster.objects.all()))
+                        (c for c in models.CMCluster.objects.all()
+                         if self.has_permissions('clusters.view_cluster', c))))
 
     def get(self, cluster_id):
-        return self.add_child_services(
-            models.CMCluster.objects.get(id=cluster_id))
+        obj = models.CMCluster.objects.get(id=cluster_id)
+        self.check_permissions('clusters.view_cluster', obj)
+        return self.add_child_services(obj)
 
     def create(self, name, cluster_type, connection_settings):
+        self.check_permissions('clusters.add_cluster')
         obj = models.CMCluster.objects.create(
             name=name, cluster_type=cluster_type,
             connection_settings=connection_settings)
@@ -106,7 +121,10 @@ class CMClusterService(CMService):
     def delete(self, cluster_id):
         obj = models.CMCluster.objects.get(id=cluster_id)
         if obj:
+            self.check_permissions('clusters.delete_cluster', obj)
             obj.delete()
+        else:
+            self.raise_no_permissions('clusters.delete_cluster')
 
     def get_cluster_template(self, cluster):
         return CMClusterTemplate.get_template_for(self.context, cluster)
@@ -119,12 +137,17 @@ class CMClusterNodeService(CMService):
         self.cluster = cluster
 
     def list(self):
-        return models.CMClusterNode.objects.filter(cluster=self.cluster)
+        nodes = models.CMClusterNode.objects.filter(cluster=self.cluster)
+        return [n for n in nodes
+                if self.has_permissions('clusternodes.view_clusternode', n)]
 
     def get(self, node_id):
-        return models.CMClusterNode.objects.get(id=node_id)
+        obj = models.CMClusterNode.objects.get(id=node_id)
+        self.check_permissions('clusternodes.view_clusternode', obj)
+        return obj
 
     def create(self, instance_type):
+        self.check_permissions('clusternodes.add_clusternode')
         name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.service.get_cluster_template(self.cluster)
         cli_deployment = template.add_node(name, instance_type)
@@ -136,6 +159,9 @@ class CMClusterNodeService(CMService):
     def delete(self, node_id):
         obj = models.CMClusterNode.objects.get(id=node_id)
         if obj:
+            self.check_permissions('clusternodes.delete_clusternode', obj)
             template = self.cluster.service.get_cluster_template()
             template.remove_node(obj)
             obj.delete()
+        else:
+            self.raise_no_permissions('clusternodes.delete_clusternode')
