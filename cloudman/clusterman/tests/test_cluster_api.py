@@ -46,7 +46,7 @@ class CMClusterServiceTestBase(APITestCase):
         self.patcher.start()
         self.addCleanup(self.patcher.stop)
         self.client.force_login(
-            User.objects.get_or_create(username='admin')[0])
+            User.objects.get_or_create(username='clusteradmin', is_staff=True)[0])
 
     def tearDown(self):
         self.client.logout()
@@ -58,37 +58,96 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
     # object raises exception
     # TODO: Add test for updating objects
 
+    def _create_cluster(self):
+        url = reverse('clusterman:clusters-list')
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
+                      json={'config': load_kube_config()}, status=200)
+        return self.client.post(url, self.CLUSTER_DATA, format='json')
+
+    def _list_cluster(self):
+        url = reverse('clusterman:clusters-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['results'][0])
+        return response.data['results'][0]['id']
+
+    def _check_cluster_exists(self, cluster_id):
+        url = reverse('clusterman:clusters-detail', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data)
+        return response.data['id']
+
+    def _delete_cluster(self, cluster_id):
+        url = reverse('clusterman:clusters-detail', args=[cluster_id])
+        return self.client.delete(url)
+
+    def _check_no_clusters_exist(self):
+        url = reverse('clusterman:clusters-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)
+
     @responses.activate
     def test_crud_cluster(self):
         """
         Ensure we can register a new cluster with cloudman.
         """
         # create the object
-        url = reverse('clusterman:clusters-list')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
-        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        response = self._create_cluster()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED,
                          response.content)
 
-        # check it exists
-        url = reverse('clusterman:clusters-detail', args=[response.data['id']])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        cluster_data = dict(self.CLUSTER_DATA)
-        cluster_data.pop('connection_settings')
-        self.assertDictContainsSubset(cluster_data,
-                                      response.data)
+        # list the object
+        cluster_id = self._list_cluster()
+        # Assert that the originally created cluster id is the same as the one
+        # returned by list
+        self.assertEquals(response.data['id'], cluster_id)
+
+        # check details
+        cluster_id = self._check_cluster_exists(cluster_id)
 
         # delete the object
-        url = reverse('clusterman:clusters-detail', args=[response.data['id']])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        response = self._delete_cluster(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
 
         # check it no longer exists
-        url = reverse('clusterman:clusters-list')
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._check_no_clusters_exist()
+
+    def test_create_unauthorized(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._create_cluster()
+        self.assertEquals(response.status_code, 403, response.data)
+        self._check_no_clusters_exist()
+
+    def test_list_unauthorized(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        self._check_no_clusters_exist()
+
+    def test_delete_unauthorized(self):
+        self._create_cluster()
+        cluster_id_then = self._list_cluster()
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._delete_cluster(cluster_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='clusteradmin'))
+        cluster_id_now = self._list_cluster()
+        assert cluster_id_now  # should still exist
+        assert cluster_id_then == cluster_id_now  # should be the same cluster
+
+    def test_cannot_view_other_clusters(self):
+        self._create_cluster()
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        self._check_no_clusters_exist()
 
 
 # Bug: https://stackoverflow.com/questions/48353002/sqlite-database-table-is-locked-on-tests
@@ -107,7 +166,6 @@ class LiveServerSingleThreadedTestCase(APILiveServerTestCase):
 class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThreadedTestCase):
 
     NODE_DATA = {
-        'name': 'testvm1',
         'instance_type': 'm1.medium'
     }
 
@@ -122,40 +180,91 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         self.addCleanup(self.patcher.stop)
         super().setUp()
 
+    def _create_cluster(self):
+        url = reverse('clusterman:clusters-list')
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
+                      json={'config': load_kube_config()}, status=200)
+        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return response.data['id']
+
+    def _create_cluster_node(self, cluster_id):
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
+                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
+        responses.add_passthru('http://localhost')
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        return self.client.post(url, self.NODE_DATA, format='json')
+
+    def _list_cluster_node(self, cluster_id):
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['results'][0]['cluster'])
+        return response.data['results'][0]['id']
+
+    def _check_cluster_node_exists(self, cluster_id, node_id):
+        url = reverse('clusterman:node-detail', args=[cluster_id, node_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['cluster'])
+        return response.data['id']
+
+    def _delete_cluster_node(self, cluster_id, node_id):
+        url = reverse('clusterman:node-detail', args=[cluster_id, node_id])
+        return self.client.delete(url)
+
+    def _check_no_cluster_nodes_exist(self, cluster_id):
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)
+
     @responses.activate
     def test_crud_cluster_node(self):
         """
         Ensure we can register a new node with cloudman.
         """
-        # create the object
-        url = reverse('clusterman:clusters-list')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
-        response = self.client.post(url, self.CLUSTER_DATA, format='json')
-        cluster_id = response.data['id']
+        # create the parent cluster
+        cluster_id = self._create_cluster()
 
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
-        responses.add_passthru('http://localhost')
-        url = reverse('clusterman:node-list', args=[cluster_id])
-        response = self.client.post(url, self.NODE_DATA, format='json')
+        # create cluster node
+        response = self._create_cluster_node(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
 
+        # list existing objects
+        node_id = self._list_cluster_node(cluster_id)
+
         # check it exists
-        url = reverse('clusterman:node-detail', args=[cluster_id, response.data['id']])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # self.assertDictContainsSubset({'vmType': 'm1.medium'},
-        #                               (response.data.get('deployment')
-        #                                .get('application_config')
-        #                                .get('config_cloudlaunch')))
+        node_id = self._check_cluster_node_exists(cluster_id, node_id)
 
         # delete the object
-        url = reverse('clusterman:node-detail', args=[cluster_id, response.data['id']])
-        response = self.client.delete(url)
+        response = self._delete_cluster_node(cluster_id, node_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # check it no longer exists
-        url = reverse('clusterman:node-list', args=[cluster_id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._check_no_cluster_nodes_exist(cluster_id)
+
+    def test_node_create_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._create_cluster_node(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    # def test_node_delete_unauthorized(self):
+    #     cluster_id = self._create_cluster()
+    #     self._create_cluster_node(cluster_id)
+    #     node_id_then = self._list_cluster_node(cluster_id)
+    #     self.client.force_login(
+    #         User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+    #     response = self._delete_cluster_node(cluster_id, node_id_then)
+    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+    #     self.client.force_login(
+    #         User.objects.get(username='clusteradmin'))
+    #     node_id_now = self._list_cluster_node(cluster_id)
+    #     assert node_id_now  # should still exist
+    #     assert node_id_then == node_id_now  # should be the same node

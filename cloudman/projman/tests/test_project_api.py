@@ -59,6 +59,9 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         response = self._create_project()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         project_id = self._list_project()
+        # Assert that the originally created project id is the same as the one
+        # returned by list
+        self.assertEquals(response.data['id'], project_id)
         project_id = self._check_project_exists(project_id)
         response = self._delete_project(project_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
@@ -93,7 +96,7 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         self._create_project()
         project_id_then = self._list_project()
         self.client.force_login(
-            User.objects.get_or_create(username='anotherprojadmin', is_staff=False)[0])
+            User.objects.get_or_create(username='notaprojadmin', is_staff=False)[0])
         project_id_now = self._list_project()
         assert project_id_now  # should be visible
         assert project_id_then == project_id_now  # should be the same project
@@ -124,7 +127,6 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
     def _create_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
         return self.client.post(url, self.CHART_DATA, format='json')
-
 
     def _list_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
