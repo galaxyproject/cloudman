@@ -29,10 +29,7 @@ app_config:
     pulsarOnly: false
 cloud_config:
   credentials:
-    cloud_id: aws
-    default: true
-    id: 176
-    name: Amazon
+    # temp credentials don't have id and name
     aws_access_key: dummy_key
     aws_secret_key: dummy_secret
   image:

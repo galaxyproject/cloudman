@@ -82,9 +82,13 @@ class Command(BaseCommand):
 
         # create credentials and link to admin user
         credentials.pop('id', None)
-        name = credentials.pop('name')
+        name = credentials.pop('name', 'default')
+        cloud_id = credentials.pop('cloud_id', cloud_id)
+        credentials.pop('default', None)
         credentials_model.objects.get_or_create(user_profile_id="admin",
                                                 name=name,
+                                                cloud_id=cloud_id,
+                                                default=True,
                                                 defaults={**credentials})
 
         # create image
