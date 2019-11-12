@@ -60,7 +60,7 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
         if not project:
             raise ValidationError("Specified project id: %s does not exist"
                                   % project_id)
-        return project.charts.update(chart, validated_data)
+        return project.charts.update(chart, validated_data.get("values"))
 
 
 class UserSerializer(dj_serializers.UserDetailsSerializer):

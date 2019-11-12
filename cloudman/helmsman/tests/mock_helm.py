@@ -69,6 +69,19 @@ class MockHelm(object):
             '-f', '--values', type=str, help='value files')
         parser_inst.set_defaults(func=self._helm_install)
 
+        # Helm upgrade
+        parser_upgrade = subparsers.add_parser('upgrade', help='upgrade a chart')
+        parser_upgrade.add_argument(
+            'release', type=str, help='release name')
+        parser_upgrade.add_argument(
+            'chart', type=str, help='chart name')
+        parser_upgrade.add_argument(
+            '--reuse-values', type=str,
+            help="reuse the last release's values and merge in any overrides")
+        parser_upgrade.add_argument(
+            '-f', '--values', type=str, help='value files')
+        parser_upgrade.set_defaults(func=self._helm_upgrade)
+
         # Helm repo commands
         parser_repo = subparsers.add_parser('repo', help='repo commands')
         subparser_repo = parser_repo.add_subparsers()
@@ -138,6 +151,18 @@ class MockHelm(object):
                 chart['VALUES'] = values
         self.installed_charts.append(chart)
         return chart
+
+    def _helm_upgrade(self, args):
+        matches = [chart for chart in self.installed_charts
+                   if chart.get('NAME') == args.release]
+        if not matches:
+            return 'Error: "%s" has no deployed releases' % args.release
+        release = matches[0]
+        if args.values:
+            with open(args.values, 'r') as f:
+                values = yaml.safe_load(f)
+                release['VALUES'] = values
+        return release
 
     def _helm_repo_update(self, args):
         # pretend to succeed

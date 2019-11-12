@@ -154,6 +154,23 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 0)
 
+    def _update_project_chart(self, project_id, chart_id):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        chart = response.data
+        chart['values']['hello'] = 'anotherworld'
+        chart['values']['new_value'] = 'anothervalue'
+        response = self.client.put(url, chart, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data['id']
+
+    def _check_project_chart_update(self, project_id, chart_id):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['values']['hello'], 'anotherworld')
+        self.assertEqual(response.data['values']['new_value'], 'anothervalue')
+
     def test_crud_project_chart(self):
         """
         Ensure we can register a new project
@@ -167,6 +184,10 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         chart_id = self._list_project_chart(project_id)
         # check it exists
         chart_id = self._check_project_chart_exists(project_id, chart_id)
+        # Update chart
+        self._update_project_chart(project_id, chart_id)
+        # check update worked
+        self._check_project_chart_update(project_id, chart_id)
         # delete the object
         response = self._delete_project_chart(project_id, chart_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
