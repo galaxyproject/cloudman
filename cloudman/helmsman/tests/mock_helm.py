@@ -76,7 +76,7 @@ class MockHelm(object):
         parser_upgrade.add_argument(
             'chart', type=str, help='chart name')
         parser_upgrade.add_argument(
-            '--reuse-values', type=str,
+            '--reuse-values', action='store_true',
             help="reuse the last release's values and merge in any overrides")
         parser_upgrade.add_argument(
             '-f', '--values', type=str, help='value files')

@@ -1,5 +1,6 @@
 """HelmsMan Service API."""
 from .helm.client import HelmClient
+from .helm.client import HelmValueHandling
 
 
 class HelmsmanException(Exception):
@@ -146,7 +147,8 @@ class HMChartService(HelmsManService):
             cur_vals = values
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(
-            chart.id, "cloudve/%s" % chart.name, cur_vals)
+            chart.id, "cloudve/%s" % chart.name, values=cur_vals,
+            value_handling=HelmValueHandling.REUSE)
         chart.values.update(cur_vals)
         return chart
 

@@ -171,6 +171,19 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.data['values']['hello'], 'anotherworld')
         self.assertEqual(response.data['values']['new_value'], 'anothervalue')
 
+    def _check_project_chart_reuse_values(self, project_id, chart_id):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        chart = response.data
+        chart['values']['new_value'] = 'anothervalue2'
+        response = self.client.put(url, chart, format='json')
+
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['values']['hello'], 'anotherworld')
+        self.assertEqual(response.data['values']['new_value'], 'anothervalue2')
+
     def test_crud_project_chart(self):
         """
         Ensure we can register a new project
@@ -188,6 +201,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self._update_project_chart(project_id, chart_id)
         # check update worked
         self._check_project_chart_update(project_id, chart_id)
+        # check reusing values works
+        self._check_project_chart_reuse_values(project_id, chart_id)
         # delete the object
         response = self._delete_project_chart(project_id, chart_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
