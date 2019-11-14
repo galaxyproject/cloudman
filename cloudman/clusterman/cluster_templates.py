@@ -141,6 +141,8 @@ class CMRancherTemplate(CMClusterTemplate):
         }
         if size:
             params['config_app']['config_cloudlaunch']['vmType'] = size
+        # Don't use hostname config
+        params['config_app']['config_cloudlaunch'].pop('hostnameConfig', None)
         try:
             print("Launching node with settings: {0}".format(params))
             return self.context.cloudlaunch_client.deployments.create(**params)
