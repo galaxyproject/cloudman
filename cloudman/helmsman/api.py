@@ -1,4 +1,6 @@
 """HelmsMan Service API."""
+import jsonmerge
+
 from .helm.client import HelmClient
 from .helm.client import HelmValueHandling
 
@@ -139,17 +141,17 @@ class HMChartService(HelmsManService):
 
     def update(self, chart, values):
         # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.id)
-        # 2. Add the latest differences on top
+        cur_vals = HelmClient().releases.get_values(chart.id, get_all=False)
+        # 2. Deep merge the latest differences on top
         if cur_vals:
-            cur_vals.update(values)
+            cur_vals = jsonmerge.merge(cur_vals, values)
         else:
             cur_vals = values
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(
             chart.id, "cloudve/%s" % chart.name, values=cur_vals,
             value_handling=HelmValueHandling.REUSE)
-        chart.values.update(cur_vals)
+        chart.values = jsonmerge.merge(chart.values, cur_vals)
         return chart
 
     def rollback(self, chart, revision=None):
