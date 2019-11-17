@@ -136,15 +136,23 @@ class CMClusterNodeService(CMService):
         super(CMClusterNodeService, self).__init__(context)
         self.cluster = cluster
 
+    def to_api_object(self, node):
+        # Remap the returned django model's delete method to the API method
+        # This is just a lazy alternative to writing an actual wrapper around
+        # the django object.
+        node.original_delete = node.delete
+        node.delete = lambda: self.delete(node)
+        return node
+
     def list(self):
         nodes = models.CMClusterNode.objects.filter(cluster=self.cluster)
-        return [n for n in nodes
+        return [self.to_api_object(n) for n in nodes
                 if self.has_permissions('clusternodes.view_clusternode', n)]
 
     def get(self, node_id):
         obj = models.CMClusterNode.objects.get(id=node_id)
         self.check_permissions('clusternodes.view_clusternode', obj)
-        return obj
+        return self.to_api_object(obj)
 
     def create(self, instance_type):
         self.check_permissions('clusternodes.add_clusternode')
@@ -153,15 +161,14 @@ class CMClusterNodeService(CMService):
         cli_deployment = template.add_node(name, instance_type)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
-        return models.CMClusterNode.objects.create(
+        node = models.CMClusterNode.objects.create(
             name=name, cluster=self.cluster, deployment=deployment)
+        return self.to_api_object(node)
 
-    def delete(self, node_id):
-        obj = models.CMClusterNode.objects.get(id=node_id)
-        if obj:
-            self.check_permissions('clusternodes.delete_clusternode', obj)
-            template = self.cluster.service.get_cluster_template()
-            template.remove_node(obj)
-            obj.delete()
-        else:
-            self.raise_no_permissions('clusternodes.delete_clusternode')
+    def delete(self, node):
+        if node:
+            self.check_permissions('clusternodes.delete_clusternode', node)
+            template = self.cluster.service.get_cluster_template(self.cluster)
+            template.remove_node(node)
+            # call the saved django delete method which we remapped
+            node.original_delete()

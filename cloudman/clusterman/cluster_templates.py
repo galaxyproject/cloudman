@@ -150,7 +150,8 @@ class CMRancherTemplate(CMClusterTemplate):
             raise ValidationError(str(e))
 
     def remove_node(self, node):
-        return self.context.cloudlaunch_client.deployments.tasks.create(action='DELETE')
+        return self.context.cloudlaunch_client.deployments.tasks.create(
+            action='DELETE', deployment_pk=node.deployment.pk)
 
     def activate_autoscaling(self, min_nodes=0, max_nodes=None, size=None):
         pass
