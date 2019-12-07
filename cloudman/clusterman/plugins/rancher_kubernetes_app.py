@@ -2,7 +2,6 @@
 from celery.utils.log import get_task_logger
 
 from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
-from cloudlaunch.backend_plugins.cloudman2_app import get_iam_handler_for
 from cloudlaunch.configurers import AnsibleAppConfigurer
 
 from rest_framework.serializers import ValidationError
@@ -68,10 +67,10 @@ class RancherKubernetesApp(BaseVMAppPlugin):
 
     def _provision_host(self, name, task, app_config, provider_config):
         provider = provider_config.get('cloud_provider')
-        handler_class = get_iam_handler_for(provider.PROVIDER_ID)
+        handler_class = self._get_iam_handler(provider)
         if handler_class:
             provider = provider_config.get('cloud_provider')
-            handler = handler_class(provider)
+            handler = handler_class(provider, app_config)
             provider_config['extra_provider_args'] = \
                 handler.create_iam_policy()
         result = super()._provision_host(name, task, app_config, provider_config)

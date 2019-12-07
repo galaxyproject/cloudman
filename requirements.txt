@@ -1,11 +1,11 @@
-Django>=2.0.0
+Django>=2.0.0,<3.0
 djangorestframework==3.9.3
 gunicorn[gevent]
 # moto==1.1.11
 # for eclipse debugging
 pydevd>=1.0.0
 # get latest package versions for now
-git+https://github.com/gvlproject/cloudbridge#egg=cloudbridge
+git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge
 git+https://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+https://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli
