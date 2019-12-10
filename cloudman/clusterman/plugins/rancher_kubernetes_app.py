@@ -68,10 +68,12 @@ class RancherKubernetesApp(BaseVMAppPlugin):
 
     def _provision_host(self, name, task, app_config, provider_config):
         provider = provider_config.get('cloud_provider')
+        clust_name = app_config.get('config_cloudman', {}).get('cluster_name')
+
         handler_class = get_iam_handler_for(provider.PROVIDER_ID)
         if handler_class:
             provider = provider_config.get('cloud_provider')
-            handler = handler_class(provider, app_config)
+            handler = handler_class(provider, clust_name, app_config)
             provider_config['extra_provider_args'] = \
                 handler.create_iam_policy()
         result = super()._provision_host(name, task, app_config, provider_config)

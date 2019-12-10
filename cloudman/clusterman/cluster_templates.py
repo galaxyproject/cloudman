@@ -136,7 +136,10 @@ class CMRancherTemplate(CMClusterTemplate):
                                           "a15a2936bcb23dd5fca1ff88259e9c80f3b/i2")
                 },
                 'config_cloudlaunch': (settings.get('app_config', {})
-                                       .get('config_cloudlaunch', {}))
+                                       .get('config_cloudlaunch', {})),
+                'config_cloudman': {
+                    'cluster_name': self.cluster.name
+                }
             }
         }
         if size:
