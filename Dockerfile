@@ -30,14 +30,16 @@ RUN set -xe; \
 # Set working directory to /app/
 WORKDIR /app/
 
-# Add files to /app/
-ADD . /app
+# Only add files required for installation to improve build caching
+ADD requirements.txt /app
+ADD setup.py /app
+ADD README.rst /app
+ADD HISTORY.rst /app
+ADD cloudman/cloudman/__init__.py /app/cloudman/cloudman/__init__.py
 
 # Install requirements. Move this above ADD as 'pip install cloudman-server'
 # asap so caching works
 RUN /app/venv/bin/pip3 install -U pip && /app/venv/bin/pip3 install --no-cache-dir -r requirements.txt
-
-RUN cd cloudman && /app/venv/bin/python manage.py collectstatic --no-input
 
 
 # Stage-2
@@ -70,9 +72,13 @@ COPY --chown=cloudman:cloudman --from=stage1 /app /app
 COPY --chown=cloudman:cloudman --from=stage1 /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --chown=cloudman:cloudman --from=stage1 /usr/local/bin/helm /usr/local/bin/helm
 
-RUN chmod a+x /app/venv/bin/*
-RUN chmod a+x /usr/local/bin/kubectl
-RUN chmod a+x /usr/local/bin/helm
+# Add the source files last to minimize layer cache invalidation
+ADD --chown=cloudman:cloudman . /app
+
+RUN chmod a+x /app/venv/bin/* \
+    && chmod a+x /usr/local/bin/kubectl \
+    && chmod a+x /usr/local/bin/helm \
+    && /app/venv/bin/python manage.py collectstatic --no-input
 
 # Switch to new, lower-privilege user
 USER cloudman
@@ -81,5 +87,3 @@ USER cloudman
 EXPOSE 8000
 
 CMD /bin/bash -c "source /app/venv/bin/activate && /app/venv/bin/gunicorn -k gevent -b :8000 --access-logfile - --error-logfile - --log-level info cloudman.wsgi"
-#CMD /app/venv/bin/python /app/cloudman/manage.py runserver
-
