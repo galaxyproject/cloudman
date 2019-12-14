@@ -75,13 +75,13 @@ COPY --chown=cloudman:cloudman --from=stage1 /usr/local/bin/helm /usr/local/bin/
 # Add the source files last to minimize layer cache invalidation
 ADD --chown=cloudman:cloudman . /app
 
+# Switch to new, lower-privilege user
+USER cloudman
+
 RUN chmod a+x /app/venv/bin/* \
     && chmod a+x /usr/local/bin/kubectl \
     && chmod a+x /usr/local/bin/helm \
     && /app/venv/bin/python manage.py collectstatic --no-input
-
-# Switch to new, lower-privilege user
-USER cloudman
 
 # gunicorn will listen on this port
 EXPOSE 8000
