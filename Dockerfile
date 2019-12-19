@@ -62,8 +62,11 @@ RUN useradd -ms /bin/bash cloudman \
         git-core \
         python3-pip \
         python3-setuptools \
+        locales locales-all \
     && apt-get autoremove -y && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/*
+
+ENV LC_ALL en_US.UTF-8
 
 WORKDIR /app/cloudman/
 

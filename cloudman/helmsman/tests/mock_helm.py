@@ -191,7 +191,7 @@ class MockHelm(object):
         if matches:
             chart = matches[0]
             with StringIO() as output:
-                yaml.safe_dump(chart.get('VALUES'), output)
+                yaml.safe_dump(chart.get('VALUES'), output, allow_unicode=True)
                 return output.getvalue()
         else:
             return 'Error: release: "%s" not found' % args.release
