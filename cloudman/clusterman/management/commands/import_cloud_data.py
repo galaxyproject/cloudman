@@ -81,15 +81,16 @@ class Command(BaseCommand):
             region=region_obj, zone_id=zone_id, defaults={**zone})
 
         # create credentials and link to admin user
-        credentials.pop('id', None)
-        name = credentials.pop('name', 'default')
-        cloud_id = credentials.pop('cloud_id', cloud_id)
-        credentials.pop('default', None)
-        credentials_model.objects.get_or_create(user_profile_id="admin",
-                                                name=name,
-                                                cloud_id=cloud_id,
-                                                default=True,
-                                                defaults={**credentials})
+        if credentials:
+            credentials.pop('id', None)
+            name = credentials.pop('name', 'default')
+            cloud_id = credentials.pop('cloud_id', cloud_id)
+            credentials.pop('default', None)
+            credentials_model.objects.get_or_create(user_profile_id="admin",
+                                                    name=name,
+                                                    cloud_id=cloud_id,
+                                                    default=True,
+                                                    defaults={**credentials})
 
         # create image
         name = image.pop('name')
