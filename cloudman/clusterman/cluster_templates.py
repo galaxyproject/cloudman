@@ -130,7 +130,7 @@ class CMRancherTemplate(CMClusterTemplate):
                 "config_appliance": {
                     "sshUser": "ubuntu",
                     "runner": "ansible",
-                    "repository": " https://github.com/CloudVE/ansible-docker-boot",
+                    "repository": "https://github.com/CloudVE/ansible-docker-boot",
                     "inventoryTemplate": "${host}\n\n"
                                          "[all:vars]\n"
                                          "ansible_ssh_port=22\n"
