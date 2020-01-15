@@ -130,10 +130,13 @@ class CMRancherTemplate(CMClusterTemplate):
                 "config_appliance": {
                     "sshUser": "ubuntu",
                     "runner": "ansible",
-                    "repository": "https://github.com/CloudVE/ansible-cm2-rancher-node",
-                    "inventoryTemplate": ("https://gist.githubusercontent.com/afgane/"
-                                          "1651c5c1395400ce8ab97a546293d571/raw/98e1d"
-                                          "a15a2936bcb23dd5fca1ff88259e9c80f3b/i2")
+                    "repository": " https://github.com/CloudVE/ansible-docker-boot",
+                    "inventoryTemplate": "${host}\n\n"
+                                         "[all:vars]\n"
+                                         "ansible_ssh_port=22\n"
+                                         "ansible_user='${user}'\n"
+                                         "ansible_ssh_private_key_file=pk\n"
+                                         "ansible_ssh_extra_args='-o StrictHostKeyChecking=no'\n"
                 },
                 'config_cloudlaunch': (settings.get('app_config', {})
                                        .get('config_cloudlaunch', {})),
