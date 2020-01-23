@@ -100,6 +100,7 @@ class HMChartService(HelmsManService):
                 name=client.releases.parse_chart_name(release.get('CHART')),
                 namespace=release.get("NAMESPACE"),
                 chart_version=client.releases.parse_chart_version(release.get('CHART')),
+                revision=release.get("REVISION"),
                 app_version=release.get("APP VERSION"),
                 state=release.get("STATUS"),
                 updated=release.get("UPDATED"),
@@ -181,6 +182,7 @@ class HelmChart(HelmsManResource):
         self.namespace = namespace
         self.display_name = self.name.title()
         self.chart_version = kwargs.get('chart_version')
+        self.revision = kwargs.get('revision')
         self.app_version = kwargs.get('app_version')
         self.state = kwargs.get('state')
         self.updated = kwargs.get('updated')

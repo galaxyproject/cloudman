@@ -29,7 +29,7 @@ class Command(BaseCommand):
             if chart.get('namespace'):
                 extra_args["namespace"] = chart.get('namespace')
             if chart.get('version'):
-                extra_args["version"] = chart.get('version')
+                extra_args["chart_version"] = chart.get('version')
             if chart.get('values'):
                 values = chart.get('values')
                 with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:

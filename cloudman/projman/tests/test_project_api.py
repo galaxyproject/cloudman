@@ -111,7 +111,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
     CHART_DATA = {
         'name': 'galaxy',
         'display_name': 'Galaxy',
-        'chart_version': '3.0.0',
+        'chart_version': '1.0.0',
         'state': "DEPLOYED",
         'values': {
             'hello': 'world'
@@ -164,12 +164,30 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return response.data['id']
 
+    def _rollback_project_chart(self, project_id, chart_id):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        chart = response.data
+        chart['state'] = 'rollback'
+        return self.client.put(url, chart, format='json')
+
     def _check_project_chart_update(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['revision'], 2)
         self.assertEqual(response.data['values']['hello'], 'anotherworld')
         self.assertEqual(response.data['values']['new_value'], 'anothervalue')
+
+    def _check_project_chart_rollback(self, project_id, chart_id):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['revision'], 3)
+        # Should have reverted to original value
+        self.assertEqual(response.data['values']['hello'], 'world')
+        # Should have lost upgraded value
+        self.assertNotIn('new_value', response.data['values'])
 
     def _check_project_chart_reuse_values(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
@@ -240,3 +258,21 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         chart_id_now = self._list_project_chart(project_id)
         assert chart_id_now  # should be visible
         assert chart_id_then == chart_id_now  # should be the same chart
+
+    def test_chart_rollback(self):
+        project_id = self._create_project()
+        self._create_project_chart(project_id)
+        chart_id = self._list_project_chart(project_id)
+        self._update_project_chart(project_id, chart_id)
+        self._rollback_project_chart(project_id, chart_id)
+        self._check_project_chart_rollback(project_id, chart_id)
+
+    def test_chart_rollback_unauthorized(self):
+        project_id = self._create_project()
+        self._create_project_chart(project_id)
+        chart_id = self._list_project_chart(project_id)
+        self._update_project_chart(project_id, chart_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
+        response = self._rollback_project_chart(project_id, chart_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)

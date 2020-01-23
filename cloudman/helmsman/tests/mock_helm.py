@@ -19,9 +19,11 @@ class MockHelm(object):
         self.patch2.start()
         testcase.addCleanup(self.patch2.stop)
         testcase.addCleanup(self.patch1.stop)
-        self.chart_list_field_name = ["NAME", "REVISION", "UPDATED", "STATUS",
-                                      "CHART", "APP VERSION", "NAMESPACE"]
-        self.installed_charts = [
+        self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
+                                       "CHART", "APP VERSION", "NAMESPACE"]
+        self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
+                                          "CHART", "APP VERSION", "DESCRIPTION"]
+        self.revision_history = [
             {
                 'NAME': 'turbulent-markhor',
                 'REVISION': 12,
@@ -35,6 +37,10 @@ class MockHelm(object):
                 }
             }
         ]
+        self.chart_database = {
+            'turbulent-markhor': self.revision_history
+        }
+
         self.repo_list_field_name = ["NAME", "URL"]
         self.installed_repos = {
             'stable': {
@@ -82,6 +88,20 @@ class MockHelm(object):
             '-f', '--values', type=str, help='value files')
         parser_upgrade.set_defaults(func=self._helm_upgrade)
 
+        # Helm rollback
+        parser_rollback = subparsers.add_parser('rollback', help='rolls back a release to a previous revision')
+        parser_rollback.add_argument(
+            'release', type=str, help='release name')
+        parser_rollback.add_argument(
+            'revision', type=int, help='revision number')
+        parser_rollback.set_defaults(func=self._helm_rollback)
+
+        # Helm history
+        parser_history = subparsers.add_parser('history', help='prints historical revisions for a given release')
+        parser_history.add_argument(
+            'release', type=str, help='release name')
+        parser_history.set_defaults(func=self._helm_history)
+
         # Helm repo commands
         parser_repo = subparsers.add_parser('repo', help='repo commands')
         subparser_repo = parser_repo.add_subparsers()
@@ -127,42 +147,79 @@ class MockHelm(object):
     def _helm_list(self, args):
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.chart_list_field_name,
+            writer = csv.DictWriter(output, fieldnames=self.chart_list_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
-            writer.writerows(self.installed_charts)
+            for release in self.chart_database.values():
+                # Write data about the latest revision for each chart
+                writer.writerow(release[-1])
             return output.getvalue()
 
     def _helm_install(self, args):
         repo_name, chart_name = args.chart.split('/')
-        chart = {
-            'NAME': '%s-%s' % (chart_name, uuid.uuid4().hex[:6]),
+        release_name = '%s-%s' % (chart_name, uuid.uuid4().hex[:6])
+        revision = {
+            'NAME': release_name,
             'REVISION': 1,
             'UPDATED': 'Fri Apr 19 05:33:37 2019',
             'STATUS': 'DEPLOYED',
             'CHART': '%s-%s' % (chart_name, args.version or "1.0.0"),
             'APP VERSION': '2.0.2',
             'NAMESPACE': args.namespace,
+            'DESCRIPTION': 'Initial Install',
             'VALUES': {}
         }
         if args.values:
             with open(args.values, 'r') as f:
                 values = yaml.safe_load(f)
-                chart['VALUES'] = values
-        self.installed_charts.append(chart)
-        return chart
+                revision['VALUES'] = values
+        self.chart_database[release_name] = [revision]
+        return revision
 
     def _helm_upgrade(self, args):
-        matches = [chart for chart in self.installed_charts
-                   if chart.get('NAME') == args.release]
-        if not matches:
+        revisions = self.chart_database.get(args.release)
+        if not revisions:
             return 'Error: "%s" has no deployed releases' % args.release
-        release = matches[0]
+        latest_release = revisions[-1]
+        new_release = dict(latest_release)
+        new_release['REVISION'] += 1
+        new_release['DESCRIPTION'] = 'Upgraded successfully'
         if args.values:
             with open(args.values, 'r') as f:
                 values = yaml.safe_load(f)
-                release['VALUES'] = values
-        return release
+                new_release['VALUES'] = values
+        revisions.append(new_release)
+        return new_release
+
+    def _helm_rollback(self, args):
+        revisions = self.chart_database.get(args.release)
+        if not revisions:
+            return 'Error: "%s" has no deployed releases' % args.release
+        latest_revision = revisions[-1]
+        if args.revision:
+            matches = [r for r in revisions if r['REVISION'] == args.revision]
+            if not matches:
+                return 'Error: "%s" has no matching revision %s' % (args.release, args.revision)
+            rollback_revision = matches[0]
+        else:
+            rollback_revision = revisions[-1]
+        new_revision = dict(rollback_revision)
+        new_revision['REVISION'] = latest_revision['REVISION'] + 1
+        new_revision['DESCRIPTION'] = 'Rolled back to %s' % args.revision
+        revisions.append(new_revision)
+        return new_revision
+
+    def _helm_history(self, args):
+        revisions = self.chart_database.get(args.release)
+        if not revisions:
+            return 'Error: "%s" has no deployed releases' % args.release
+        # pretend to succeed
+        with StringIO() as output:
+            writer = csv.DictWriter(output, fieldnames=self.chart_history_field_names,
+                                    delimiter="\t", extrasaction='ignore')
+            writer.writeheader()
+            writer.writerows(revisions)
+            return output.getvalue()
 
     def _helm_repo_update(self, args):
         # pretend to succeed
@@ -186,27 +243,23 @@ class MockHelm(object):
             return output.getvalue()
 
     def _helm_get_values(self, args):
-        matches = [chart for chart in self.installed_charts
-                   if chart.get('NAME') == args.release]
-        if matches:
-            chart = matches[0]
-            with StringIO() as output:
-                yaml.safe_dump(chart.get('VALUES'), output, allow_unicode=True)
-                return output.getvalue()
-        else:
+        revisions = self.chart_database.get(args.release)
+        if not revisions:
             return 'Error: release: "%s" not found' % args.release
+        latest_release = revisions[-1]
+        with StringIO() as output:
+            yaml.safe_dump(latest_release.get('VALUES'), output, allow_unicode=True)
+            return output.getvalue()
 
     def _helm_get_manifest(self, args):
         # pretend to succeed
         pass
 
     def _helm_delete(self, args):
-        matches = [chart for chart in self.installed_charts
-                   if chart.get('NAME') == args.release]
-        if matches:
-            self.installed_charts.remove(matches[0])
-        else:
+        revisions = self.chart_database.get(args.release)
+        if not revisions:
             return 'Error: release: "%s" not found' % args.release
+        self.chart_database.pop(args.release, None)
 
     def mock_run_command(self, command, shell=False):
         if isinstance(command, list):
