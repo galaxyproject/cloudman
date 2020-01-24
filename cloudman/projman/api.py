@@ -162,6 +162,11 @@ class PMProjectChartService(PMService):
         updated_chart = self._get_helmsman_api().charts.update(chart, values)
         return self._to_proj_chart(updated_chart)
 
+    def rollback(self, chart, revision=None):
+        self.check_permissions('charts.change_chart', chart)
+        updated_chart = self._get_helmsman_api().charts.rollback(chart, revision)
+        return self._to_proj_chart(updated_chart)
+
     def delete(self, chart_id):
         obj = self.get(chart_id)
         if obj:
