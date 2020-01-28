@@ -53,14 +53,6 @@ class MockHelm(object):
         parser = argparse.ArgumentParser(prog='helm')
         subparsers = parser.add_subparsers(help='Available Commands')
 
-        # Helm init
-        parser_init = subparsers.add_parser('init', help='init Helm')
-        parser_init.add_argument(
-            '--service-account', type=str, help='service account', default=None)
-        parser_init.add_argument(
-            '--wait', help='wait till initialized', action='store_true')
-        parser_init.set_defaults(func=self._helm_init)
-
         # Helm list
         parser_list = subparsers.add_parser('list', help='list releases')
         parser_list.set_defaults(func=self._helm_list)

@@ -31,32 +31,6 @@ class HelmClient(HelmService):
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
 
-    def install_helm(self):
-        # FIXME: Check whether tiller role exists instead of ignoring exception
-        try:
-            cmd = (
-                "kubectl create serviceaccount --namespace kube-system tiller"
-                " && kubectl create clusterrolebinding tiller-cluster-role"
-                " --clusterrole=cluster-admin"
-                " --serviceaccount=kube-system:tiller")
-            helpers.run_command(cmd, shell=True)
-        except subprocess.CalledProcessError as e:
-            log.exception("Could not create tiller role bindings. "
-                          "Reason: {0}".format(e.output))
-        print("Initializing tiller...")
-        self.helm_init(service_account="tiller", wait=True)
-        print("Tiller initialized.")
-
-    def helm_init(self, service_account=None, upgrade=False, wait=False):
-        cmd = ["helm", "init"]
-        if service_account:
-            cmd += ["--service-account", service_account]
-        if upgrade:
-            cmd += ["--upgrade"]
-        if wait:
-            cmd += ["--wait"]
-        return helpers.run_command(cmd)
-
     @property
     def releases(self):
         return self._release_svc
@@ -103,12 +77,14 @@ class HelmReleaseService(HelmService):
 
     def create(self, chart, namespace, release_name=None,
                version=None, values=None):
-        cmd = ["helm", "install", chart]
+        cmd = ["helm", "install"]
 
+        if release_name:
+            cmd += [release_name, chart]
+        else:
+            cmd += [chart, "--generate-name"]
         if namespace:
             cmd += ["--namespace", namespace]
-        if release_name:
-            cmd += ["--name", release_name]
         if version:
             cmd += ["--version", version]
         return self._set_values_and_run_command(cmd, values)

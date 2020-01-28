@@ -18,10 +18,6 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
-        try:
-            call_command("setup_helm")
-        except Exception as e:
-            print("An exception occurred during helm init:", str(e))
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
         for chart in settings.get('charts', {}).values():

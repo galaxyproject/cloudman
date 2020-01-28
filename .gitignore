@@ -6,6 +6,9 @@ syntax: glob
 *.DS_Store
 *.pyc
 *.sqlite3
+*.log
+
+cloudman/cloudman_server.egg-info/*
 
 cloudman/db.sqlite3
 cloudman/cloudman/settings_local.py

@@ -1,5 +1,6 @@
 import logging as log
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 from django.contrib.auth.models import User
@@ -25,6 +26,7 @@ class Command(BaseCommand):
             if not pmapi.projects.find(name):
                 pmapi.projects.create(name)
                 print("Project created successfully.")
+            call_command("create_namespace", name)
         except Exception as e:
             log.exception("An error occurred while creating the initial project!!:")
             print("An error occurred while creating the initial project!!:", e)

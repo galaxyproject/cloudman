@@ -11,13 +11,13 @@ def run_command(command, shell=False):
                                    shell=shell, encoding='utf-8')
 
 
-def run_list_command(command):
+def run_list_command(command, delimiter="\t"):
     """
     Runs a command, and parses the output as
     tab separated columnar output. First row must be column names."
     """
     output = run_command(command)
-    reader = csv.DictReader(io.StringIO(output), delimiter="\t")
+    reader = csv.DictReader(io.StringIO(output), delimiter=delimiter, skipinitialspace=True)
     output = []
     for row in reader:
         data = {key.strip(): val.strip() for key, val in row.items()}

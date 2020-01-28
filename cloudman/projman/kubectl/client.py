@@ -1,0 +1,59 @@
+"""A wrapper around the kubectl commandline client"""
+import shutil
+from . import helpers
+
+
+class KubeCtlService(object):
+    """Marker interface for CloudMan services"""
+
+    def __init__(self, client):
+        self._client = client
+
+    def client(self):
+        return self._client
+
+
+class KubeCtlClient(KubeCtlService):
+
+    def __init__(self):
+        self._check_environment()
+        super(KubeCtlClient, self).__init__(self)
+        self._namespace_svc = KubeCtlNamespaceService(self)
+
+    def _check_environment(self):
+        if not shutil.which("kubectl"):
+            raise Exception("Could not find kubectl executable in path")
+
+    @property
+    def namespaces(self):
+        return self._namespace_svc
+
+
+class KubeCtlNamespaceService(KubeCtlService):
+
+    def __init__(self, client):
+        super(KubeCtlNamespaceService, self).__init__(client)
+
+    def list(self):
+        data = helpers.run_list_command(["kubectl", "get", "namespaces"],
+                                        delimiter=" ")
+        return data
+
+    def list_names(self):
+        data = self.list()
+        output = []
+        for each in data:
+            output.append(each.get('NAME'))
+        return output
+
+    def create(self, namespace_name):
+        return helpers.run_command(["kubectl", "create",
+                                    "namespace", namespace_name])
+
+    def create_if_not_exists(self, namespace_name):
+        if namespace_name not in self.list_names():
+            return self.create(namespace_name)
+
+    def delete(self, namespace_name):
+        return helpers.run_command(["kubectl", "delete",
+                                    "namespace", namespace_name])
