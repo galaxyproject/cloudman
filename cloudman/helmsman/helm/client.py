@@ -202,7 +202,7 @@ class KubeCtlNamespaceService(HelmService):
 
     def list(self):
         data = helpers.run_list_command(["kubectl", "get", "namespaces"],
-                                        delimiter=" ")
+                                        delimiter=" ", skipinitialspace=True)
         return data
 
     def list_names(self):
