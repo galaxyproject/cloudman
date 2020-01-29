@@ -1,8 +1,5 @@
 """A wrapper around the helm commandline client"""
-import logging as log
-import shlex
 import shutil
-import subprocess
 import tempfile
 import yaml
 from . import helpers
@@ -26,10 +23,13 @@ class HelmClient(HelmService):
         self._release_svc = HelmReleaseService(self)
         self._repo_svc = HelmRepositoryService(self)
         self._chart_svc = HelmChartService(self)
+        self._namespace_svc = KubeCtlNamespaceService(self)
 
     def _check_environment(self):
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
+        if not shutil.which("kubectl"):
+            raise Exception("Could not find kubectl executable in path")
 
     @property
     def releases(self):
@@ -42,6 +42,10 @@ class HelmClient(HelmService):
     @property
     def charts(self):
         return self._chart_svc
+
+    @property
+    def namespaces(self):
+        return self._namespace_svc
 
 
 class HelmValueHandling(Enum):
@@ -119,7 +123,8 @@ class HelmReleaseService(HelmService):
                 revision = history[-2].get('REVISION')
             else:
                 return
-        return helpers.run_command(["helm", "rollback", release_name, revision])
+        return helpers.run_command(["helm", "rollback",
+                                    release_name, revision])
 
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
@@ -188,3 +193,33 @@ class HelmChartService(HelmService):
 
     def delete(self, release_name):
         raise Exception("Not implemented")
+
+
+class KubeCtlNamespaceService(HelmService):
+
+    def __init__(self, client):
+        super(KubeCtlNamespaceService, self).__init__(client)
+
+    def list(self):
+        data = helpers.run_list_command(["kubectl", "get", "namespaces"],
+                                        delimiter=" ")
+        return data
+
+    def list_names(self):
+        data = self.list()
+        output = []
+        for each in data:
+            output.append(each.get('NAME'))
+        return output
+
+    def create(self, namespace_name):
+        return helpers.run_command(["kubectl", "create",
+                                    "namespace", namespace_name])
+
+    def create_if_not_exists(self, namespace_name):
+        if namespace_name not in self.list_names():
+            return self.create(namespace_name)
+
+    def delete(self, namespace_name):
+        return helpers.run_command(["kubectl", "delete",
+                                    "namespace", namespace_name])

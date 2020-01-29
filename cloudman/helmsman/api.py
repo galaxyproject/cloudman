@@ -13,6 +13,14 @@ class ChartExistsException(HelmsmanException):
     pass
 
 
+class NamespaceNotFoundException(HelmsmanException):
+    pass
+
+
+class NamespaceExistsException(HelmsmanException):
+    pass
+
+
 class HMServiceContext(object):
     """
     A class to contain contextual information when processing a

@@ -5,6 +5,8 @@ from django.core.management.base import BaseCommand
 
 from django.contrib.auth.models import User
 
+from ...api import HelmsManAPI, HMServiceContext, NamespaceExistsException
+
 
 class Command(BaseCommand):
     help = 'Creates a ProjMan project.'
@@ -23,10 +25,17 @@ class Command(BaseCommand):
             from projman import api
             admin = User.objects.filter(is_superuser=True).first()
             pmapi = api.ProjManAPI(api.PMServiceContext(user=admin))
+            client = HelmsManAPI(HMServiceContext(user=admin))
             if not pmapi.projects.find(name):
+                if name in client.namespaces.list_names():
+                    message = (f"The project '{name}' could not be created."
+                               f"A namespace by the same name already exists.")
+                    raise NamespaceExistsException(message)
+                else:
+                    client.namespaces.create(name)
                 pmapi.projects.create(name)
                 print("Project created successfully.")
-            call_command("create_namespace", name)
         except Exception as e:
-            log.exception("An error occurred while creating the initial project!!:")
-            print("An error occurred while creating the initial project!!:", e)
+            log.exception(f"An error occurred while "
+                          f"creating the project '{name}':", e)
+            print(f"An error occurred while creating the project '{name}':", e)
