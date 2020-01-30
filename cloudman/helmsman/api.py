@@ -98,7 +98,7 @@ class HMNamespaceService(HelmsManService):
         existing = self.get(namespace)
         if existing:
             raise NamespaceExistsException(
-                f"Namespace {namespace} already exists.")
+                f"Namespace '{namespace}' already exists.")
         else:
             client.namespaces.create(namespace)
         return self.get(namespace)

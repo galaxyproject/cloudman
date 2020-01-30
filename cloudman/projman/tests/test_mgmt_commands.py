@@ -5,6 +5,8 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from helmsman.api import HelmsManAPI, HMServiceContext
+
 from projman import models as pm_models
 
 
@@ -34,3 +36,7 @@ class CommandsTestCase(TestCase):
         self.assertEquals(project1.owner.username, 'admin')
         self.assertEquals(project2.name, 'proj2')
         self.assertEquals(project2.owner.username, 'admin')
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        self.assertEquals(client.namespaces.get(project2.name).name, 'proj2')
+        client.namespaces.delete(project2.name)
