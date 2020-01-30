@@ -6,6 +6,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from helmsman.api import HelmsManAPI, HMServiceContext
+from helmsman.tests.mock_helm import MockHelm
 
 from projman import models as pm_models
 
@@ -18,6 +19,7 @@ class CommandsTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
+        self.mock_helm = MockHelm(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 
