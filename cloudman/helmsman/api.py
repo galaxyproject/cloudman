@@ -1,8 +1,9 @@
 """HelmsMan Service API."""
 import jsonmerge
 
-from .helm.client import HelmClient
-from .helm.client import HelmValueHandling
+from .clients.helm_client import HelmClient
+from .clients.kubectl_client import KubeCtlClient
+from .clients.helm_client import HelmValueHandling
 
 
 class HelmsmanException(Exception):
@@ -87,14 +88,14 @@ class HMNamespaceService(HelmsManService):
 
     def list(self):
         return [KubectlNamespace(self, **namespace)
-                for namespace in HelmClient().namespaces.list()]
+                for namespace in KubeCtlClient().namespaces.list()]
 
     def get(self, namespace):
         namespaces = (n for n in self.list() if n.name == namespace)
         return next(namespaces, None)
 
     def create(self, namespace):
-        client = HelmClient()
+        client = KubeCtlClient()
         existing = self.get(namespace)
         if existing:
             raise NamespaceExistsException(
@@ -104,7 +105,7 @@ class HMNamespaceService(HelmsManService):
         return self.get(namespace)
 
     def delete(self, namespace):
-        client = HelmClient()
+        client = KubeCtlClient()
         existing = self.get(namespace)
         if not existing:
             raise NamespaceNotFoundException(

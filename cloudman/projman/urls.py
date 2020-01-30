@@ -4,7 +4,7 @@ from django.conf.urls import include
 from django.conf.urls import url
 
 from . import views
-from helmsman import views as helmsman_views
+
 from djcloudbridge.drf_routers import HybridDefaultRouter
 from djcloudbridge.drf_routers import HybridNestedRouter
 

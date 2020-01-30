@@ -6,19 +6,24 @@ import uuid
 import yaml
 
 
-class MockHelm(object):
+class MockClient(object):
 
-    """ Mocks all calls to the helm command"""
+    """ Mocks all calls to the helm and kubectl commands"""
     def __init__(self, testcase):
         self.patch1 = patch(
-            'helmsman.helm.client.HelmClient._check_environment',
+            'helmsman.clients.helm_client.HelmClient._check_environment',
             return_value=True)
-        self.patch2 = patch('helmsman.helm.helpers.run_command',
+        self.patch2 = patch('helmsman.clients.helpers.run_command',
                             self.mock_run_command)
+        self.patch3 = patch(
+            'helmsman.clients.kubectl_client.KubeCtlClient._check_environment',
+            return_value=True)
         self.patch1.start()
         self.patch2.start()
+        self.patch3.start()
         testcase.addCleanup(self.patch2.stop)
         testcase.addCleanup(self.patch1.stop)
+        testcase.addCleanup(self.patch3.stop)
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
                                        "CHART", "APP VERSION", "NAMESPACE"]
         self.namespace_list_field_names = ["NAME", "STATUS", "AGE"]
@@ -332,8 +337,8 @@ class MockHelm(object):
         elif prog.startswith("kubectl"):
             if 'namespace' in command or 'namespaces' in command:
                 return self._parse_kubectl_command(command[1:])
-            elif prog.startswith("kubectl create"):
-                # pretend to succeed
-                pass
+            # elif prog.startswith("kubectl create"):
+            #     # pretend to succeed
+            #     pass
         else:
             raise Exception("Unrecognised command: {0}".format(prog))

@@ -3,14 +3,16 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .mock_helm import MockHelm
+from .mock_client import MockClient
+
+from helmsman.api import ChartExistsException
 
 
 # Create your tests here.
 class HelmsManServiceTestBase(APITestCase):
 
     def setUp(self):
-        self.mock_helm = MockHelm(self)
+        self.mock_helm = MockClient(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin')[0])
 
@@ -50,8 +52,11 @@ class ChartServiceTests(HelmsManServiceTestBase):
         # create the object
         url = reverse('helmsman:charts-list')
         response = self.client.post(url, self.CHART_DATA, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
-
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED,
+                         response.data)
+        # create duplicate object
+        with self.assertRaises(ChartExistsException):
+            self.client.post(url, self.CHART_DATA, format='json')
         # list existing objects
         url = reverse('helmsman:charts-list')
         response = self.client.get(url)

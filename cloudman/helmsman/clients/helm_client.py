@@ -23,13 +23,11 @@ class HelmClient(HelmService):
         self._release_svc = HelmReleaseService(self)
         self._repo_svc = HelmRepositoryService(self)
         self._chart_svc = HelmChartService(self)
-        self._namespace_svc = KubeCtlNamespaceService(self)
 
-    def _check_environment(self):
+    @staticmethod
+    def _check_environment():
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
-        if not shutil.which("kubectl"):
-            raise Exception("Could not find kubectl executable in path")
 
     @property
     def releases(self):
@@ -42,10 +40,6 @@ class HelmClient(HelmService):
     @property
     def charts(self):
         return self._chart_svc
-
-    @property
-    def namespaces(self):
-        return self._namespace_svc
 
 
 class HelmValueHandling(Enum):
@@ -193,31 +187,3 @@ class HelmChartService(HelmService):
 
     def delete(self, release_name):
         raise Exception("Not implemented")
-
-
-class KubeCtlNamespaceService(HelmService):
-
-    def __init__(self, client):
-        super(KubeCtlNamespaceService, self).__init__(client)
-
-    def list(self):
-        data = helpers.run_list_command(["kubectl", "get", "namespaces"],
-                                        delimiter=" ", skipinitialspace=True)
-        return data
-
-    def list_names(self):
-        data = self.list()
-        output = [each.get('NAME') for each in data]
-        return output
-
-    def create(self, namespace_name):
-        return helpers.run_command(["kubectl", "create",
-                                    "namespace", namespace_name])
-
-    def create_if_not_exists(self, namespace_name):
-        if namespace_name not in self.list_names():
-            return self.create(namespace_name)
-
-    def delete(self, namespace_name):
-        return helpers.run_command(["kubectl", "delete",
-                                    "namespace", namespace_name])

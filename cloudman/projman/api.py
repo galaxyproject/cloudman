@@ -102,14 +102,13 @@ class PMProjectService(PMService):
         self.check_permissions('projects.add_project')
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
-        if client.namespaces.get(name) and name != 'default':
+        if client.namespaces.get(name):
             message = (f"The project '{name}' could not be created. "
                        f"A namespace by the same name already exists.")
             raise NamespaceExistsException(message)
         obj = models.CMProject.objects.create(
             name=name, owner=self.context.user)
-        if name != 'default':
-            client.namespaces.create(name)
+        client.namespaces.create(name)
         project = self.to_api_object(obj)
         return project
 
@@ -120,7 +119,7 @@ class PMProjectService(PMService):
             obj.delete()
             admin = User.objects.filter(is_superuser=True).first()
             client = HelmsManAPI(HMServiceContext(user=admin))
-            if client.namespaces.get(obj.name) and obj.name != "default":
+            if client.namespaces.get(obj.name):
                 client.namespaces.delete(obj.name)
         else:
             self.raise_no_permissions('projects.delete_project')

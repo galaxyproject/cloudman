@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from ...helm.client import HelmClient
+from ...clients.helm_client import HelmClient
 
 
 class Command(BaseCommand):

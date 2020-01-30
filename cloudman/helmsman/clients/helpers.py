@@ -27,12 +27,12 @@ def run_list_command(command, delimiter="\t", skipinitialspace=True):
 
 # based on: https://codereview.stackexchange.com/questions/21033/flatten-dic
 # tionary-in-python-functional-style
-def flatten_dict(d):
-    def items():
-        for key, value in d.items():
-            if isinstance(value, dict):
-                for subkey, subvalue in flatten_dict(value).items():
-                    yield key + "." + subkey, subvalue
-            else:
-                yield key, value
-    return dict(items())
+# def flatten_dict(d):
+#     def items():
+#         for key, value in d.items():
+#             if isinstance(value, dict):
+#                 for subkey, subvalue in flatten_dict(value).items():
+#                     yield key + "." + subkey, subvalue
+#             else:
+#                 yield key, value
+#     return dict(items())

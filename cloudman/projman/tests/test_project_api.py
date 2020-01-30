@@ -1,6 +1,9 @@
 from django.urls import reverse
 from django.contrib.auth.models import User
+
 from rest_framework import status
+
+from helmsman.api import NamespaceExistsException
 from helmsman.tests import HelmsManServiceTestBase
 
 
@@ -63,6 +66,7 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         # returned by list
         self.assertEquals(response.data['id'], project_id)
         project_id = self._check_project_exists(project_id)
+        self.assertRaises(NamespaceExistsException, self._create_project)
         response = self._delete_project(project_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_projects_exist()

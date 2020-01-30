@@ -13,7 +13,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('chart_ref',
                             help='Reference to a chart e.g. cloudve/cloudman')
-        parser.add_argument('--namespace', default="default", required=False,
+        parser.add_argument('--namespace', required=True,
                             help='namespace to install chart into')
         parser.add_argument('--release_name', required=False,
                             help='name to give release')

@@ -31,3 +31,5 @@ class Command(BaseCommand):
             log.exception(f"An error occurred while "
                           f"creating the project '{name}':", e)
             print(f"An error occurred while creating the project '{name}':", e)
+            # Re-raise the exception
+            raise e
