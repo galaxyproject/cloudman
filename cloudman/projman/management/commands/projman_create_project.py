@@ -5,7 +5,8 @@ from django.core.management.base import BaseCommand
 
 from django.contrib.auth.models import User
 
-from ...api import HelmsManAPI, HMServiceContext, NamespaceExistsException
+from ...api import HelmsManAPI, HMServiceContext
+from helmsman.api import NamespaceExistsException
 
 
 class Command(BaseCommand):
