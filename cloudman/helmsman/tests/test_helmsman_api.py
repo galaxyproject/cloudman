@@ -74,3 +74,44 @@ class ChartServiceTests(HelmsManServiceTestBase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
+
+
+class NamespaceServiceTests(HelmsManServiceTestBase):
+
+    NAMESPACE_DATA = {
+        'name': 'newnamespace',
+        'status': 'Active',
+        'age': '1d'
+    }
+
+    def test_crud_namespace(self):
+        """
+        Ensure we can register a new cluster with cloudman.
+        """
+        # create the object
+        url = reverse('helmsman:namespaces-list')
+        response = self.client.post(url, self.NAMESPACE_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        # list existing objects
+        url = reverse('helmsman:namespaces-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertDictContainsSubset(self.NAMESPACE_DATA, response.data['results'][1])
+
+        # check it exists
+        url = reverse('helmsman:namespaces-detail', args=[response.data['results'][1]['name']])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertDictContainsSubset(self.NAMESPACE_DATA, response.data)
+
+        # delete the object
+        url = reverse('helmsman:namespaces-detail', args=[response.data['name']])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # check it no longer exists
+        url = reverse('helmsman:namespaces-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)

@@ -49,3 +49,20 @@ class ChartViewSet(drf_helpers.CustomModelViewSet):
         """Get info about a specific chart."""
         return (HelmsManAPI.from_request(self.request)
                 .charts.get(self.kwargs["pk"]))
+
+
+class NamespaceViewSet(drf_helpers.CustomModelViewSet):
+    """Returns list of charts managed by CloudMan."""
+
+    permission_classes = (IsAuthenticated,)
+    # Required for the Browsable API renderer to have a nice form.
+    serializer_class = serializers.HMNamespaceSerializer
+
+    def list_objects(self):
+        """Get a list of all registered charts."""
+        return HelmsManAPI.from_request(self.request).namespaces.list()
+
+    def get_object(self):
+        """Get info about a specific chart."""
+        return (HelmsManAPI.from_request(self.request)
+                .namespaces.get(self.kwargs["pk"]))

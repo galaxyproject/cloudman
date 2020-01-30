@@ -12,6 +12,8 @@ router.register(r'repositories', views.ChartRepoViewSet,
                 base_name='repositories')
 router.register(r'charts', views.ChartViewSet,
                 base_name='charts')
+router.register(r'namespaces', views.NamespaceViewSet,
+                base_name='namespaces')
 
 app_name = "helmsman"
 

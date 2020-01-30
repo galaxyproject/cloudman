@@ -47,7 +47,7 @@ class Command(BaseCommand):
         if values_file:
             with open(values_file, 'r') as f:
                 values = yaml.safe_load(f)
-        if namespace not in client.namespaces.list_names():
+        if not client.namespaces.get(namespace):
             print(f"Namespace '{namespace}' not found.")
             if create_namespace:
                 print(f"Creating Namespace '{namespace}'.")

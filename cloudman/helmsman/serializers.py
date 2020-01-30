@@ -36,3 +36,19 @@ class HMChartSerializer(serializers.Serializer):
                     .rollback(chart))
         return HelmsManAPI.from_request(self.context['request']).charts.update(
             chart, validated_data.get('values'))
+
+
+class HMNamespaceSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    status = serializers.CharField()
+    age = serializers.CharField()
+
+    def create(self, valid_data):
+        return HelmsManAPI.from_request(self.context['request']
+                                        ).namespaces.create(
+                                            valid_data.get('name'))
+
+    def delete(self, valid_data):
+        return HelmsManAPI.from_request(self.context['request']
+                                        ).namespaces.delete(
+                                            valid_data.get('name'))

@@ -21,6 +21,7 @@ class MockHelm(object):
         testcase.addCleanup(self.patch1.stop)
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
                                        "CHART", "APP VERSION", "NAMESPACE"]
+        self.namespace_list_field_names = ["NAME", "STATUS", "AGE"]
         self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
                                           "CHART", "APP VERSION", "DESCRIPTION"]
         self.revision_history = [
@@ -40,6 +41,12 @@ class MockHelm(object):
         self.chart_database = {
             'turbulent-markhor': self.revision_history
         }
+        self.namespace_info = {
+            'NAME': 'default',
+            'STATUS': 'Active',
+            'AGE': '2d1h'
+        }
+        self.namespace_database = {'default': self.namespace_info}
 
         self.repo_list_field_name = ["NAME", "URL"]
         self.installed_repos = {
@@ -60,7 +67,11 @@ class MockHelm(object):
         # Helm install
         parser_inst = subparsers.add_parser('install', help='install a chart')
         parser_inst.add_argument(
+            'name', type=str, help='release name', nargs='?')
+        parser_inst.add_argument(
             'chart', type=str, help='chart name')
+        parser_inst.add_argument(
+            '--generate-name', action='store_true', help='generate random name')
         parser_inst.add_argument('--namespace', type=str, help='namespace')
         parser_inst.add_argument('--version', type=str, help='version')
         parser_inst.add_argument(
@@ -132,9 +143,38 @@ class MockHelm(object):
         args = parser.parse_args(command)
         return args.func(args)
 
-    def _helm_init(self, args):
-        # pretend to succeed
-        pass
+    def _parse_kubectl_command(self, command):
+        parser = argparse.ArgumentParser(prog='kubectl')
+        subparsers = parser.add_subparsers(help='Available Commands')
+
+        # kubectl get namespaces
+        parser_get = subparsers.add_parser('get',
+                                            help='list')
+        subparsers_get = parser_get.add_subparsers(help='Resources to get')
+        parser_list_ns = subparsers_get.add_parser('namespaces', help='List namespaces')
+        parser_list_ns.set_defaults(func=self._kubectl_get_namespaces)
+
+        # kubectl create namespace
+        parser_create = subparsers.add_parser('create',
+                                            help='create')
+        subparsers_create = parser_create.add_subparsers(help='Resources to create')
+        parser_create_ns = subparsers_create.add_parser('namespace',
+                                            help='create a namespace')
+        parser_create_ns.add_argument(
+            'namespace', type=str, help='namespace name')
+        parser_create_ns.set_defaults(func=self._kubectl_create_namespace)
+
+        # Kubectl delete namespace
+        parser_delete = subparsers.add_parser('delete',
+                                            help='delete')
+        subparsers_delete = parser_delete.add_subparsers(help='Resources to create')
+        parser_delete_ns = subparsers_delete.add_parser('namespace', help='delete a namespace')
+        parser_delete_ns.add_argument('namespace', type=str, help='namespace name')
+        parser_delete_ns.set_defaults(func=self._kubectl_delete_namespace)
+
+        # evaluate command
+        args = parser.parse_args(command)
+        return args.func(args)
 
     def _helm_list(self, args):
         # pretend to succeed
@@ -253,6 +293,34 @@ class MockHelm(object):
             return 'Error: release: "%s" not found' % args.release
         self.chart_database.pop(args.release, None)
 
+    def _kubectl_get_namespaces(self, args):
+        # pretend to succeed
+        with StringIO() as output:
+            writer = csv.DictWriter(output, fieldnames=self.namespace_list_field_names,
+                                    delimiter=" ", extrasaction='ignore')
+            writer.writeheader()
+            for release in self.namespace_database.values():
+                # Write data about the latest revision for each chart
+                writer.writerow(release)
+            return output.getvalue()
+
+    def _kubectl_create_namespace(self, args):
+        name = args.namespace
+        details = {
+            'NAME': name,
+            'STATUS': 'Active',
+            'AGE': '1d',
+        }
+        self.namespace_database[name] = details
+        return details
+
+    def _kubectl_delete_namespace(self, args):
+        name = args.namespace
+        details = self.namespace_database.get(name)
+        if not details:
+            return 'Error: namespace: "%s" not found' % name
+        self.namespace_database.pop(name, None)
+
     def mock_run_command(self, command, shell=False):
         if isinstance(command, list):
             prog = command[0]
@@ -261,8 +329,11 @@ class MockHelm(object):
 
         if prog.startswith("helm"):
             return self._parse_helm_command(command[1:])
-        elif prog.startswith("kubectl create"):
-            # pretend to succeed
-            pass
+        elif prog.startswith("kubectl"):
+            if 'namespace' in command or 'namespaces' in command:
+                return self._parse_kubectl_command(command[1:])
+            elif prog.startswith("kubectl create"):
+                # pretend to succeed
+                pass
         else:
             raise Exception("Unrecognised command: {0}".format(prog))

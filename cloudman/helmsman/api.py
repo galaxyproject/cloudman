@@ -60,6 +60,7 @@ class HelmsManAPI(HelmsManService):
         super(HelmsManAPI, self).__init__(context)
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
+        self._namespace_svc = HMNamespaceService(context)
 
     @classmethod
     def from_request(cls, request):
@@ -73,6 +74,43 @@ class HelmsManAPI(HelmsManService):
     @property
     def charts(self):
         return self._chart_svc
+
+    @property
+    def namespaces(self):
+        return self._namespace_svc
+
+
+class HMNamespaceService(HelmsManService):
+
+    def __init__(self, context):
+        super(HMNamespaceService, self).__init__(context)
+
+    def list(self):
+        return [KubectlNamespace(self, **namespace)
+                for namespace in HelmClient().namespaces.list()]
+
+    def get(self, namespace):
+        namespaces = (n for n in self.list() if n.name == namespace)
+        return next(namespaces, None)
+
+    def create(self, namespace):
+        client = HelmClient()
+        existing = self.get(namespace)
+        if existing:
+            raise NamespaceExistsException(
+                f"Namespace {namespace} already exists.")
+        else:
+            client.namespaces.create(namespace)
+        return self.get(namespace)
+
+    def delete(self, namespace):
+        client = HelmClient()
+        existing = self.get(namespace)
+        if not existing:
+            raise NamespaceNotFoundException(
+                f"Namespace {namespace} cannot be found.")
+        else:
+            client.namespaces.delete(namespace)
 
 
 class HMChartRepoService(HelmsManService):
@@ -199,3 +237,15 @@ class HelmChart(HelmsManResource):
 
     def delete(self):
         self.service.delete(self)
+
+
+class KubectlNamespace(HelmsManResource):
+
+    def __init__(self, service, **kwargs):
+        super().__init__(service)
+        self.name = kwargs.get('NAME')
+        self.status = kwargs.get('STATUS')
+        self.age = kwargs.get('AGE')
+
+    def delete(self):
+        self.service.delete(self.name)

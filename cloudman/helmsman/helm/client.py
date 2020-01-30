@@ -207,9 +207,7 @@ class KubeCtlNamespaceService(HelmService):
 
     def list_names(self):
         data = self.list()
-        output = []
-        for each in data:
-            output.append(each.get('NAME'))
+        output = [each.get('NAME') for each in data]
         return output
 
     def create(self, namespace_name):
