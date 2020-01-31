@@ -2,7 +2,7 @@
 import shutil
 import tempfile
 import yaml
-from . import helpers
+from helmsman.clients import helpers
 from enum import Enum
 
 
@@ -54,7 +54,7 @@ class HelmReleaseService(HelmService):
         super(HelmReleaseService, self).__init__(client)
 
     def list(self):
-        data = helpers.run_list_command(["helm", "list"])
+        data = helpers.run_list_command(["helm", "list", "--all-namespaces"])
         return data
 
     def get(self, release_name):

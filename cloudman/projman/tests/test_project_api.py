@@ -19,7 +19,7 @@ class ProjManManServiceTestBase(HelmsManServiceTestBase):
 class ProjectServiceTests(ProjManManServiceTestBase):
 
     PROJECT_DATA = {
-        'name': 'GVL'
+        'name': 'gvl'
     }
 
     def _create_project(self):
@@ -95,6 +95,9 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         project_id_now = self._list_project()
         assert project_id_now  # should still exist
         assert project_id_then == project_id_now  # should be the same project
+        response = self._delete_project(project_id_now)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_can_view_shared_project(self):
         self._create_project()
@@ -104,12 +107,17 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         project_id_now = self._list_project()
         assert project_id_now  # should be visible
         assert project_id_then == project_id_now  # should be the same project
+        self.client.force_login(
+            User.objects.get(username='projadmin'))
+        response = self._delete_project(project_id_now)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
 
 class ProjectChartServiceTests(ProjManManServiceTestBase):
 
     PROJECT_DATA = {
-        'name': 'GVL'
+        'name': 'gvl'
     }
 
     CHART_DATA = {
@@ -230,6 +238,9 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         # check it no longer exists
         self._check_no_project_charts_exist(project_id)
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_chart_create_unauthorized(self):
         project_id = self._create_project()
@@ -238,6 +249,11 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         response = self._create_project_chart(project_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         self._check_no_project_charts_exist(project_id)
+        self.client.force_login(
+            User.objects.get(username='projadmin'))
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_chart_delete_unauthorized(self):
         project_id = self._create_project()
@@ -252,6 +268,9 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         chart_id_now = self._list_project_chart(project_id)
         assert chart_id_now  # should still exist
         assert chart_id_then == chart_id_now  # should be the same chart
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_can_view_shared_chart(self):
         project_id = self._create_project()
@@ -262,6 +281,11 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         chart_id_now = self._list_project_chart(project_id)
         assert chart_id_now  # should be visible
         assert chart_id_then == chart_id_now  # should be the same chart
+        self.client.force_login(
+            User.objects.get(username='projadmin'))
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_chart_rollback(self):
         project_id = self._create_project()
@@ -270,6 +294,9 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self._update_project_chart(project_id, chart_id)
         self._rollback_project_chart(project_id, chart_id)
         self._check_project_chart_rollback(project_id, chart_id)
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
 
     def test_chart_rollback_unauthorized(self):
         project_id = self._create_project()
@@ -280,3 +307,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
             User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
         response = self._rollback_project_chart(project_id, chart_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='projadmin'))
+        response = self._delete_project(project_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_projects_exist()
