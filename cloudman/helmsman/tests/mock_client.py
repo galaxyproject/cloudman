@@ -16,7 +16,7 @@ class MockClient(object):
         self.patch2 = patch('helmsman.clients.helpers.run_command',
                             self.mock_run_command)
         self.patch3 = patch(
-            'helmsman.clients.kubectl_client.KubeCtlClient._check_environment',
+            'helmsman.clients.kubectl_client.KubernetesClient._check_environment',
             return_value=True)
         self.patch1.start()
         self.patch2.start()
