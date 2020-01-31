@@ -59,6 +59,8 @@ class MockHelmParser(object):
 
         # Helm list
         parser_list = subparsers.add_parser('list', help='list releases')
+        parser_list.add_argument('--all-namespaces', action='store_true',
+                                 help='list releases from all namespaces')
         parser_list.set_defaults(func=self._helm_list)
 
         # Helm install
@@ -125,7 +127,10 @@ class MockHelmParser(object):
             'release', type=str, help='release name')
         p_get_values.add_argument(
             '--all', action='store_true', help='dump all values')
+        p_get_values.add_argument(
+            '--namespace', type=str, help='namespace of release')
         p_get_values.set_defaults(func=self._helm_get_values)
+
 
         p_get_manifest = subparser_get.add_parser(
             'manifest', help='download manifest for a release')

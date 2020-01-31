@@ -152,7 +152,7 @@ class HMChartService(HelmsManService):
                 state=release.get("STATUS"),
                 updated=release.get("UPDATED"),
                 values=HelmClient().releases.get_values(
-                    release.get("NAME"), get_all=True)
+                    release.get("NAME"), get_all=True, namespace=release.get("NAMESPACE"))
             )
             for release in releases
         ]

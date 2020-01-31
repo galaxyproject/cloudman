@@ -123,7 +123,7 @@ class HelmReleaseService(HelmService):
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
 
-    def get_values(self, release_name, get_all=True):
+    def get_values(self, release_name, get_all=True, namespace=None):
         """
         get_all=True will also dump chart default values.
         get_all=False will only return user overridden values.
@@ -131,6 +131,8 @@ class HelmReleaseService(HelmService):
         cmd = ["helm", "get", "values", release_name]
         if get_all:
             cmd += ["--all"]
+        if namespace:
+            cmd += ["--namespace", namespace]
         return yaml.safe_load(helpers.run_command(cmd))
 
     @staticmethod
