@@ -6,29 +6,9 @@ import uuid
 import yaml
 
 
-class MockClient(object):
+class MockHelmParser(object):
 
-    """ Mocks all calls to the helm and kubectl commands"""
-    def __init__(self, testcase):
-        self.patch1 = patch(
-            'helmsman.clients.helm_client.HelmClient._check_environment',
-            return_value=True)
-        self.patch2 = patch('helmsman.clients.helpers.run_command',
-                            self.mock_run_command)
-        self.patch3 = patch(
-            'helmsman.clients.kubectl_client.KubernetesClient._check_environment',
-            return_value=True)
-        self.patch1.start()
-        self.patch2.start()
-        self.patch3.start()
-        testcase.addCleanup(self.patch2.stop)
-        testcase.addCleanup(self.patch1.stop)
-        testcase.addCleanup(self.patch3.stop)
-        self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
-                                       "CHART", "APP VERSION", "NAMESPACE"]
-        self.namespace_list_field_names = ["NAME", "STATUS", "AGE"]
-        self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
-                                          "CHART", "APP VERSION", "DESCRIPTION"]
+    def __init__(self):
         self.revision_history = [
             {
                 'NAME': 'turbulent-markhor',
@@ -46,23 +26,35 @@ class MockClient(object):
         self.chart_database = {
             'turbulent-markhor': self.revision_history
         }
-        self.namespace_info = {
-            'NAME': 'default',
-            'STATUS': 'Active',
-            'AGE': '2d1h'
-        }
-        self.namespace_database = {'default': self.namespace_info}
-
-        self.repo_list_field_name = ["NAME", "URL"]
         self.installed_repos = {
             'stable': {
                 'NAME': 'stable',
                 'URL': 'https://kubernetes-charts.storage.googleapis.com'
             }
         }
+        self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
+                                       "CHART", "APP VERSION", "NAMESPACE"]
+        self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
+                                          "CHART", "APP VERSION",
+                                          "DESCRIPTION"]
+        self.repo_list_field_names = ["NAME", "URL"]
 
-    def _parse_helm_command(self, command):
+    def can_parse(self, command):
+        if isinstance(command, list):
+            prog = command[0]
+            if prog.startswith("helm"):
+                return True
+        return False
+
+    @staticmethod
+    def extra_patches():
+        return [patch(
+            'helmsman.clients.helm_client.HelmClient._check_environment',
+            return_value=True)]
+
+    def parse_command(self, command):
         parser = argparse.ArgumentParser(prog='helm')
+
         subparsers = parser.add_subparsers(help='Available Commands')
 
         # Helm list
@@ -145,46 +137,14 @@ class MockClient(object):
         parser_list.set_defaults(func=self._helm_delete)
 
         # evaluate command
-        args = parser.parse_args(command)
-        return args.func(args)
-
-    def _parse_kubectl_command(self, command):
-        parser = argparse.ArgumentParser(prog='kubectl')
-        subparsers = parser.add_subparsers(help='Available Commands')
-
-        # kubectl get namespaces
-        parser_get = subparsers.add_parser('get',
-                                            help='list')
-        subparsers_get = parser_get.add_subparsers(help='Resources to get')
-        parser_list_ns = subparsers_get.add_parser('namespaces', help='List namespaces')
-        parser_list_ns.set_defaults(func=self._kubectl_get_namespaces)
-
-        # kubectl create namespace
-        parser_create = subparsers.add_parser('create',
-                                            help='create')
-        subparsers_create = parser_create.add_subparsers(help='Resources to create')
-        parser_create_ns = subparsers_create.add_parser('namespace',
-                                            help='create a namespace')
-        parser_create_ns.add_argument(
-            'namespace', type=str, help='namespace name')
-        parser_create_ns.set_defaults(func=self._kubectl_create_namespace)
-
-        # Kubectl delete namespace
-        parser_delete = subparsers.add_parser('delete',
-                                            help='delete')
-        subparsers_delete = parser_delete.add_subparsers(help='Resources to create')
-        parser_delete_ns = subparsers_delete.add_parser('namespace', help='delete a namespace')
-        parser_delete_ns.add_argument('namespace', type=str, help='namespace name')
-        parser_delete_ns.set_defaults(func=self._kubectl_delete_namespace)
-
-        # evaluate command
-        args = parser.parse_args(command)
+        args = parser.parse_args(command[1:])
         return args.func(args)
 
     def _helm_list(self, args):
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.chart_list_field_names,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.chart_list_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             for release in self.chart_database.values():
@@ -252,7 +212,8 @@ class MockClient(object):
             return 'Error: "%s" has no deployed releases' % args.release
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.chart_history_field_names,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.chart_history_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             writer.writerows(revisions)
@@ -272,7 +233,8 @@ class MockClient(object):
 
     def _helm_repo_list(self, args):
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.repo_list_field_name,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.repo_list_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             for val in self.installed_repos.values():
@@ -298,10 +260,70 @@ class MockClient(object):
             return 'Error: release: "%s" not found' % args.release
         self.chart_database.pop(args.release, None)
 
+
+class MockKubectlParser(object):
+    
+    def __init__(self):
+        self.namespace_info = {
+            'NAME': 'default',
+            'STATUS': 'Active',
+            'AGE': '2d1h'
+        }
+        self.namespace_database = {'default': self.namespace_info}
+        self.namespace_list_field_names = ["NAME", "STATUS", "AGE"]
+
+    def can_parse(self, command):
+        if isinstance(command, list):
+            prog = command[0]
+            if prog.startswith("kubectl"):
+                if 'namespace' in command or 'namespaces' in command:
+                    return True
+        return False
+
+    @staticmethod
+    def extra_patches():
+        return [patch(
+          'helmsman.clients.k8s_client.KubernetesClient._check_environment',
+          return_value=True)]
+
+    def parse_command(self, command):
+        parser = argparse.ArgumentParser(prog='kubectl')
+        subparsers = parser.add_subparsers(help='Available Commands')
+
+        # kubectl get namespaces
+        parser_get = subparsers.add_parser('get',
+                                            help='list')
+        subparsers_get = parser_get.add_subparsers(help='Resources to get')
+        parser_list_ns = subparsers_get.add_parser('namespaces', help='List namespaces')
+        parser_list_ns.set_defaults(func=self._kubectl_get_namespaces)
+
+        # kubectl create namespace
+        parser_create = subparsers.add_parser('create',
+                                            help='create')
+        subparsers_create = parser_create.add_subparsers(help='Resources to create')
+        parser_create_ns = subparsers_create.add_parser('namespace',
+                                            help='create a namespace')
+        parser_create_ns.add_argument(
+            'namespace', type=str, help='namespace name')
+        parser_create_ns.set_defaults(func=self._kubectl_create_namespace)
+
+        # Kubectl delete namespace
+        parser_delete = subparsers.add_parser('delete',
+                                            help='delete')
+        subparsers_delete = parser_delete.add_subparsers(help='Resources to create')
+        parser_delete_ns = subparsers_delete.add_parser('namespace', help='delete a namespace')
+        parser_delete_ns.add_argument('namespace', type=str, help='namespace name')
+        parser_delete_ns.set_defaults(func=self._kubectl_delete_namespace)
+
+        # evaluate command
+        args = parser.parse_args(command[1:])
+        return args.func(args)
+
     def _kubectl_get_namespaces(self, args):
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.namespace_list_field_names,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.namespace_list_field_names,
                                     delimiter=" ", extrasaction='ignore')
             writer.writeheader()
             for release in self.namespace_database.values():
@@ -326,19 +348,29 @@ class MockClient(object):
             return 'Error: namespace: "%s" not found' % name
         self.namespace_database.pop(name, None)
 
-    def mock_run_command(self, command, shell=False):
-        if isinstance(command, list):
-            prog = command[0]
-        else:
-            prog = command or ""
 
-        if prog.startswith("helm"):
-            return self._parse_helm_command(command[1:])
-        elif prog.startswith("kubectl"):
-            if 'namespace' in command or 'namespaces' in command:
-                return self._parse_kubectl_command(command[1:])
+class MockClient(object):
+
+    """ Mocks all calls to the helm and kubectl commands"""
+    def __init__(self, testcase):
+        self.parsers = [MockHelmParser(), MockKubectlParser()]
+        self.extra_patches = []
+        for parser in self.parsers:
+            self.extra_patches += parser.extra_patches()
+        self.patch1 = patch('helmsman.clients.helpers.run_command',
+                            self.mock_run_command)
+        self.patch1.start()
+        testcase.addCleanup(self.patch1.stop)
+        for each in self.extra_patches:
+            each.start()
+            testcase.addCleanup(each.stop)
+
+    def mock_run_command(self, command, shell=False):
+        for parser in self.parsers:
+            if parser.can_parse(command):
+                return parser.parse_command(command)
             # elif prog.startswith("kubectl create"):
             #     # pretend to succeed
             #     pass
         else:
-            raise Exception("Unrecognised command: {0}".format(prog))
+            raise Exception("Unrecognised command: {0}".format(str(command)))
