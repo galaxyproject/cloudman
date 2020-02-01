@@ -17,7 +17,7 @@ class HMChartSerializer(serializers.Serializer):
     revision = serializers.IntegerField(allow_null=True, required=False)
     app_version = serializers.CharField(read_only=True)
     namespace = serializers.CharField()
-    state = serializers.CharField(allow_blank=True, read_only=False)
+    state = serializers.CharField(allow_blank=True, read_only=False, required=False)
     updated = serializers.CharField(read_only=True)
     access_address = serializers.CharField(read_only=True)
     values = serializers.DictField()
@@ -40,8 +40,8 @@ class HMChartSerializer(serializers.Serializer):
 
 class HMNamespaceSerializer(serializers.Serializer):
     name = serializers.CharField()
-    status = serializers.CharField()
-    age = serializers.CharField()
+    status = serializers.CharField(allow_blank=True)
+    age = serializers.CharField(allow_blank=True)
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']
