@@ -154,12 +154,13 @@ class MockHelmParser(object):
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             for release in self.chart_database.values():
-                if args.namespace and release.get("NAMESPACE"):
-                    if args.namespace == release.get("NAMESPACE"):
+                last = release[-1]
+                if args.namespace and last.get("NAMESPACE"):
+                    if args.namespace == last.get("NAMESPACE"):
                         # Write data about the latest revision for each chart
-                        writer.writerow(release[-1])
+                        writer.writerow(last)
                 else:
-                    writer.writerow(release[-1])
+                    writer.writerow(last)
             return output.getvalue()
 
     def _helm_install(self, args):
