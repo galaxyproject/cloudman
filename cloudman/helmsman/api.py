@@ -137,9 +137,9 @@ class HMChartService(HelmsManService):
     def __init__(self, context):
         super(HMChartService, self).__init__(context)
 
-    def list(self):
+    def list(self, namespace=None):
         client = HelmClient()
-        releases = client.releases.list()
+        releases = client.releases.list(namespace)
         return [
             HelmChart(
                 self,
@@ -162,8 +162,7 @@ class HMChartService(HelmsManService):
         return next(charts, None)
 
     def _get_from_namespace(self, namespace, chart_name):
-        matches = [c for c in self.list() if c.namespace == namespace
-                   and c.name == chart_name]
+        matches = [c for c in self.list(namespace) if c.name == chart_name]
         if matches:
             return matches[0]
         else:

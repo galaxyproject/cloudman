@@ -61,6 +61,7 @@ class MockHelmParser(object):
         parser_list = subparsers.add_parser('list', help='list releases')
         parser_list.add_argument('--all-namespaces', action='store_true',
                                  help='list releases from all namespaces')
+        parser_list.add_argument('--namespace', type=str, help='namespace')
         parser_list.set_defaults(func=self._helm_list)
 
         # Helm install

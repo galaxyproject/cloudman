@@ -53,8 +53,13 @@ class HelmReleaseService(HelmService):
     def __init__(self, client):
         super(HelmReleaseService, self).__init__(client)
 
-    def list(self):
-        data = helpers.run_list_command(["helm", "list", "--all-namespaces"])
+    def list(self, namespace=None):
+        cmd = ["helm", "list"]
+        if namespace:
+            cmd += ["--namespace", namespace]
+        else:
+            cmd += ["--all-namespaces"]
+        data = helpers.run_list_command(cmd)
         return data
 
     def get(self, release_name):
