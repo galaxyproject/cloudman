@@ -6,7 +6,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from helmsman.api import HelmsManAPI, HMServiceContext, NamespaceExistsException
-from helmsman.tests.mock_client import MockClient
+from helmsman.tests.client_mocker import ClientMocker
 
 from projman import models as pm_models
 
@@ -19,7 +19,7 @@ class CommandsTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.mock_helm = MockClient(self)
+        self.mock_client = ClientMocker(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 

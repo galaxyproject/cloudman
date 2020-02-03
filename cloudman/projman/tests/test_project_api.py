@@ -19,7 +19,7 @@ class ProjManManServiceTestBase(HelmsManServiceTestBase):
 class ProjectServiceTests(ProjManManServiceTestBase):
 
     PROJECT_DATA = {
-        'name': 'gvl'
+        'name': 'GVL'
     }
 
     def _create_project(self):

@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from .mock_client import MockClient
+from .client_mocker import ClientMocker
 from ..clients.helm_client import HelmClient
 
 from helmsman.api import NamespaceNotFoundException
@@ -19,7 +19,7 @@ class CommandsTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.mock_helm = MockClient(self)
+        self.mock_client = ClientMocker(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 

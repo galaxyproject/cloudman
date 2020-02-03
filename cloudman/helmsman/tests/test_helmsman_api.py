@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .mock_client import MockClient
+from .client_mocker import ClientMocker
 
 from helmsman.api import ChartExistsException
 
@@ -12,7 +12,7 @@ from helmsman.api import ChartExistsException
 class HelmsManServiceTestBase(APITestCase):
 
     def setUp(self):
-        self.mock_helm = MockClient(self)
+        self.mock_client = ClientMocker(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin')[0])
 
