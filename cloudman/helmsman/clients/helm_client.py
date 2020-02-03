@@ -1,11 +1,8 @@
 """A wrapper around the helm commandline client"""
-import logging as log
-import shlex
 import shutil
-import subprocess
 import tempfile
 import yaml
-from . import helpers
+from helmsman.clients import helpers
 from enum import Enum
 
 
@@ -27,35 +24,10 @@ class HelmClient(HelmService):
         self._repo_svc = HelmRepositoryService(self)
         self._chart_svc = HelmChartService(self)
 
-    def _check_environment(self):
+    @staticmethod
+    def _check_environment():
         if not shutil.which("helm"):
             raise Exception("Could not find helm executable in path")
-
-    def install_helm(self):
-        # FIXME: Check whether tiller role exists instead of ignoring exception
-        try:
-            cmd = (
-                "kubectl create serviceaccount --namespace kube-system tiller"
-                " && kubectl create clusterrolebinding tiller-cluster-role"
-                " --clusterrole=cluster-admin"
-                " --serviceaccount=kube-system:tiller")
-            helpers.run_command(cmd, shell=True)
-        except subprocess.CalledProcessError as e:
-            log.exception("Could not create tiller role bindings. "
-                          "Reason: {0}".format(e.output))
-        print("Initializing tiller...")
-        self.helm_init(service_account="tiller", wait=True)
-        print("Tiller initialized.")
-
-    def helm_init(self, service_account=None, upgrade=False, wait=False):
-        cmd = ["helm", "init"]
-        if service_account:
-            cmd += ["--service-account", service_account]
-        if upgrade:
-            cmd += ["--upgrade"]
-        if wait:
-            cmd += ["--wait"]
-        return helpers.run_command(cmd)
 
     @property
     def releases(self):
@@ -81,8 +53,13 @@ class HelmReleaseService(HelmService):
     def __init__(self, client):
         super(HelmReleaseService, self).__init__(client)
 
-    def list(self):
-        data = helpers.run_list_command(["helm", "list"])
+    def list(self, namespace=None):
+        cmd = ["helm", "list"]
+        if namespace:
+            cmd += ["--namespace", namespace]
+        else:
+            cmd += ["--all-namespaces"]
+        data = helpers.run_list_command(cmd)
         return data
 
     def get(self, release_name):
@@ -103,12 +80,14 @@ class HelmReleaseService(HelmService):
 
     def create(self, chart, namespace, release_name=None,
                version=None, values=None):
-        cmd = ["helm", "install", chart]
+        cmd = ["helm", "install"]
 
+        if release_name:
+            cmd += [release_name, chart]
+        else:
+            cmd += [chart, "--generate-name"]
         if namespace:
             cmd += ["--namespace", namespace]
-        if release_name:
-            cmd += ["--name", release_name]
         if version:
             cmd += ["--version", version]
         return self._set_values_and_run_command(cmd, values)
@@ -143,12 +122,13 @@ class HelmReleaseService(HelmService):
                 revision = history[-2].get('REVISION')
             else:
                 return
-        return helpers.run_command(["helm", "rollback", release_name, revision])
+        return helpers.run_command(["helm", "rollback",
+                                    release_name, revision])
 
     def delete(self, release_name):
         return helpers.run_command(["helm", "delete", release_name])
 
-    def get_values(self, release_name, get_all=True):
+    def get_values(self, release_name, get_all=True, namespace=None):
         """
         get_all=True will also dump chart default values.
         get_all=False will only return user overridden values.
@@ -156,6 +136,8 @@ class HelmReleaseService(HelmService):
         cmd = ["helm", "get", "values", release_name]
         if get_all:
             cmd += ["--all"]
+        if namespace:
+            cmd += ["--namespace", namespace]
         return yaml.safe_load(helpers.run_command(cmd))
 
     @staticmethod

@@ -4,6 +4,8 @@ from django.core.management.base import BaseCommand
 
 from django.contrib.auth.models import User
 
+from ...api import ProjManAPI, PMServiceContext
+
 
 class Command(BaseCommand):
     help = 'Creates a ProjMan project.'
@@ -19,12 +21,14 @@ class Command(BaseCommand):
     def create_project(name):
         try:
             print("Creating project: {0}".format(name))
-            from projman import api
             admin = User.objects.filter(is_superuser=True).first()
-            pmapi = api.ProjManAPI(api.PMServiceContext(user=admin))
+            pmapi = ProjManAPI(PMServiceContext(user=admin))
             if not pmapi.projects.find(name):
                 pmapi.projects.create(name)
                 print("Project created successfully.")
         except Exception as e:
-            log.exception("An error occurred while creating the initial project!!:")
-            print("An error occurred while creating the initial project!!:", e)
+            log.exception(f"An error occurred while "
+                          f"creating the project '{name}':", e)
+            print(f"An error occurred while creating the project '{name}':", e)
+            # Re-raise the exception
+            raise e

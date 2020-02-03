@@ -3,7 +3,8 @@ import yaml
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from ...api import HelmsManAPI, HMServiceContext, ChartExistsException
+from ...api import HelmsManAPI, HMServiceContext
+from ...api import ChartExistsException, NamespaceNotFoundException
 
 
 class Command(BaseCommand):
@@ -11,8 +12,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('chart_ref',
-                            help='Reference to the chart. e.g. cloudve/cloudman')
-        parser.add_argument('--namespace', default="default", required=False,
+                            help='Reference to a chart e.g. cloudve/cloudman')
+        parser.add_argument('--namespace', required=True,
                             help='namespace to install chart into')
         parser.add_argument('--release_name', required=False,
                             help='name to give release')
@@ -21,20 +22,24 @@ class Command(BaseCommand):
                                  ' to latest')
         parser.add_argument('--values_file', required=False,
                             help='Values file to apply to the chart')
+        parser.add_argument('--create_namespace', dest='create_namespace',
+                            action='store_true',
+                            help='attempt to create namespace if not found')
 
     def handle(self, *args, **options):
         self.add_chart(options['chart_ref'], options['namespace'],
                        options['release_name'], options['chart_ver'],
-                       options['values_file'])
+                       options['values_file'], options['create_namespace'])
 
     @staticmethod
-    def add_chart(chart_ref, namespace, release_name, version, values_file):
+    def add_chart(chart_ref, namespace, release_name, version, values_file,
+                  create_namespace):
         Command.install_if_not_exist(chart_ref, namespace, release_name,
-                                     version, values_file)
+                                     version, values_file, create_namespace)
 
     @staticmethod
     def install_if_not_exist(chart_ref, namespace, release_name,
-                             version, values_file):
+                             version, values_file, create_namespace):
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         repo_name, chart_name = chart_ref.split("/")
@@ -42,6 +47,16 @@ class Command(BaseCommand):
         if values_file:
             with open(values_file, 'r') as f:
                 values = yaml.safe_load(f)
+        if not client.namespaces.get(namespace):
+            print(f"Namespace '{namespace}' not found.")
+            if create_namespace:
+                print(f"Creating Namespace '{namespace}'.")
+                client.namespaces.create(namespace)
+            else:
+                message = (f"Namespace {namespace} does not exist. "
+                           f"Use the '--create_namespace' flag if you have "
+                           f"appropriate permissions.")
+                raise NamespaceNotFoundException(message)
         print(f"Installing chart {repo_name}/{chart_name} into namespace"
               f" {namespace}")
         try:

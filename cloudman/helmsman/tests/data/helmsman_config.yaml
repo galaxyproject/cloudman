@@ -7,9 +7,11 @@ charts:
   cvmfs:
     name: cloudve/galaxy-cvmfs-csi
     namespace: cvmfs
+    create_namespace: true
   dashboard:
     name: stable/kubernetes-dashboard
     namespace: kube-system
+    create_namespace: true
     values:
       enableInsecureLogin: true
       ingress:

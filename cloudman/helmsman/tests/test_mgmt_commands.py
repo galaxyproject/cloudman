@@ -5,8 +5,10 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from .mock_helm import MockHelm
-from ..helm.client import HelmClient
+from .client_mocker import ClientMocker
+from ..clients.helm_client import HelmClient
+
+from helmsman.api import NamespaceNotFoundException
 
 
 class CommandsTestCase(TestCase):
@@ -17,7 +19,7 @@ class CommandsTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.mock_helm = MockHelm(self)
+        self.mock_client = ClientMocker(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 
@@ -39,3 +41,7 @@ class CommandsTestCase(TestCase):
             self.assertIn(rel.get('CHART'),
                           ["cloudlaunch-0.2.0", "galaxy-cvmfs-csi-1.0.0",
                            "kubernetes-dashboard-1.0.0", "galaxy-1.0.0"])
+
+    def test_add_chart_no_namespace(self):
+        with self.assertRaises(NamespaceNotFoundException):
+            call_command("add_chart", "cloudve/galaxy", namespace="new")

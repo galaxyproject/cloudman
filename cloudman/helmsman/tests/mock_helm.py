@@ -1,28 +1,17 @@
 import argparse
 import csv
 from io import StringIO
-from unittest.mock import patch
 import uuid
 import yaml
 
 
 class MockHelm(object):
+    """
+    A mock version of the helm binary. Maintains an in-memory database
+    to simulate helm commands.
+    """
 
-    """ Mocks all calls to the helm command"""
-    def __init__(self, testcase):
-        self.patch1 = patch(
-            'helmsman.helm.client.HelmClient._check_environment',
-            return_value=True)
-        self.patch2 = patch('helmsman.helm.helpers.run_command',
-                            self.mock_run_command)
-        self.patch1.start()
-        self.patch2.start()
-        testcase.addCleanup(self.patch2.stop)
-        testcase.addCleanup(self.patch1.stop)
-        self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
-                                       "CHART", "APP VERSION", "NAMESPACE"]
-        self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
-                                          "CHART", "APP VERSION", "DESCRIPTION"]
+    def __init__(self):
         self.revision_history = [
             {
                 'NAME': 'turbulent-markhor',
@@ -40,35 +29,40 @@ class MockHelm(object):
         self.chart_database = {
             'turbulent-markhor': self.revision_history
         }
-
-        self.repo_list_field_name = ["NAME", "URL"]
         self.installed_repos = {
             'stable': {
                 'NAME': 'stable',
                 'URL': 'https://kubernetes-charts.storage.googleapis.com'
             }
         }
+        self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
+                                       "CHART", "APP VERSION", "NAMESPACE"]
+        self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
+                                          "CHART", "APP VERSION",
+                                          "DESCRIPTION"]
+        self.repo_list_field_names = ["NAME", "URL"]
+        self.parser = self._create_parser()
 
-    def _parse_helm_command(self, command):
+    def _create_parser(self):
         parser = argparse.ArgumentParser(prog='helm')
-        subparsers = parser.add_subparsers(help='Available Commands')
 
-        # Helm init
-        parser_init = subparsers.add_parser('init', help='init Helm')
-        parser_init.add_argument(
-            '--service-account', type=str, help='service account', default=None)
-        parser_init.add_argument(
-            '--wait', help='wait till initialized', action='store_true')
-        parser_init.set_defaults(func=self._helm_init)
+        subparsers = parser.add_subparsers(help='Available Commands')
 
         # Helm list
         parser_list = subparsers.add_parser('list', help='list releases')
+        parser_list.add_argument('--all-namespaces', action='store_true',
+                                 help='list releases from all namespaces')
+        parser_list.add_argument('--namespace', type=str, help='namespace')
         parser_list.set_defaults(func=self._helm_list)
 
         # Helm install
         parser_inst = subparsers.add_parser('install', help='install a chart')
         parser_inst.add_argument(
+            'name', type=str, help='release name', nargs='?')
+        parser_inst.add_argument(
             'chart', type=str, help='chart name')
+        parser_inst.add_argument(
+            '--generate-name', action='store_true', help='generate random name')
         parser_inst.add_argument('--namespace', type=str, help='namespace')
         parser_inst.add_argument('--version', type=str, help='version')
         parser_inst.add_argument(
@@ -125,7 +119,10 @@ class MockHelm(object):
             'release', type=str, help='release name')
         p_get_values.add_argument(
             '--all', action='store_true', help='dump all values')
+        p_get_values.add_argument(
+            '--namespace', type=str, help='namespace of release')
         p_get_values.set_defaults(func=self._helm_get_values)
+
 
         p_get_manifest = subparser_get.add_parser(
             'manifest', help='download manifest for a release')
@@ -136,23 +133,28 @@ class MockHelm(object):
         parser_list.add_argument('release', type=str, help='release name')
         parser_list.set_defaults(func=self._helm_delete)
 
-        # evaluate command
-        args = parser.parse_args(command)
-        return args.func(args)
+        return parser
 
-    def _helm_init(self, args):
-        # pretend to succeed
-        pass
+    def run_command(self, command):
+        # evaluate command
+        args = self.parser.parse_args(command[1:])
+        return args.func(args)
 
     def _helm_list(self, args):
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.chart_list_field_names,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.chart_list_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             for release in self.chart_database.values():
-                # Write data about the latest revision for each chart
-                writer.writerow(release[-1])
+                last = release[-1]
+                if args.namespace and last.get("NAMESPACE"):
+                    if args.namespace == last.get("NAMESPACE"):
+                        # Write data about the latest revision for each chart
+                        writer.writerow(last)
+                else:
+                    writer.writerow(last)
             return output.getvalue()
 
     def _helm_install(self, args):
@@ -215,7 +217,8 @@ class MockHelm(object):
             return 'Error: "%s" has no deployed releases' % args.release
         # pretend to succeed
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.chart_history_field_names,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.chart_history_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             writer.writerows(revisions)
@@ -235,7 +238,8 @@ class MockHelm(object):
 
     def _helm_repo_list(self, args):
         with StringIO() as output:
-            writer = csv.DictWriter(output, fieldnames=self.repo_list_field_name,
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.repo_list_field_names,
                                     delimiter="\t", extrasaction='ignore')
             writer.writeheader()
             for val in self.installed_repos.values():
@@ -261,16 +265,3 @@ class MockHelm(object):
             return 'Error: release: "%s" not found' % args.release
         self.chart_database.pop(args.release, None)
 
-    def mock_run_command(self, command, shell=False):
-        if isinstance(command, list):
-            prog = command[0]
-        else:
-            prog = command or ""
-
-        if prog.startswith("helm"):
-            return self._parse_helm_command(command[1:])
-        elif prog.startswith("kubectl create"):
-            # pretend to succeed
-            pass
-        else:
-            raise Exception("Unrecognised command: {0}".format(prog))

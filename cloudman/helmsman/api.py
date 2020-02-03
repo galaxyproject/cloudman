@@ -1,8 +1,9 @@
 """HelmsMan Service API."""
 import jsonmerge
 
-from .helm.client import HelmClient
-from .helm.client import HelmValueHandling
+from .clients.helm_client import HelmClient
+from .clients.k8s_client import KubeClient
+from .clients.helm_client import HelmValueHandling
 
 
 class HelmsmanException(Exception):
@@ -10,6 +11,14 @@ class HelmsmanException(Exception):
 
 
 class ChartExistsException(HelmsmanException):
+    pass
+
+
+class NamespaceNotFoundException(HelmsmanException):
+    pass
+
+
+class NamespaceExistsException(HelmsmanException):
     pass
 
 
@@ -52,6 +61,7 @@ class HelmsManAPI(HelmsManService):
         super(HelmsManAPI, self).__init__(context)
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
+        self._namespace_svc = HMNamespaceService(context)
 
     @classmethod
     def from_request(cls, request):
@@ -65,6 +75,43 @@ class HelmsManAPI(HelmsManService):
     @property
     def charts(self):
         return self._chart_svc
+
+    @property
+    def namespaces(self):
+        return self._namespace_svc
+
+
+class HMNamespaceService(HelmsManService):
+
+    def __init__(self, context):
+        super(HMNamespaceService, self).__init__(context)
+
+    def list(self):
+        return [KubeNamespace(self, **namespace)
+                for namespace in KubeClient().namespaces.list()]
+
+    def get(self, namespace):
+        namespaces = (n for n in self.list() if n.name == namespace)
+        return next(namespaces, None)
+
+    def create(self, namespace):
+        client = KubeClient()
+        existing = self.get(namespace)
+        if existing:
+            raise NamespaceExistsException(
+                f"Namespace '{namespace}' already exists.")
+        else:
+            client.namespaces.create(namespace)
+        return self.get(namespace)
+
+    def delete(self, namespace):
+        client = KubeClient()
+        existing = self.get(namespace)
+        if not existing:
+            raise NamespaceNotFoundException(
+                f"Namespace {namespace} cannot be found.")
+        else:
+            client.namespaces.delete(namespace)
 
 
 class HMChartRepoService(HelmsManService):
@@ -90,9 +137,9 @@ class HMChartService(HelmsManService):
     def __init__(self, context):
         super(HMChartService, self).__init__(context)
 
-    def list(self):
+    def list(self, namespace=None):
         client = HelmClient()
-        releases = client.releases.list()
+        releases = client.releases.list(namespace)
         return [
             HelmChart(
                 self,
@@ -105,7 +152,7 @@ class HMChartService(HelmsManService):
                 state=release.get("STATUS"),
                 updated=release.get("UPDATED"),
                 values=HelmClient().releases.get_values(
-                    release.get("NAME"), get_all=True)
+                    release.get("NAME"), get_all=True, namespace=release.get("NAMESPACE"))
             )
             for release in releases
         ]
@@ -115,8 +162,7 @@ class HMChartService(HelmsManService):
         return next(charts, None)
 
     def _get_from_namespace(self, namespace, chart_name):
-        matches = [c for c in self.list() if c.namespace == namespace
-                   and c.name == chart_name]
+        matches = [c for c in self.list(namespace) if c.name == chart_name]
         if matches:
             return matches[0]
         else:
@@ -191,3 +237,15 @@ class HelmChart(HelmsManResource):
 
     def delete(self):
         self.service.delete(self)
+
+
+class KubeNamespace(HelmsManResource):
+
+    def __init__(self, service, **kwargs):
+        super().__init__(service)
+        self.name = kwargs.get('NAME')
+        self.status = kwargs.get('STATUS')
+        self.age = kwargs.get('AGE')
+
+    def delete(self):
+        self.service.delete(self.name)

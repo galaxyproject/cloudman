@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('cloudlaunch', '0003_deployment_credentials_relationship'),
+        ('cloudlaunch', '0001_initial'),
     ]
 
     operations = [

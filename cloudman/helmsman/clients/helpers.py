@@ -11,13 +11,13 @@ def run_command(command, shell=False):
                                    shell=shell, encoding='utf-8')
 
 
-def run_list_command(command):
+def run_list_command(command, delimiter="\t", skipinitialspace=True):
     """
     Runs a command, and parses the output as
     tab separated columnar output. First row must be column names."
     """
     output = run_command(command)
-    reader = csv.DictReader(io.StringIO(output), delimiter="\t")
+    reader = csv.DictReader(io.StringIO(output), delimiter=delimiter, skipinitialspace=skipinitialspace)
     output = []
     for row in reader:
         data = {key.strip(): val.strip() for key, val in row.items()}
@@ -27,12 +27,12 @@ def run_list_command(command):
 
 # based on: https://codereview.stackexchange.com/questions/21033/flatten-dic
 # tionary-in-python-functional-style
-def flatten_dict(d):
-    def items():
-        for key, value in d.items():
-            if isinstance(value, dict):
-                for subkey, subvalue in flatten_dict(value).items():
-                    yield key + "." + subkey, subvalue
-            else:
-                yield key, value
-    return dict(items())
+# def flatten_dict(d):
+#     def items():
+#         for key, value in d.items():
+#             if isinstance(value, dict):
+#                 for subkey, subvalue in flatten_dict(value).items():
+#                     yield key + "." + subkey, subvalue
+#             else:
+#                 yield key, value
+#     return dict(items())

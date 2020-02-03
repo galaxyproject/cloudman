@@ -18,16 +18,14 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
-        try:
-            call_command("setup_helm")
-        except Exception as e:
-            print("An exception occurred during helm init:", str(e))
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
         for chart in settings.get('charts', {}).values():
             extra_args = {}
             if chart.get('namespace'):
                 extra_args["namespace"] = chart.get('namespace')
+                if chart.get('create_namespace'):
+                    extra_args['create_namespace'] = True
             if chart.get('version'):
                 extra_args["chart_version"] = chart.get('version')
             if chart.get('values'):

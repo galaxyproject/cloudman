@@ -1,6 +1,9 @@
 """ProjMan Service API."""
+from django.contrib.auth.models import User
+
 from . import models
 from helmsman.api import HelmsManAPI, HMServiceContext
+from helmsman.api import NamespaceExistsException
 from rest_framework.exceptions import PermissionDenied
 
 
@@ -97,8 +100,15 @@ class PMProjectService(PMService):
 
     def create(self, name):
         self.check_permissions('projects.add_project')
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        if client.namespaces.get(name):
+            message = (f"The project '{name}' could not be created. "
+                       f"A namespace by the same name already exists.")
+            raise NamespaceExistsException(message)
         obj = models.CMProject.objects.create(
             name=name, owner=self.context.user)
+        client.namespaces.create(name)
         project = self.to_api_object(obj)
         return project
 
@@ -107,6 +117,10 @@ class PMProjectService(PMService):
         if obj:
             self.check_permissions('projects.delete_project', obj)
             obj.delete()
+            admin = User.objects.filter(is_superuser=True).first()
+            client = HelmsManAPI(HMServiceContext(user=admin))
+            if client.namespaces.get(obj.name):
+                client.namespaces.delete(obj.name)
         else:
             self.raise_no_permissions('projects.delete_project')
 
