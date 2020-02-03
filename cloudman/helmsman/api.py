@@ -2,7 +2,7 @@
 import jsonmerge
 
 from .clients.helm_client import HelmClient
-from .clients.k8s_client import KubernetesClient
+from .clients.k8s_client import KubeClient
 from .clients.helm_client import HelmValueHandling
 
 
@@ -87,15 +87,15 @@ class HMNamespaceService(HelmsManService):
         super(HMNamespaceService, self).__init__(context)
 
     def list(self):
-        return [KubectlNamespace(self, **namespace)
-                for namespace in KubernetesClient().namespaces.list()]
+        return [KubeNamespace(self, **namespace)
+                for namespace in KubeClient().namespaces.list()]
 
     def get(self, namespace):
         namespaces = (n for n in self.list() if n.name == namespace)
         return next(namespaces, None)
 
     def create(self, namespace):
-        client = KubernetesClient()
+        client = KubeClient()
         existing = self.get(namespace)
         if existing:
             raise NamespaceExistsException(
@@ -105,7 +105,7 @@ class HMNamespaceService(HelmsManService):
         return self.get(namespace)
 
     def delete(self, namespace):
-        client = KubernetesClient()
+        client = KubeClient()
         existing = self.get(namespace)
         if not existing:
             raise NamespaceNotFoundException(
@@ -239,7 +239,7 @@ class HelmChart(HelmsManResource):
         self.service.delete(self)
 
 
-class KubectlNamespace(HelmsManResource):
+class KubeNamespace(HelmsManResource):
 
     def __init__(self, service, **kwargs):
         super().__init__(service)

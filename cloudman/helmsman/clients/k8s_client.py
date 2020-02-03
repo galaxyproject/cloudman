@@ -3,7 +3,7 @@ import shutil
 from . import helpers
 
 
-class KubernetesService(object):
+class KubeService(object):
     """Marker interface for CloudMan services"""
     def __init__(self, client):
         self._client = client
@@ -12,12 +12,12 @@ class KubernetesService(object):
         return self._client
 
 
-class KubernetesClient(KubernetesService):
+class KubeClient(KubeService):
 
     def __init__(self):
         self._check_environment()
-        super(KubernetesClient, self).__init__(self)
-        self._namespace_svc = KubernetesNamespaceService(self)
+        super(KubeClient, self).__init__(self)
+        self._namespace_svc = KubeNamespaceService(self)
 
     @staticmethod
     def _check_environment():
@@ -29,10 +29,10 @@ class KubernetesClient(KubernetesService):
         return self._namespace_svc
 
 
-class KubernetesNamespaceService(KubernetesService):
+class KubeNamespaceService(KubeService):
 
     def __init__(self, client):
-        super(KubernetesNamespaceService, self).__init__(client)
+        super(KubeNamespaceService, self).__init__(client)
 
     def list(self):
         data = helpers.run_list_command(["kubectl", "get", "namespaces"],

@@ -273,7 +273,7 @@ class MockHelmParser(object):
 
 
 class MockKubectlParser(object):
-    
+
     def __init__(self):
         self.namespace_info = {
             'NAME': 'default',
@@ -294,7 +294,7 @@ class MockKubectlParser(object):
     @staticmethod
     def extra_patches():
         return [patch(
-          'helmsman.clients.k8s_client.KubernetesClient._check_environment',
+          'helmsman.clients.k8s_client.KubeClient._check_environment',
           return_value=True)]
 
     def parse_command(self, command):
