@@ -1,4 +1,4 @@
-Django>=2.0.0,<3.0
+Django>=2.2.9,<3.0
 djangorestframework==3.9.3
 gunicorn[gevent]
 # moto==1.1.11
