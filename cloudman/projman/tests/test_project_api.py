@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 
 from rest_framework import status
 
+from helmsman.api import HelmsManAPI
+from helmsman.api import HMServiceContext
 from helmsman.api import NamespaceExistsException
 from helmsman.tests import HelmsManServiceTestBase
 
@@ -112,6 +114,20 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         response = self._delete_project(project_id_now)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_projects_exist()
+
+    def test_namespace_tied_to_project(self):
+        response = self._create_project()
+        # Namespace should be slugified version of project name
+        project_id = response.data['id']
+        namespace = response.data['namespace']
+        self.assertEquals(namespace, "gvl")
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        obj = client.namespaces.get(namespace)
+        assert obj
+        self._delete_project(project_id)
+        obj = client.namespaces.get(namespace)
+        self.assertIsNone(obj, "Deleting the project should delete namespace")
 
 
 class ProjectChartServiceTests(ProjManManServiceTestBase):
