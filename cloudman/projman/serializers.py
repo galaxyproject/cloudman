@@ -19,8 +19,8 @@ class PMProjectSerializer(serializers.Serializer):
         """
         user = self.context['view'].request.user
         return {
-            'change_project': user.has_perm('projects.change_project', project),
-            'delete_project': user.has_perm('projects.delete_project', project)
+            'change_project': user.has_perm('projman.change_project', project),
+            'delete_project': user.has_perm('projman.delete_project', project)
         }
 
     def create(self, valid_data):
@@ -40,8 +40,8 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
         """
         user = self.context['view'].request.user
         return {
-            'change_chart': user.has_perm('charts.change_chart', chart),
-            'delete_chart': user.has_perm('charts.delete_chart', chart)
+            'change_chart': user.has_perm('projman.change_chart', chart),
+            'delete_chart': user.has_perm('projman.delete_chart', chart)
         }
 
     def create(self, valid_data):
