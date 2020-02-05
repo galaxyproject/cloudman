@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 class PMProjectSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
+    namespace = serializers.CharField(read_only=True)
     permissions = serializers.SerializerMethodField()
 
     def get_permissions(self, project):

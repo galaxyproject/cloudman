@@ -1,5 +1,6 @@
 """ProjMan Service API."""
 from django.contrib.auth.models import User
+from django.template.defaultfilters import slugify
 
 from . import models
 from helmsman.api import HelmsManAPI, HMServiceContext
@@ -102,13 +103,15 @@ class PMProjectService(PMService):
         self.check_permissions('projects.add_project')
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
-        if client.namespaces.get(name):
-            message = (f"The project '{name}' could not be created. "
-                       f"A namespace by the same name already exists.")
+        namespace = slugify(name)
+        if client.namespaces.get(namespace):
+            message = (
+                f"The project namespace '{namespace}' could not be created. "
+                f"A namespace by the same name already exists.")
             raise NamespaceExistsException(message)
         obj = models.CMProject.objects.create(
-            name=name, owner=self.context.user)
-        client.namespaces.create(name)
+            name=name, namespace=namespace, owner=self.context.user)
+        client.namespaces.create(namespace)
         project = self.to_api_object(obj)
         return project
 
@@ -119,8 +122,8 @@ class PMProjectService(PMService):
             obj.delete()
             admin = User.objects.filter(is_superuser=True).first()
             client = HelmsManAPI(HMServiceContext(user=admin))
-            if client.namespaces.get(obj.name):
-                client.namespaces.delete(obj.name)
+            if client.namespaces.get(obj.namespace):
+                client.namespaces.delete(obj.namespace)
         else:
             self.raise_no_permissions('projects.delete_project')
 
