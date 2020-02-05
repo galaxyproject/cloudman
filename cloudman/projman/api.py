@@ -91,15 +91,15 @@ class PMProjectService(PMService):
         return list(map(
             self.to_api_object,
             (proj for proj in models.CMProject.objects.all()
-             if self.has_permissions('projects.view_project', proj))))
+             if self.has_permissions('projman.view_project', proj))))
 
     def get(self, project_id):
         obj = models.CMProject.objects.get(id=project_id)
-        self.check_permissions('projects.view_project', obj)
+        self.check_permissions('projman.view_project', obj)
         return self.to_api_object(obj)
 
     def create(self, name):
-        self.check_permissions('projects.add_project')
+        self.check_permissions('projman.add_project')
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         if client.namespaces.get(name):
@@ -115,19 +115,19 @@ class PMProjectService(PMService):
     def delete(self, project_id):
         obj = models.CMProject.objects.get(id=project_id)
         if obj:
-            self.check_permissions('projects.delete_project', obj)
+            self.check_permissions('projman.delete_project', obj)
             obj.delete()
             admin = User.objects.filter(is_superuser=True).first()
             client = HelmsManAPI(HMServiceContext(user=admin))
             if client.namespaces.get(obj.name):
                 client.namespaces.delete(obj.name)
         else:
-            self.raise_no_permissions('projects.delete_project')
+            self.raise_no_permissions('projman.delete_project')
 
     def find(self, name):
         try:
             obj = models.CMProject.objects.get(name=name)
-            if self.has_permissions('projects.view_project', obj):
+            if self.has_permissions('projman.view_project', obj):
                 return self.to_api_object(obj)
             else:
                 return None
@@ -142,7 +142,8 @@ class PMProjectChartService(PMService):
         self.project = project
 
     def _get_helmsman_api(self):
-        return HelmsManAPI(HMServiceContext(user=self.context.user))
+        admin = User.objects.filter(is_superuser=True).first()
+        return HelmsManAPI(HMServiceContext(user=admin))
 
     def _to_proj_chart(self, chart):
         chart.project = self.project
@@ -156,35 +157,35 @@ class PMProjectChartService(PMService):
         return [self._to_proj_chart(chart) for chart
                 in self._get_helmsman_api().charts.list()
                 if chart.namespace == self.project.name and
-                self.has_permissions('charts.view_chart', chart)]
+                self.has_permissions('projman.view_chart', chart)]
 
     def get(self, chart_id):
         chart = self._get_helmsman_api().charts.get(chart_id)
-        self.check_permissions('charts.view_chart', chart)
+        self.check_permissions('projman.view_chart', chart)
         return (self._to_proj_chart(chart)
                 if chart and chart.namespace == self.project.name else None)
 
     def create(self, repo_name, chart_name, release_name=None, version=None,
                values=None):
-        self.check_permissions('charts.add_chart')
+        self.check_permissions('projman.add_chart')
         return self._to_proj_chart(self._get_helmsman_api().charts.create(
             repo_name, chart_name, self.project.name, release_name, version,
             values))
 
     def update(self, chart, values):
-        self.check_permissions('charts.change_chart', chart)
+        self.check_permissions('projman.change_chart', chart)
         updated_chart = self._get_helmsman_api().charts.update(chart, values)
         return self._to_proj_chart(updated_chart)
 
     def rollback(self, chart, revision=None):
-        self.check_permissions('charts.change_chart', chart)
+        self.check_permissions('projman.change_chart', chart)
         updated_chart = self._get_helmsman_api().charts.rollback(chart, revision)
         return self._to_proj_chart(updated_chart)
 
     def delete(self, chart_id):
         obj = self.get(chart_id)
         if obj:
-            self.check_permissions('charts.delete_chart', obj)
+            self.check_permissions('projman.delete_chart', obj)
             self._get_helmsman_api().charts.delete(obj)
         else:
-            self.raise_no_permissions('charts.delete_chart')
+            self.raise_no_permissions('projman.delete_chart')
