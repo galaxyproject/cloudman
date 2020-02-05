@@ -1,6 +1,8 @@
 """HelmsMan Service API."""
 import jsonmerge
 
+from rest_framework.exceptions import PermissionDenied
+
 from .clients.helm_client import HelmClient
 from .clients.k8s_client import KubeClient
 from .clients.helm_client import HelmValueHandling
@@ -54,6 +56,20 @@ class HelmsManService(object):
         """
         return self._context
 
+    def has_permissions(self, scopes, obj=None):
+        if not isinstance(scopes, list):
+            scope = [scopes]
+        return self.context.user.has_perms(scope, obj)
+
+    def check_permissions(self, scopes, obj=None):
+        if not self.has_permissions(scopes, obj):
+            self.raise_no_permissions(scopes)
+
+    def raise_no_permissions(self, scopes):
+        raise PermissionDenied(
+            "Object does not exist or you do not have permissions to "
+            "perform '%s'" % (scopes,))
+
 
 class HelmsManAPI(HelmsManService):
 
@@ -88,13 +104,17 @@ class HMNamespaceService(HelmsManService):
 
     def list(self):
         return [KubeNamespace(self, **namespace)
-                for namespace in KubeClient().namespaces.list()]
+                for namespace in KubeClient().namespaces.list()
+                if self.has_permissions('helmsman.view_namespace', namespace)]
 
     def get(self, namespace):
         namespaces = (n for n in self.list() if n.name == namespace)
-        return next(namespaces, None)
+        ns = next(namespaces, None)
+        self.check_permissions('helmsman.view_chart', ns)
+        return ns
 
     def create(self, namespace):
+        self.check_permissions('helmsman.add_namespace')
         client = KubeClient()
         existing = self.get(namespace)
         if existing:
@@ -105,6 +125,7 @@ class HMNamespaceService(HelmsManService):
         return self.get(namespace)
 
     def delete(self, namespace):
+        self.check_permissions('helmsman.delete_namespace')
         client = KubeClient()
         existing = self.get(namespace)
         if not existing:
@@ -140,7 +161,7 @@ class HMChartService(HelmsManService):
     def list(self, namespace=None):
         client = HelmClient()
         releases = client.releases.list(namespace)
-        return [
+        charts = (
             HelmChart(
                 self,
                 id=release.get('NAME'),
@@ -155,11 +176,14 @@ class HMChartService(HelmsManService):
                     release.get("NAME"), get_all=True, namespace=release.get("NAMESPACE"))
             )
             for release in releases
-        ]
+        )
+        return [c for c in charts if self.has_permissions('helmsman.view_chart', c)]
 
     def get(self, chart_id):
         charts = (c for c in self.list() if c.id == chart_id)
-        return next(charts, None)
+        chart = next(charts, None)
+        self.check_permissions('helmsman.view_chart', chart)
+        return chart
 
     def _get_from_namespace(self, namespace, chart_name):
         matches = [c for c in self.list(namespace) if c.name == chart_name]
@@ -170,6 +194,7 @@ class HMChartService(HelmsManService):
 
     def create(self, repo_name, chart_name, namespace,
                release_name=None, version=None, values=None):
+        self.check_permissions('helmsman.add_chart')
         client = HelmClient()
         existing_release = [
             r for r in client.releases.list()
@@ -187,6 +212,7 @@ class HMChartService(HelmsManService):
         return self._get_from_namespace(namespace, chart_name)
 
     def update(self, chart, values):
+        self.check_permissions('helmsman.change_chart', chart)
         # 1. Retrieve chart's current user-defined values
         cur_vals = HelmClient().releases.get_values(chart.id, get_all=False)
         # 2. Deep merge the latest differences on top
@@ -202,11 +228,13 @@ class HMChartService(HelmsManService):
         return chart
 
     def rollback(self, chart, revision=None):
+        self.check_permissions('helmsman.change_chart', chart)
         # Roll back to immediately preceding revision if revision=None
         HelmClient().releases.rollback(chart.id, revision)
         return self.get(chart.id)
 
     def delete(self, chart):
+        self.check_permissions('helmsman.delete_chart', chart)
         HelmClient().releases.delete(chart.id)
 
 
