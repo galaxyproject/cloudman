@@ -93,7 +93,8 @@ class HelmReleaseService(HelmService):
         return self._set_values_and_run_command(cmd, values)
 
     def update(self, release_name, chart, values=None,
-               value_handling=HelmValueHandling.REUSE):
+               value_handling=HelmValueHandling.REUSE,
+               namespace=None):
         """
         The chart argument can be either: a chart reference('stable/mariadb'),
         a path to a chart directory, a packaged chart, or a fully qualified
@@ -101,7 +102,8 @@ class HelmReleaseService(HelmService):
         the '--version' flag is set.
         """
         cmd = ["helm", "upgrade", release_name, chart]
-
+        if namespace:
+            cmd += ["--namespace", namespace]
         if value_handling == value_handling.RESET:
             cmd += ["--reset-values"]
         elif value_handling == value_handling.REUSE:
@@ -114,7 +116,7 @@ class HelmReleaseService(HelmService):
         data = helpers.run_list_command(["helm", "history", release_name])
         return data
 
-    def rollback(self, release_name, revision=None):
+    def rollback(self, release_name, revision=None, namespace=None):
         if not revision:
             history = self.history(release_name)
             if history and len(history) > 1:
@@ -122,6 +124,9 @@ class HelmReleaseService(HelmService):
                 revision = history[-2].get('REVISION')
             else:
                 return
+        cmd = ["helm", "rollback", release_name, revision]
+        if namespace:
+            cmd += ["--namespace", namespace]
         return helpers.run_command(["helm", "rollback",
                                     release_name, revision])
 
