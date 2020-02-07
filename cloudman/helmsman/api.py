@@ -214,7 +214,7 @@ class HMChartService(HelmsManService):
     def update(self, chart, values):
         self.check_permissions('helmsman.change_chart', chart)
         # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.id, get_all=False)
+        cur_vals = HelmClient().releases.get_values(chart.id, get_all=False, namespace=chart.namespace)
         # 2. Deep merge the latest differences on top
         if cur_vals:
             cur_vals = jsonmerge.merge(cur_vals, values)
@@ -223,14 +223,14 @@ class HMChartService(HelmsManService):
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(
             chart.id, "cloudve/%s" % chart.name, values=cur_vals,
-            value_handling=HelmValueHandling.REUSE)
+            value_handling=HelmValueHandling.REUSE, namespace=chart.namespace)
         chart.values = jsonmerge.merge(chart.values, cur_vals)
         return chart
 
     def rollback(self, chart, revision=None):
         self.check_permissions('helmsman.change_chart', chart)
         # Roll back to immediately preceding revision if revision=None
-        HelmClient().releases.rollback(chart.id, revision)
+        HelmClient().releases.rollback(chart.id, revision, chart.namespace)
         return self.get(chart.id)
 
     def delete(self, chart):

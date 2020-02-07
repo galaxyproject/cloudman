@@ -80,6 +80,8 @@ class MockHelm(object):
             help="reuse the last release's values and merge in any overrides")
         parser_upgrade.add_argument(
             '-f', '--values', type=str, help='value files')
+        parser_upgrade.add_argument(
+            '--namespace', type=str, help='namespace of release')
         parser_upgrade.set_defaults(func=self._helm_upgrade)
 
         # Helm rollback
@@ -88,6 +90,8 @@ class MockHelm(object):
             'release', type=str, help='release name')
         parser_rollback.add_argument(
             'revision', type=int, help='revision number')
+        parser_rollback.add_argument(
+            '--namespace', type=str, help='namespace of release')
         parser_rollback.set_defaults(func=self._helm_rollback)
 
         # Helm history
