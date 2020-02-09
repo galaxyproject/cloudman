@@ -40,11 +40,11 @@ class CMClusterServiceTestBase(APITestCase):
     }
 
     def setUp(self):
-        self.patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
+        patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
                              new_callable=PropertyMock,
                              return_value=load_kube_config)
-        self.patcher.start()
-        self.addCleanup(self.patcher.stop)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.client.force_login(
             User.objects.get_or_create(username='clusteradmin', is_staff=True)[0])
 
@@ -173,11 +173,29 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
 
     def setUp(self):
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
-        self.patcher = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
+        patcher1 = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
                              new_callable=PropertyMock,
                              return_value=cloudlaunch_url)
-        self.patcher.start()
-        self.addCleanup(self.patcher.stop)
+        patcher1.start()
+        self.addCleanup(patcher1.stop)
+
+        def create_mock_provider(self, name, config):
+            provider_class = self.get_provider_class("mock")
+            return provider_class(config)
+
+        patcher2 = patch('cloudbridge.factory.CloudProviderFactory.create_provider',
+                         new=create_mock_provider)
+        patcher2.start()
+        self.addCleanup(patcher2.stop)
+
+        patcher3 = patch('cloudlaunch.configurers.SSHBasedConfigurer._check_ssh')
+        patcher3.start()
+        self.addCleanup(patcher3.stop)
+
+        patcher4 = patch('cloudlaunch.configurers.AnsibleAppConfigurer.configure')
+        patcher4.start()
+        self.addCleanup(patcher4.stop)
+
         super().setUp()
 
     def _create_cluster(self):
