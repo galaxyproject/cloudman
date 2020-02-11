@@ -20,7 +20,7 @@ class MockHelm(object):
                 'STATUS': 'DEPLOYED',
                 'CHART': 'cloudlaunch-0.2.0',
                 'APP VERSION': '2.0.2',
-                'NAMESPACE': 'cloudlaunch',
+                'NAMESPACE': 'default',
                 'VALUES': {
                     'foo': 'bar'
                 }
@@ -98,6 +98,7 @@ class MockHelm(object):
         parser_history = subparsers.add_parser('history', help='prints historical revisions for a given release')
         parser_history.add_argument(
             'release', type=str, help='release name')
+        parser_history.add_argument('--namespace', type=str, help='namespace')
         parser_history.set_defaults(func=self._helm_history)
 
         # Helm repo commands
@@ -133,9 +134,10 @@ class MockHelm(object):
         p_get_manifest.set_defaults(func=self._helm_get_manifest)
 
         # Helm delete
-        parser_list = subparsers.add_parser('delete', help='delete a release')
-        parser_list.add_argument('release', type=str, help='release name')
-        parser_list.set_defaults(func=self._helm_delete)
+        parser_delete = subparsers.add_parser('delete', help='delete a release')
+        parser_delete.add_argument('release', type=str, help='release name')
+        parser_delete.add_argument('--namespace', type=str, help='namespace')
+        parser_delete.set_defaults(func=self._helm_delete)
 
         return parser
 

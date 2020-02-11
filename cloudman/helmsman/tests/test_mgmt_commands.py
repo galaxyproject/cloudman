@@ -36,11 +36,10 @@ class CommandsTestCase(TestCase):
         repos = client.repositories.list()
         for repo in repos:
             self.assertIn(repo.get('NAME'), ["stable", "cloudve", "jupyterhub"])
-        releases = client.releases.list()
+        releases = client.releases.list("default")
         for rel in releases:
             self.assertIn(rel.get('CHART'),
-                          ["cloudlaunch-0.2.0", "galaxy-cvmfs-csi-1.0.0",
-                           "kubernetes-dashboard-1.0.0", "galaxy-1.0.0"])
+                          ["cloudlaunch-0.2.0", "galaxy-1.0.0"])
 
     def test_add_chart_no_namespace(self):
         with self.assertRaises(NamespaceNotFoundException):
