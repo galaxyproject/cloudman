@@ -62,7 +62,7 @@ class HelmReleaseService(HelmService):
         data = helpers.run_list_command(cmd)
         return data
 
-    def get(self, release_name):
+    def get(self, namespace, release_name):
         return {}
 
     def _set_values_and_run_command(self, cmd, values):
@@ -92,7 +92,7 @@ class HelmReleaseService(HelmService):
             cmd += ["--version", version]
         return self._set_values_and_run_command(cmd, values)
 
-    def update(self, release_name, chart, values=None,
+    def update(self, namespace, release_name, chart, values=None,
                value_handling=HelmValueHandling.REUSE):
         """
         The chart argument can be either: a chart reference('stable/mariadb'),
@@ -100,8 +100,8 @@ class HelmReleaseService(HelmService):
         URL. For chart references, the latest version will be specified unless
         the '--version' flag is set.
         """
-        cmd = ["helm", "upgrade", release_name, chart]
-
+        cmd = ["helm", "upgrade", "--namespace", namespace,
+               release_name, chart]
         if value_handling == value_handling.RESET:
             cmd += ["--reset-values"]
         elif value_handling == value_handling.REUSE:
@@ -110,34 +110,35 @@ class HelmReleaseService(HelmService):
             pass
         return self._set_values_and_run_command(cmd, values)
 
-    def history(self, release_name):
-        data = helpers.run_list_command(["helm", "history", release_name])
+    def history(self, namespace, release_name):
+        data = helpers.run_list_command(
+            ["helm", "history", "--namespace", namespace, release_name])
         return data
 
-    def rollback(self, release_name, revision=None):
+    def rollback(self, namespace, release_name, revision=None):
         if not revision:
-            history = self.history(release_name)
+            history = self.history(namespace, release_name)
             if history and len(history) > 1:
                 # Rollback to previous
                 revision = history[-2].get('REVISION')
             else:
                 return
-        return helpers.run_command(["helm", "rollback",
-                                    release_name, revision])
+        return helpers.run_command(
+            ["helm", "rollback", "--namespace", namespace,
+             release_name, revision])
 
-    def delete(self, release_name):
-        return helpers.run_command(["helm", "delete", release_name])
+    def delete(self, namespace, release_name):
+        return helpers.run_command(
+            ["helm", "delete", "--namespace", namespace, release_name])
 
-    def get_values(self, release_name, get_all=True, namespace=None):
+    def get_values(self, namespace, release_name, get_all=True):
         """
         get_all=True will also dump chart default values.
         get_all=False will only return user overridden values.
         """
-        cmd = ["helm", "get", "values", release_name]
+        cmd = ["helm", "get", "values", "--namespace", namespace, release_name]
         if get_all:
             cmd += ["--all"]
-        if namespace:
-            cmd += ["--namespace", namespace]
         return yaml.safe_load(helpers.run_command(cmd))
 
     @staticmethod

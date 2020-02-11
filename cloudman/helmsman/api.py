@@ -173,7 +173,7 @@ class HMChartService(HelmsManService):
                 state=release.get("STATUS"),
                 updated=release.get("UPDATED"),
                 values=HelmClient().releases.get_values(
-                    release.get("NAME"), get_all=True, namespace=release.get("NAMESPACE"))
+                    release.get("NAMESPACE"), release.get("NAME"), get_all=True)
             )
             for release in releases
         )
@@ -197,9 +197,8 @@ class HMChartService(HelmsManService):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
         existing_release = [
-            r for r in client.releases.list()
+            r for r in client.releases.list(namespace)
             if chart_name == client.releases.parse_chart_name(r.get('CHART'))
-            and namespace == r.get('NAMESPACE')
         ]
         if existing_release:
             raise ChartExistsException(
@@ -214,7 +213,7 @@ class HMChartService(HelmsManService):
     def update(self, chart, values):
         self.check_permissions('helmsman.change_chart', chart)
         # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.id, get_all=False)
+        cur_vals = HelmClient().releases.get_values(chart.namespace, chart.id, get_all=False)
         # 2. Deep merge the latest differences on top
         if cur_vals:
             cur_vals = jsonmerge.merge(cur_vals, values)
@@ -222,7 +221,7 @@ class HMChartService(HelmsManService):
             cur_vals = values
         # 3. Apply the updated config to the chart
         HelmClient().releases.update(
-            chart.id, "cloudve/%s" % chart.name, values=cur_vals,
+            chart.namespace, chart.id, "cloudve/%s" % chart.name, values=cur_vals,
             value_handling=HelmValueHandling.REUSE)
         chart.values = jsonmerge.merge(chart.values, cur_vals)
         return chart
@@ -230,12 +229,12 @@ class HMChartService(HelmsManService):
     def rollback(self, chart, revision=None):
         self.check_permissions('helmsman.change_chart', chart)
         # Roll back to immediately preceding revision if revision=None
-        HelmClient().releases.rollback(chart.id, revision)
+        HelmClient().releases.rollback(chart.namespace, chart.id, revision)
         return self.get(chart.id)
 
     def delete(self, chart):
         self.check_permissions('helmsman.delete_chart', chart)
-        HelmClient().releases.delete(chart.id)
+        HelmClient().releases.delete(chart.namespace, chart.id)
 
 
 class HelmsManResource(object):
