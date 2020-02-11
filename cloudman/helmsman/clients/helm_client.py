@@ -80,14 +80,12 @@ class HelmReleaseService(HelmService):
 
     def create(self, chart, namespace, release_name=None,
                version=None, values=None):
-        cmd = ["helm", "install"]
+        cmd = ["helm", "install", "--namespace", namespace]
 
         if release_name:
             cmd += [release_name, chart]
         else:
             cmd += [chart, "--generate-name"]
-        if namespace:
-            cmd += ["--namespace", namespace]
         if version:
             cmd += ["--version", version]
         return self._set_values_and_run_command(cmd, values)
