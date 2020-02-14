@@ -1,20 +1,10 @@
 """CloudMan Create views."""
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework.generics import UpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 
 from djcloudbridge import drf_helpers
 from . import serializers
 from .api import CloudManAPI
-
-
-class CloudManAPIView(APIView):
-    """List Cloudman API endpoints"""
-
-    def get(self, request, format=None):
-        """Return available clusters."""
-        response = {'url': request.build_absolute_uri('clusters')}
-        return Response(response)
 
 
 class ClusterViewSet(drf_helpers.CustomModelViewSet):
@@ -57,3 +47,29 @@ class ClusterNodeViewSet(drf_helpers.CustomModelViewSet):
             return cluster.nodes.get(self.kwargs["pk"])
         else:
             return None
+
+
+class ClusterAutoScalerViewSet(drf_helpers.CustomModelViewSet):
+    """
+    Returns a list of autoscalers currently registered with CloudMan.
+    """
+    permission_classes = (IsAuthenticated,)
+    # Required for the Browsable API renderer to have a nice form.
+    serializer_class = serializers.CMClusterAutoScalerSerializer
+
+    def list_objects(self):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.autoscalers.list()
+        else:
+            return []
+
+    def get_object(self):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.autoscalers.get(self.kwargs["pk"])
+        else:
+            return None
+

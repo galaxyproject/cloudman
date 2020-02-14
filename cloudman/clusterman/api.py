@@ -96,6 +96,7 @@ class CMClusterService(CMService):
     def add_child_services(self, cluster):
         cluster.service = self
         cluster.nodes = CMClusterNodeService(self.context, cluster)
+        cluster.autoscalers = CMClusterAutoScalerService(self.context, cluster)
         return cluster
 
     def list(self):
@@ -172,3 +173,42 @@ class CMClusterNodeService(CMService):
             template.remove_node(node)
             # call the saved django delete method which we remapped
             node.original_delete()
+
+
+class CMClusterAutoScalerService(CMService):
+
+    def __init__(self, context, cluster):
+        super(CMClusterAutoScalerService, self).__init__(context)
+        self.cluster = cluster
+
+    def to_api_object(self, autoscaler):
+        # Remap the returned django model's delete method to the API method
+        # This is just a lazy alternative to writing an actual wrapper around
+        # the django object.
+        autoscaler.original_delete = autoscaler.delete
+        autoscaler.delete = lambda: self.delete(autoscaler)
+        return autoscaler
+
+    def list(self):
+        self.check_permissions('clusters.view_cluster', self.cluster)
+        autoscalers = models.CMAutoScaler.objects.filter(cluster=self.cluster)
+        return [self.to_api_object(a) for a in autoscalers]
+
+    def get(self, autoscaler_id):
+        self.check_permissions('clusters.view_cluster', self.cluster)
+        obj = models.CMAutoScaler.objects.get(id=autoscaler_id)
+        return self.to_api_object(obj)
+
+    def create(self, instance_type, name=None, zone_id=None):
+        self.check_permissions('clusters.change_cluster', self.cluster)
+        if not name:
+            name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
+        autoscaler = models.CMAutoScaler.objects.create(cluster=self.cluster,
+            name=name, instance_type=instance_type, zone_id=zone_id)
+        return self.to_api_object(autoscaler)
+
+    def delete(self, autoscaler):
+        self.check_permissions('clusters.change_cluster', self.cluster)
+        if autoscaler:
+            # call the saved django delete method which we remapped
+            autoscaler.original_delete()

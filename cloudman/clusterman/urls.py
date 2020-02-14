@@ -16,6 +16,9 @@ cluster_router = HybridNestedRouter(router, r'clusters',
                                     lookup='cluster')
 cluster_router.register(r'nodes', views.ClusterNodeViewSet,
                         base_name='node')
+cluster_router.register(r'autoscalers', views.ClusterAutoScalerViewSet,
+                        base_name='autoscaler')
+
 
 app_name = "clusterman"
 

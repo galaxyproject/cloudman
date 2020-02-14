@@ -1,6 +1,7 @@
 from django.db import models
 
 from cloudlaunch import models as cl_models
+from djcloudbridge import models as cb_models
 import yaml
 
 
@@ -50,3 +51,16 @@ class CMClusterNode(models.Model):
     class Meta:
         verbose_name = "Cluster Node"
         verbose_name_plural = "Cluster Nodes"
+
+
+class CMAutoScaler(models.Model):
+    name = models.CharField(max_length=60)
+    cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
+                                null=False, related_name="autoscaler_list")
+    instance_type = models.CharField(max_length=200)
+    zone = models.ForeignKey(cb_models.Zone, on_delete=models.CASCADE,
+                             null=False, related_name="autoscaler_list")
+
+    class Meta:
+        verbose_name = "Cluster Autoscaler"
+        verbose_name_plural = "Cluster Autoscalers"

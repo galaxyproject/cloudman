@@ -36,3 +36,22 @@ class CMClusterNodeSerializer(serializers.Serializer):
             raise ValidationError("Specified cluster id: %s does not exist"
                                   % cluster_id)
         return cluster.nodes.create(valid_data.get('instance_type'))
+
+
+class CMClusterAutoScalerSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    name = serializers.CharField(allow_blank=True)
+    cluster = CMClusterSerializer(read_only=True)
+    instance_type = serializers.CharField()
+    zone_id = serializers.CharField()
+
+    def create(self, valid_data):
+        cluster_id = self.context['view'].kwargs.get("cluster_pk")
+        cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
+        if not cluster:
+            raise ValidationError("Specified cluster id: %s does not exist"
+                                  % cluster_id)
+        return cluster.autoscalers.create(valid_data.get('instance_type'),
+                                          name=valid_data.get('name'),
+                                          zone_id=valid_data.get('zone_id'))
+
