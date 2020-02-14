@@ -81,8 +81,7 @@ ADD --chown=cloudman:cloudman . /app
 # Switch to new, lower-privilege user
 USER cloudman
 
-RUN chmod a+x /app/venv/bin/* \
-    && chmod a+x /usr/local/bin/kubectl \
+RUN chmod a+x /usr/local/bin/kubectl \
     && chmod a+x /usr/local/bin/helm \
     && /app/venv/bin/python manage.py collectstatic --no-input
 
