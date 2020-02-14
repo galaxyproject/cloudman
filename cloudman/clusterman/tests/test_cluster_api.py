@@ -266,6 +266,7 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         # check it no longer exists
         self._check_no_cluster_nodes_exist(cluster_id)
 
+    @responses.activate
     def test_node_create_unauthorized(self):
         cluster_id = self._create_cluster()
         self.client.force_login(
@@ -273,16 +274,116 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         response = self._create_cluster_node(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    # def test_node_delete_unauthorized(self):
-    #     cluster_id = self._create_cluster()
-    #     self._create_cluster_node(cluster_id)
-    #     node_id_then = self._list_cluster_node(cluster_id)
-    #     self.client.force_login(
-    #         User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
-    #     response = self._delete_cluster_node(cluster_id, node_id_then)
-    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
-    #     self.client.force_login(
-    #         User.objects.get(username='clusteradmin'))
-    #     node_id_now = self._list_cluster_node(cluster_id)
-    #     assert node_id_now  # should still exist
-    #     assert node_id_then == node_id_now  # should be the same node
+    @responses.activate
+    def test_node_delete_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_cluster_node(cluster_id)
+        node_id_then = self._list_cluster_node(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._delete_cluster_node(cluster_id, node_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='clusteradmin'))
+        node_id_now = self._list_cluster_node(cluster_id)
+        assert node_id_now  # should still exist
+        assert node_id_then == node_id_now  # should be the same node
+
+
+class CMClusterAutoScalerTests(CMClusterServiceTestBase):
+
+    AUTOSCALER_DATA = {
+        'name': 'default',
+        'instance_type': 'm1.medium',
+        'zone_id': 1
+    }
+
+    fixtures = ['initial_test_data.json']
+
+    def _create_cluster(self):
+        url = reverse('clusterman:clusters-list')
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
+                      json={'config': load_kube_config()}, status=200)
+        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return response.data['id']
+
+    def _create_autoscaler(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        return self.client.post(url, self.AUTOSCALER_DATA, format='json')
+
+    def _list_autoscalers(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['results'][0]['cluster'])
+        return response.data['results'][0]['id']
+
+    def _check_autoscaler_exists(self, cluster_id, node_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['cluster'])
+        return response.data['id']
+
+    def _delete_autoscaler(self, cluster_id, node_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+        return self.client.delete(url)
+
+    def _check_no_autoscalers_exist(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)
+
+    @responses.activate
+    def test_crud_autoscaler(self):
+        """
+        Ensure we can register a new node with cloudman.
+        """
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # create cluster autoscaler
+        response = self._create_autoscaler(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+
+        # list existing objects
+        autoscaler_id = self._list_autoscalers(cluster_id)
+
+        # check it exists
+        autoscaler_id = self._check_autoscaler_exists(cluster_id, autoscaler_id)
+
+        # delete the object
+        response = self._delete_autoscaler(cluster_id, autoscaler_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # check it no longer exists
+        self._check_no_autoscalers_exist(cluster_id)
+
+    @responses.activate
+    def test_autoscaler_create_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._create_autoscaler(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    @responses.activate
+    def test_autoscaler_delete_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_autoscaler(cluster_id)
+        autoscaler_id_then = self._list_autoscalers(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._delete_autoscaler(cluster_id, autoscaler_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='clusteradmin'))
+        autoscaler_id_now = self._list_autoscalers(cluster_id)
+        assert autoscaler_id_now  # should still exist
+        assert autoscaler_id_then == autoscaler_id_now  # should be the same autoscaler
