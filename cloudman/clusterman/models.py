@@ -60,6 +60,8 @@ class CMAutoScaler(models.Model):
     instance_type = models.CharField(max_length=200)
     zone = models.ForeignKey(cb_models.Zone, on_delete=models.CASCADE,
                              null=False, related_name="autoscaler_list")
+    min_nodes = models.IntegerField(default=0)
+    max_nodes = models.IntegerField(default=None, null=True)
 
     class Meta:
         verbose_name = "Cluster Autoscaler"

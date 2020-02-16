@@ -295,7 +295,9 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
     AUTOSCALER_DATA = {
         'name': 'default',
         'instance_type': 'm1.medium',
-        'zone_id': 1
+        'zone_id': 1,
+        'min_nodes': 2,
+        'max_nodes': 7
     }
 
     fixtures = ['initial_test_data.json']

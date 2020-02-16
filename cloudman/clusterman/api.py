@@ -118,13 +118,10 @@ class CMClusterService(CMService):
         return cluster
 
     def delete(self, cluster):
-        obj = (cluster if isinstance(cluster, models.CMCluster)
-               else models.CMCluster.objects.get(id=cluster))
-        if obj:
-            self.check_permissions('clusters.delete_cluster', obj)
-            obj.delete()
-        else:
-            self.raise_no_permissions('clusters.delete_cluster')
+        self.check_permissions('clusters.delete_cluster', cluster)
+        for node in cluster.nodes.list():
+            node.delete()
+        cluster.db_model.delete()
 
 
 class CMClusterNodeService(CMService):
@@ -178,12 +175,8 @@ class CMClusterAutoScalerService(CMService):
         super(CMClusterAutoScalerService, self).__init__(context)
         self.cluster = cluster
 
-    def to_api_object(self, autoscaler):
-        # Remap the returned django model's delete method to the API method
-        # This is just a lazy alternative to writing an actual wrapper around
-        # the django object.
-        autoscaler.original_delete = autoscaler.delete
-        autoscaler.delete = lambda: self.delete(autoscaler)
+    def to_api_object(self, model):
+        autoscaler = resources.ClusterAutoScaler(self, model)
         return autoscaler
 
     def list(self):
@@ -210,4 +203,4 @@ class CMClusterAutoScalerService(CMService):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if autoscaler:
             # call the saved django delete method which we remapped
-            autoscaler.original_delete()
+            autoscaler.db_model.delete()

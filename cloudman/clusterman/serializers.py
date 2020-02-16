@@ -44,6 +44,10 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
     cluster = CMClusterSerializer(read_only=True)
     instance_type = serializers.CharField()
     zone_id = serializers.CharField()
+    min_nodes = serializers.IntegerField(min_value=0, allow_null=True,
+                                         required=False)
+    max_nodes = serializers.IntegerField(min_value=1, max_value=5000,
+                                         allow_null=True, required=False)
 
     def create(self, valid_data):
         cluster_id = self.context['view'].kwargs.get("cluster_pk")
@@ -54,4 +58,3 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
         return cluster.autoscalers.create(valid_data.get('instance_type'),
                                           name=valid_data.get('name'),
                                           zone_id=valid_data.get('zone_id'))
-
