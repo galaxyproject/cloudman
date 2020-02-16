@@ -1,12 +1,11 @@
 """CloudMan Service API."""
 import uuid
-from django.contrib.auth import get_user_model
 from rest_framework.exceptions import PermissionDenied
 
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
 from . import models
-from .cluster_templates import CMClusterTemplate
+from . import resources
 
 
 class CMServiceContext(object):
@@ -93,42 +92,39 @@ class CMClusterService(CMService):
     def __init__(self, context):
         super(CMClusterService, self).__init__(context)
 
-    def add_child_services(self, cluster):
-        cluster.service = self
+    def to_api_object(self, model):
+        cluster = resources.Cluster(self, model)
         cluster.nodes = CMClusterNodeService(self.context, cluster)
         cluster.autoscalers = CMClusterAutoScalerService(self.context, cluster)
         return cluster
 
     def list(self):
-        return list(map(self.add_child_services,
-                        (c for c in models.CMCluster.objects.all()
-                         if self.has_permissions('clusters.view_cluster', c))))
+        return [self.to_api_object(c) for c in models.CMCluster.objects.all()
+                if self.has_permissions('clusters.view_cluster', c)]
 
     def get(self, cluster_id):
         obj = models.CMCluster.objects.get(id=cluster_id)
         self.check_permissions('clusters.view_cluster', obj)
-        return self.add_child_services(obj)
+        return self.to_api_object(obj)
 
     def create(self, name, cluster_type, connection_settings):
         self.check_permissions('clusters.add_cluster')
         obj = models.CMCluster.objects.create(
             name=name, cluster_type=cluster_type,
             connection_settings=connection_settings)
-        cluster = self.add_child_services(obj)
-        template = self.get_cluster_template(cluster)
+        cluster = self.to_api_object(obj)
+        template = cluster.get_cluster_template()
         template.setup()
         return cluster
 
-    def delete(self, cluster_id):
-        obj = models.CMCluster.objects.get(id=cluster_id)
+    def delete(self, cluster):
+        obj = (cluster if isinstance(cluster, models.CMCluster)
+               else models.CMCluster.objects.get(id=cluster))
         if obj:
             self.check_permissions('clusters.delete_cluster', obj)
             obj.delete()
         else:
             self.raise_no_permissions('clusters.delete_cluster')
-
-    def get_cluster_template(self, cluster):
-        return CMClusterTemplate.get_template_for(self.context, cluster)
 
 
 class CMClusterNodeService(CMService):
@@ -146,7 +142,8 @@ class CMClusterNodeService(CMService):
         return node
 
     def list(self):
-        nodes = models.CMClusterNode.objects.filter(cluster=self.cluster)
+        nodes = models.CMClusterNode.objects.filter(
+            cluster=self.cluster.db_model)
         return [self.to_api_object(n) for n in nodes
                 if self.has_permissions('clusternodes.view_clusternode', n)]
 
@@ -158,18 +155,18 @@ class CMClusterNodeService(CMService):
     def create(self, instance_type):
         self.check_permissions('clusternodes.add_clusternode')
         name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
-        template = self.cluster.service.get_cluster_template(self.cluster)
+        template = self.cluster.get_cluster_template()
         cli_deployment = template.add_node(name, instance_type)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(
-            name=name, cluster=self.cluster, deployment=deployment)
+            name=name, cluster=self.cluster.db_model, deployment=deployment)
         return self.to_api_object(node)
 
     def delete(self, node):
         if node:
             self.check_permissions('clusternodes.delete_clusternode', node)
-            template = self.cluster.service.get_cluster_template(self.cluster)
+            template = self.cluster.get_cluster_template()
             template.remove_node(node)
             # call the saved django delete method which we remapped
             node.original_delete()
@@ -191,7 +188,8 @@ class CMClusterAutoScalerService(CMService):
 
     def list(self):
         self.check_permissions('clusters.view_cluster', self.cluster)
-        autoscalers = models.CMAutoScaler.objects.filter(cluster=self.cluster)
+        autoscalers = models.CMAutoScaler.objects.filter(
+            cluster=self.cluster.db_model)
         return [self.to_api_object(a) for a in autoscalers]
 
     def get(self, autoscaler_id):
@@ -203,8 +201,9 @@ class CMClusterAutoScalerService(CMService):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
             name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
-        autoscaler = models.CMAutoScaler.objects.create(cluster=self.cluster,
-            name=name, instance_type=instance_type, zone_id=zone_id)
+        autoscaler = models.CMAutoScaler.objects.create(
+            cluster=self.cluster.db_model, name=name,
+            instance_type=instance_type, zone_id=zone_id)
         return self.to_api_object(autoscaler)
 
     def delete(self, autoscaler):
