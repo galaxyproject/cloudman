@@ -1,6 +1,7 @@
 """CloudMan Create views."""
-from rest_framework.generics import UpdateAPIView
+from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, mixins
 
 from djcloudbridge import drf_helpers
 from . import serializers
@@ -73,3 +74,42 @@ class ClusterAutoScalerViewSet(drf_helpers.CustomModelViewSet):
         else:
             return None
 
+
+class CustomCreateOnlyModelViewSet(drf_helpers.CustomNonModelObjectMixin,
+                                   mixins.CreateModelMixin,
+                                   viewsets.GenericViewSet):
+    pass
+
+
+class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
+    """
+    Reads and updates AutoScaler fields
+    Accepts GET, PUT, PATCH methods.
+    """
+    serializer_class = serializers.PrometheusWebHookSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.scaleup()
+        else:
+            return None
+
+
+class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
+    """
+    Reads and updates AutoScaler fields
+    Accepts GET, PUT, PATCH methods.
+    """
+    serializer_class = serializers.PrometheusWebHookSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.scaledown()
+        else:
+            return None

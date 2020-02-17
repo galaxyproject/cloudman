@@ -18,9 +18,9 @@ cluster_router.register(r'nodes', views.ClusterNodeViewSet,
                         basename='node')
 cluster_router.register(r'autoscalers', views.ClusterAutoScalerViewSet,
                         basename='autoscaler')
-cluster_router.register(r'signals/scaleup', views.ClusterScaleUpSignalView,
+cluster_router.register(r'signals/scaleup', views.ClusterScaleUpSignalViewSet,
                         basename='scaleupsignal')
-cluster_router.register(r'signals/scaledown', views.ClusterScaleDownSignalView,
+cluster_router.register(r'signals/scaledown', views.ClusterScaleDownSignalViewSet,
                         basename='scaledownsignal')
 
 
