@@ -48,6 +48,9 @@ class CMClusterServiceTestBase(APITestCase):
         self.client.force_login(
             User.objects.get_or_create(username='clusteradmin', is_staff=True)[0])
 
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
+                      json={'config': load_kube_config()}, status=200)
+
     def tearDown(self):
         self.client.logout()
 
@@ -60,8 +63,6 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
 
     def _create_cluster(self):
         url = reverse('clusterman:clusters-list')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
         return self.client.post(url, self.CLUSTER_DATA, format='json')
 
     def _list_cluster(self):
@@ -163,13 +164,7 @@ class LiveServerSingleThreadedTestCase(APILiveServerTestCase):
     server_thread_class = LiveServerSingleThread
 
 
-class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThreadedTestCase):
-
-    NODE_DATA = {
-        'instance_type': 'm1.medium'
-    }
-
-    fixtures = ['initial_test_data.json']
+class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTestCase):
 
     def setUp(self):
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
@@ -196,20 +191,29 @@ class CMClusterNodeServiceTests(CMClusterServiceTestBase, LiveServerSingleThread
         patcher4.start()
         self.addCleanup(patcher4.stop)
 
+        # mock responses
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
+                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
+        responses.add_passthru('http://localhost')
+
         super().setUp()
+
+
+class CMClusterNodeServiceTests(CMClusterNodeTestBase):
+
+    NODE_DATA = {
+        'vm_type': 'm1.medium'
+    }
+
+    fixtures = ['initial_test_data.json']
 
     def _create_cluster(self):
         url = reverse('clusterman:clusters-list')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
         response = self.client.post(url, self.CLUSTER_DATA, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
 
     def _create_cluster_node(self, cluster_id):
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
-        responses.add_passthru('http://localhost')
         url = reverse('clusterman:node-list', args=[cluster_id])
         return self.client.post(url, self.NODE_DATA, format='json')
 
@@ -294,7 +298,7 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
 
     AUTOSCALER_DATA = {
         'name': 'default',
-        'instance_type': 'm1.medium',
+        'vm_type': 'm1.medium',
         'zone_id': 1,
         'min_nodes': 2,
         'max_nodes': 7
@@ -304,8 +308,6 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
 
     def _create_cluster(self):
         url = reverse('clusterman:clusters-list')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
         response = self.client.post(url, self.CLUSTER_DATA, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
@@ -389,3 +391,149 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         autoscaler_id_now = self._list_autoscalers(cluster_id)
         assert autoscaler_id_now  # should still exist
         assert autoscaler_id_then == autoscaler_id_now  # should be the same autoscaler
+
+
+class CMClusterScaleSignalTests(CMClusterNodeTestBase):
+
+    AUTOSCALER_DATA = {
+        'name': 'default',
+        'vm_type': 'm1.medium',
+        'zone_id': 1,
+        'min_nodes': 2,
+        'max_nodes': 7
+    }
+
+    SCALE_SIGNAL_DATA = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeCPUOvercommit",
+                    "hostname": "testhostname",
+                    "instance": "192.168.1.1:8000",
+                    "job": "node-exporter",
+                    "severity": "critical",
+                    "tier": "svc"
+                },
+                "annotations": {
+                    "summary": "Cluster has overcommitted CPU resources"
+                },
+                "startsAt": "2019-01-02T10:31:46.05445419Z",
+                "endsAt": "2019-01-02T10:36:46.05445419Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            }
+        ],
+        "groupLabels": {
+            "alertname": "KubeCPUOvercommit"
+        },
+        "commonLabels": {
+            "alertname": "KubeCPUOvercommit",
+            "hostname": "testhostname",
+            "instance": "192.168.1.1:8000",
+            "job": "node-exporter",
+            "severity": "critical",
+            "tier": "svc"
+        },
+        "commonAnnotations": {
+            "host_tier": "testhostname",
+            "summary": "Cluster has overcommitted CPU resources"
+        },
+        "externalURL": "http://alertmanager:9093",
+        "version": "4",
+        "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
+    }
+
+
+    fixtures = ['initial_test_data.json']
+
+    def _create_cluster(self):
+        url = reverse('clusterman:clusters-list')
+        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return response.data['id']
+
+    def _count_cluster_nodes(self, cluster_id):
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['count']
+
+    def _signal_scaleup(self, cluster_id):
+        url = reverse('clusterman:scaleupsignal-list', args=[cluster_id])
+        return self.client.post(url, self.SCALE_SIGNAL_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['results']
+
+    def _signal_scaledown(self, cluster_id):
+        url = reverse('clusterman:scaledownsignal-list', args=[cluster_id])
+        return self.client.post(url, self.SCALE_SIGNAL_DATA, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['results']
+
+    def _create_autoscaler(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        return self.client.post(url, self.AUTOSCALER_DATA, format='json')
+
+    def _list_autoscalers(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['results'][0]['cluster'])
+        return response.data['results'][0]['id']
+
+    def _check_autoscaler_exists(self, cluster_id, node_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data.pop('connection_settings')
+        self.assertDictContainsSubset(cluster_data, response.data['cluster'])
+        return response.data['id']
+
+    def _delete_autoscaler(self, cluster_id, node_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+        return self.client.delete(url)
+
+    def _check_no_autoscalers_exist(self, cluster_id):
+        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)
+
+    @responses.activate
+    def test_scale_up_default(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        count = self._count_cluster_nodes(cluster_id)
+        assert count == 0
+
+        # send autoscale signal
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        assert count == 1
+
+    @responses.activate
+    def test_scale_down_default(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # send autoscale signal
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        assert count == 1
+
+        # send autoscale signal
+        self._signal_scaledown(cluster_id)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        assert count == 0
