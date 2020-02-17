@@ -149,15 +149,16 @@ class CMClusterNodeService(CMService):
         self.check_permissions('clusternodes.view_clusternode', obj)
         return self.to_api_object(obj)
 
-    def create(self, instance_type):
+    def create(self, vm_type=None, zone=None, autoscaler=None):
         self.check_permissions('clusternodes.add_clusternode')
         name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.get_cluster_template()
-        cli_deployment = template.add_node(name, instance_type)
+        cli_deployment = template.add_node(name, vm_type=vm_type, zone=zone)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(
-            name=name, cluster=self.cluster.db_model, deployment=deployment)
+            name=name, cluster=self.cluster.db_model, deployment=deployment,
+            autoscaler=autoscaler.db_model if autoscaler else None)
         return self.to_api_object(node)
 
     def delete(self, node):
@@ -190,13 +191,15 @@ class CMClusterAutoScalerService(CMService):
         obj = models.CMAutoScaler.objects.get(id=autoscaler_id)
         return self.to_api_object(obj)
 
-    def create(self, instance_type, name=None, zone_id=None):
+    def create(self, vm_type=None, name=None, zone_id=None):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
             name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
+        template = self.cluster.get_cluster_template()
+        vm_type = vm_type or template.get_default_vm_type()
         autoscaler = models.CMAutoScaler.objects.create(
             cluster=self.cluster.db_model, name=name,
-            instance_type=instance_type, zone_id=zone_id)
+            vm_type=vm_type, zone_id=zone_id)
         return self.to_api_object(autoscaler)
 
     def delete(self, autoscaler):
@@ -204,3 +207,16 @@ class CMClusterAutoScalerService(CMService):
         if autoscaler:
             # call the saved django delete method which we remapped
             autoscaler.db_model.delete()
+
+    def get_or_create_default(self):
+        self.check_permissions('clusters.view_cluster', self.cluster)
+        template = self.cluster.get_cluster_template()
+        obj, _ = models.CMAutoScaler.objects.get_or_create(
+            name='default', cluster=self.cluster.db_model,
+            defaults={
+                'vm_type': template.get_default_vm_type(),
+                'zone': template.get_default_zone(),
+                'min_nodes': 0,
+                'max_nodes': 5
+            })
+        return self.to_api_object(obj)

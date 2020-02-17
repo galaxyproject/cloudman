@@ -104,9 +104,10 @@ class CMRancherTemplate(CMClusterTemplate):
                              self.rancher_cluster_id,
                              self.rancher_project_id)
 
-    def get_default_instance_type(self):
+    def get_default_vm_type(self):
         settings = self.cluster.connection_settings
-        return settings.get('config_cloudlaunch', {}).get('vmType')
+        return settings.get('app_config', {}).get(
+            'config_cloudlaunch', {}).get('vmType')
 
     def get_default_zone(self):
         settings = self.cluster.connection_settings
@@ -118,10 +119,10 @@ class CMRancherTemplate(CMClusterTemplate):
                                           region__cloud__id=cloud_id)
         return zone
 
-    def add_node(self, name, size):
-        print("Adding node: {0} of size: {1}".format(name, size))
+    def add_node(self, name, vm_type=None, zone=None):
+        print("Adding node: {0} of type: {1}".format(name, vm_type))
         settings = self.cluster.connection_settings
-        zone = self.get_default_zone()
+        zone = zone or self.get_default_zone()
         deployment_target = cl_models.CloudDeploymentTarget.objects.get(
             target_zone=zone)
         params = {
@@ -156,7 +157,7 @@ class CMRancherTemplate(CMClusterTemplate):
             }
         }
         params['config_app']['config_cloudlaunch']['vmType'] = \
-            size or self.get_default_instance_type()
+            vm_type or self.get_default_vm_type()
         # Don't use hostname config
         params['config_app']['config_cloudlaunch'].pop('hostnameConfig', None)
         try:

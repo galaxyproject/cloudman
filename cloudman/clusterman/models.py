@@ -13,6 +13,8 @@ class CMCluster(models.Model):
     updated = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=60)
     cluster_type = models.CharField(max_length=255, blank=False, null=False)
+    autoscale = models.BooleanField(
+        default=True, help_text="Whether autoscaling is activated")
     _connection_settings = models.TextField(
         max_length=1024 * 16, help_text="External provider specific settings "
         "for this cluster.", blank=True, null=True,
@@ -36,6 +38,21 @@ class CMCluster(models.Model):
         verbose_name_plural = "Clusters"
 
 
+class CMAutoScaler(models.Model):
+    name = models.CharField(max_length=60)
+    cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
+                                null=False, related_name="autoscaler_list")
+    vm_type = models.CharField(max_length=200)
+    zone = models.ForeignKey(cb_models.Zone, on_delete=models.CASCADE,
+                             null=False, related_name="autoscaler_list")
+    min_nodes = models.IntegerField(default=0)
+    max_nodes = models.IntegerField(default=None, null=True)
+
+    class Meta:
+        verbose_name = "Cluster Autoscaler"
+        verbose_name_plural = "Cluster Autoscalers"
+
+
 class CMClusterNode(models.Model):
     name = models.CharField(max_length=60)
     cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
@@ -47,22 +64,10 @@ class CMClusterNode(models.Model):
     deployment = models.OneToOneField(
         cl_models.ApplicationDeployment, models.CASCADE,
         related_name="cm_cluster_node")
+    autoscaler = models.ForeignKey(
+        CMAutoScaler, on_delete=models.CASCADE, null=True,
+        related_name="nodegroup")
 
     class Meta:
         verbose_name = "Cluster Node"
         verbose_name_plural = "Cluster Nodes"
-
-
-class CMAutoScaler(models.Model):
-    name = models.CharField(max_length=60)
-    cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
-                                null=False, related_name="autoscaler_list")
-    instance_type = models.CharField(max_length=200)
-    zone = models.ForeignKey(cb_models.Zone, on_delete=models.CASCADE,
-                             null=False, related_name="autoscaler_list")
-    min_nodes = models.IntegerField(default=0)
-    max_nodes = models.IntegerField(default=None, null=True)
-
-    class Meta:
-        verbose_name = "Cluster Autoscaler"
-        verbose_name_plural = "Cluster Autoscalers"
