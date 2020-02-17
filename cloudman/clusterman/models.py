@@ -51,7 +51,7 @@ class CMAutoScaler(models.Model):
     class Meta:
         verbose_name = "Cluster Autoscaler"
         verbose_name_plural = "Cluster Autoscalers"
-
+        unique_together = (("cluster", "name"),)
 
 class CMClusterNode(models.Model):
     name = models.CharField(max_length=60)

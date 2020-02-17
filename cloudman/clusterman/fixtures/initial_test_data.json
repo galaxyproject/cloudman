@@ -215,7 +215,7 @@
   "pk": 1,
   "fields": {
     "zone_id": "default",
-    "name": "",
+    "name": "us-east-1a",
     "region": 1
   }
 },
@@ -224,7 +224,7 @@
   "pk": 2,
   "fields": {
     "zone_id": "default",
-    "name": "",
+    "name": "us-east-1b",
     "region": 2
   }
 },
@@ -233,7 +233,7 @@
   "pk": 3,
   "fields": {
     "zone_id": "default",
-    "name": "",
+    "name": "us-east-1c",
     "region": 3
   }
 },

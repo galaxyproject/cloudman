@@ -28,6 +28,7 @@ class CMClusterNodeSerializer(serializers.Serializer):
     cluster = CMClusterSerializer(read_only=True)
     vm_type = serializers.CharField(write_only=True)
     deployment = cl_serializers.DeploymentSerializer(read_only=True)
+    autoscaler = serializers.PrimaryKeyRelatedField(read_only=True)
 
     def create(self, valid_data):
         cluster_id = self.context['view'].kwargs.get("cluster_pk")
@@ -57,7 +58,9 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
                                   % cluster_id)
         return cluster.autoscalers.create(valid_data.get('vm_type'),
                                           name=valid_data.get('name'),
-                                          zone_id=valid_data.get('zone_id'))
+                                          zone_id=valid_data.get('zone_id'),
+                                          min_nodes=valid_data.get('min_nodes'),
+                                          max_nodes=valid_data.get('max_nodes'))
 
 
 # xref: https://prometheus.io/docs/alerting/configuration/#webhook_config

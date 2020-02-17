@@ -191,15 +191,16 @@ class CMClusterAutoScalerService(CMService):
         obj = models.CMAutoScaler.objects.get(id=autoscaler_id)
         return self.to_api_object(obj)
 
-    def create(self, vm_type=None, name=None, zone_id=None):
+    def create(self, vm_type=None, name=None, zone_id=None,
+               min_nodes=None, max_nodes=None):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
             name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.get_cluster_template()
         vm_type = vm_type or template.get_default_vm_type()
         autoscaler = models.CMAutoScaler.objects.create(
-            cluster=self.cluster.db_model, name=name,
-            vm_type=vm_type, zone_id=zone_id)
+            cluster=self.cluster.db_model, name=name, vm_type=vm_type,
+            zone_id=zone_id, min_nodes=min_nodes, max_nodes=max_nodes)
         return self.to_api_object(autoscaler)
 
     def delete(self, autoscaler):
@@ -211,7 +212,7 @@ class CMClusterAutoScalerService(CMService):
     def get_or_create_default(self):
         self.check_permissions('clusters.view_cluster', self.cluster)
         template = self.cluster.get_cluster_template()
-        obj, _ = models.CMAutoScaler.objects.get_or_create(
+        obj, created = models.CMAutoScaler.objects.get_or_create(
             name='default', cluster=self.cluster.db_model,
             defaults={
                 'vm_type': template.get_default_vm_type(),

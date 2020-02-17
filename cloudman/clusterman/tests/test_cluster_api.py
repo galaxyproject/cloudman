@@ -191,10 +191,9 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher4.start()
         self.addCleanup(patcher4.stop)
 
-        # mock responses
+        responses.add_passthru('http://localhost')
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
                       json={'nodeCommand': 'docker run rancher --worker'}, status=200)
-        responses.add_passthru('http://localhost')
 
         super().setUp()
 
@@ -299,7 +298,7 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
     AUTOSCALER_DATA = {
         'name': 'default',
         'vm_type': 'm1.medium',
-        'zone_id': 1,
+        'zone_id': '2',
         'min_nodes': 2,
         'max_nodes': 7
     }
@@ -325,10 +324,11 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         self.assertDictContainsSubset(cluster_data, response.data['results'][0]['cluster'])
         return response.data['results'][0]['id']
 
-    def _check_autoscaler_exists(self, cluster_id, node_id):
-        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+    def _check_autoscaler_exists(self, cluster_id, autoscaler_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, autoscaler_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertDictContainsSubset(self.AUTOSCALER_DATA, response.data)
         cluster_data = dict(self.CLUSTER_DATA)
         cluster_data.pop('connection_settings')
         self.assertDictContainsSubset(cluster_data, response.data['cluster'])
@@ -395,12 +395,16 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
 
 class CMClusterScaleSignalTests(CMClusterNodeTestBase):
 
+    NODE_DATA = {
+        'vm_type': 'm1.medium'
+    }
+
     AUTOSCALER_DATA = {
         'name': 'default',
         'vm_type': 'm1.medium',
-        'zone_id': 1,
-        'min_nodes': 2,
-        'max_nodes': 7
+        'zone_id': 2,
+        'min_nodes': '1',
+        'max_nodes': '2'
     }
 
     SCALE_SIGNAL_DATA = {
@@ -445,7 +449,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
     }
 
-
     fixtures = ['initial_test_data.json']
 
     def _create_cluster(self):
@@ -454,15 +457,21 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
 
+    def _create_cluster_node(self, cluster_id):
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
+                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        return self.client.post(url, self.NODE_DATA, format='json')
+
     def _count_cluster_nodes(self, cluster_id):
         url = reverse('clusterman:node-list', args=[cluster_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return response.data['count']
 
-    def _signal_scaleup(self, cluster_id):
+    def _signal_scaleup(self, cluster_id, data=SCALE_SIGNAL_DATA):
         url = reverse('clusterman:scaleupsignal-list', args=[cluster_id])
-        return self.client.post(url, self.SCALE_SIGNAL_DATA, format='json')
+        return self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return response.data['results']
 
@@ -472,37 +481,16 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return response.data['results']
 
-    def _create_autoscaler(self, cluster_id):
+    def _create_autoscaler(self, cluster_id, data=AUTOSCALER_DATA):
         url = reverse('clusterman:autoscaler-list', args=[cluster_id])
-        return self.client.post(url, self.AUTOSCALER_DATA, format='json')
-
-    def _list_autoscalers(self, cluster_id):
-        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        cluster_data = dict(self.CLUSTER_DATA)
-        cluster_data.pop('connection_settings')
-        self.assertDictContainsSubset(cluster_data, response.data['results'][0]['cluster'])
-        return response.data['results'][0]['id']
-
-    def _check_autoscaler_exists(self, cluster_id, node_id):
-        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        cluster_data = dict(self.CLUSTER_DATA)
-        cluster_data.pop('connection_settings')
-        self.assertDictContainsSubset(cluster_data, response.data['cluster'])
+        response = self.client.post(url, data, format='json')
         return response.data['id']
 
-    def _delete_autoscaler(self, cluster_id, node_id):
-        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
-        return self.client.delete(url)
-
-    def _check_no_autoscalers_exist(self, cluster_id):
-        url = reverse('clusterman:autoscaler-list', args=[cluster_id])
+    def _count_nodes_in_scale_group(self, cluster_id, autoscaler_id):
+        url = reverse('clusterman:node-list', args=[cluster_id])
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
+        return len([n for n in response.data['results']
+                    if n['autoscaler'] == int(autoscaler_id)])
 
     @responses.activate
     def test_scale_up_default(self):
@@ -510,14 +498,14 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         cluster_id = self._create_cluster()
 
         count = self._count_cluster_nodes(cluster_id)
-        assert count == 0
+        self.assertEqual(count, 0)
 
         # send autoscale signal
         self._signal_scaleup(cluster_id)
 
         # Ensure that node was created
         count = self._count_cluster_nodes(cluster_id)
-        assert count == 1
+        self.assertEqual(count, 1)
 
     @responses.activate
     def test_scale_down_default(self):
@@ -529,11 +517,67 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
 
         # Ensure that node was created
         count = self._count_cluster_nodes(cluster_id)
-        assert count == 1
+        self.assertEqual(count, 1)
 
         # send autoscale signal
         self._signal_scaledown(cluster_id)
 
-        # Ensure that node was created
+        # Ensure that node was deleted
         count = self._count_cluster_nodes(cluster_id)
-        assert count == 0
+        self.assertEqual(count, 0)
+
+    @responses.activate
+    def test_scaling_is_within_bounds(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        self._create_autoscaler(cluster_id)
+
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # send three autoscale signals
+        self._signal_scaleup(cluster_id)
+        self._signal_scaleup(cluster_id)
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that only two nodes were created
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 2)
+
+        # Make sure nodes to not shrink below mininimum
+        self._signal_scaledown(cluster_id)
+        self._signal_scaledown(cluster_id)
+        self._signal_scaledown(cluster_id)
+
+        # Ensure that manual node remains
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+    @responses.activate
+    def test_scaling_with_manual_nodes(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+        self._create_cluster_node(cluster_id)
+
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+        # send two autoscale signals
+        self._signal_scaleup(cluster_id)
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that two nodes were created
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 3)
+
+        # Make sure manually added node is not removed
+        self._signal_scaledown(cluster_id)
+        self._signal_scaledown(cluster_id)
+        self._signal_scaledown(cluster_id)
+
+        # Ensure that manual node remains
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
