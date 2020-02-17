@@ -1,20 +1,10 @@
 """CloudMan Create views."""
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, mixins
 
 from djcloudbridge import drf_helpers
 from . import serializers
 from .api import CloudManAPI
-
-
-class CloudManAPIView(APIView):
-    """List Cloudman API endpoints"""
-
-    def get(self, request, format=None):
-        """Return available clusters."""
-        response = {'url': request.build_absolute_uri('clusters')}
-        return Response(response)
 
 
 class ClusterViewSet(drf_helpers.CustomModelViewSet):
@@ -55,5 +45,74 @@ class ClusterNodeViewSet(drf_helpers.CustomModelViewSet):
             self.kwargs["cluster_pk"])
         if cluster:
             return cluster.nodes.get(self.kwargs["pk"])
+        else:
+            return None
+
+
+class ClusterAutoScalerViewSet(drf_helpers.CustomModelViewSet):
+    """
+    Returns a list of autoscalers currently registered with CloudMan.
+    """
+    permission_classes = (IsAuthenticated,)
+    # Required for the Browsable API renderer to have a nice form.
+    serializer_class = serializers.CMClusterAutoScalerSerializer
+
+    def list_objects(self):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.autoscalers.list()
+        else:
+            return []
+
+    def get_object(self):
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.autoscalers.get(self.kwargs["pk"])
+        else:
+            return None
+
+
+class CustomCreateOnlyModelViewSet(drf_helpers.CustomNonModelObjectMixin,
+                                   mixins.CreateModelMixin,
+                                   viewsets.GenericViewSet):
+    pass
+
+
+class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
+    """
+    Reads and updates AutoScaler fields
+    Accepts GET, PUT, PATCH methods.
+    """
+    serializer_class = serializers.PrometheusWebHookSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        zone_name = serializer.validated_data.get(
+            'commonLabels', {}).get('availability_zone')
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.scaleup(zone_name=zone_name)
+        else:
+            return None
+
+
+class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
+    """
+    Reads and updates AutoScaler fields
+    Accepts GET, PUT, PATCH methods.
+    """
+    serializer_class = serializers.PrometheusWebHookSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def perform_create(self, serializer):
+        zone_name = serializer.validated_data.get(
+            'commonLabels', {}).get('availability_zone')
+        cluster = CloudManAPI.from_request(self.request).clusters.get(
+            self.kwargs["cluster_pk"])
+        if cluster:
+            return cluster.scaledown(zone_name=zone_name)
         else:
             return None

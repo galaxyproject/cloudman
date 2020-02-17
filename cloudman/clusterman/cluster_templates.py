@@ -104,8 +104,12 @@ class CMRancherTemplate(CMClusterTemplate):
                              self.rancher_cluster_id,
                              self.rancher_project_id)
 
-    def add_node(self, name, size):
-        print("Adding node: {0} of size: {1}".format(name, size))
+    def get_default_vm_type(self):
+        settings = self.cluster.connection_settings
+        return settings.get('app_config', {}).get(
+            'config_cloudlaunch', {}).get('vmType')
+
+    def get_default_zone(self):
         settings = self.cluster.connection_settings
         target_zone = settings.get('cloud_config', {}).get('target', {}).get('target_zone', {})
         cloud_id = target_zone.get('cloud', {}).get('id')
@@ -113,7 +117,14 @@ class CMRancherTemplate(CMClusterTemplate):
         zone_id = target_zone.get('zone_id')
         zone = cb_models.Zone.objects.get(zone_id=zone_id, region__region_id=region_id,
                                           region__cloud__id=cloud_id)
-        deployment_target = cl_models.CloudDeploymentTarget.objects.get(target_zone=zone)
+        return zone
+
+    def add_node(self, name, vm_type=None, zone=None):
+        print("Adding node: {0} of type: {1}".format(name, vm_type))
+        settings = self.cluster.connection_settings
+        zone = zone or self.get_default_zone()
+        deployment_target = cl_models.CloudDeploymentTarget.objects.get(
+            target_zone=zone)
         params = {
             'name': name,
             'application': 'cm_rancher_kubernetes_plugin',
@@ -145,8 +156,8 @@ class CMRancherTemplate(CMClusterTemplate):
                 }
             }
         }
-        if size:
-            params['config_app']['config_cloudlaunch']['vmType'] = size
+        params['config_app']['config_cloudlaunch']['vmType'] = \
+            vm_type or self.get_default_vm_type()
         # Don't use hostname config
         params['config_app']['config_cloudlaunch'].pop('hostnameConfig', None)
         try:
@@ -159,8 +170,3 @@ class CMRancherTemplate(CMClusterTemplate):
         return self.context.cloudlaunch_client.deployments.tasks.create(
             action='DELETE', deployment_pk=node.deployment.pk)
 
-    def activate_autoscaling(self, min_nodes=0, max_nodes=None, size=None):
-        pass
-
-    def deactivate_autoscaling(self):
-        pass
