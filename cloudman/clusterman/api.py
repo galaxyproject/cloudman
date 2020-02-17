@@ -107,15 +107,24 @@ class CMClusterService(CMService):
         self.check_permissions('clusters.view_cluster', obj)
         return self.to_api_object(obj)
 
-    def create(self, name, cluster_type, connection_settings):
+    def create(self, name, cluster_type, connection_settings, autoscale=True):
         self.check_permissions('clusters.add_cluster')
         obj = models.CMCluster.objects.create(
             name=name, cluster_type=cluster_type,
-            connection_settings=connection_settings)
+            connection_settings=connection_settings,
+            autoscale=autoscale)
         cluster = self.to_api_object(obj)
         template = cluster.get_cluster_template()
         template.setup()
         return cluster
+
+    def update(self, cluster_id, name=None, autoscale=True):
+        obj = models.CMCluster.objects.get(id=cluster_id)
+        if name:
+            obj.name = name
+        obj.autoscale = autoscale
+        obj.save()
+        return self.to_api_object(obj)
 
     def delete(self, cluster):
         self.check_permissions('clusters.delete_cluster', cluster)

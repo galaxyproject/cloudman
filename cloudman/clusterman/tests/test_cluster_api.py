@@ -83,6 +83,14 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         self.assertDictContainsSubset(cluster_data, response.data)
         return response.data['id']
 
+    def _update_cluster(self, cluster_id):
+        url = reverse('clusterman:clusters-detail', args=[cluster_id])
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data['name'] = 'new_name'
+        cluster_data['autoscale'] = False
+        response = self.client.put(url, cluster_data, format='json')
+        return response.data
+
     def _delete_cluster(self, cluster_id):
         url = reverse('clusterman:clusters-detail', args=[cluster_id])
         return self.client.delete(url)
@@ -111,6 +119,10 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
 
         # check details
         cluster_id = self._check_cluster_exists(cluster_id)
+
+        # update cluster
+        response = self._update_cluster(cluster_id)
+        self.assertEquals(response['name'], 'new_name')
 
         # delete the object
         response = self._delete_cluster(cluster_id)
@@ -488,6 +500,13 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
 
+    def _deactivate_autoscaling(self, cluster_id):
+        url = reverse('clusterman:clusters-detail', args=[cluster_id])
+        response = self.client.get(url)
+        cluster_data = response.data
+        cluster_data['autoscale'] = False
+        return self.client.put(url, cluster_data, format='json')
+
     def _create_cluster_node(self, cluster_id):
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
                       json={'nodeCommand': 'docker run rancher --worker'}, status=200)
@@ -559,6 +578,35 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that node was deleted
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 0)
+
+    @responses.activate
+    def test_scaling_while_deactivated(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # send autoscale signal
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+        # deactivate autoscaling
+        self._deactivate_autoscaling(cluster_id)
+
+        # send autoscale signal
+        self._signal_scaleup(cluster_id)
+
+        # Ensure that scaling up doesn't occur
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+        # send autoscale signal
+        self._signal_scaledown(cluster_id)
+
+        # Ensure that scaling up doesn't occur
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
 
     @responses.activate
     def test_scaling_is_within_bounds(self):

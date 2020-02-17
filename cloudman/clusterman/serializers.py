@@ -11,7 +11,8 @@ class CMClusterSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
     cluster_type = serializers.CharField()
-    connection_settings = serializers.DictField(write_only=True)
+    connection_settings = serializers.DictField(write_only=True, required=False)
+    autoscale = serializers.BooleanField(required=False, initial=True, default=True)
     nodes = CustomHyperlinkedIdentityField(view_name='node-list',
                                            lookup_field='cluster_id',
                                            lookup_url_kwarg='cluster_pk')
@@ -19,7 +20,13 @@ class CMClusterSerializer(serializers.Serializer):
     def create(self, valid_data):
         return CloudManAPI.from_request(self.context['request']).clusters.create(
             valid_data.get('name'), valid_data.get('cluster_type'),
-            valid_data.get('connection_settings'))
+            valid_data.get('connection_settings'),
+            autoscale=valid_data.get('autoscale'))
+
+    def update(self, instance, valid_data):
+        return CloudManAPI.from_request(self.context['request']).clusters.update(
+            instance.id, name=valid_data.get('name'),
+            autoscale=valid_data.get('autoscale'))
 
 
 class CMClusterNodeSerializer(serializers.Serializer):
