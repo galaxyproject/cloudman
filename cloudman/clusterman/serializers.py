@@ -65,23 +65,23 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
 
 # xref: https://prometheus.io/docs/alerting/configuration/#webhook_config
 class PrometheusAlertSerializer(serializers.Serializer):
-    status = serializers.CharField(allow_blank=True)
+    status = serializers.CharField(allow_blank=True, required=False)
     labels = serializers.DictField(required=False)
     annotations = serializers.DictField(required=False)
-    startsAt = serializers.CharField(allow_blank=True)
-    endsAt = serializers.CharField(allow_blank=True)
-    generatorURL = serializers.CharField(allow_blank=True)
+    startsAt = serializers.CharField(allow_blank=True, required=False)
+    endsAt = serializers.CharField(allow_blank=True, required=False)
+    generatorURL = serializers.CharField(allow_blank=True, required=False)
 
 
 # xref: https://prometheus.io/docs/alerting/configuration/#webhook_config
 class PrometheusWebHookSerializer(serializers.Serializer):
     version = serializers.CharField()
-    groupKey = serializers.CharField(allow_blank=True)
-    receiver = serializers.CharField(allow_blank=True)
+    groupKey = serializers.CharField(allow_blank=True, required=False)
+    receiver = serializers.CharField(allow_blank=True, required=False)
     groupLabels = serializers.DictField(required=False)
     commonLabels = serializers.DictField(required=False)
     commonAnnotations = serializers.DictField(required=False)
-    externalURL = serializers.CharField(allow_blank=True)
+    externalURL = serializers.CharField(allow_blank=True, required=False)
     alerts = serializers.ListField(child=PrometheusAlertSerializer(),
                                    allow_empty=True, required=False)
 

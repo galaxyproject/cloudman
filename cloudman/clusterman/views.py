@@ -1,5 +1,4 @@
 """CloudMan Create views."""
-from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets, mixins
 
@@ -90,10 +89,12 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     def perform_create(self, serializer):
+        zone_name = serializer.validated_data.get(
+            'commonLabels', {}).get('availability_zone')
         cluster = CloudManAPI.from_request(self.request).clusters.get(
             self.kwargs["cluster_pk"])
         if cluster:
-            return cluster.scaleup()
+            return cluster.scaleup(zone_name=zone_name)
         else:
             return None
 
@@ -107,9 +108,11 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     def perform_create(self, serializer):
+        zone_name = serializer.validated_data.get(
+            'commonLabels', {}).get('availability_zone')
         cluster = CloudManAPI.from_request(self.request).clusters.get(
             self.kwargs["cluster_pk"])
         if cluster:
-            return cluster.scaledown()
+            return cluster.scaledown(zone_name=zone_name)
         else:
             return None

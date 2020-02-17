@@ -407,6 +407,14 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         'max_nodes': '2'
     }
 
+    AUTOSCALER_DATA_SECOND_ZONE = {
+        'name': 'secondary',
+        'vm_type': 'm1.medium',
+        'zone_id': 3,
+        'min_nodes': '0',
+        'max_nodes': '2'
+    }
+
     SCALE_SIGNAL_DATA = {
         "receiver": "cloudman",
         "status": "resolved",
@@ -449,6 +457,29 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
     }
 
+    SCALE_SIGNAL_DATA_SECOND_ZONE = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeCPUOvercommit",
+                    "availability_zone": "us-east-1c"
+                },
+                "annotations": {
+                    "summary": "Cluster has overcommitted CPU resources"
+                }
+            }
+        ],
+        "commonLabels": {
+            "alertname": "KubeCPUOvercommit",
+            "availability_zone": "us-east-1c"
+        },
+        "version": "4",
+        "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
+    }
+
     fixtures = ['initial_test_data.json']
 
     def _create_cluster(self):
@@ -470,16 +501,18 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         return response.data['count']
 
     def _signal_scaleup(self, cluster_id, data=SCALE_SIGNAL_DATA):
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
+                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         url = reverse('clusterman:scaleupsignal-list', args=[cluster_id])
-        return self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        return response.data['results']
+        response = self.client.post(url, data, format='json')
+        return response
 
-    def _signal_scaledown(self, cluster_id):
+    def _signal_scaledown(self, cluster_id, data=SCALE_SIGNAL_DATA):
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
+                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         url = reverse('clusterman:scaledownsignal-list', args=[cluster_id])
-        return self.client.post(url, self.SCALE_SIGNAL_DATA, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        return response.data['results']
+        response = self.client.post(url, data, format='json')
+        return response
 
     def _create_autoscaler(self, cluster_id, data=AUTOSCALER_DATA):
         url = reverse('clusterman:autoscaler-list', args=[cluster_id])
@@ -489,6 +522,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
     def _count_nodes_in_scale_group(self, cluster_id, autoscaler_id):
         url = reverse('clusterman:node-list', args=[cluster_id])
         response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return len([n for n in response.data['results']
                     if n['autoscaler'] == int(autoscaler_id)])
 
@@ -581,3 +615,65 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
+    @responses.activate
+    def test_scaling_within_zone_group(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        autoscaler_default_id = self._create_autoscaler(cluster_id)
+
+        # create another autoscaler
+        autoscaler_secondary_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_SECOND_ZONE)
+
+        # everything should be zero initially
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # sending an autoscale signal should scale the default scaler
+        self._signal_scaleup(cluster_id)
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 0)
+
+        # send another scale signal but affecting a different zone group
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 1)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 2)
+
+        # should respect the second zones scaling limits
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 2)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 3)
+
+        # should affect only second zone
+        self._signal_scaledown(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+        self._signal_scaledown(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 0)
+
+        # Ensure the total nodes are 1
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)

@@ -1,7 +1,8 @@
 import logging as log
 
+from djcloudbridge import models as cb_models
+
 from .cluster_templates import CMClusterTemplate
-from . import models
 
 
 class Cluster(object):
@@ -47,7 +48,12 @@ class Cluster(object):
     def _get_default_scaler(self):
         return self.autoscalers.get_or_create_default()
 
-    def scaleup(self, zone=None):
+    def scaleup(self, zone_name=None):
+        if zone_name:
+            zone = cb_models.Zone.objects.get(name=zone_name)
+        else:
+            zone = None
+
         if self.autoscale:
             matched = False
             for scaler in self.autoscalers.list():
@@ -60,7 +66,12 @@ class Cluster(object):
         else:
             log.debug("Autoscale up signal received but autoscaling is disabled.")
 
-    def scaledown(self, zone=None):
+    def scaledown(self, zone_name=None):
+        if zone_name:
+            zone = cb_models.Zone.objects.get(name=zone_name)
+        else:
+            zone = None
+
         if self.autoscale:
             matched = False
             for scaler in self.autoscalers.list():
