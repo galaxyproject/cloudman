@@ -1,3 +1,4 @@
+from io import StringIO
 import os
 from unittest.mock import patch
 from unittest.mock import PropertyMock
@@ -20,7 +21,7 @@ def load_kube_config():
         return f.read()
 
 
-class CommandsTestCase(TestCase):
+class ClusterCommandTestCase(TestCase):
 
     INITIAL_CLUSTER_DATA = os.path.join(
         TEST_DATA_PATH, 'initial_cluster_data.yaml')
@@ -58,3 +59,34 @@ class CommandsTestCase(TestCase):
         call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
         cluster = cm_models.CMCluster.objects.get(name='test_cluster')
         self.assertEquals(cluster.cluster_type, 'KUBE_RANCHER')
+
+
+class CreateAutoScaleUserCommandTestCase(TestCase):
+
+    def test_create_autoscale_user_no_args(self):
+        call_command('create_autoscale_user')
+        self.assertTrue(User.objects.get(username='autoscaleuser'))
+
+    def test_create_autoscale_user(self):
+        call_command('create_autoscale_user', "--username", "testautoscale",
+                     "--password", "hello")
+        user = User.objects.get(username='testautoscale')
+        self.assertEquals(user.username, "testautoscale")
+        self.assertTrue(self.client.login(username="testautoscale", password="hello"))
+
+    def test_create_autoscale_user_existing(self):
+        out = StringIO()
+        call_command('create_autoscale_user', "--username", "testautoscale2",
+                     "--password", "hello", stdout=out)
+        self.assertIn("created successfully", out.getvalue())
+        out = StringIO()
+        call_command('create_autoscale_user', "--username", "testautoscale2",
+                     "--password", "hello", stdout=out)
+        self.assertIn("already exists", out.getvalue())
+
+    def test_create_autoscale_does_not_clobber_existing(self):
+        User.objects.create_user(username="hello", password="world")
+        call_command('create_autoscale_user', "--username", "hello",
+                     "--password", "overwrite")
+        # Password should remain unchanged
+        self.assertTrue(self.client.login(username="hello", password="world"))
