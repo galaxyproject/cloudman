@@ -1,15 +1,17 @@
 import os
 import yaml
 
-from django.contrib.auth.models import User
-from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APITestCase, APILiveServerTestCase
 from unittest.mock import patch
 from unittest.mock import PropertyMock
 
-from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
+from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.core.servers.basehttp import WSGIServer
+from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
+from django.urls import reverse
+
+from rest_framework import status
+from rest_framework.test import APITestCase, APILiveServerTestCase
 
 import responses
 
@@ -494,9 +496,12 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
 
     fixtures = ['initial_test_data.json']
 
-    def _create_cluster(self):
+    def _create_cluster_raw(self):
         url = reverse('clusterman:clusters-list')
-        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        return self.client.post(url, self.CLUSTER_DATA, format='json')
+
+    def _create_cluster(self):
+        response = self._create_cluster_raw()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
 
@@ -699,7 +704,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 2)
 
-        # should respect the second zones scaling limits
+        # should respect the second zone's scaling limits
         self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
         self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
         count_default = self._count_nodes_in_scale_group(
@@ -725,3 +730,64 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure the total nodes are 1
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
+
+    def _login_as_autoscaling_user(self):
+        call_command('create_autoscale_user', "--username", "autoscaletestuser")
+        self.client.force_login(
+            User.objects.get_or_create(username='autoscaletestuser')[0])
+
+    @responses.activate
+    def test_autoscaling_user_scale_up_permissions(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+        self._login_as_autoscaling_user()
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+    @responses.activate
+    def test_autoscaling_user_scale_down_permissions(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+        self._login_as_autoscaling_user()
+        self._signal_scaleup(cluster_id)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+        response = self._signal_scaledown(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+    @responses.activate
+    def test_autoscaling_user_no_extra_permissions(self):
+        # create a parent cluster
+        cluster_id = self._create_cluster()
+
+        self._login_as_autoscaling_user()
+
+        # Should not be able to create a new cluster
+        response = self._create_cluster_raw()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+        # TODO: should not be able to change an existing cluster
+
+    @responses.activate
+    def test_autoscale_up_signal_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_autoscaler(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    @responses.activate
+    def test_autoscale_down_signal_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_autoscaler(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._signal_scaledown(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
