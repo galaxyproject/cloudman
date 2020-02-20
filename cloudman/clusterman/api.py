@@ -118,13 +118,10 @@ class CMClusterService(CMService):
         template.setup()
         return cluster
 
-    def update(self, cluster_id, name=None, autoscale=True):
-        obj = models.CMCluster.objects.get(id=cluster_id)
-        if name:
-            obj.name = name
-        obj.autoscale = autoscale
-        obj.save()
-        return self.to_api_object(obj)
+    def update(self, cluster):
+        self.check_permissions('clusters.change_cluster', cluster)
+        cluster.db_model.save()
+        return cluster
 
     def delete(self, cluster):
         self.check_permissions('clusters.delete_cluster', cluster)
@@ -200,7 +197,7 @@ class CMClusterAutoScalerService(CMService):
         obj = models.CMAutoScaler.objects.get(id=autoscaler_id)
         return self.to_api_object(obj)
 
-    def create(self, vm_type=None, name=None, zone_id=None,
+    def create(self, vm_type=None, name=None, zone=None,
                min_nodes=None, max_nodes=None):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
@@ -209,8 +206,13 @@ class CMClusterAutoScalerService(CMService):
         vm_type = vm_type or template.get_default_vm_type()
         autoscaler = models.CMAutoScaler.objects.create(
             cluster=self.cluster.db_model, name=name, vm_type=vm_type,
-            zone_id=zone_id, min_nodes=min_nodes, max_nodes=max_nodes)
+            zone=zone, min_nodes=min_nodes, max_nodes=max_nodes)
         return self.to_api_object(autoscaler)
+
+    def update(self, autoscaler):
+        self.check_permissions('clusters.change_cluster', autoscaler)
+        autoscaler.db_model.save()
+        return autoscaler
 
     def delete(self, autoscaler):
         self.check_permissions('clusters.change_cluster', self.cluster)

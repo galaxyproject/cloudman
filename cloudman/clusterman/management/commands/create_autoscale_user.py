@@ -26,7 +26,6 @@ class Command(BaseCommand):
     @staticmethod
     def _add_permissions(user, perm_names):
         for name in perm_names:
-            print("Adding permission", name)
             permission = Permission.objects.get(codename=name)
             user.user_permissions.add(permission)
         return user

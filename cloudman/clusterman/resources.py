@@ -27,6 +27,10 @@ class Cluster(object):
     def name(self):
         return self.db_model.name
 
+    @name.setter
+    def name(self, value):
+        self.db_model.name = value
+
     @property
     def cluster_type(self):
         return self.db_model.cluster_type
@@ -38,6 +42,10 @@ class Cluster(object):
     @property
     def autoscale(self):
         return self.db_model.autoscale
+
+    @autoscale.setter
+    def autoscale(self, value):
+        self.db_model.autoscale = bool(value)
 
     def delete(self):
         return self.service.delete(self)
@@ -107,9 +115,17 @@ class ClusterAutoScaler(object):
     def name(self):
         return self.db_model.name
 
+    @name.setter
+    def name(self, value):
+        self.db_model.name = value
+
     @property
     def vm_type(self):
         return self.db_model.vm_type
+
+    @vm_type.setter
+    def vm_type(self, value):
+        self.db_model.vm_type = value
 
     @property
     def zone_id(self):
@@ -119,14 +135,26 @@ class ClusterAutoScaler(object):
     def zone(self):
         return self.db_model.zone
 
+    @zone.setter
+    def zone(self, value):
+        self.db_model.zone = value
+
     @property
     def min_nodes(self):
         return self.db_model.min_nodes
+
+    @min_nodes.setter
+    def min_nodes(self, value):
+        self.db_model.min_nodes = max(int(value), 0)
 
     @property
     def max_nodes(self):
         # 5000 being the current k8s node limit
         return self.db_model.max_nodes or 5000
+
+    @max_nodes.setter
+    def max_nodes(self, value):
+        self.db_model.max_nodes = max(int(value), 0)
 
     def delete(self):
         return self.service.delete(self)

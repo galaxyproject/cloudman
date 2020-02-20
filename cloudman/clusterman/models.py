@@ -53,6 +53,7 @@ class CMAutoScaler(models.Model):
         verbose_name_plural = "Cluster Autoscalers"
         unique_together = (("cluster", "name"),)
 
+
 class CMClusterNode(models.Model):
     name = models.CharField(max_length=60)
     cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
