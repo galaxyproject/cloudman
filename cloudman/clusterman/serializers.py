@@ -91,11 +91,3 @@ class PrometheusWebHookSerializer(serializers.Serializer):
     externalURL = serializers.CharField(allow_blank=True, required=False)
     alerts = serializers.ListField(child=PrometheusAlertSerializer(),
                                    allow_empty=True, required=False)
-
-    def create(self, valid_data):
-        cluster_id = self.context['view'].kwargs.get("cluster_pk")
-        cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
-        if not cluster:
-            raise ValidationError("Specified cluster id: %s does not exist"
-                                  % cluster_id)
-        return cluster.nodes.create(valid_data.get('vm_type'))
