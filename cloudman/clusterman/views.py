@@ -9,7 +9,7 @@ from djcloudbridge import drf_helpers
 from . import serializers
 from .api import CloudManAPI
 from .api import CMServiceContext
-
+from .models import GlobalSettings
 
 
 class ClusterViewSet(drf_helpers.CustomModelViewSet):
@@ -99,15 +99,14 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
         # autoscale
         cmapi = CloudManAPI.from_request(self.request)
         cmapi.check_permissions('autoscalers.can_autoscale')
-        # If so, the remaining actions must be carried out as the admin user
-        # since we must use cloud credentials from the admin profile.
+        # If so, the remaining actions must be carried out as an impersonated user
+        # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
-        # TODO: This is brittle because it assumes the first superuser
-        # found has cloud credentials. Instead, we could globally store
-        # which admin account the autoscale user should impersonate.
-        admin = User.objects.filter(is_superuser=True).first()
-        cmapi = CloudManAPI(CMServiceContext(user=admin))
+        impersonate = (User.objects.filter(
+            username=GlobalSettings().settings.autoscale_impersonate).first()
+                       or User.objects.filter(is_superuser=True).first())
+        cmapi = CloudManAPI(CMServiceContext(user=impersonate))
         cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
             return cluster.scaleup(zone_name=zone_name)
@@ -129,15 +128,14 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
         # autoscale
         cmapi = CloudManAPI.from_request(self.request)
         cmapi.check_permissions('autoscalers.can_autoscale')
-        # If so, the remaining actions must be carried out as the admin user
-        # since we must use cloud credentials from the admin profile.
+        # If so, the remaining actions must be carried out as an impersonated user
+        # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
-        # TODO: This is brittle because it assumes the first superuser
-        # found has cloud credentials. Instead, we could globally store
-        # which admin account the autoscale user should impersonate.
-        admin = User.objects.filter(is_superuser=True).first()
-        cmapi = CloudManAPI(CMServiceContext(user=admin))
+        impersonate = (User.objects.filter(
+            username=GlobalSettings().settings.autoscale_impersonate).first()
+                       or User.objects.filter(is_superuser=True).first())
+        cmapi = CloudManAPI(CMServiceContext(user=impersonate))
         cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
             return cluster.scaledown(zone_name=zone_name)

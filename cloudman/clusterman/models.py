@@ -1,8 +1,18 @@
 from django.db import models
 
+from hierarkey.models import GlobalSettingsBase, Hierarkey
+
 from cloudlaunch import models as cl_models
 from djcloudbridge import models as cb_models
 import yaml
+
+
+hierarkey = Hierarkey(attribute_name='settings')
+
+
+@hierarkey.set_global()
+class GlobalSettings(GlobalSettingsBase):
+    pass
 
 
 class CMCluster(models.Model):

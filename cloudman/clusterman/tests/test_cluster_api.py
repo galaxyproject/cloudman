@@ -196,6 +196,9 @@ class LiveServerSingleThreadedTestCase(APILiveServerTestCase):
 class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTestCase):
 
     def setUp(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='clusteradmin', is_superuser=True, is_staff=True)[0])
+
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
         patcher1 = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
                              new_callable=PropertyMock,
@@ -553,8 +556,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         return self.client.put(url, cluster_data, format='json')
 
     def _create_cluster_node(self, cluster_id):
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         url = reverse('clusterman:node-list', args=[cluster_id])
         return self.client.post(url, self.NODE_DATA, format='json')
 
@@ -565,15 +566,11 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         return response.data['count']
 
     def _signal_scaleup(self, cluster_id, data=SCALE_SIGNAL_DATA):
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         url = reverse('clusterman:scaleupsignal-list', args=[cluster_id])
         response = self.client.post(url, data, format='json')
         return response
 
     def _signal_scaledown(self, cluster_id, data=SCALE_SIGNAL_DATA):
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
         url = reverse('clusterman:scaledownsignal-list', args=[cluster_id])
         response = self.client.post(url, data, format='json')
         return response
@@ -771,8 +768,12 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
-    def _login_as_autoscaling_user(self):
-        call_command('create_autoscale_user', "--username", "autoscaletestuser")
+    def _login_as_autoscaling_user(self, impersonate_user=None):
+        if impersonate_user:
+            call_command('create_autoscale_user', "--impersonate_account",
+                         impersonate_user, "--username", "autoscaletestuser")
+        else:
+            call_command('create_autoscale_user', "--username", "autoscaletestuser")
         self.client.force_login(
             User.objects.get_or_create(username='autoscaletestuser')[0])
 
@@ -833,3 +834,34 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
             User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
         response = self._signal_scaledown(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    @responses.activate
+    def test_create_autoscale_user_impersonate(self):
+        # create a parent cluster
+        cluster_id = self._create_cluster()
+        self._login_as_autoscaling_user(impersonate_user='clusteradmin')
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+    @responses.activate
+    def test_create_autoscale_user_impersonate_no_perms(self):
+        # create a parent cluster
+        cluster_id = self._create_cluster()
+        # create a non admin user
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        # log back in as admin
+        self.client.force_login(
+            User.objects.get(username='clusteradmin'))
+        # impersonate non admin user
+        self._login_as_autoscaling_user(impersonate_user='notaclusteradmin')
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)

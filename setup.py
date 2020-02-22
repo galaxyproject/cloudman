@@ -63,7 +63,10 @@ REQS_BASE = [
     'rules',
     # ======== CloudLaunch =========
     'cloudlaunch-server>=0.1.1',
-    'cloudlaunch-cli'
+    'cloudlaunch-cli',
+    # ===== CloudMan =====
+    # To store generic key-value pairs
+    'django-hierarkey'
 ]
 
 REQS_PROD = ([

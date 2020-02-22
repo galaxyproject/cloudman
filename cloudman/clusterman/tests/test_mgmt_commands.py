@@ -63,6 +63,10 @@ class ClusterCommandTestCase(TestCase):
 
 class CreateAutoScaleUserCommandTestCase(TestCase):
 
+    def setUp(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='admin', is_superuser=True)[0])
+
     def test_create_autoscale_user_no_args(self):
         call_command('create_autoscale_user')
         self.assertTrue(User.objects.get(username='autoscaleuser'))
@@ -84,9 +88,23 @@ class CreateAutoScaleUserCommandTestCase(TestCase):
                      "--password", "hello", stdout=out)
         self.assertIn("already exists", out.getvalue())
 
-    def test_create_autoscale_does_not_clobber_existing(self):
+    def test_create_autoscale_user_does_not_clobber_existing(self):
         User.objects.create_user(username="hello", password="world")
         call_command('create_autoscale_user', "--username", "hello",
                      "--password", "overwrite")
         # Password should remain unchanged
         self.assertTrue(self.client.login(username="hello", password="world"))
+
+    def test_create_autoscale_user_with_impersonate(self):
+        out = StringIO()
+        call_command('create_autoscale_user', "--username", "hello",
+                     "--password", "overwrite", "--impersonate_account", "admin",
+                     stdout=out)
+        self.assertIn("created successfully", out.getvalue())
+
+    def test_create_autoscale_user_with_non_existent_impersonate(self):
+        out = StringIO()
+        call_command('create_autoscale_user', "--username", "hello",
+                     "--password", "overwrite", "--impersonate_account", "non_existent",
+                     stdout=out)
+        self.assertNotIn("created successfully", out.getvalue())
