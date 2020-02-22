@@ -33,6 +33,22 @@ class CMCluster(models.Model):
         """
         self._connection_settings = yaml.dump(value, default_flow_style=False)
 
+    @property
+    def default_vm_type(self):
+        return self.connection_settings.get('app_config', {}).get(
+            'config_cloudlaunch', {}).get('vmType')
+
+    @property
+    def default_zone(self):
+        target_zone = self.connection_settings.get(
+            'cloud_config', {}).get('target', {}).get('target_zone', {})
+        cloud_id = target_zone.get('cloud', {}).get('id')
+        region_id = target_zone.get('region', {}).get('region_id')
+        zone_id = target_zone.get('zone_id')
+        zone = cb_models.Zone.objects.get(zone_id=zone_id, region__region_id=region_id,
+                                          region__cloud__id=cloud_id)
+        return zone
+
     class Meta:
         verbose_name = "Cluster"
         verbose_name_plural = "Clusters"
@@ -52,6 +68,7 @@ class CMAutoScaler(models.Model):
         verbose_name = "Cluster Autoscaler"
         verbose_name_plural = "Cluster Autoscalers"
         unique_together = (("cluster", "name"),)
+
 
 class CMClusterNode(models.Model):
     name = models.CharField(max_length=60)

@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 from cloudlaunch import serializers as cl_serializers
+from djcloudbridge import models as cb_models
 from djcloudbridge.drf_helpers import CustomHyperlinkedIdentityField
 from .api import CloudManAPI
 from rest_framework.exceptions import ValidationError
@@ -12,6 +13,8 @@ class CMClusterSerializer(serializers.Serializer):
     name = serializers.CharField()
     cluster_type = serializers.CharField()
     connection_settings = serializers.DictField(write_only=True, required=False)
+    default_vm_type = serializers.CharField(read_only=True)
+    default_zone = cl_serializers.DeploymentZoneSerializer(read_only=True)
     autoscale = serializers.BooleanField(required=False, initial=True, default=True)
     nodes = CustomHyperlinkedIdentityField(view_name='node-list',
                                            lookup_field='cluster_id',
@@ -24,9 +27,10 @@ class CMClusterSerializer(serializers.Serializer):
             autoscale=valid_data.get('autoscale'))
 
     def update(self, instance, valid_data):
-        return CloudManAPI.from_request(self.context['request']).clusters.update(
-            instance.id, name=valid_data.get('name'),
-            autoscale=valid_data.get('autoscale'))
+        instance.name = valid_data.get('name') or instance.name
+        instance.autoscale = valid_data.get('autoscale')
+        return CloudManAPI.from_request(
+            self.context['request']).clusters.update(instance)
 
 
 class CMClusterNodeSerializer(serializers.Serializer):
@@ -51,7 +55,7 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
     name = serializers.CharField(allow_blank=True)
     cluster = CMClusterSerializer(read_only=True)
     vm_type = serializers.CharField()
-    zone_id = serializers.CharField()
+    zone = serializers.PrimaryKeyRelatedField(queryset=cb_models.Zone.objects.all())
     min_nodes = serializers.IntegerField(min_value=0, allow_null=True,
                                          required=False)
     max_nodes = serializers.IntegerField(min_value=1, max_value=5000,
@@ -65,9 +69,19 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
                                   % cluster_id)
         return cluster.autoscalers.create(valid_data.get('vm_type'),
                                           name=valid_data.get('name'),
-                                          zone_id=valid_data.get('zone_id'),
+                                          zone=valid_data.get('zone'),
                                           min_nodes=valid_data.get('min_nodes'),
                                           max_nodes=valid_data.get('max_nodes'))
+
+    def update(self, instance, valid_data):
+        cluster_id = self.context['view'].kwargs.get("cluster_pk")
+        cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
+        instance.name = valid_data.get('name') or instance.name
+        instance.vm_type = valid_data.get('vm_type') or instance.vm_type
+        instance.min_nodes = valid_data.get('min_nodes') or instance.min_nodes
+        instance.max_nodes = valid_data.get('max_nodes') or instance.max_nodes
+        instance.zone = valid_data.get('zone') or instance.zone
+        return cluster.autoscalers.update(instance)
 
 
 # xref: https://prometheus.io/docs/alerting/configuration/#webhook_config
@@ -91,11 +105,3 @@ class PrometheusWebHookSerializer(serializers.Serializer):
     externalURL = serializers.CharField(allow_blank=True, required=False)
     alerts = serializers.ListField(child=PrometheusAlertSerializer(),
                                    allow_empty=True, required=False)
-
-    def create(self, valid_data):
-        cluster_id = self.context['view'].kwargs.get("cluster_pk")
-        cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
-        if not cluster:
-            raise ValidationError("Specified cluster id: %s does not exist"
-                                  % cluster_id)
-        return cluster.nodes.create(valid_data.get('vm_type'))

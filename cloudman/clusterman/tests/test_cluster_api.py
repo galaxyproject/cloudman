@@ -1,15 +1,17 @@
 import os
 import yaml
 
-from django.contrib.auth.models import User
-from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APITestCase, APILiveServerTestCase
 from unittest.mock import patch
 from unittest.mock import PropertyMock
 
-from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
+from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.core.servers.basehttp import WSGIServer
+from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
+from django.urls import reverse
+
+from rest_framework import status
+from rest_framework.test import APITestCase, APILiveServerTestCase
 
 import responses
 
@@ -45,9 +47,21 @@ class CMClusterServiceTestBase(APITestCase):
                              return_value=load_kube_config)
         patcher.start()
         self.addCleanup(patcher.stop)
+
+        # Patch some background celery tasks to reduce noise in the logs.
+        # They don't really affect the tests
+        patcher_update_task = patch('cloudlaunch.tasks.update_status_task')
+        patcher_update_task.start()
+        self.addCleanup(patcher_update_task.stop)
+        patcher_migrate_task = patch('cloudlaunch.tasks.migrate_launch_task')
+        patcher_migrate_task.start()
+        self.addCleanup(patcher_migrate_task.stop)
+        patcher_migrate_result = patch('cloudlaunch.tasks.migrate_task_result')
+        patcher_migrate_result.start()
+        self.addCleanup(patcher_migrate_result.stop)
+
         self.client.force_login(
             User.objects.get_or_create(username='clusteradmin', is_staff=True)[0])
-
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
                       json={'config': load_kube_config()}, status=200)
 
@@ -57,9 +71,10 @@ class CMClusterServiceTestBase(APITestCase):
 
 class CMClusterServiceTests(CMClusterServiceTestBase):
 
+    fixtures = ['initial_test_data.json']
+
     # TODO: Check that attempting to create an existing
     # object raises exception
-    # TODO: Add test for updating objects
 
     def _create_cluster(self):
         url = reverse('clusterman:clusters-list')
@@ -116,6 +131,8 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         # Assert that the originally created cluster id is the same as the one
         # returned by list
         self.assertEquals(response.data['id'], cluster_id)
+        self.assertEquals(response.data['default_vm_type'], 'm2.large')
+        self.assertEquals(response.data['default_zone']['name'], 'us-east-1b')
 
         # check details
         cluster_id = self._check_cluster_exists(cluster_id)
@@ -310,9 +327,17 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
     AUTOSCALER_DATA = {
         'name': 'default',
         'vm_type': 'm1.medium',
-        'zone_id': '2',
+        'zone': 2,
         'min_nodes': 2,
         'max_nodes': 7
+    }
+
+    AUTOSCALER_UPDATE_DATA = {
+        'name': 'test_name',
+        'vm_type': 'm3.medium',
+        'zone': 3,
+        'min_nodes': 4,
+        'max_nodes': 6
     }
 
     fixtures = ['initial_test_data.json']
@@ -340,14 +365,19 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         url = reverse('clusterman:autoscaler-detail', args=[cluster_id, autoscaler_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertDictContainsSubset(self.AUTOSCALER_DATA, response.data)
+        self.assertDictContainsSubset(self.AUTOSCALER_UPDATE_DATA, response.data)
         cluster_data = dict(self.CLUSTER_DATA)
         cluster_data.pop('connection_settings')
         self.assertDictContainsSubset(cluster_data, response.data['cluster'])
         return response.data['id']
 
-    def _delete_autoscaler(self, cluster_id, node_id):
-        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, node_id])
+    def _update_autoscaler(self, cluster_id, autoscaler_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, autoscaler_id])
+        response = self.client.put(url, self.AUTOSCALER_UPDATE_DATA, format='json')
+        return response.data
+
+    def _delete_autoscaler(self, cluster_id, autoscaler_id):
+        url = reverse('clusterman:autoscaler-detail', args=[cluster_id, autoscaler_id])
         return self.client.delete(url)
 
     def _check_no_autoscalers_exist(self, cluster_id):
@@ -370,6 +400,10 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
 
         # list existing objects
         autoscaler_id = self._list_autoscalers(cluster_id)
+
+        # update autoscaler
+        response = self._update_autoscaler(cluster_id, autoscaler_id)
+        self.assertDictContainsSubset(self.AUTOSCALER_UPDATE_DATA, response)
 
         # check it exists
         autoscaler_id = self._check_autoscaler_exists(cluster_id, autoscaler_id)
@@ -414,7 +448,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
     AUTOSCALER_DATA = {
         'name': 'default',
         'vm_type': 'm1.medium',
-        'zone_id': 2,
+        'zone': 2,
         'min_nodes': '1',
         'max_nodes': '2'
     }
@@ -422,7 +456,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
     AUTOSCALER_DATA_SECOND_ZONE = {
         'name': 'secondary',
         'vm_type': 'm1.medium',
-        'zone_id': 3,
+        'zone': 3,
         'min_nodes': '0',
         'max_nodes': '2'
     }
@@ -494,11 +528,22 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
 
     fixtures = ['initial_test_data.json']
 
-    def _create_cluster(self):
+    def _create_cluster_raw(self):
         url = reverse('clusterman:clusters-list')
-        response = self.client.post(url, self.CLUSTER_DATA, format='json')
+        return self.client.post(url, self.CLUSTER_DATA, format='json')
+
+    def _create_cluster(self):
+        response = self._create_cluster_raw()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
+
+    def _update_cluster(self, cluster_id):
+        url = reverse('clusterman:clusters-detail', args=[cluster_id])
+        cluster_data = dict(self.CLUSTER_DATA)
+        cluster_data['name'] = 'new_name'
+        cluster_data['autoscale'] = False
+        response = self.client.put(url, cluster_data, format='json')
+        return response
 
     def _deactivate_autoscaling(self, cluster_id):
         url = reverse('clusterman:clusters-detail', args=[cluster_id])
@@ -699,7 +744,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 2)
 
-        # should respect the second zones scaling limits
+        # should respect the second zone's scaling limits
         self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
         self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
         count_default = self._count_nodes_in_scale_group(
@@ -725,3 +770,66 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure the total nodes are 1
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
+
+    def _login_as_autoscaling_user(self):
+        call_command('create_autoscale_user', "--username", "autoscaletestuser")
+        self.client.force_login(
+            User.objects.get_or_create(username='autoscaletestuser')[0])
+
+    @responses.activate
+    def test_autoscaling_user_scale_up_permissions(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+        self._login_as_autoscaling_user()
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+    @responses.activate
+    def test_autoscaling_user_scale_down_permissions(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+        self._login_as_autoscaling_user()
+        self._signal_scaleup(cluster_id)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+        response = self._signal_scaledown(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+    @responses.activate
+    def test_autoscaling_user_no_extra_permissions(self):
+        # create a parent cluster
+        cluster_id = self._create_cluster()
+
+        self._login_as_autoscaling_user()
+
+        # Should not be able to create a new cluster
+        response = self._create_cluster_raw()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+        # should not be able to change an existing cluster
+        response = self._update_cluster(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    @responses.activate
+    def test_autoscale_up_signal_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_autoscaler(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._signal_scaleup(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+    @responses.activate
+    def test_autoscale_down_signal_unauthorized(self):
+        cluster_id = self._create_cluster()
+        self._create_autoscaler(cluster_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
+        response = self._signal_scaledown(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)

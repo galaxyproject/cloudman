@@ -1,4 +1,5 @@
 """CloudMan Create views."""
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets, mixins
 
@@ -87,6 +88,7 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
     """
     serializer_class = serializers.PrometheusWebHookSerializer
     permission_classes = (IsAuthenticated,)
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
 
     def perform_create(self, serializer):
         zone_name = serializer.validated_data.get(
@@ -106,6 +108,7 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
     """
     serializer_class = serializers.PrometheusWebHookSerializer
     permission_classes = (IsAuthenticated,)
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
 
     def perform_create(self, serializer):
         zone_name = serializer.validated_data.get(
