@@ -61,7 +61,7 @@ class CMClusterServiceTestBase(APITestCase):
         self.addCleanup(patcher_migrate_result.stop)
 
         self.client.force_login(
-            User.objects.get_or_create(username='clusteradmin', is_staff=True)[0])
+            User.objects.get_or_create(username='clusteradmin', is_superuser=True, is_staff=True)[0])
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
                       json={'config': load_kube_config()}, status=200)
 
