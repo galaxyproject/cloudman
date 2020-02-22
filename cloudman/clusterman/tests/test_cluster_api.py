@@ -71,6 +71,8 @@ class CMClusterServiceTestBase(APITestCase):
 
 class CMClusterServiceTests(CMClusterServiceTestBase):
 
+    fixtures = ['initial_test_data.json']
+
     # TODO: Check that attempting to create an existing
     # object raises exception
 
@@ -129,6 +131,8 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         # Assert that the originally created cluster id is the same as the one
         # returned by list
         self.assertEquals(response.data['id'], cluster_id)
+        self.assertEquals(response.data['default_vm_type'], 'm2.large')
+        self.assertEquals(response.data['default_zone']['name'], 'us-east-1b')
 
         # check details
         cluster_id = self._check_cluster_exists(cluster_id)

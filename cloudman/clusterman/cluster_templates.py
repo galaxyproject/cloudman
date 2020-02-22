@@ -4,7 +4,6 @@ import yaml
 from rest_framework.exceptions import ValidationError
 from .rancher import RancherClient
 from cloudlaunch import models as cl_models
-from djcloudbridge import models as cb_models
 import subprocess
 
 
@@ -104,25 +103,10 @@ class CMRancherTemplate(CMClusterTemplate):
                              self.rancher_cluster_id,
                              self.rancher_project_id)
 
-    def get_default_vm_type(self):
-        settings = self.cluster.connection_settings
-        return settings.get('app_config', {}).get(
-            'config_cloudlaunch', {}).get('vmType')
-
-    def get_default_zone(self):
-        settings = self.cluster.connection_settings
-        target_zone = settings.get('cloud_config', {}).get('target', {}).get('target_zone', {})
-        cloud_id = target_zone.get('cloud', {}).get('id')
-        region_id = target_zone.get('region', {}).get('region_id')
-        zone_id = target_zone.get('zone_id')
-        zone = cb_models.Zone.objects.get(zone_id=zone_id, region__region_id=region_id,
-                                          region__cloud__id=cloud_id)
-        return zone
-
     def add_node(self, name, vm_type=None, zone=None):
         print("Adding node: {0} of type: {1}".format(name, vm_type))
         settings = self.cluster.connection_settings
-        zone = zone or self.get_default_zone()
+        zone = zone or self.cluster.default_zone
         deployment_target = cl_models.CloudDeploymentTarget.objects.get(
             target_zone=zone)
         params = {
@@ -157,7 +141,7 @@ class CMRancherTemplate(CMClusterTemplate):
             }
         }
         params['config_app']['config_cloudlaunch']['vmType'] = \
-            vm_type or self.get_default_vm_type()
+            vm_type or self.cluster.default_vm_type
         # Don't use hostname config
         params['config_app']['config_cloudlaunch'].pop('hostnameConfig', None)
         try:

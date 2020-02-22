@@ -13,6 +13,8 @@ class CMClusterSerializer(serializers.Serializer):
     name = serializers.CharField()
     cluster_type = serializers.CharField()
     connection_settings = serializers.DictField(write_only=True, required=False)
+    default_vm_type = serializers.CharField(read_only=True)
+    default_zone = cl_serializers.DeploymentZoneSerializer(read_only=True)
     autoscale = serializers.BooleanField(required=False, initial=True, default=True)
     nodes = CustomHyperlinkedIdentityField(view_name='node-list',
                                            lookup_field='cluster_id',

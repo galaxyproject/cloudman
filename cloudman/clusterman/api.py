@@ -202,8 +202,7 @@ class CMClusterAutoScalerService(CMService):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
             name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
-        template = self.cluster.get_cluster_template()
-        vm_type = vm_type or template.get_default_vm_type()
+        vm_type = vm_type or self.cluster.default_vm_type
         autoscaler = models.CMAutoScaler.objects.create(
             cluster=self.cluster.db_model, name=name, vm_type=vm_type,
             zone=zone, min_nodes=min_nodes, max_nodes=max_nodes)
@@ -222,12 +221,11 @@ class CMClusterAutoScalerService(CMService):
 
     def get_or_create_default(self):
         self.check_permissions('clusters.view_cluster', self.cluster)
-        template = self.cluster.get_cluster_template()
         obj, created = models.CMAutoScaler.objects.get_or_create(
             name='default', cluster=self.cluster.db_model,
             defaults={
-                'vm_type': template.get_default_vm_type(),
-                'zone': template.get_default_zone(),
+                'vm_type': self.cluster.default_vm_type,
+                'zone': self.cluster.default_zone,
                 'min_nodes': 0,
                 'max_nodes': 5
             })

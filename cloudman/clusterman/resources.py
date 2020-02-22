@@ -40,6 +40,14 @@ class Cluster(object):
         return self.db_model.connection_settings
 
     @property
+    def default_vm_type(self):
+        return self.db_model.default_vm_type
+
+    @property
+    def default_zone(self):
+        return self.db_model.default_zone
+
+    @property
     def autoscale(self):
         return self.db_model.autoscale
 
