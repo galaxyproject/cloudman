@@ -226,7 +226,6 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         responses.add_passthru('http://localhost')
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
                       json={'nodeCommand': 'docker run rancher --worker'}, status=200)
-
         super().setUp()
 
 
@@ -267,6 +266,18 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
         return response.data['id']
 
     def _delete_cluster_node(self, cluster_id, node_id):
+        responses.add(responses.GET, 'https://127.0.0.1:4430/v3/nodes/?clusterId=c-abcd1',
+                      json=[
+                          {'id': 'c-ph9ck:m-01606aca4649',
+                           'ipAddress': '10.1.1.1',
+                           'externalIpAddress': None
+                           }
+                      ],
+                      status=200)
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649?action=drain',
+                      json={}, status=200)
+        responses.add(responses.DELETE, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649',
+                      json={}, status=200)
         url = reverse('clusterman:node-detail', args=[cluster_id, node_id])
         return self.client.delete(url)
 
