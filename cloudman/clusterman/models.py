@@ -21,7 +21,7 @@ class CMCluster(models.Model):
     added = models.DateTimeField(auto_now_add=True)
     # Automatically add timestamps when object is updated
     updated = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=60)
+    name = models.CharField(max_length=60, unique=True)
     cluster_type = models.CharField(max_length=255, blank=False, null=False)
     autoscale = models.BooleanField(
         default=True, help_text="Whether autoscaling is activated")

@@ -1,5 +1,5 @@
 # Exception hierarchy for cloudman
 
 
-class InvalidStateException(Exception):
+class CMDuplicateNameException(Exception):
     pass

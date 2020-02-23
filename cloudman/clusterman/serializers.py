@@ -1,11 +1,15 @@
 """DRF serializers for the CloudMan Create API endpoints."""
 
 from rest_framework import serializers
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+
 from cloudlaunch import serializers as cl_serializers
 from djcloudbridge import models as cb_models
 from djcloudbridge.drf_helpers import CustomHyperlinkedIdentityField
+
 from .api import CloudManAPI
-from rest_framework.exceptions import ValidationError
+from .exceptions import CMDuplicateNameException
 
 
 class CMClusterSerializer(serializers.Serializer):
@@ -21,10 +25,14 @@ class CMClusterSerializer(serializers.Serializer):
                                            lookup_url_kwarg='cluster_pk')
 
     def create(self, valid_data):
-        return CloudManAPI.from_request(self.context['request']).clusters.create(
-            valid_data.get('name'), valid_data.get('cluster_type'),
-            valid_data.get('connection_settings'),
-            autoscale=valid_data.get('autoscale'))
+        try:
+            cmapi = CloudManAPI.from_request(self.context['request'])
+            return cmapi.clusters.create(
+                valid_data.get('name'), valid_data.get('cluster_type'),
+                valid_data.get('connection_settings'),
+                autoscale=valid_data.get('autoscale'))
+        except CMDuplicateNameException as e:
+            raise ValidationError(detail=str(e))
 
     def update(self, instance, valid_data):
         instance.name = valid_data.get('name') or instance.name

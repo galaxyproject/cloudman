@@ -15,6 +15,8 @@ from rest_framework.test import APITestCase, APILiveServerTestCase
 
 import responses
 
+from clusterman.exceptions import CMDuplicateNameException
+
 
 def load_test_data(filename):
     cluster_data_path = os.path.join(
@@ -64,9 +66,6 @@ class CMClusterServiceTestBase(APITestCase):
             User.objects.get_or_create(username='clusteradmin', is_superuser=True, is_staff=True)[0])
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
                       json={'config': load_kube_config()}, status=200)
-
-    def tearDown(self):
-        self.client.logout()
 
 
 class CMClusterServiceTests(CMClusterServiceTestBase):
@@ -148,6 +147,11 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         # check it no longer exists
         self._check_no_clusters_exist()
 
+    def test_create_duplicate_name(self):
+        self._create_cluster()
+        response = self._create_cluster()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+
     def test_create_unauthorized(self):
         self.client.force_login(
             User.objects.get_or_create(username='notaclusteradmin', is_staff=False)[0])
@@ -226,6 +230,20 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         responses.add_passthru('http://localhost')
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
                       json={'nodeCommand': 'docker run rancher --worker'}, status=200)
+        responses.add(responses.GET, 'https://127.0.0.1:4430/v3/nodes/?clusterId=c-abcd1',
+                      json=
+                      {'data': [
+                          {'id': 'c-ph9ck:m-01606aca4649',
+                           'ipAddress': '10.1.1.1',
+                           'externalIpAddress': None
+                           }
+                      ]},
+                      status=200)
+        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649?action=drain',
+                      json={}, status=200)
+        responses.add(responses.DELETE, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649',
+                      json={}, status=200)
+
         super().setUp()
 
 
@@ -267,12 +285,13 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
 
     def _delete_cluster_node(self, cluster_id, node_id):
         responses.add(responses.GET, 'https://127.0.0.1:4430/v3/nodes/?clusterId=c-abcd1',
-                      json=[
+                      json=
+                      {'data': [
                           {'id': 'c-ph9ck:m-01606aca4649',
                            'ipAddress': '10.1.1.1',
                            'externalIpAddress': None
                            }
-                      ],
+                      ]},
                       status=200)
         responses.add(responses.POST, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649?action=drain',
                       json={}, status=200)

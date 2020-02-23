@@ -1,9 +1,13 @@
 """CloudMan Service API."""
 import uuid
+
+from django.db import IntegrityError
+
 from rest_framework.exceptions import PermissionDenied
 
 from cloudlaunch import models as cl_models
 from cloudlaunch_cli.api.client import APIClient
+from . import exceptions
 from . import models
 from . import resources
 
@@ -109,14 +113,18 @@ class CMClusterService(CMService):
 
     def create(self, name, cluster_type, connection_settings, autoscale=True):
         self.check_permissions('clusters.add_cluster')
-        obj = models.CMCluster.objects.create(
-            name=name, cluster_type=cluster_type,
-            connection_settings=connection_settings,
-            autoscale=autoscale)
-        cluster = self.to_api_object(obj)
-        template = cluster.get_cluster_template()
-        template.setup()
-        return cluster
+        try:
+            obj = models.CMCluster.objects.create(
+                name=name, cluster_type=cluster_type,
+                connection_settings=connection_settings,
+                autoscale=autoscale)
+            cluster = self.to_api_object(obj)
+            template = cluster.get_cluster_template()
+            template.setup()
+            return cluster
+        except IntegrityError as e:
+            raise exceptions.CMDuplicateNameException(
+                "A cluster with name: %s already exists" % name)
 
     def update(self, cluster):
         self.check_permissions('clusters.change_cluster', cluster)

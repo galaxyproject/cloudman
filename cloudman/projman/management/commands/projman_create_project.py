@@ -29,6 +29,6 @@ class Command(BaseCommand):
         except Exception as e:
             log.exception(f"An error occurred while "
                           f"creating the project '{name}':", e)
-            print(f"An error occurred while creating the project '{name}':", e)
+            print(f"An error occurred while creating the project '{name}':", str(e))
             # Re-raise the exception
             raise e

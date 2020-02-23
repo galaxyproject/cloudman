@@ -6,6 +6,7 @@ from unittest.mock import PropertyMock
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import transaction
 from django.test import TestCase
 
 from djcloudbridge import models as cb_models
@@ -36,9 +37,6 @@ class ClusterCommandTestCase(TestCase):
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 
-    def tearDown(self):
-        self.client.logout()
-
     def test_import_cloud_data_no_args(self):
         with self.assertRaisesRegex(CommandError, "required: filename"):
             call_command('import_cloud_data')
@@ -59,6 +57,14 @@ class ClusterCommandTestCase(TestCase):
         call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
         cluster = cm_models.CMCluster.objects.get(name='test_cluster')
         self.assertEquals(cluster.cluster_type, 'KUBE_RANCHER')
+
+    def test_create_cluster_existing(self):
+        with transaction.atomic():
+            call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
+        self.assertEqual(cm_models.CMCluster.objects.all().count(), 1)
+        with transaction.atomic():
+            call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
+        self.assertEqual(cm_models.CMCluster.objects.all().count(), 1)
 
 
 class CreateAutoScaleUserCommandTestCase(TestCase):

@@ -50,4 +50,4 @@ class Command(BaseCommand):
             print("cluster created successfully.")
         except Exception as e:
             log.exception("An error occurred while creating the initial cluster!!:")
-            print("An error occurred while creating the initial cluster!!:", e)
+            print("An error occurred while creating the initial cluster!!:", str(e))
