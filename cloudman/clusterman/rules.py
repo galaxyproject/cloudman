@@ -35,3 +35,5 @@ rules.add_perm('clusternodes.view_clusternode', can_view_node | has_autoscale_pe
 rules.add_perm('clusternodes.add_clusternode', is_node_owner | has_autoscale_permissions | rules.is_staff)
 rules.add_perm('clusternodes.change_clusternode', is_node_owner | has_autoscale_permissions | rules.is_staff)
 rules.add_perm('clusternodes.delete_clusternode', is_node_owner | has_autoscale_permissions | rules.is_staff)
+
+rules.add_perm('autoscalers.can_autoscale', has_autoscale_permissions | rules.is_staff)

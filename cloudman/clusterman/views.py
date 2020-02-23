@@ -1,4 +1,6 @@
 """CloudMan Create views."""
+from django.contrib.auth.models import User
+
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets, mixins
@@ -6,6 +8,8 @@ from rest_framework import viewsets, mixins
 from djcloudbridge import drf_helpers
 from . import serializers
 from .api import CloudManAPI
+from .api import CMServiceContext
+from .models import GlobalSettings
 
 
 class ClusterViewSet(drf_helpers.CustomModelViewSet):
@@ -91,10 +95,19 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
     authentication_classes = [SessionAuthentication, BasicAuthentication]
 
     def perform_create(self, serializer):
+        # first, check whether the current user has permissions to
+        # autoscale
+        cmapi = CloudManAPI.from_request(self.request)
+        cmapi.check_permissions('autoscalers.can_autoscale')
+        # If so, the remaining actions must be carried out as an impersonated user
+        # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
-        cluster = CloudManAPI.from_request(self.request).clusters.get(
-            self.kwargs["cluster_pk"])
+        impersonate = (User.objects.filter(
+            username=GlobalSettings().settings.autoscale_impersonate).first()
+                       or User.objects.filter(is_superuser=True).first())
+        cmapi = CloudManAPI(CMServiceContext(user=impersonate))
+        cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
             return cluster.scaleup(zone_name=zone_name)
         else:
@@ -111,10 +124,19 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
     authentication_classes = [SessionAuthentication, BasicAuthentication]
 
     def perform_create(self, serializer):
+        # first, check whether the current user has permissions to
+        # autoscale
+        cmapi = CloudManAPI.from_request(self.request)
+        cmapi.check_permissions('autoscalers.can_autoscale')
+        # If so, the remaining actions must be carried out as an impersonated user
+        # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
-        cluster = CloudManAPI.from_request(self.request).clusters.get(
-            self.kwargs["cluster_pk"])
+        impersonate = (User.objects.filter(
+            username=GlobalSettings().settings.autoscale_impersonate).first()
+                       or User.objects.filter(is_superuser=True).first())
+        cmapi = CloudManAPI(CMServiceContext(user=impersonate))
+        cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
             return cluster.scaledown(zone_name=zone_name)
         else:

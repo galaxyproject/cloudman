@@ -1,9 +1,13 @@
 """Plugin implementation for a simple web application."""
+import time
+
 from celery.utils.log import get_task_logger
 
 from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
 from cloudlaunch.backend_plugins.cloudman2_app import get_iam_handler_for
 from cloudlaunch.configurers import AnsibleAppConfigurer
+
+from clusterman.rancher import RancherClient
 
 from rest_framework.serializers import ValidationError
 
@@ -48,6 +52,12 @@ class RancherKubernetesApp(BaseVMAppPlugin):
             name, task, app_config, provider_config)
         return result
 
+    def _create_rancher_client(self, rancher_cfg):
+        return RancherClient(rancher_cfg.get('rancher_url'),
+                             rancher_cfg.get('rancher_api_key'),
+                             rancher_cfg.get('rancher_cluster_id'),
+                             rancher_cfg.get('rancher_project_id'))
+
     def delete(self, provider, deployment):
         """
         Delete resource(s) associated with the supplied deployment.
@@ -58,8 +68,20 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         *Note* that this method will delete resource(s) associated with
         the deployment - this is an un-recoverable action.
         """
-        # key += get_required_val(rancher_config, "RANCHER_API_KEY")
-        # Contact rancher API and delete node
+        app_config = deployment.get('app_config')
+        rancher_cfg = app_config.get('config_rancher_kube')
+        rancher_client = self._create_rancher_client(rancher_cfg)
+        node_ip = deployment.get(
+            'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
+        rancher_node_id = rancher_client.find_node(ip=node_ip)
+        if rancher_node_id:
+            rancher_client.drain_node(rancher_node_id)
+            # during tests, node_ip is None, so skip sleep if so
+            if node_ip:
+                time.sleep(60)
+            # remove node from rancher
+            rancher_client.delete_node(rancher_node_id)
+        # delete the VM
         return super().delete(provider, deployment)
 
     def _get_configurer(self, app_config):

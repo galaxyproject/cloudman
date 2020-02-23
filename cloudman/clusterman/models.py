@@ -1,8 +1,18 @@
 from django.db import models
 
+from hierarkey.models import GlobalSettingsBase, Hierarkey
+
 from cloudlaunch import models as cl_models
 from djcloudbridge import models as cb_models
 import yaml
+
+
+hierarkey = Hierarkey(attribute_name='settings')
+
+
+@hierarkey.set_global()
+class GlobalSettings(GlobalSettingsBase):
+    pass
 
 
 class CMCluster(models.Model):
@@ -11,7 +21,7 @@ class CMCluster(models.Model):
     added = models.DateTimeField(auto_now_add=True)
     # Automatically add timestamps when object is updated
     updated = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=60)
+    name = models.CharField(max_length=60, unique=True)
     cluster_type = models.CharField(max_length=255, blank=False, null=False)
     autoscale = models.BooleanField(
         default=True, help_text="Whether autoscaling is activated")
