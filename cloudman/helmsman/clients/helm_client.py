@@ -22,7 +22,7 @@ class HelmClient(HelmService):
         super(HelmClient, self).__init__(self)
         self._release_svc = HelmReleaseService(self)
         self._repo_svc = HelmRepositoryService(self)
-        self._chart_svc = HelmChartService(self)
+        self._repo_chart_svc = HelmRepoChartService(self)
 
     @staticmethod
     def _check_environment():
@@ -38,8 +38,8 @@ class HelmClient(HelmService):
         return self._repo_svc
 
     @property
-    def charts(self):
-        return self._chart_svc
+    def repo_charts(self):
+        return self._repo_chart_svc
 
 
 class HelmValueHandling(Enum):
@@ -175,18 +175,25 @@ class HelmRepositoryService(HelmService):
         return helpers.run_command(["helm", "repo", "remove", repo_name])
 
 
-class HelmChartService(HelmService):
+class HelmRepoChartService(HelmService):
 
     def __init__(self, client):
-        super(HelmChartService, self).__init__(client)
+        super(HelmRepoChartService, self).__init__(client)
 
-    def list(self, chart_name=None):
-        data = helpers.run_list_command(["helm", "search"] +
-                                        [chart_name] if chart_name else [])
+    def list(self, chart_name=None, chart_version=None, search_hub=False):
+        # Perform exact match if chart_name specified.
+        # https://github.com/helm/helm/issues/3890
+        data = helpers.run_list_command(
+            ["helm", "search", "hub" if search_hub else "repo"] +
+            ["--regexp", "'%s\v'" % chart_name] if chart_name else [] +
+            ["--version", chart_version] if chart_version else [])
         return data
 
     def get(self, chart_name):
         return {}
+
+    def find(self, name, version, search_hub=False):
+        return self.list(chart_name=name, chart_version=version, search_hub=search_hub)
 
     def create(self, chart_name):
         raise Exception("Not implemented")
