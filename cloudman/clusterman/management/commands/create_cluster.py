@@ -7,6 +7,8 @@ import yaml
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
+from clusterman import exceptions
+
 
 class Command(BaseCommand):
     help = 'Creates a CloudMan cluster. Currently supported cluster' \
@@ -45,9 +47,14 @@ class Command(BaseCommand):
             from clusterman import api
             admin = User.objects.filter(is_superuser=True).first()
             cmapi = api.CloudManAPI(api.CMServiceContext(user=admin))
-            cmapi.clusters.create(
-                name, cluster_type, connection_settings=settings)
-            print("cluster created successfully.")
+            try:
+                cmapi.clusters.create(
+                    name, cluster_type, connection_settings=settings)
+                print("cluster created successfully.")
+            except exceptions.CMDuplicateNameException:
+                cluster = cmapi.clusters.find(name=name)[0]
+                cmapi.clusters.update(cluster)
+                print("cluster already exists. Reinitialized.")
         except Exception as e:
             log.exception("An error occurred while creating the initial cluster!!:")
             print("An error occurred while creating the initial cluster!!:", str(e))
