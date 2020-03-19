@@ -24,6 +24,10 @@ class NamespaceExistsException(HelmsmanException):
     pass
 
 
+class ChartNotFoundException(HelmsmanException):
+    pass
+
+
 class HMServiceContext(object):
     """
     A class to contain contextual information when processing a
@@ -192,6 +196,18 @@ class HMChartService(HelmsManService):
         else:
             return None
 
+    def _find_repo_for_chart(self, chart):
+        # We use a best guess because helm does not track which repository a chart
+        # was installed from: https://github.com/helm/helm/issues/4256
+        # So just return the first matching repo
+        repos = HelmClient().repo_charts.find(
+            name=chart.name, version=chart.chart_version)
+        if repos:
+            fullname = repos[0].get('NAME')
+            return fullname.split("/")[0]
+        else:
+            return None
+
     def create(self, repo_name, chart_name, namespace,
                release_name=None, version=None, values=None):
         self.check_permissions('helmsman.add_chart')
@@ -219,9 +235,15 @@ class HMChartService(HelmsManService):
             cur_vals = jsonmerge.merge(cur_vals, values)
         else:
             cur_vals = values
-        # 3. Apply the updated config to the chart
+        # 3. Guess which repo the chart came from
+        repo_name = self._find_repo_for_chart(chart)
+        if not repo_name:
+            raise ChartNotFoundException(
+                "Could not find chart: %s, version: %s in any repository" %
+                (chart.name, chart.chart_version))
+        # 4. Apply the updated config to the chart
         HelmClient().releases.update(
-            chart.namespace, chart.id, "cloudve/%s" % chart.name, values=cur_vals,
+            chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=cur_vals,
             value_handling=HelmValueHandling.REUSE)
         chart.values = jsonmerge.merge(chart.values, cur_vals)
         return chart

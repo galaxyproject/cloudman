@@ -1,6 +1,7 @@
 import argparse
 import csv
 from io import StringIO
+import re
 import uuid
 import yaml
 
@@ -35,12 +36,27 @@ class MockHelm(object):
                 'URL': 'https://kubernetes-charts.storage.googleapis.com'
             }
         }
+        self.charts_in_repo = [
+            {
+                'NAME': 'stable/cloudlaunch\\v',
+                'CHART VERSION': '0.2.0',
+                'APP VERSION': '2.0.2',
+                'DESCRIPTION': 'A Helm chart for CloudLaunch'
+            },
+            {
+                'NAME': 'cloudve/galaxy\\v',
+                'CHART VERSION': '1.0.0',
+                'APP VERSION': '20.01',
+                'DESCRIPTION': 'A Helm chart for Galaxy'
+            }
+        ]
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
                                        "CHART", "APP VERSION", "NAMESPACE"]
         self.chart_history_field_names = ["REVISION", "UPDATED", "STATUS",
                                           "CHART", "APP VERSION",
                                           "DESCRIPTION"]
         self.repo_list_field_names = ["NAME", "URL"]
+        self.repo_search_field_names = ["NAME", "CHART VERSION", "APP VERSION", "DESCRIPTION"]
         self.parser = self._create_parser()
 
     def _create_parser(self):
@@ -138,6 +154,15 @@ class MockHelm(object):
         parser_delete.add_argument('release', type=str, help='release name')
         parser_delete.add_argument('--namespace', type=str, help='namespace')
         parser_delete.set_defaults(func=self._helm_delete)
+
+        # Helm search
+        parser_search = subparsers.add_parser('search', help='Search for a chart in repos or hub')
+        search_subparsers = parser_search.add_subparsers(help='Available Commands')
+        parser_repo_search = search_subparsers.add_parser('repo', help='Search for a chart in a local repo')
+        parser_repo_search.add_argument('keyword', type=str, help='keyword to search for')
+        parser_repo_search.add_argument('--regexp', action='store_true', help='use regular expressions for searching')
+        parser_repo_search.add_argument('--version', type=str, help='search using semantic versioning constraints')
+        parser_repo_search.set_defaults(func=self._helm_repo_search)
 
         return parser
 
@@ -271,3 +296,19 @@ class MockHelm(object):
             return 'Error: release: "%s" not found' % args.release
         self.chart_database.pop(args.release, None)
 
+    def _helm_repo_search(self, args):
+
+        def match(chart_name):
+            # strip quotes that the shell would have removed
+            keyword = re.sub(r"^'|'$", '', args.keyword)
+            return keyword in chart_name
+
+        with StringIO() as output:
+            writer = csv.DictWriter(output,
+                                    fieldnames=self.repo_search_field_names,
+                                    delimiter="\t", extrasaction='ignore')
+            writer.writeheader()
+            for val in self.charts_in_repo:
+                if match(val.get('NAME')):
+                    writer.writerow(val)
+            return output.getvalue()

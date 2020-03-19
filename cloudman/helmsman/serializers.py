@@ -26,7 +26,7 @@ class HMChartSerializer(serializers.Serializer):
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']).charts.create(
-            valid_data.get('repo_name', 'cloudve'), valid_data.get('name'),
+            valid_data.get('repo_name'), valid_data.get('name'),
             valid_data.get('namespace'), valid_data.get('release_name'),
             valid_data.get('chart_version'), valid_data.get('values'))
 
