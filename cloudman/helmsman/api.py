@@ -24,6 +24,10 @@ class NamespaceExistsException(HelmsmanException):
     pass
 
 
+class ChartNotFoundException(HelmsmanException):
+    pass
+
+
 class HMServiceContext(object):
     """
     A class to contain contextual information when processing a
@@ -233,6 +237,10 @@ class HMChartService(HelmsManService):
             cur_vals = values
         # 3. Guess which repo the chart came from
         repo_name = self._find_repo_for_chart(chart)
+        if not repo_name:
+            raise ChartNotFoundException(
+                "Could not find chart: %s, version: %s in any repository" %
+                (chart.name, chart.chart_version))
         # 4. Apply the updated config to the chart
         HelmClient().releases.update(
             chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=cur_vals,

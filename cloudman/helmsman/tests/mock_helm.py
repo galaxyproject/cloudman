@@ -38,10 +38,16 @@ class MockHelm(object):
         }
         self.charts_in_repo = [
             {
-                'NAME': 'stable/cloudlaunch',
+                'NAME': 'stable/cloudlaunch\\v',
                 'CHART VERSION': '0.2.0',
                 'APP VERSION': '2.0.2',
                 'DESCRIPTION': 'A Helm chart for CloudLaunch'
+            },
+            {
+                'NAME': 'cloudve/galaxy\\v',
+                'CHART VERSION': '1.0.0',
+                'APP VERSION': '20.01',
+                'DESCRIPTION': 'A Helm chart for Galaxy'
             }
         ]
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
@@ -291,11 +297,11 @@ class MockHelm(object):
         self.chart_database.pop(args.release, None)
 
     def _helm_repo_search(self, args):
+
         def match(chart_name):
-            if args.regexp:
-                return re.match(args.keyword, chart_name)
-            else:
-                return args.keyword in chart_name
+            # strip quotes that the shell would have removed
+            keyword = re.sub(r"^'|'$", '', args.keyword)
+            return keyword in chart_name
 
         with StringIO() as output:
             writer = csv.DictWriter(output,
