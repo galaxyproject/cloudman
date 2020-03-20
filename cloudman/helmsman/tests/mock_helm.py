@@ -1,7 +1,6 @@
 import argparse
 import csv
 from io import StringIO
-import re
 import uuid
 import yaml
 
@@ -299,9 +298,7 @@ class MockHelm(object):
     def _helm_repo_search(self, args):
 
         def match(chart_name):
-            # strip quotes that the shell would have removed
-            keyword = re.sub(r"^'|'$", '', args.keyword)
-            return keyword in chart_name
+            return args.keyword in chart_name
 
         with StringIO() as output:
             writer = csv.DictWriter(output,

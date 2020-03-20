@@ -185,7 +185,7 @@ class HelmRepoChartService(HelmService):
         # https://github.com/helm/helm/issues/3890
         data = helpers.run_list_command(
             ["helm", "search", "hub" if search_hub else "repo"] +
-            ["--regexp", "'%s\\v'" % chart_name] if chart_name else [] +
+            ["--regexp", "%s\\v" % chart_name] if chart_name else [] +
             ["--version", chart_version] if chart_version else [])
         return data
 
