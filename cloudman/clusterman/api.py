@@ -111,6 +111,10 @@ class CMClusterService(CMService):
         self.check_permissions('clusters.view_cluster', obj)
         return self.to_api_object(obj)
 
+    def find(self, name):
+        return [self.to_api_object(c) for c in models.CMCluster.objects.filter(name=name)
+                if self.has_permissions('clusters.view_cluster', c)]
+
     def create(self, name, cluster_type, connection_settings, autoscale=True):
         self.check_permissions('clusters.add_cluster')
         try:
@@ -128,6 +132,8 @@ class CMClusterService(CMService):
 
     def update(self, cluster):
         self.check_permissions('clusters.change_cluster', cluster)
+        template = cluster.get_cluster_template()
+        template.setup()
         cluster.db_model.save()
         return cluster
 
