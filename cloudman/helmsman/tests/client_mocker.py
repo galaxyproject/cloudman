@@ -42,7 +42,7 @@ class KubeMocker(object):
     @staticmethod
     def extra_patches():
         return [patch(
-          'helmsman.clients.k8s_client.KubeClient._check_environment',
+          'clusterman.clients.kube_client.KubeClient._check_environment',
           return_value=True)]
 
     def run_command(self, command):
@@ -60,7 +60,7 @@ class ClientMocker(object):
         self.extra_patches = []
         for mocker in self.mockers:
             self.extra_patches += mocker.extra_patches()
-        self.patch1 = patch('helmsman.clients.helpers.run_command',
+        self.patch1 = patch('clusterman.clients.helpers.run_command',
                             self.mock_run_command)
         self.patch1.start()
         testcase.addCleanup(self.patch1.stop)
