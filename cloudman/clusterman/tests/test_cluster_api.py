@@ -15,7 +15,7 @@ from rest_framework.test import APITestCase, APILiveServerTestCase
 
 import responses
 
-from clusterman.exceptions import CMDuplicateNameException
+from .client_mocker import ClientMocker
 
 
 def load_test_data(filename):
@@ -44,9 +44,10 @@ class CMClusterServiceTestBase(APITestCase):
     }
 
     def setUp(self):
+        self.mock_client = ClientMocker(self)
         patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
-                             new_callable=PropertyMock,
-                             return_value=load_kube_config)
+                        new_callable=PropertyMock,
+                        return_value=load_kube_config)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -205,8 +206,8 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
 
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
         patcher1 = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
-                             new_callable=PropertyMock,
-                             return_value=cloudlaunch_url)
+                         new_callable=PropertyMock,
+                         return_value=cloudlaunch_url)
         patcher1.start()
         self.addCleanup(patcher1.stop)
 

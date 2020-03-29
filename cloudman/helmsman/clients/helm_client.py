@@ -2,7 +2,7 @@
 import shutil
 import tempfile
 import yaml
-from helmsman.clients import helpers
+from clusterman.clients import helpers
 from enum import Enum
 
 

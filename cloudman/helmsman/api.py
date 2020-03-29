@@ -3,8 +3,9 @@ import jsonmerge
 
 from rest_framework.exceptions import PermissionDenied
 
+from clusterman.clients.kube_client import KubeClient
+
 from .clients.helm_client import HelmClient
-from .clients.k8s_client import KubeClient
 from .clients.helm_client import HelmValueHandling
 
 

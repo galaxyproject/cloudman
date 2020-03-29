@@ -79,18 +79,6 @@ class RancherClient(object):
                    n.get('externalIpAddress') == ip]
         return matches[0]['id'] if matches else None
 
-    def drain_node(self, node_id):
-        node_url = Template(self.NODE_DRAIN_URL).safe_substitute({
-            'node_id': node_id
-        })
-        return self._api_post(node_url, data={
-            "deleteLocalData": True,
-            "force": True,
-            "ignoreDaemonSets": True,
-            "gracePeriod": "-1",
-            "timeout": "60"
-        }, json_response=False)
-
     def delete_node(self, node_id):
         node_url = Template(self.NODE_DELETE_URL).safe_substitute({
             'node_id': node_id
