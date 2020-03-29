@@ -12,8 +12,7 @@ class KubeMocker(object):
         if isinstance(command, list):
             prog = command[0]
             if prog.startswith("kubectl"):
-                if 'namespace' in command or 'namespaces' in command:
-                    return True
+                return True
         return False
 
     @staticmethod

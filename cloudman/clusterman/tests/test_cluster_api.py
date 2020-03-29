@@ -206,8 +206,8 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
 
         cloudlaunch_url = f'{self.live_server_url}/cloudman/cloudlaunch/api/v1'
         patcher1 = patch('clusterman.api.CMServiceContext.cloudlaunch_url',
-                             new_callable=PropertyMock,
-                             return_value=cloudlaunch_url)
+                         new_callable=PropertyMock,
+                         return_value=cloudlaunch_url)
         patcher1.start()
         self.addCleanup(patcher1.stop)
 
