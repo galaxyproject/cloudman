@@ -8,6 +8,7 @@ from cloudlaunch.backend_plugins.cloudman2_app import get_iam_handler_for
 from cloudlaunch.configurers import AnsibleAppConfigurer
 
 from clusterman.clients.rancher import RancherClient
+from clusterman.clients.kube_client import KubeClient
 
 from rest_framework.serializers import ValidationError
 
@@ -75,10 +76,14 @@ class RancherKubernetesApp(BaseVMAppPlugin):
             'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
         rancher_node_id = rancher_client.find_node(ip=node_ip)
         if rancher_node_id:
-            rancher_client.drain_node(rancher_node_id)
-            # during tests, node_ip is None, so skip sleep if so
-            if node_ip:
-                time.sleep(60)
+            kube_client = KubeClient()
+            k8s_node = kube_client.nodes.find(node_ip)[0]
+            # stop new jobs being scheduled on this node
+            kube_client.nodes.cordon(k8s_node)
+            # let existing jobs finish
+            kube_client.nodes.wait_till_jobs_complete(k8s_node)
+            # drain remaining pods
+            kube_client.nodes.drain(k8s_node, timeout=120)
             # remove node from rancher
             rancher_client.delete_node(rancher_node_id)
         # delete the VM

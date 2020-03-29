@@ -3,3 +3,7 @@
 
 class CMDuplicateNameException(Exception):
     pass
+
+
+class CMRunCommandException(Exception):
+    pass
