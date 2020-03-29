@@ -2,7 +2,7 @@ import abc
 import os
 import yaml
 from rest_framework.exceptions import ValidationError
-from .rancher import RancherClient
+from .clients.rancher import RancherClient
 from cloudlaunch import models as cl_models
 import subprocess
 

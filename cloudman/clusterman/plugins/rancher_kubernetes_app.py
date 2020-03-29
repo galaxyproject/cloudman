@@ -7,7 +7,7 @@ from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
 from cloudlaunch.backend_plugins.cloudman2_app import get_iam_handler_for
 from cloudlaunch.configurers import AnsibleAppConfigurer
 
-from clusterman.rancher import RancherClient
+from clusterman.clients.rancher import RancherClient
 
 from rest_framework.serializers import ValidationError
 
