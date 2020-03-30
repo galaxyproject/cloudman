@@ -74,20 +74,24 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         rancher_client = self._create_rancher_client(rancher_cfg)
         node_ip = deployment.get(
             'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
-        rancher_node_id = rancher_client.find_node(ip=node_ip)
-        if rancher_node_id:
-            kube_client = KubeClient()
-            k8s_node = kube_client.nodes.find(node_ip)[0]
-            # stop new jobs being scheduled on this node
-            kube_client.nodes.cordon(k8s_node)
-            # let existing jobs finish
-            kube_client.nodes.wait_till_jobs_complete(k8s_node)
-            # drain remaining pods
-            kube_client.nodes.drain(k8s_node, timeout=120)
-            # remove node from rancher
-            rancher_client.delete_node(rancher_node_id)
-        # delete the VM
-        return super().delete(provider, deployment)
+        try:
+            rancher_node_id = rancher_client.find_node(ip=node_ip)
+            if rancher_node_id:
+                try:
+                    kube_client = KubeClient()
+                    k8s_node = kube_client.nodes.find(node_ip)[0]
+                    # stop new jobs being scheduled on this node
+                    kube_client.nodes.cordon(k8s_node)
+                    # let existing jobs finish
+                    kube_client.nodes.wait_till_jobs_complete(k8s_node)
+                    # drain remaining pods
+                    kube_client.nodes.drain(k8s_node, timeout=120)
+                finally:
+                    # remove node from rancher
+                    rancher_client.delete_node(rancher_node_id)
+        finally:
+            # delete the VM
+            return super().delete(provider, deployment)
 
     def _get_configurer(self, app_config):
         # CloudMan2 can only be configured with ansible
