@@ -10,7 +10,12 @@ class CMClusterNodeAdmin(nested_admin.NestedStackedInline):
     extra = 0
 
 
+class CMAutoScalerAdmin(nested_admin.NestedStackedInline):
+    model = models.CMAutoScaler
+    extra = 0
+
+
 @admin.register(models.CMCluster)
 class CMClusterAdmin(nested_admin.NestedModelAdmin):
-    inlines = [CMClusterNodeAdmin]
+    inlines = [CMClusterNodeAdmin, CMAutoScalerAdmin]
     ordering = ('added',)
