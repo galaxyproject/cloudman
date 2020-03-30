@@ -104,8 +104,10 @@ class KubeNodeService(KubeService):
             wait=tenacity.wait_fixed(5))
         retryer(self._get_job_pods_in_node, name, "Running")
 
-    def drain(self, node, force=True, timeout=120):
+    def drain(self, node, force=True, timeout=120, ignore_daemonsets=True):
         name = node.get('metadata', {}).get('name')
         return helpers.run_command(
             ["kubectl", "drain", name, f"--timeout={timeout}s",
-             f"--force={'true' if force else 'false'}"])
+             f"--force={'true' if force else 'false'}",
+             f"--ignore-daemonsets={'true' if ignore_daemonsets else 'false'}"]
+        )

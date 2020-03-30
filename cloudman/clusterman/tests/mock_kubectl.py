@@ -176,6 +176,8 @@ class MockKubeCtl(object):
             '--timeout', type=str, help='time to wait before giving up. e.g. 10s')
         parser_drain.add_argument(
             '--force', type=str2bool, default=False, help='continue even with unmanaged pods')
+        parser_drain.add_argument(
+            '--ignore-daemonsets', type=str2bool, default=True, help='ignore daemonsets')
         parser_drain.set_defaults(func=self._kubectl_drain)
 
         return parser
