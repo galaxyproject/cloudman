@@ -370,7 +370,7 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         'name': 'test_name',
         'vm_type': 'm3.medium',
         'zone': 3,
-        'min_nodes': 4,
+        'min_nodes': 0,
         'max_nodes': 6
     }
 

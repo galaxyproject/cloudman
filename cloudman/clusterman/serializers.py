@@ -86,8 +86,10 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
         cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
         instance.name = valid_data.get('name') or instance.name
         instance.vm_type = valid_data.get('vm_type') or instance.vm_type
-        instance.min_nodes = valid_data.get('min_nodes') or instance.min_nodes
-        instance.max_nodes = valid_data.get('max_nodes') or instance.max_nodes
+        instance.min_nodes = (instance.min_nodes if valid_data.get('min_nodes') is None
+                              else valid_data.get('min_nodes'))
+        instance.max_nodes = (instance.max_nodes if valid_data.get('max_nodes') is None
+                              else valid_data.get('max_nodes'))
         instance.zone = valid_data.get('zone') or instance.zone
         return cluster.autoscalers.update(instance)
 
