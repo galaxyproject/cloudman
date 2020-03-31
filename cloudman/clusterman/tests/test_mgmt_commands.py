@@ -29,11 +29,6 @@ class ClusterCommandTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.patcher = patch('clusterman.cluster_templates.CMRancherTemplate.fetch_kube_config',
-                             new_callable=PropertyMock,
-                             return_value=load_kube_config)
-        self.patcher.start()
-        self.addCleanup(self.patcher.stop)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
 

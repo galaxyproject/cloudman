@@ -123,8 +123,6 @@ class CMClusterService(CMService):
                 connection_settings=connection_settings,
                 autoscale=autoscale)
             cluster = self.to_api_object(obj)
-            template = cluster.get_cluster_template()
-            template.setup()
             return cluster
         except IntegrityError as e:
             raise exceptions.CMDuplicateNameException(
@@ -132,8 +130,6 @@ class CMClusterService(CMService):
 
     def update(self, cluster):
         self.check_permissions('clusters.change_cluster', cluster)
-        template = cluster.get_cluster_template()
-        template.setup()
         cluster.db_model.save()
         return cluster
 
