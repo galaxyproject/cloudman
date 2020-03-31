@@ -18,8 +18,6 @@ class RancherAuth(AuthBase):
 
 class RancherClient(object):
 
-    KUBE_CONFIG_URL = ("$rancher_url/v3/clusters/$cluster_id"
-                       "?action=generateKubeconfig")
     INSTALLED_APP_URL = ("$rancher_url/v3/projects/$project_id/app"
                          "?targetNamespace=galaxy-ns")
     NODE_COMMAND_URL = "$rancher_url/v3/clusterregistrationtoken"
@@ -59,9 +57,6 @@ class RancherClient(object):
     def _api_delete(self, url, data):
         return requests.delete(self._format_url(url), auth=self._get_auth(),
                                verify=False, json=data).json()
-
-    def fetch_kube_config(self):
-        return self._api_post(self.KUBE_CONFIG_URL, data=None).get('config')
 
     def get_cluster_registration_command(self):
         return self._api_post(

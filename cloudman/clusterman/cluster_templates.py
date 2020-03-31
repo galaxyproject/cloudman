@@ -18,10 +18,6 @@ class CMClusterTemplate(object):
         return self.cluster.connection_settings
 
     @abc.abstractmethod
-    def setup(self):
-        pass
-
-    @abc.abstractmethod
     def add_node(self, name, size):
         pass
 
@@ -55,31 +51,6 @@ class CMRancherTemplate(CMClusterTemplate):
         self._rancher_api_key = settings.get('rancher_api_key')
         self._rancher_cluster_id = settings.get('rancher_cluster_id')
         self._rancher_project_id = settings.get('rancher_project_id')
-
-    def setup(self):
-        """
-        Sets up the required environment for this template
-        """
-        self.fetch_kube_config()
-
-    def fetch_kube_config(self):
-        kube_config = self.rancher_client.fetch_kube_config()
-        os.makedirs(os.path.expanduser("~/.kube/"), exist_ok=True)
-
-        cfg_path = os.path.expanduser('~/.kube/config')
-        new_cfg_path = f"{cfg_path}_{self.rancher_cluster_id}"
-        with open(new_cfg_path, "w") as f:
-            f.write(kube_config)
-        # Activate the new cluster's context
-        current_context = yaml.safe_load(kube_config).get('current-context')
-        # If an existing config is present, merge download config into it.
-        # based on: https://github.com/kubernetes/kubernetes/issues/46381
-        merge_cmd = (f"KUBECONFIG={cfg_path}:{new_cfg_path} kubectl config"
-                     f" view --flatten > {new_cfg_path}_merged &&"
-                     f" mv {new_cfg_path}_merged {cfg_path} &&"
-                     f" rm {new_cfg_path} &&"
-                     f" kubectl config use-context {current_context}")
-        subprocess.check_output(merge_cmd, shell=True)
 
     @property
     def rancher_url(self):
