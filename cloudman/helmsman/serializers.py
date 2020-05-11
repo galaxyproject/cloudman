@@ -63,6 +63,9 @@ class HMInstallTemplateSerializer(serializers.Serializer):
         return HelmsManAPI.from_request(self.context['request']
                                         ).templates.create(
                                             valid_data.get('name'),
+                                            valid_data.get('repo'),
+                                            valid_data.get('chart'),
+                                            valid_data.get('chart_version'),
                                             valid_data.get('macros'),
                                             valid_data.get('values'))
 

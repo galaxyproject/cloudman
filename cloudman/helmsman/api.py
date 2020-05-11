@@ -83,7 +83,7 @@ class HelmsManAPI(HelmsManService):
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
         self._namespace_svc = HMNamespaceService(context)
-        self.self._templates_svc = HMInstallTemplateService(context)
+        self._templates_svc = HMInstallTemplateService(context)
 
     @classmethod
     def from_request(cls, request):
@@ -278,10 +278,11 @@ class HMInstallTemplateService(HelmsManService):
         template.delete = lambda: self.delete(template)
         return template
 
-    def create(self, name, macros, values):
+    def create(self, name, repo, chart, chart_version, macros, values):
         self.check_permissions('helmsman.add_template')
         obj = models.HMInstallTemplate.objects.create(
-            name=name, values=values)
+            name=name, repo=repo, chart=chart,
+            chart_version=chart_version, macros=macros, values=values)
         template = self.to_api_object(obj)
         return template
 
