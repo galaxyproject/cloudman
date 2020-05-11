@@ -8,6 +8,8 @@ from clusterman.clients.kube_client import KubeClient
 from .clients.helm_client import HelmClient
 from .clients.helm_client import HelmValueHandling
 
+from .clients.jinja_client import JinjaClient
+
 
 class HelmsmanException(Exception):
     pass
@@ -215,7 +217,8 @@ class HMChartService(HelmsManService):
             return None
 
     def create(self, repo_name, chart_name, namespace,
-               release_name=None, version=None, values=None):
+               release_name=None, version=None, values=None,
+               extra_values=None):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
         existing_release = [
@@ -229,7 +232,7 @@ class HMChartService(HelmsManService):
             client.repositories.update()
             client.releases.create(f"{repo_name}/{chart_name}", namespace,
                                    release_name=release_name, version=version,
-                                   values=values)
+                                   values=values, extra_values=extra_values)
         return self._get_from_namespace(namespace, chart_name)
 
     def update(self, chart, values):
@@ -296,14 +299,28 @@ class HMInstallTemplateService(HelmsManService):
             self.check_permissions('helmsman.delete_template', template)
             template.original_delete()
 
-    def render_values(self, name, project):
+    def render_values(self, name, **context):
         template = self.get(name)
         self.check_permissions('helmsman.render_template', template)
         admin = User.objects.filter(is_superuser=True).first()
-        client = HelmsManAPI(HMServiceContext(user=admin))
+        client = JinjaClient()
         return client.templates.render(template.macros,
                                        template.values,
-                                       project=project)
+                                       **context)
+
+    def install(self, install_template, namespace,
+                release_name=None, values=None, **context):
+        self.check_permissions('helmsman.add_chart')
+        template = self.get(install_template)
+        default_values = self.render_values(install_template, **context)
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.charts.create(repo_name=template.repo,
+                                    chart_name=template.chart,
+                                    namespace=namespace,
+                                    release_name=release_name,
+                                    version=template.version,
+                                    values=default_values,
+                                    extra_values=values)
 
     def list(self):
         return list(map(

@@ -73,7 +73,7 @@ class HMInstallTemplateSerializer(serializers.Serializer):
         return HelmsManAPI.from_request(self.context['request']
                                         ).templates.render_values(
                                             valid_data.get('name'),
-                                            valid_data.get('project'))
+                                            **valid_data)
 
     def delete(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']

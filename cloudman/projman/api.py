@@ -174,6 +174,15 @@ class PMProjectChartService(PMService):
             repo_name, chart_name, self.project.name, release_name, version,
             values))
 
+    def install_template(self, install_template, release_name=None,
+                         values=None, **context):
+        if not context:
+            context = {}
+        context['project'] = self.project.name
+        return self._to_proj_chart(self._get_helmsman_api().templates.install(
+            install_template, self.project.name, release_name,
+            values, **context))
+
     def update(self, chart, values):
         self.check_permissions('projman.change_chart', chart)
         updated_chart = self._get_helmsman_api().charts.update(chart, values)

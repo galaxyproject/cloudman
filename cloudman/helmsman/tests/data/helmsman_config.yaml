@@ -3,11 +3,89 @@ repositories:
     url: https://raw.githubusercontent.com/CloudVE/helm-charts/master/
   - name: jupyterhub
     url: https://jupyterhub.github.io/helm-chart/
+install_templates:
+  jupyter:
+      repo: jupyterhub
+      chart: jupyterhub
+      macros: |
+        {%- macro random_int(len) -%}
+          {%- for _ in range(len) -%}
+            {{ range(10) | random }}
+          {%- endfor -%}
+        {%- endmacro -%}
+        {%- macro random_alphanumeric(len) -%}
+          {%- for _ in range(len) -%}
+            {{ ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",0,1,2,3,4,5,6,7,8,9] | random }}
+          {%- endfor -%}
+        {%- endmacro -%}
+      values:
+        ingress:
+          enabled: true
+          path: '/{{context.project}}/jupyterhub'
+        hub:
+          baseUrl: '/{{context.project}}/jupyterhub'
+        proxy:
+          secretToken: '{{random_alphanumeric(65)}}'
+    galaxy:
+      repo: cloudve
+      chart: galaxy
+      macros: |
+        {%- macro random_int(len) -%}
+          {%- for _ in range(len) -%}
+            {{ range(10) | random }}
+          {%- endfor -%}
+        {%- endmacro -%}
+        {%- macro random_alphanumeric(len) -%}
+          {%- for _ in range(len) -%}
+            {{ ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",0,1,2,3,4,5,6,7,8,9] | random }}
+          {%- endfor -%}
+        {%- endmacro -%}
+      values:
+        config:
+          oidc_backends_config.xml: |
+            <?xml version="1.0"?>
+            <OIDC>
+                <provider name="custos">
+                    <url>https://ngkc4.cloudve.org/auth</url>
+                    <client_id>galaxy-auth</client_id>
+                    <client_secret>{{random_alphanumeric(8)}}-{{random_alphanumeric(4)}}-{{random_alphanumeric(4)}}-{{random_alphanumeric(12)}}</client_secret>
+                    <redirect_uri>https://ngkc4.cloudve.org/{{context.project}}/galaxy/authnz/custos/callback</redirect_uri>
+                    <realm>master</realm>
+                </provider>
+            </OIDC>
+          galaxy.yml:
+            galaxy:
+              enable_oidc: true
+              oidc_backends_config_file: /galaxy/server/config/oidc_backends_config.xml
+              oidc_config_file: /galaxy/server/config/oidc_config.xml
+          oidc_config.xml: |
+            <?xml version="1.0"?>
+            <OIDC>
+                <Setter Property="VERIFY_SSL" Value="False" Type="bool"/>
+                <Setter Property="REQUESTS_TIMEOUT" Value="3600" Type="float"/>
+                <Setter Property="ID_TOKEN_MAX_AGE" Value="3600" Type="float"/>
+            </OIDC>
+        ingress:
+          annotations:
+            certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+            kubernetes.io/tls-acme: "true"
+            nginx.ingress.kubernetes.io/secure-backends: "true"
+          enabled: true
+          hosts:
+            - ngkc4.cloudve.org
+          path: /{{context.project}}/galaxy
+          tls:
+            - hosts:
+                - ngkc4.cloudve.org
+              secretName: ngkc4-cloudve-org-key
+        persistence:
+          size: 95Gi
+          storageClass: nfs-provisioner
+        postgresql:
+          persistence:
+            storageClass: ebs-provisioner
+
 charts:
-  cvmfs:
-    name: cloudve/galaxy-cvmfs-csi
-    namespace: cvmfs
-    create_namespace: true
   dashboard:
     name: stable/kubernetes-dashboard
     namespace: kube-system
@@ -32,55 +110,3 @@ charts:
           secretName: ngkc4-cloudve-org-key
       rbac:
         clusterAdminRole: true
-  galaxy:
-    name: cloudve/galaxy
-    namespace: default
-    oidc_client:
-      client_secret: testdata-npm5-hvmb-ntui4grybqrh
-    tplValues:
-      config:
-        oidc_backends_config.xml: |
-          <?xml version="1.0"?>
-          <OIDC>
-              <provider name="custos">
-                  <url>https://ngkc4.cloudve.org/auth</url>
-                  <client_id>galaxy-auth</client_id>
-                  <client_secret>testdata-npm5-hvmb-ntui4grybqrh</client_secret>
-                  <redirect_uri>https://ngkc4.cloudve.org/default/authnz/custos/callback</redirect_uri>
-                  <realm>master</realm>
-              </provider>
-          </OIDC>
-    values:
-      config:
-        galaxy.yml:
-          galaxy:
-            enable_oidc: true
-            oidc_backends_config_file: /galaxy/server/config/oidc_backends_config.xml
-            oidc_config_file: /galaxy/server/config/oidc_config.xml
-        oidc_config.xml: |
-          <?xml version="1.0"?>
-          <OIDC>
-              <Setter Property="VERIFY_SSL" Value="False" Type="bool"/>
-              <Setter Property="REQUESTS_TIMEOUT" Value="3600" Type="float"/>
-              <Setter Property="ID_TOKEN_MAX_AGE" Value="3600" Type="float"/>
-          </OIDC>
-      ingress:
-        annotations:
-          certmanager.k8s.io/cluster-issuer: letsencrypt-prod
-          kubernetes.io/tls-acme: "true"
-          nginx.ingress.kubernetes.io/secure-backends: "true"
-        enabled: true
-        hosts:
-        - null
-        - ngkc4.cloudve.org
-        path: /default/galaxy
-        tls:
-        - hosts:
-          - ngkc4.cloudve.org
-          secretName: ngkc4-cloudve-org-key
-      persistence:
-        size: 95Gi
-        storageClass: nfs-provisioner
-      postgresql:
-        persistence:
-          storageClass: ebs-provisioner

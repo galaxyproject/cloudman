@@ -18,6 +18,18 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
-        for project in settings.get('projects'):
-            if project.get('name'):
-                call_command("projman_create_project", project.get('name'))
+        projects = settings.get('projects')
+        for project in projects:
+            if project:
+                proj = call_command("projman_create_project", project)
+                charts = projects.get(project).get('charts', [])
+                for chart in charts:
+                    template = charts.get(chart).get("install_template")
+                    if template:
+                        release_name = charts.get(chart).get("release_name")
+                        values = charts.get(chart).get("values")
+                        context = charts.get(chart).get("context")
+                        proj.charts.install_template(template,
+                                                     release_name=release_name,
+                                                     values=values,
+                                                     **context)
