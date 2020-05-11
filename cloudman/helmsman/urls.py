@@ -14,6 +14,8 @@ router.register(r'charts', views.ChartViewSet,
                 base_name='charts')
 router.register(r'namespaces', views.NamespaceViewSet,
                 base_name='namespaces')
+router.register(r'templates', views.InstallTemplatesViewSet,
+                base_name='templates')
 
 app_name = "helmsman"
 

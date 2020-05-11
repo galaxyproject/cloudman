@@ -83,6 +83,7 @@ class HelmsManAPI(HelmsManService):
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
         self._namespace_svc = HMNamespaceService(context)
+        self.self._templates_svc = HMInstallTemplateService(context)
 
     @classmethod
     def from_request(cls, request):
@@ -100,6 +101,10 @@ class HelmsManAPI(HelmsManService):
     @property
     def namespaces(self):
         return self._namespace_svc
+
+    @property
+    def templates(self):
+      return self._templates_svc
 
 
 class HMNamespaceService(HelmsManService):
@@ -258,6 +263,62 @@ class HMChartService(HelmsManService):
     def delete(self, chart):
         self.check_permissions('helmsman.delete_chart', chart)
         HelmClient().releases.delete(chart.namespace, chart.id)
+
+
+class HMInstallTemplateService(HelmsManService):
+
+    def __init__(self, context):
+        super(HMInstallTemplateService, self).__init__(context)
+
+    def to_api_object(self, template):
+        # Remap the returned django model's delete method to the API method
+        # This is just a lazy alternative to writing an actual wrapper around
+        # the django object.
+        template.original_delete = template.delete
+        template.delete = lambda: self.delete(template)
+        return template
+
+    def create(self, name, macros, values):
+        self.check_permissions('helmsman.add_template')
+        obj = models.HMInstallTemplate.objects.create(
+            name=name, values=values)
+        template = self.to_api_object(obj)
+        return template
+
+    def get(self, name):
+        obj = models.HMInstallTemplate.objects.get(name=name)
+        self.check_permissions('helmsman.view_template', obj)
+        return self.to_api_object(obj)
+
+    def delete(self, template):
+        if template:
+            self.check_permissions('helmsman.delete_template', template)
+            template.original_delete()
+
+    def render_values(self, name, project):
+        template = self.get(name)
+        self.check_permissions('helmsman.render_template', template)
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.templates.render(template.macros,
+                                       template.values,
+                                       project=project)
+
+    def list(self):
+        return list(map(
+            self.to_api_object,
+            (tmpl for tmpl in models.HMInstallTemplate.objects.all()
+             if self.has_permissions('helmsman.view_template', tmpl))))
+
+    def find(self, name):
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=name)
+            if self.has_permissions('helmsman.view_template', obj):
+                return self.to_api_object(obj)
+            else:
+                return None
+        except models.HMInstallTemplate.DoesNotExist:
+            return None
 
 
 class HelmsManResource(object):

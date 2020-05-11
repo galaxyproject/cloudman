@@ -12,3 +12,8 @@ rules.add_perm('helmsman.view_chart', rules.is_staff)
 rules.add_perm('helmsman.add_chart', rules.is_staff)
 rules.add_perm('helmsman.change_chart', rules.is_staff)
 rules.add_perm('helmsman.delete_chart', rules.is_staff)
+
+rules.add_perm('helmsman.add_template', rules.is_staff)
+rules.add_perm('helmsman.view_template', rules.is_staff)
+rules.add_perm('helmsman.render_template', rules.is_staff)
+rules.add_perm('helmsman.delete_template', rules.is_staff)

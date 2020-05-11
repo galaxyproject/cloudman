@@ -52,3 +52,27 @@ class HMNamespaceSerializer(serializers.Serializer):
         return HelmsManAPI.from_request(self.context['request']
                                         ).namespaces.delete(
                                             valid_data.get('name'))
+
+
+class HMInstallTemplateSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    status = serializers.CharField(allow_blank=True)
+    age = serializers.CharField(allow_blank=True)
+
+    def create(self, valid_data):
+        return HelmsManAPI.from_request(self.context['request']
+                                        ).templates.create(
+                                            valid_data.get('name'),
+                                            valid_data.get('macros'),
+                                            valid_data.get('values'))
+
+    def render_values(self, valid_data):
+        return HelmsManAPI.from_request(self.context['request']
+                                        ).templates.render_values(
+                                            valid_data.get('name'),
+                                            valid_data.get('project'))
+
+    def delete(self, valid_data):
+        return HelmsManAPI.from_request(self.context['request']
+                                        ).templates.delete(
+                                            valid_data.get('name'))
