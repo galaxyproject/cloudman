@@ -12,6 +12,7 @@ class HMInstallTemplate(models.Model):
     repo = models.SlugField(max_length=60, unique=False)
     chart = models.SlugField(max_length=60, unique=False)
     chart_version = models.CharField(max_length=60, unique=False)
+    context = models.TextField()
     macros = models.TextField()
     values = models.TextField()
 

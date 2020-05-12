@@ -283,11 +283,13 @@ class HMInstallTemplateService(HelmsManService):
         template.delete = lambda: self.delete(template)
         return template
 
-    def create(self, name, repo, chart, chart_version, macros, values):
+    def create(self, name, repo, chart, chart_version,
+               context, macros, values):
         self.check_permissions('helmsman.add_template')
         obj = models.HMInstallTemplate.objects.create(
             name=name, repo=repo, chart=chart,
-            chart_version=chart_version, macros=macros, values=values)
+            chart_version=chart_version,
+            context=context, macros=macros, values=values)
         template = self.to_api_object(obj)
         return template
 
@@ -306,6 +308,10 @@ class HMInstallTemplateService(HelmsManService):
         self.check_permissions('helmsman.render_template', template)
         admin = User.objects.filter(is_superuser=True).first()
         client = JinjaClient()
+        if not context:
+            context = {}
+        if yaml.safe_load(template.context):
+            context.update(yaml.safe_load(template.context))
         return client.templates.render(template.macros,
                                        template.values,
                                        **context)
