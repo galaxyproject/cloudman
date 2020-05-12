@@ -1,6 +1,7 @@
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from ...clients.helm_client import HelmClient
+from ...api import HelmsManAPI, HMServiceContext
 
 
 class Command(BaseCommand):
@@ -16,12 +17,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.add_template(options['name'], options['repo'],
-                       options['chart'], options['chart_version'],
-                       options['macros'], options['values'])
+                          options['chart'], options['chart_version'],
+                          options['macros'], options['values'])
 
     @staticmethod
     def add_template(name, repo, chart, chart_version, macros, values):
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
-        client.templates.create(name, repo, chart, chart_version, macros, values)
-        print("Successfully installed {} template for '{}/{}' chart.".format(name, repo, chart))
+        client.templates.create(name, repo, chart,
+                                chart_version, macros, values)
+        print("Successfully added {} template \
+               for '{}/{}' chart.".format(name, repo, chart))

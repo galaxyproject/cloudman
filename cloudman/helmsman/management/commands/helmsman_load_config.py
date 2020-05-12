@@ -21,8 +21,9 @@ class Command(BaseCommand):
         for repo in settings.get('repositories'):
             call_command("add_repo", repo.get('name'), repo.get('url'))
 
-        for template in settings.get('install_templates', {}).values():
-            call_command("add_template", template.get('name'),
+        for template_name in settings.get('install_templates', {}):
+            template = settings.get('install_templates', {}).get(template_name)
+            call_command("add_template", template_name,
                          template.get('repo'), template.get('chart'),
                          template.get('chart_version'),
                          template.get('macros'), template.get('values'))

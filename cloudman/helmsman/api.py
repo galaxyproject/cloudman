@@ -5,6 +5,8 @@ from rest_framework.exceptions import PermissionDenied
 
 from clusterman.clients.kube_client import KubeClient
 
+from . import models
+
 from .clients.helm_client import HelmClient
 from .clients.helm_client import HelmValueHandling
 
@@ -106,7 +108,7 @@ class HelmsManAPI(HelmsManService):
 
     @property
     def templates(self):
-      return self._templates_svc
+        return self._templates_svc
 
 
 class HMNamespaceService(HelmsManService):
