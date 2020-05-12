@@ -65,7 +65,7 @@ class HelmReleaseService(HelmService):
     def get(self, namespace, release_name):
         return {}
 
-    def _set_values_and_run_command(self, cmd, values):
+    def _set_values_and_run_command(self, cmd, values, extra_values=None):
         """
         Handles helm values by writing values to a temporary file,
         after which the command is run. The temporary file is cleaned
@@ -74,9 +74,18 @@ class HelmReleaseService(HelmService):
         can't handle.
         """
         with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
-            yaml.dump(values, stream=f, default_flow_style=False)
+            yaml.safe_dump(values, stream=f, default_flow_style=False)
             cmd += ["-f", f.name]
-            return helpers.run_command(cmd)
+            if extra_values:
+                with tempfile.NamedTemporaryFile(mode="w",
+                                                 prefix="helmsman") as f2:
+                    yaml.safe_dump(extra_values, stream=f2,
+                                   default_flow_style=False)
+                    cmd += ["-f", f2.name]
+                    return helpers.run_command(cmd)
+            else:
+                print(helpers.run_command(['cat', f.name]))
+                return helpers.run_command(cmd)
 
     def create(self, chart, namespace, release_name=None,
                version=None, values=None, extra_values=None):
@@ -88,7 +97,7 @@ class HelmReleaseService(HelmService):
             cmd += [chart, "--generate-name"]
         if version:
             cmd += ["--version", version]
-        return self._set_values_and_run_command(cmd, values)
+        return self._set_values_and_run_command(cmd, values, extra_values)
 
     def update(self, namespace, release_name, chart, values=None,
                value_handling=HelmValueHandling.REUSE):

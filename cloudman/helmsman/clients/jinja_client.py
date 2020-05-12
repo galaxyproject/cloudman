@@ -27,5 +27,5 @@ class JinjaTemplatingService(JinjaService):
         super(JinjaTemplatingService, self).__init__(client)
 
     def render(self, macros, values, **kwargs):
-        tmpl = jinja2.Template("\n".join(macros, values))
+        tmpl = jinja2.Template("\n".join([macros, values]))
         return tmpl.render({"context": kwargs})

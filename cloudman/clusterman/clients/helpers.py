@@ -10,6 +10,8 @@ def run_command(command, shell=False):
     """
     Runs a command and returns stdout
     """
+    print("command")
+    print(command)
     try:
         return subprocess.check_output(
             command, universal_newlines=True, shell=shell, encoding='utf-8',

@@ -28,7 +28,7 @@ class Command(BaseCommand):
                 print("Project created successfully.")
                 return proj
             else:
-                return pmapi.projects.get(name)
+                return pmapi.projects.find(name)
         except Exception as e:
             log.exception(f"An error occurred while "
                           f"creating the project '{name}':", e)

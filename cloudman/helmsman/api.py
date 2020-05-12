@@ -1,5 +1,8 @@
 """HelmsMan Service API."""
 import jsonmerge
+import yaml
+
+from django.contrib.auth.models import User
 
 from rest_framework.exceptions import PermissionDenied
 
@@ -320,13 +323,14 @@ class HMInstallTemplateService(HelmsManService):
                 release_name=None, values=None, **context):
         self.check_permissions('helmsman.add_chart')
         template = self.get(install_template)
-        default_values = self.render_values(install_template, **context)
+        default_values = yaml.safe_load(self.render_values(install_template, **context))
+        admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         return client.charts.create(repo_name=template.repo,
                                     chart_name=template.chart,
                                     namespace=namespace,
                                     release_name=release_name,
-                                    version=template.version,
+                                    version=template.chart_version,
                                     values=default_values,
                                     extra_values=values)
 

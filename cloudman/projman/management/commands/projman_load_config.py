@@ -1,5 +1,4 @@
 import argparse
-import tempfile
 import yaml
 
 from django.core.management import call_command
@@ -21,15 +20,21 @@ class Command(BaseCommand):
         projects = settings.get('projects')
         for project in projects:
             if project:
-                proj = call_command("projman_create_project", project)
+                call_command("projman_create_project", project)
                 charts = projects.get(project).get('charts', [])
                 for chart in charts:
                     template = charts.get(chart).get("install_template")
                     if template:
-                        release_name = charts.get(chart).get("release_name")
-                        values = charts.get(chart).get("values")
-                        context = charts.get(chart).get("context")
-                        proj.charts.install_template(template,
-                                                     release_name=release_name,
-                                                     values=values,
-                                                     **context)
+                        release_name = charts.get(chart).get("release_name", '')
+                        values = yaml.safe_load(charts.get(chart).
+                                                get("values", ''))
+                        context = yaml.safe_load(charts.get(chart).
+                                                 get("context", ''))
+                        if not context:
+                            context = ''
+                        if not values:
+                            values = ''
+                        call_command("install_template_in_project",
+                                     project, template,
+                                     release_name,
+                                     values, context)

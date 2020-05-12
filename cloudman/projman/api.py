@@ -156,6 +156,14 @@ class PMProjectChartService(PMService):
         chart.delete = lambda: self.delete(chart.id)
         return chart
 
+    def find(self, name):
+        matches = [self._to_proj_chart(chart) for chart
+                   in self.list() if chart.name == name]
+        if matches:
+            return matches[0]
+        else:
+            return None
+
     def list(self):
         return [self._to_proj_chart(chart) for chart
                 in self._get_helmsman_api().charts.list(self.project.name)
