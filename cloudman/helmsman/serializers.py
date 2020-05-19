@@ -55,9 +55,14 @@ class HMNamespaceSerializer(serializers.Serializer):
 
 
 class HMInstallTemplateSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
     name = serializers.CharField()
-    status = serializers.CharField(allow_blank=True)
-    age = serializers.CharField(allow_blank=True)
+    repo = serializers.SlugField()
+    chart = serializers.SlugField()
+    chart_version = serializers.CharField(allow_blank=True)
+    context = serializers.DictField()
+    macros = serializers.CharField()
+    values = serializers.DictField()
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']

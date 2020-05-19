@@ -314,16 +314,23 @@ class HMInstallTemplateService(HelmsManService):
         if not context:
             context = {}
         if yaml.safe_load(template.context):
+            print(context)
+            print(yaml.safe_load(template.context))
             context.update(yaml.safe_load(template.context))
         return client.templates.render(template.macros,
                                        template.values,
                                        **context)
 
     def install(self, install_template, namespace,
-                release_name=None, values=None, **context):
+                release_name=None, values=None,
+                default_context=None, **context):
         self.check_permissions('helmsman.add_chart')
         template = self.get(install_template)
-        default_values = yaml.safe_load(self.render_values(install_template, **context))
+        if not default_context:
+            default_context = {}
+        default_context.update(context)
+        default_values = yaml.safe_load(self.render_values(install_template,
+                                                           **default_context))
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         return client.charts.create(repo_name=template.repo,

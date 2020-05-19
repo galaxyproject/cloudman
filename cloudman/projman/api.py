@@ -186,10 +186,10 @@ class PMProjectChartService(PMService):
                          values=None, **context):
         if not context:
             context = {}
-        context['project'] = self.project.name
+        default_context = {'project': self.project.name}
         return self._to_proj_chart(self._get_helmsman_api().templates.install(
             install_template, self.project.name, release_name,
-            values, **context))
+            values, default_context, **context))
 
     def update(self, chart, values):
         self.check_permissions('projman.change_chart', chart)
@@ -198,7 +198,8 @@ class PMProjectChartService(PMService):
 
     def rollback(self, chart, revision=None):
         self.check_permissions('projman.change_chart', chart)
-        updated_chart = self._get_helmsman_api().charts.rollback(chart, revision)
+        updated_chart = self._get_helmsman_api().charts.rollback(chart,
+                                                                 revision)
         return self._to_proj_chart(updated_chart)
 
     def delete(self, chart_id):

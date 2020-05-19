@@ -21,8 +21,6 @@ class Command(BaseCommand):
         context = options.get("context")
         if not context:
             context = {}
-        print("context")
-        print(context)
         self.install_template_in_project(options['project_name'],
                                          options['template_name'],
                                          options['release_name'],
