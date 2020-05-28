@@ -1,9 +1,12 @@
 """A wrapper around the helm commandline client"""
 import shutil
-import tempfile
 import yaml
-from clusterman.clients import helpers
+
 from enum import Enum
+
+from clusterman.clients import helpers
+
+from helmsman import helpers as hm_helpers
 
 
 class HelmService(object):
@@ -73,18 +76,13 @@ class HelmReleaseService(HelmService):
         to be handled without complex escaping, which the helm --set flag
         can't handle.
         """
-        with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
-            yaml.safe_dump(values, stream=f, default_flow_style=False)
+        with hm_helpers.TempValuesFile(values) as f:
             cmd += ["-f", f.name]
             if extra_values:
-                with tempfile.NamedTemporaryFile(mode="w",
-                                                 prefix="helmsman") as f2:
-                    yaml.safe_dump(extra_values, stream=f2,
-                                   default_flow_style=False)
+                with hm_helpers.TempValuesFile(values) as f2:
                     cmd += ["-f", f2.name]
                     return helpers.run_command(cmd)
             else:
-                print(helpers.run_command(['cat', f.name]))
                 return helpers.run_command(cmd)
 
     def create(self, chart, namespace, release_name=None,

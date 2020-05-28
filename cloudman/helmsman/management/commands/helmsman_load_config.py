@@ -1,9 +1,10 @@
 import argparse
-import tempfile
 import yaml
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+
+from helmsman import helpers
 
 
 class Command(BaseCommand):
@@ -39,8 +40,7 @@ class Command(BaseCommand):
                 extra_args["chart_version"] = chart.get('version')
             if chart.get('values'):
                 values = chart.get('values')
-                with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
-                    yaml.dump(values, stream=f, default_flow_style=False)
+                with helpers.TempValuesFile(values) as f:
                     extra_args["values_file"] = f.name
                     call_command("add_chart", chart.get('name'), **extra_args)
             else:
