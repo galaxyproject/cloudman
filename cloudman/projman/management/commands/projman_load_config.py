@@ -26,14 +26,8 @@ class Command(BaseCommand):
                     template = charts.get(chart).get("install_template")
                     if template:
                         release_name = charts.get(chart).get("release_name", '')
-                        values = yaml.safe_load(charts.get(chart).
-                                                get("values", ''))
-                        context = yaml.safe_load(charts.get(chart).
-                                                 get("context", ''))
-                        if not context:
-                            context = ''
-                        if not values:
-                            values = ''
+                        values = yaml.safe_load(charts.get(chart).get("values", '')) or ''
+                        context = yaml.safe_load(charts.get(chart).get("context", '')) or ''
                         call_command("install_template_in_project",
                                      project, template,
                                      release_name,

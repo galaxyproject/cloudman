@@ -4,7 +4,7 @@ gunicorn[gevent]
 # moto==1.1.11
 # for eclipse debugging
 pydevd>=1.0.0
-# jinja2 for innstall template client
+# jinja2 for rendering install templates
 jinja2
 # get latest package versions for now
 git+https://github.com/CloudVE/cloudbridge

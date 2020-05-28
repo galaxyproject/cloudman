@@ -33,7 +33,7 @@ class Command(BaseCommand):
             client = HelmsManAPI(HMServiceContext(user=admin))
             if not client.templates.find(name):
                 client.templates.create(name, repo, chart,
-                                        chart_version, context,
+                                        chart_version, context or '',
                                         macros, values)
                 print("Successfully added {} template \
                        for '{}/{}' chart.".format(name, repo, chart))

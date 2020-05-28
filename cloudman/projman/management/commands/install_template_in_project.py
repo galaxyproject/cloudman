@@ -25,14 +25,14 @@ class Command(BaseCommand):
                                          options['template_name'],
                                          options['release_name'],
                                          options['values'],
-                                         **context)
+                                         context=context)
 
     @staticmethod
     def install_template_in_project(project_name, template_name,
-                                    release_name=None, values=None, **context):
+                                    release_name=None, values=None, context=None):
         try:
-            print("Installing template {} \
-                  into project: {}".format(template_name, project_name))
+            print("Installing template {}"
+                  " into project: {}".format(template_name, project_name))
             admin = User.objects.filter(is_superuser=True).first()
             pmapi = ProjManAPI(PMServiceContext(user=admin))
             proj = pmapi.projects.find(project_name)
@@ -40,21 +40,21 @@ class Command(BaseCommand):
                 print("Cannot find project {}.")
                 return None
             elif proj.charts.find(release_name):
-                print("A release already exists in project '{}' \
-                       with name '{}'".format(project_name, release_name))
+                print("A release already exists in project '{}'"
+                      " with name '{}'".format(project_name, release_name))
             else:
                 ch = proj.charts.install_template(template_name,
                                                   release_name,
-                                                  values, **context)
-                print(f"Successfully intalled template '{template_name}' "
+                                                  values, context)
+                print(f"Successfully installed template '{template_name}' "
                       f"with release named '{release_name}' into project "
                       f"'{project_name}'")
                 return ch
         except Exception as e:
             log.exception(f"An error occurred while "
-                          f"intalling template '{template_name}' "
-                          f"into project '{project_name}':", e)
-            print(f"Error occurred while intalling template '{template_name}' "
-                  f"into project '{project_name}':", str(e))
+                          f"installing template '{template_name}' "
+                          f"into project '{project_name}'", e)
+            print(f"Error occurred while installing template '{template_name}' "
+                  f"into project '{project_name}'", str(e))
             # Re-raise the exception
             raise e

@@ -1,7 +1,11 @@
 projects:
-  initial:
+  first:
     charts:
       galaxy:
         install_template: galaxy
-      jupyter:
+  second:
+    charts:
+      galaxy:
+        install_template: galaxy
+      jupyterhub:
         install_template: jupyter

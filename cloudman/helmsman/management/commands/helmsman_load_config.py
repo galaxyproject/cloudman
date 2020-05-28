@@ -26,7 +26,7 @@ class Command(BaseCommand):
             call_command("add_template", template_name,
                          template.get('repo'), template.get('chart'),
                          template.get('chart_version'),
-                         template.get('context'),
+                         template.get('context') or '',
                          template.get('macros'), template.get('values'))
 
         for chart in settings.get('charts', {}).values():

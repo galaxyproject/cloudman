@@ -1,5 +1,6 @@
 """HelmsMan Service API."""
 import jsonmerge
+import jinja2
 import yaml
 
 from django.contrib.auth.models import User
@@ -12,8 +13,6 @@ from . import models
 
 from .clients.helm_client import HelmClient
 from .clients.helm_client import HelmValueHandling
-
-from .clients.jinja_client import JinjaClient
 
 
 class HelmsmanException(Exception):
@@ -33,6 +32,10 @@ class NamespaceExistsException(HelmsmanException):
 
 
 class ChartNotFoundException(HelmsmanException):
+    pass
+
+
+class InstallTemplateNotFoundException(HelmsmanException):
     pass
 
 
@@ -297,7 +300,10 @@ class HMInstallTemplateService(HelmsManService):
         return template
 
     def get(self, name):
-        obj = models.HMInstallTemplate.objects.get(name=name)
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=name)
+        except models.HMInstallTemplate.DoesNotExist as e:
+            raise InstallTemplateNotFoundException("Could not find install template '%s'" % name)
         self.check_permissions('helmsman.view_template', obj)
         return self.to_api_object(obj)
 
@@ -306,31 +312,26 @@ class HMInstallTemplateService(HelmsManService):
             self.check_permissions('helmsman.delete_template', template)
             template.original_delete()
 
-    def render_values(self, name, **context):
+    def render_values(self, name, context):
         template = self.get(name)
         self.check_permissions('helmsman.render_template', template)
-        admin = User.objects.filter(is_superuser=True).first()
-        client = JinjaClient()
         if not context:
             context = {}
         if yaml.safe_load(template.context):
-            print(context)
-            print(yaml.safe_load(template.context))
             context.update(yaml.safe_load(template.context))
-        return client.templates.render(template.macros,
-                                       template.values,
-                                       **context)
+        tmpl = jinja2.Template("\n".join([template.macros, template.values]))
+        return tmpl.render({"context": context})
 
     def install(self, install_template, namespace,
                 release_name=None, values=None,
-                default_context=None, **context):
+                default_context=None, context=None):
         self.check_permissions('helmsman.add_chart')
         template = self.get(install_template)
         if not default_context:
             default_context = {}
-        default_context.update(context)
+        default_context.update(context or {})
         default_values = yaml.safe_load(self.render_values(install_template,
-                                                           **default_context))
+                                                           default_context))
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         return client.charts.create(repo_name=template.repo,
