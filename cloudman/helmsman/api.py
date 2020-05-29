@@ -3,6 +3,8 @@ import jsonmerge
 import jinja2
 import yaml
 
+from django.apps import apps
+
 from django.contrib.auth.models import User
 
 from rest_framework.exceptions import PermissionDenied
@@ -289,56 +291,58 @@ class HMInstallTemplateService(HelmsManService):
         template.delete = lambda: self.delete(template)
         return template
 
-    def create(self, name, repo, chart, chart_version,
-               context, macros, values):
-        self.check_permissions('helmsman.add_template')
+    def create(self, name, repo, chart, chart_version=None,
+               template=None, context=None):
+        self.check_permissions('helmsman.add_install_template')
         obj = models.HMInstallTemplate.objects.create(
             name=name, repo=repo, chart=chart,
             chart_version=chart_version,
-            context=context, macros=macros, values=values)
-        template = self.to_api_object(obj)
-        return template
+            template=template, context=context)
+        install_template = self.to_api_object(obj)
+        return install_template
 
     def get(self, name):
         try:
             obj = models.HMInstallTemplate.objects.get(name=name)
         except models.HMInstallTemplate.DoesNotExist as e:
             raise InstallTemplateNotFoundException("Could not find install template '%s'" % name)
-        self.check_permissions('helmsman.view_template', obj)
+        self.check_permissions('helmsman.view_install_template', obj)
         return self.to_api_object(obj)
 
     def delete(self, template):
         if template:
-            self.check_permissions('helmsman.delete_template', template)
+            self.check_permissions('helmsman.delete_install_template', template)
             template.original_delete()
 
     def render_values(self, name, context):
-        template = self.get(name)
-        self.check_permissions('helmsman.render_template', template)
+        install_template = self.get(name)
+        self.check_permissions('helmsman.view_install_template', install_template)
         if not context:
             context = {}
-        if yaml.safe_load(template.context):
-            context.update(yaml.safe_load(template.context))
-        tmpl = jinja2.Template("\n".join([template.macros, template.values]))
+        default_context = yaml.safe_load(install_template.context or '')
+        context.update(default_context or {})
+        tmpl = jinja2.Template(
+            "\n".join([apps.get_app_config('helmsman').default_macros,
+                       install_template.template or '']))
         return tmpl.render({"context": context})
 
-    def install(self, install_template, namespace,
+    def install(self, template_name, namespace,
                 release_name=None, values=None,
                 default_context=None, context=None):
         self.check_permissions('helmsman.add_chart')
-        template = self.get(install_template)
+        install_template = self.get(template_name)
         if not default_context:
             default_context = {}
         default_context.update(context or {})
-        default_values = yaml.safe_load(self.render_values(install_template,
+        default_values = yaml.safe_load(self.render_values(template_name,
                                                            default_context))
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
-        return client.charts.create(repo_name=template.repo,
-                                    chart_name=template.chart,
+        return client.charts.create(repo_name=install_template.repo,
+                                    chart_name=install_template.chart,
                                     namespace=namespace,
                                     release_name=release_name,
-                                    version=template.chart_version,
+                                    version=install_template.chart_version,
                                     values=default_values,
                                     extra_values=values)
 
@@ -346,12 +350,12 @@ class HMInstallTemplateService(HelmsManService):
         return list(map(
             self.to_api_object,
             (tmpl for tmpl in models.HMInstallTemplate.objects.all()
-             if self.has_permissions('helmsman.view_template', tmpl))))
+             if self.has_permissions('helmsman.view_install_template', tmpl))))
 
     def find(self, name):
         try:
             obj = models.HMInstallTemplate.objects.get(name=name)
-            if self.has_permissions('helmsman.view_template', obj):
+            if self.has_permissions('helmsman.view_install_template', obj):
                 return self.to_api_object(obj)
             else:
                 return None

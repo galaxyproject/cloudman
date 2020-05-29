@@ -24,11 +24,21 @@ class Command(BaseCommand):
 
         for template_name in settings.get('install_templates', {}):
             template = settings.get('install_templates', {}).get(template_name)
-            call_command("add_template", template_name,
-                         template.get('repo'), template.get('chart'),
-                         template.get('chart_version'),
-                         template.get('context') or '',
-                         template.get('macros'), template.get('values'))
+            extra_args = []
+            if template.get('chart_version'):
+                extra_args += ["--chart_ver", template.get('chart_version')]
+            if template.get('context'):
+                extra_args += ["--context", template.get('context')]
+            if template.get('values'):
+                with helpers.TempInputFile(template.get('values')) as f:
+                    extra_args += ["--template", f.name]
+                    call_command("add_install_template", template_name,
+                                 template.get('repo'), template.get('chart'),
+                                 *extra_args)
+            else:
+                call_command("add_install_template", template_name,
+                             template.get('repo'), template.get('chart'),
+                             *extra_args)
 
         for chart in settings.get('charts', {}).values():
             extra_args = {}

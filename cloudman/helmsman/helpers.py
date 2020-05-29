@@ -5,6 +5,23 @@ from contextlib import contextmanager
 
 
 @contextmanager
+def TempInputFile(text, prefix="helmsman"):
+    """
+    Context manager to carry out an action
+    after creating a temporary file with the
+    given text content.
+
+    :params text: The text to write to a file
+    Usage:
+        with TempInputFile("hello world"):
+            do_something()
+    """
+    with tempfile.NamedTemporaryFile(mode="w", prefix=prefix) as f:
+        f.write(text)
+        yield f
+
+
+@contextmanager
 def TempValuesFile(values, prefix="helmsman"):
     """
     Context manager to carry out an action

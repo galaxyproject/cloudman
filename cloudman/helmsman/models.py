@@ -9,12 +9,11 @@ class HMInstallTemplate(models.Model):
     updated = models.DateTimeField(auto_now=True)
     # Each project corresponds to a k8s namespace and therefore, must be unique
     name = models.CharField(max_length=60, unique=True)
-    repo = models.SlugField(max_length=60, unique=False)
-    chart = models.SlugField(max_length=60, unique=False)
-    chart_version = models.CharField(max_length=60, unique=False)
-    context = models.TextField()
-    macros = models.TextField()
-    values = models.TextField()
+    repo = models.SlugField(max_length=60)
+    chart = models.SlugField(max_length=60)
+    chart_version = models.CharField(max_length=60, blank=True, null=True)
+    template = models.TextField(blank=True, null=True)
+    context = models.TextField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Install Template"

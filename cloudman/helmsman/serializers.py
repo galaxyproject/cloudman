@@ -60,19 +60,18 @@ class HMInstallTemplateSerializer(serializers.Serializer):
     repo = serializers.SlugField()
     chart = serializers.SlugField()
     chart_version = serializers.CharField(allow_blank=True)
+    template = serializers.DictField()
     context = serializers.DictField()
-    macros = serializers.CharField()
-    values = serializers.DictField()
 
     def create(self, valid_data):
-        return HelmsManAPI.from_request(self.context['request']
-                                        ).templates.create(
-                                            valid_data.get('name'),
-                                            valid_data.get('repo'),
-                                            valid_data.get('chart'),
-                                            valid_data.get('chart_version'),
-                                            valid_data.get('macros'),
-                                            valid_data.get('values'))
+        return HelmsManAPI.from_request(
+            self.context['request']).templates.create(
+                valid_data.get('name'),
+                valid_data.get('repo'),
+                valid_data.get('chart'),
+                valid_data.get('chart_version'),
+                valid_data.get('template'),
+                valid_data.get('context'))
 
     def render_values(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']

@@ -20,10 +20,9 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=60, unique=True)),
                 ('repo', models.SlugField(max_length=60)),
                 ('chart', models.SlugField(max_length=60)),
-                ('chart_version', models.CharField(max_length=60)),
-                ('context', models.TextField()),
-                ('macros', models.TextField()),
-                ('values', models.TextField()),
+                ('chart_version', models.CharField(max_length=60, blank=True, null=True)),
+                ('template', models.TextField(blank=True, null=True)),
+                ('context', models.TextField(blank=True, null=True)),
             ],
             options={
                 'verbose_name': 'Install Template',
