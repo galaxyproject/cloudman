@@ -43,9 +43,9 @@ class Command(BaseCommand):
                 print("A release already exists in project '{}'"
                       " with name '{}'".format(project_name, release_name))
             else:
-                ch = proj.charts.install_template(template_name,
-                                                  release_name,
-                                                  values, context)
+                ch = proj.charts.create(template_name,
+                                        release_name,
+                                        values, context)
                 print(f"Successfully installed template '{template_name}' "
                       f"with release named '{release_name}' into project "
                       f"'{project_name}'")

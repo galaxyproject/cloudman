@@ -23,6 +23,7 @@ class HMChartSerializer(serializers.Serializer):
     values = serializers.DictField()
     repo = HMChartRepoSerializer(read_only=True)
     repo_name = serializers.CharField(write_only=True, allow_blank=True, required=False)
+    install_template = serializers.CharField(write_only=True, allow_blank=True, required=False)
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']).charts.create(

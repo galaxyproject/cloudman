@@ -29,9 +29,9 @@ class Command(BaseCommand):
                 extra_args += ["--chart_ver", template.get('chart_version')]
             if template.get('context'):
                 extra_args += ["--context", template.get('context')]
-            if template.get('values'):
-                with helpers.TempInputFile(template.get('values')) as f:
-                    extra_args += ["--template", f.name]
+            if template.get('template'):
+                with helpers.TempInputFile(template.get('template')) as f:
+                    extra_args += ["--template_file", f.name]
                     call_command("add_install_template", template_name,
                                  template.get('repo'), template.get('chart'),
                                  *extra_args)

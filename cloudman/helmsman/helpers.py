@@ -18,6 +18,7 @@ def TempInputFile(text, prefix="helmsman"):
     """
     with tempfile.NamedTemporaryFile(mode="w", prefix=prefix) as f:
         f.write(text)
+        f.flush()
         yield f
 
 
@@ -36,3 +37,16 @@ def TempValuesFile(values, prefix="helmsman"):
     with tempfile.NamedTemporaryFile(mode="w", prefix=prefix) as f:
         yaml.safe_dump(values, stream=f, default_flow_style=False)
         yield f
+
+
+# based on: https://codereview.stackexchange.com/questions/21033/flatten-dic
+# tionary-in-python-functional-style
+def flatten_dict(d):
+    def items():
+        for key, value in d.items():
+            if isinstance(value, dict):
+                for subkey, subvalue in flatten_dict(value).items():
+                    yield key + "." + subkey, subvalue
+            else:
+                yield key, value
+    return dict(items())

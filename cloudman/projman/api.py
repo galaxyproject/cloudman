@@ -175,21 +175,16 @@ class PMProjectChartService(PMService):
         return (self._to_proj_chart(chart)
                 if chart and chart.namespace == self.project.name else None)
 
-    def create(self, repo_name, chart_name, release_name=None, version=None,
-               values=None):
+    def create(self, template_name, release_name=None,
+               values=None, context=None):
         self.check_permissions('projman.add_chart')
-        return self._to_proj_chart(self._get_helmsman_api().charts.create(
-            repo_name, chart_name, self.project.name, release_name, version,
-            values))
-
-    def install_template(self, install_template, release_name=None,
-                         values=None, context=None):
+        template = self._get_helmsman_api().templates.get(template_name)
         if not context:
             context = {}
-        default_context = {'project': self.project.name}
-        return self._to_proj_chart(self._get_helmsman_api().templates.install(
-            install_template, self.project.name, release_name,
-            values, default_context, context=context))
+        context.update({'project': self.project.name})
+        return self._to_proj_chart(
+            template.install(self.project.name, release_name,
+                             values, context=context))
 
     def update(self, chart, values):
         self.check_permissions('projman.change_chart', chart)

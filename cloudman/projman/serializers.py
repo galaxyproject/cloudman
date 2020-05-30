@@ -51,9 +51,9 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
             raise ValidationError("Specified project id: %s does not exist"
                                   % project_id)
         return project.charts.create(
-            valid_data.get('repo_name'), valid_data.get('name'),
-            valid_data.get('release_name'), valid_data.get('version'),
-            valid_data.get('values'))
+            valid_data.get('install_template'),
+            release_name=valid_data.get('release_name'),
+            values=valid_data.get('values'))
 
     def update(self, chart, validated_data):
         project_id = self.context['view'].kwargs.get("project_pk")

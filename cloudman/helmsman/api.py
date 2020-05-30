@@ -227,8 +227,7 @@ class HMChartService(HelmsManService):
             return None
 
     def create(self, repo_name, chart_name, namespace,
-               release_name=None, version=None, values=None,
-               extra_values=None):
+               release_name=None, version=None, values=None):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
         existing_release = [
@@ -242,7 +241,7 @@ class HMChartService(HelmsManService):
             client.repositories.update()
             client.releases.create(f"{repo_name}/{chart_name}", namespace,
                                    release_name=release_name, version=version,
-                                   values=values, extra_values=extra_values)
+                                   values=values)
         return self._get_from_namespace(namespace, chart_name)
 
     def update(self, chart, values):
@@ -284,12 +283,7 @@ class HMInstallTemplateService(HelmsManService):
         super(HMInstallTemplateService, self).__init__(context)
 
     def to_api_object(self, template):
-        # Remap the returned django model's delete method to the API method
-        # This is just a lazy alternative to writing an actual wrapper around
-        # the django object.
-        template.original_delete = template.delete
-        template.delete = lambda: self.delete(template)
-        return template
+        return HelmInstallTemplate(self, template)
 
     def create(self, name, repo, chart, chart_version=None,
                template=None, context=None):
@@ -313,38 +307,6 @@ class HMInstallTemplateService(HelmsManService):
         if template:
             self.check_permissions('helmsman.delete_install_template', template)
             template.original_delete()
-
-    def render_values(self, name, context):
-        install_template = self.get(name)
-        self.check_permissions('helmsman.view_install_template', install_template)
-        if not context:
-            context = {}
-        default_context = yaml.safe_load(install_template.context or '')
-        context.update(default_context or {})
-        tmpl = jinja2.Template(
-            "\n".join([apps.get_app_config('helmsman').default_macros,
-                       install_template.template or '']))
-        return tmpl.render({"context": context})
-
-    def install(self, template_name, namespace,
-                release_name=None, values=None,
-                default_context=None, context=None):
-        self.check_permissions('helmsman.add_chart')
-        install_template = self.get(template_name)
-        if not default_context:
-            default_context = {}
-        default_context.update(context or {})
-        default_values = yaml.safe_load(self.render_values(template_name,
-                                                           default_context))
-        admin = User.objects.filter(is_superuser=True).first()
-        client = HelmsManAPI(HMServiceContext(user=admin))
-        return client.charts.create(repo_name=install_template.repo,
-                                    chart_name=install_template.chart,
-                                    namespace=namespace,
-                                    release_name=release_name,
-                                    version=install_template.chart_version,
-                                    values=default_values,
-                                    extra_values=values)
 
     def list(self):
         return list(map(
@@ -399,6 +361,63 @@ class KubeNamespace(HelmsManResource):
         self.name = kwargs.get('NAME')
         self.status = kwargs.get('STATUS')
         self.age = kwargs.get('AGE')
+
+    def delete(self):
+        self.service.delete(self.name)
+
+
+class HelmInstallTemplate(HelmsManResource):
+
+    def __init__(self, service, template_obj):
+        super().__init__(service)
+        self.template_obj = template_obj
+
+    @property
+    def name(self):
+        return self.template_obj.name
+
+    @property
+    def repo(self):
+        return self.template_obj.repo
+
+    @property
+    def chart(self):
+        return self.template_obj.chart
+
+    @property
+    def chart_version(self):
+        return self.template_obj.chart_version
+
+    @property
+    def template(self):
+        return self.template_obj.template
+
+    @property
+    def context(self):
+        return self.template_obj.context
+
+    def render_values(self, context):
+        if not context:
+            context = {}
+        default_context = yaml.safe_load(self.context or '')
+        context.update(default_context or {})
+        tmpl = jinja2.Template(
+            "\n".join([apps.get_app_config('helmsman').default_macros,
+                       self.template or '']))
+        return tmpl.render({"context": context})
+
+    def install(self, namespace, release_name=None, values=None,
+                context=None):
+        default_values = yaml.safe_load(
+            self.render_values(context or {}))
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.charts.create(repo_name=self.repo,
+                                    chart_name=self.chart,
+                                    namespace=namespace,
+                                    release_name=release_name,
+                                    version=self.chart_version,
+                                    values=[default_values, values])
 
     def delete(self):
         self.service.delete(self.name)
