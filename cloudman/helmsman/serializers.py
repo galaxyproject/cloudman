@@ -11,7 +11,7 @@ class HMChartRepoSerializer(serializers.Serializer):
 
 class HMChartSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
-    name = serializers.CharField()
+    name = serializers.CharField(required=False)
     display_name = serializers.CharField(read_only=True)
     chart_version = serializers.CharField(allow_blank=True, required=False)
     revision = serializers.IntegerField(allow_null=True, required=False)
@@ -20,7 +20,7 @@ class HMChartSerializer(serializers.Serializer):
     state = serializers.CharField(allow_blank=True, read_only=False, required=False)
     updated = serializers.CharField(read_only=True)
     access_address = serializers.CharField(read_only=True)
-    values = serializers.DictField()
+    values = serializers.DictField(required=False)
     repo = HMChartRepoSerializer(read_only=True)
     repo_name = serializers.CharField(write_only=True, allow_blank=True, required=False)
     install_template = serializers.CharField(write_only=True, allow_blank=True, required=False)
@@ -61,8 +61,14 @@ class HMInstallTemplateSerializer(serializers.Serializer):
     repo = serializers.SlugField()
     chart = serializers.SlugField()
     chart_version = serializers.CharField(allow_blank=True)
-    template = serializers.DictField()
+    template = serializers.CharField()
     context = serializers.DictField()
+    display_name = serializers.CharField(allow_blank=True)
+    summary = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(allow_blank=True)
+    maintainers = serializers.CharField(allow_blank=True)
+    info_url = serializers.CharField(allow_blank=True)
+    icon_url = serializers.CharField(allow_blank=True)
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(
@@ -72,7 +78,13 @@ class HMInstallTemplateSerializer(serializers.Serializer):
                 valid_data.get('chart'),
                 valid_data.get('chart_version'),
                 valid_data.get('template'),
-                valid_data.get('context'))
+                valid_data.get('context'),
+                display_name=valid_data.get('context'),
+                summary=valid_data.get('context'),
+                description=valid_data.get('description'),
+                maintainers=valid_data.get('maintainer'),
+                info_url=valid_data.get('info_url'),
+                icon_url=valid_data.get('icon_url'))
 
     def render_values(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']

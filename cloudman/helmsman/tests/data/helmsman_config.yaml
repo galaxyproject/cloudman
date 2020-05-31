@@ -7,6 +7,12 @@ install_templates:
     jupyter:
       repo: jupyterhub
       chart: jupyterhub
+      summary: jupyter chart
+      description: jupyter chart description
+      display_name: "Jupyter"
+      maintainers: jupyter
+      info_url:
+      icon_url:
       template: |
         ingress:
           enabled: true

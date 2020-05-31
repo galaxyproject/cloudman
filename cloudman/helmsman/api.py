@@ -286,12 +286,12 @@ class HMInstallTemplateService(HelmsManService):
         return HelmInstallTemplate(self, template)
 
     def create(self, name, repo, chart, chart_version=None,
-               template=None, context=None):
+               template=None, context=None, **kwargs):
         self.check_permissions('helmsman.add_install_template')
         obj = models.HMInstallTemplate.objects.create(
             name=name, repo=repo, chart=chart,
             chart_version=chart_version,
-            template=template, context=context)
+            template=template, context=context, **kwargs)
         install_template = self.to_api_object(obj)
         return install_template
 
@@ -394,7 +394,34 @@ class HelmInstallTemplate(HelmsManResource):
 
     @property
     def context(self):
-        return self.template_obj.context
+        if self.template_obj.context:
+            return yaml.safe_load(self.template_obj.context)
+        else:
+            return {}
+
+    @property
+    def display_name(self):
+        return self.template_obj.display_name or self.template_obj.name.title()
+
+    @property
+    def summary(self):
+        return self.template_obj.summary
+
+    @property
+    def description(self):
+        return self.template_obj.description
+
+    @property
+    def maintainers(self):
+        return self.template_obj.maintainers
+
+    @property
+    def info_url(self):
+        return self.template_obj.info_url
+
+    @property
+    def icon_url(self):
+        return self.template_obj.icon_url
 
     def render_values(self, context):
         if not context:

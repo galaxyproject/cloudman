@@ -29,6 +29,18 @@ class Command(BaseCommand):
                 extra_args += ["--chart_ver", template.get('chart_version')]
             if template.get('context'):
                 extra_args += ["--context", template.get('context')]
+            if template.get('display_name'):
+                extra_args += ["--display_name", template.get('display_name')]
+            if template.get('summary'):
+                extra_args += ["--summary", template.get('summary')]
+            if template.get('description'):
+                extra_args += ["--description", template.get('description')]
+            if template.get('maintainers'):
+                extra_args += ["--maintainers", template.get('maintainers')]
+            if template.get('info_url'):
+                extra_args += ["--info_url", template.get('info_url')]
+            if template.get('icon_url'):
+                extra_args += ["--icon_url", template.get('icon_url')]
             if template.get('template'):
                 with helpers.TempInputFile(template.get('template')) as f:
                     extra_args += ["--template_file", f.name]

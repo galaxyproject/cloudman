@@ -23,6 +23,12 @@ class Migration(migrations.Migration):
                 ('chart_version', models.CharField(max_length=60, blank=True, null=True)),
                 ('template', models.TextField(blank=True, null=True)),
                 ('context', models.TextField(blank=True, null=True)),
+                ('display_name', models.TextField(blank=True, null=True)),
+                ('summary', models.TextField(blank=True, null=True)),
+                ('description', models.TextField(blank=True, null=True)),
+                ('maintainers', models.TextField(blank=True, null=True)),
+                ('info_url', models.TextField(blank=True, null=True)),
+                ('icon_url', models.TextField(blank=True, null=True)),
             ],
             options={
                 'verbose_name': 'Install Template',
