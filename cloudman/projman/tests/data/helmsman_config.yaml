@@ -19,6 +19,8 @@ install_templates:
       repo: cloudve
       chart: galaxy
       chart_version: 3.3.0
+      context:
+          storageclass: ebs-provisioner
       template: |
         config:
           oidc_backends_config.xml: |
@@ -62,7 +64,7 @@ install_templates:
           storageClass: nfs-provisioner
         postgresql:
           persistence:
-            storageClass: ebs-provisioner
+            storageClass: {{ context.storageclass }}
 
 charts:
   dashboard:

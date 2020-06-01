@@ -438,8 +438,8 @@ class HelmInstallTemplate(HelmsManResource):
     def render_values(self, context):
         if not context:
             context = {}
-        default_context = yaml.safe_load(self.context or '')
-        context.update(default_context or {})
+        default_context = self.context or {}
+        context.update(default_context)
         tmpl = jinja2.Template(
             "\n".join([apps.get_app_config('helmsman').default_macros,
                        self.template or '']))
@@ -456,7 +456,7 @@ class HelmInstallTemplate(HelmsManResource):
                                     namespace=namespace,
                                     release_name=release_name,
                                     version=self.chart_version,
-                                    values=[default_values, values])
+                                    values=[default_values, values or {}])
 
     def delete(self):
         self.service.delete(self.name)
