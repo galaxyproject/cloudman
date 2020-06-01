@@ -60,29 +60,29 @@ class HMInstallTemplateSerializer(serializers.Serializer):
     name = serializers.CharField()
     repo = serializers.SlugField()
     chart = serializers.SlugField()
-    chart_version = serializers.CharField(allow_blank=True)
+    chart_version = serializers.CharField(allow_blank=True, required=False)
     template = serializers.CharField()
-    context = serializers.DictField()
-    display_name = serializers.CharField(allow_blank=True)
-    summary = serializers.CharField(allow_blank=True)
-    description = serializers.CharField(allow_blank=True)
-    maintainers = serializers.CharField(allow_blank=True)
-    info_url = serializers.CharField(allow_blank=True)
-    icon_url = serializers.CharField(allow_blank=True)
+    context = serializers.DictField(required=False)
+    display_name = serializers.CharField(allow_blank=True, required=False)
+    summary = serializers.CharField(allow_blank=True, required=False)
+    description = serializers.CharField(allow_blank=True, required=False)
+    maintainers = serializers.CharField(allow_blank=True, required=False)
+    info_url = serializers.CharField(allow_blank=True, required=False)
+    icon_url = serializers.CharField(allow_blank=True, required=False)
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(
             self.context['request']).templates.create(
-                valid_data.get('name'),
-                valid_data.get('repo'),
-                valid_data.get('chart'),
-                valid_data.get('chart_version'),
-                valid_data.get('template'),
-                valid_data.get('context'),
-                display_name=valid_data.get('context'),
-                summary=valid_data.get('context'),
+                name=valid_data.get('name'),
+                repo=valid_data.get('repo'),
+                chart=valid_data.get('chart'),
+                chart_version=valid_data.get('chart_version'),
+                template=valid_data.get('template'),
+                context=valid_data.get('context'),
+                display_name=valid_data.get('display_name'),
+                summary=valid_data.get('summary'),
                 description=valid_data.get('description'),
-                maintainers=valid_data.get('maintainer'),
+                maintainers=valid_data.get('maintainers'),
                 info_url=valid_data.get('info_url'),
                 icon_url=valid_data.get('icon_url'))
 

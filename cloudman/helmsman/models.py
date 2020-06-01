@@ -9,7 +9,7 @@ class HMInstallTemplate(models.Model):
     # Automatically add timestamps when object is updated
     updated = models.DateTimeField(auto_now=True)
     # Each project corresponds to a k8s namespace and therefore, must be unique
-    name = models.CharField(max_length=60, unique=True)
+    name = models.CharField(max_length=60, primary_key=True)
     repo = models.SlugField(max_length=60)
     chart = models.SlugField(max_length=60)
     chart_version = models.CharField(max_length=60, blank=True, null=True)

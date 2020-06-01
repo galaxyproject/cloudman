@@ -4,6 +4,8 @@ import jinja2
 import yaml
 
 from django.apps import apps
+from django.db import IntegrityError
+from django.db import transaction
 
 from django.contrib.auth.models import User
 
@@ -34,6 +36,10 @@ class NamespaceExistsException(HelmsmanException):
 
 
 class ChartNotFoundException(HelmsmanException):
+    pass
+
+
+class InstallTemplateExistsException(HelmsmanException):
     pass
 
 
@@ -288,12 +294,17 @@ class HMInstallTemplateService(HelmsManService):
     def create(self, name, repo, chart, chart_version=None,
                template=None, context=None, **kwargs):
         self.check_permissions('helmsman.add_install_template')
-        obj = models.HMInstallTemplate.objects.create(
-            name=name, repo=repo, chart=chart,
-            chart_version=chart_version,
-            template=template, context=context, **kwargs)
-        install_template = self.to_api_object(obj)
-        return install_template
+        try:
+            with transaction.atomic():
+                obj = models.HMInstallTemplate.objects.create(
+                    name=name, repo=repo, chart=chart,
+                    chart_version=chart_version,
+                    template=template, context=context, **kwargs)
+            install_template = self.to_api_object(obj)
+            return install_template
+        except IntegrityError as e:
+            raise InstallTemplateExistsException(
+                "Install template '%s' already exists" % name) from e
 
     def get(self, name):
         try:
@@ -306,7 +317,8 @@ class HMInstallTemplateService(HelmsManService):
     def delete(self, template):
         if template:
             self.check_permissions('helmsman.delete_install_template', template)
-            template.original_delete()
+            template_name = template.name if isinstance(template, HelmInstallTemplate) else template
+            models.HMInstallTemplate.objects.filter(name=template_name).delete()
 
     def list(self):
         return list(map(
