@@ -23,7 +23,13 @@ def load_kube_config():
 class ClusterCommandTestCase(TestCase):
 
     INITIAL_CLUSTER_DATA = os.path.join(
-        TEST_DATA_PATH, 'initial_cluster_data.yaml')
+        TEST_DATA_PATH, 'initial_cluster_data_aws.yaml')
+    INITIAL_CLUSTER_DATA_AZURE = os.path.join(
+        TEST_DATA_PATH, 'initial_cluster_data_azure.yaml')
+    INITIAL_CLUSTER_DATA_GCP = os.path.join(
+        TEST_DATA_PATH, 'initial_cluster_data_gcp.yaml')
+    INITIAL_CLUSTER_DATA_OPENSTACK = os.path.join(
+        TEST_DATA_PATH, 'initial_cluster_data_openstack.yaml')
 
     def setUp(self):
         super().setUp()
@@ -34,12 +40,33 @@ class ClusterCommandTestCase(TestCase):
         with self.assertRaisesRegex(CommandError, "required: filename"):
             call_command('import_cloud_data')
 
-    def test_import_cloud_data(self):
+    def test_import_cloud_data_aws(self):
         call_command('import_cloud_data', self.INITIAL_CLUSTER_DATA)
         zone_obj = cb_models.Zone.objects.get(
             region__cloud__id='aws', region__region_id='amazon-us-east',
             zone_id='default')
         self.assertEquals(zone_obj.name, 'us-east1')
+
+    def test_import_cloud_data_azure(self):
+        call_command('import_cloud_data', self.INITIAL_CLUSTER_DATA_AZURE)
+        zone_obj = cb_models.Zone.objects.get(
+            region__cloud__id='azure', region__region_id='azure-us-east',
+            zone_id='default')
+        self.assertEquals(zone_obj.name, 'us-east1')
+
+    def test_import_cloud_data_gcp(self):
+        call_command('import_cloud_data', self.INITIAL_CLUSTER_DATA_GCP)
+        zone_obj = cb_models.Zone.objects.get(
+            region__cloud__id='gcp', region__region_id='gcp-us-east',
+            zone_id='default')
+        self.assertEquals(zone_obj.name, 'us-east1')
+
+    def test_import_cloud_data_openstack(self):
+        call_command('import_cloud_data', self.INITIAL_CLUSTER_DATA_OPENSTACK)
+        zone_obj = cb_models.Zone.objects.get(
+            region__cloud__id='openstack', region__region_id='melbourne',
+            zone_id='default')
+        self.assertEquals(zone_obj.name, 'melbourne')
 
     def test_create_cluster_no_args(self):
         with self.assertRaisesRegex(

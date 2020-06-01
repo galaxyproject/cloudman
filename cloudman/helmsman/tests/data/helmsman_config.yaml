@@ -4,6 +4,13 @@ repositories:
   - name: jupyterhub
     url: https://jupyterhub.github.io/helm-chart/
 install_templates:
+    dummy:
+      repo: dummy
+      chart: dummy
+      summary: dummy chart
+      description: dummy chart description
+      display_name: dummy
+      maintainers: dummy
     jupyter:
       repo: jupyterhub
       chart: jupyterhub
@@ -11,8 +18,8 @@ install_templates:
       description: jupyter chart description
       display_name: "Jupyter"
       maintainers: jupyter
-      info_url:
-      icon_url:
+      info_url: https://jupyter.org/
+      icon_url: https://jupyter.org/assets/hublogo.svg
       template: |
         ingress:
           enabled: true
@@ -95,3 +102,8 @@ charts:
           secretName: ngkc4-cloudve-org-key
       rbac:
         clusterAdminRole: true
+  dummy_chart:
+    name: dummy/dummy
+    namespace: dummy
+    create_namespace: true
+    chart_version: 1.0.0

@@ -17,7 +17,7 @@ class Command(BaseCommand):
                             help='namespace to install chart into')
         parser.add_argument('--release_name', required=False,
                             help='name to give release')
-        parser.add_argument('--chart_ver', required=False,
+        parser.add_argument('--chart_version', required=False,
                             help='version of chart to install. defaults'
                                  ' to latest')
         parser.add_argument('--values_file', required=False,
@@ -28,7 +28,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.add_chart(options['chart_ref'], options['namespace'],
-                       options['release_name'], options['chart_ver'],
+                       options['release_name'], options['chart_version'],
                        options['values_file'], options['create_namespace'])
 
     @staticmethod

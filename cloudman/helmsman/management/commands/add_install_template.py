@@ -17,7 +17,7 @@ class Command(BaseCommand):
                             help='Which repo to install from (e.g. stable)')
         parser.add_argument('chart',
                             help='name of the chart to install (e.g. postgres)')
-        parser.add_argument('--chart_ver', required=False,
+        parser.add_argument('--chart_version', required=False,
                             help='version of chart to install. defaults'
                                  ' to latest')
         parser.add_argument('--template_file', required=False,

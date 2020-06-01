@@ -26,7 +26,7 @@ def load_test_data(filename):
 
 
 def load_cluster_data():
-    return load_test_data('initial_cluster_data.yaml')
+    return load_test_data('initial_cluster_data_aws.yaml')
 
 
 def load_kube_config():

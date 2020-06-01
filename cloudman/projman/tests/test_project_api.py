@@ -152,7 +152,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
     CHART_DATA = {
         'name': 'galaxy',
         'display_name': 'Galaxy',
-        'chart_version': '1.0.0',
+        'chart_version': '3.3.0',
         'state': "DEPLOYED",
         'values': {
             'hello': 'world'

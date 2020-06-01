@@ -26,7 +26,7 @@ class Command(BaseCommand):
             template = settings.get('install_templates', {}).get(template_name)
             extra_args = []
             if template.get('chart_version'):
-                extra_args += ["--chart_ver", template.get('chart_version')]
+                extra_args += ["--chart_version", template.get('chart_version')]
             if template.get('context'):
                 extra_args += ["--context", template.get('context')]
             if template.get('display_name'):
