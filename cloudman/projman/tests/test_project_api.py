@@ -185,16 +185,16 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-list', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][0]['project'])
+        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][1]['project'])
         # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
-        response_chart = hm_helpers.flatten_dict(response.data['results'][0])
+        response_chart = hm_helpers.flatten_dict(response.data['results'][1])
         expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)
         self.assertDictContainsSubset(expected_chart, response_chart)
-        response_values = hm_helpers.flatten_dict(response.data['results'][0]['values'])
+        response_values = hm_helpers.flatten_dict(response.data['results'][1]['values'])
         expected_values = hm_helpers.flatten_dict(self.EXPECTED_CHART_VALUES)
         self.assertDictContainsSubset(expected_values, response_values)
 
-        return response.data['results'][0]['id']
+        return response.data['results'][1]['id']
 
     def _check_project_chart_exists(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
@@ -218,7 +218,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-list', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
+        # There's always the default projman chart, so ignore that
+        self.assertEqual(len(response.data['results']), 1)
 
     def _update_project_chart(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])

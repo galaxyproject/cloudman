@@ -54,6 +54,10 @@ class PMService(object):
             "Object does not exist or you do not have permissions to "
             "perform '%s'" % (scopes,))
 
+    def _get_helmsman_api(self):
+        admin = User.objects.filter(is_superuser=True).first()
+        return HelmsManAPI(HMServiceContext(user=admin))
+
 
 class ProjManAPI(PMService):
 
@@ -99,10 +103,21 @@ class PMProjectService(PMService):
         self.check_permissions('projman.view_project', obj)
         return self.to_api_object(obj)
 
+    def _init_default_project_charts(self, project):
+        # TODO: We should add a notion of project templates
+        # in addition to install templates.
+        # That way, we can define a project with pre-installed
+        # charts
+        client = self._get_helmsman_api()
+        chart_template = client.templates.find('projman')
+        if chart_template:
+            project.charts.create(chart_template.name)
+        else:
+            client.charts.create("cloudve", "projman", project.name)
+
     def create(self, name):
         self.check_permissions('projman.add_project')
-        admin = User.objects.filter(is_superuser=True).first()
-        client = HelmsManAPI(HMServiceContext(user=admin))
+        client = self._get_helmsman_api()
         namespace = slugify(name)
         if client.namespaces.get(namespace):
             message = (
@@ -113,6 +128,7 @@ class PMProjectService(PMService):
             name=name, namespace=namespace, owner=self.context.user)
         client.namespaces.create(namespace)
         project = self.to_api_object(obj)
+        self._init_default_project_charts(project)
         return project
 
     def delete(self, project_id):
@@ -143,10 +159,6 @@ class PMProjectChartService(PMService):
     def __init__(self, context, project):
         super(PMProjectChartService, self).__init__(context)
         self.project = project
-
-    def _get_helmsman_api(self):
-        admin = User.objects.filter(is_superuser=True).first()
-        return HelmsManAPI(HMServiceContext(user=admin))
 
     def _to_proj_chart(self, chart):
         chart.project = self.project
