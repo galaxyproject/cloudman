@@ -151,7 +151,7 @@ class HelmReleaseService(HelmService):
         cmd = ["helm", "get", "values", "--namespace", namespace, release_name]
         if get_all:
             cmd += ["--all"]
-        return yaml.safe_load(helpers.run_command(cmd))
+        return helpers.run_yaml_command(cmd)
 
     @staticmethod
     def parse_chart_name(name):

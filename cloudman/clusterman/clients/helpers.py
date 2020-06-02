@@ -6,14 +6,14 @@ import yaml
 from ..exceptions import CMRunCommandException
 
 
-def run_command(command, shell=False):
+def run_command(command, shell=False, stderr=None):
     """
     Runs a command and returns stdout
     """
     try:
         return subprocess.check_output(
             command, universal_newlines=True, shell=shell, encoding='utf-8',
-            stderr=subprocess.STDOUT)
+            stderr=stderr)
     except subprocess.CalledProcessError as e:
         raise CMRunCommandException(f"Error running command: {e.output}")
 
