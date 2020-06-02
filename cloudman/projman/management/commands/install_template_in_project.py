@@ -1,8 +1,9 @@
 import logging as log
 
 from django.core.management.base import BaseCommand
-
 from django.contrib.auth.models import User
+
+from helmsman.api import ChartExistsException
 
 from ...api import ProjManAPI, PMServiceContext
 
@@ -39,10 +40,7 @@ class Command(BaseCommand):
             if not proj:
                 print("Cannot find project {}.")
                 return None
-            elif proj.charts.find(release_name):
-                print("A release already exists in project '{}'"
-                      " with name '{}'".format(project_name, release_name))
-            else:
+            try:
                 ch = proj.charts.create(template_name,
                                         release_name,
                                         values, context)
@@ -50,6 +48,10 @@ class Command(BaseCommand):
                       f"with release named '{release_name}' into project "
                       f"'{project_name}'")
                 return ch
+            except ChartExistsException as ce:
+                log.warning(str(ce))
+                print(str(ce))
+
         except Exception as e:
             log.exception(f"An error occurred while "
                           f"installing template '{template_name}' "

@@ -236,11 +236,11 @@ class HMChartService(HelmsManService):
                release_name=None, version=None, values=None):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
-        existing_release = [
+        existing_chart = [
             r for r in client.releases.list(namespace)
             if chart_name == client.releases.parse_chart_name(r.get('CHART'))
         ]
-        if existing_release:
+        if existing_chart:
             raise ChartExistsException(
                 f"Chart {repo_name}/{chart_name} already installed in namespace {namespace}.")
         else:
