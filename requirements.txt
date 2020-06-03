@@ -4,12 +4,14 @@ gunicorn[gevent]
 # moto==1.1.11
 # for eclipse debugging
 pydevd>=1.0.0
+# jinja2 for rendering install templates
+jinja2
 # get latest package versions for now
-git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge
-git+https://github.com/CloudVE/djcloudbridge#egg=djcloudbridge
+git+https://github.com/CloudVE/cloudbridge
+git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
-git+https://github.com/CloudVE/cloudlaunch-cli#egg=cloudlaunch-cli
-git+https://github.com/galaxyproject/cloudlaunch#egg=cloudlaunch-server
+git+https://github.com/CloudVE/cloudlaunch-cli
+git+https://github.com/galaxyproject/cloudlaunch
 # for openid connect
 # oic==0.13.0  # Fix this at this version or django-oidc acts up
 git+https://github.com/CloudVE/django-oidc#egg=django-oidc

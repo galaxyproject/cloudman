@@ -1,5 +1,9 @@
+import os
+import yaml
+
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.core.management import call_command
 
 from rest_framework import status
 
@@ -7,15 +11,21 @@ from helmsman.api import HelmsManAPI
 from helmsman.api import HMServiceContext
 from helmsman.api import NamespaceExistsException
 from helmsman.tests import HelmsManServiceTestBase
+from helmsman import helpers as hm_helpers
 
 
 # Create your tests here.
 class ProjManManServiceTestBase(HelmsManServiceTestBase):
 
+    TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
+    INITIAL_HELMSMAN_DATA = os.path.join(
+        TEST_DATA_PATH, 'helmsman_config.yaml')
+
     def setUp(self):
         super().setUp()
         self.client.force_login(
             User.objects.get_or_create(username='projadmin', is_staff=True)[0])
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
 
 
 class ProjectServiceTests(ProjManManServiceTestBase):
@@ -132,6 +142,9 @@ class ProjectServiceTests(ProjManManServiceTestBase):
 
 class ProjectChartServiceTests(ProjManManServiceTestBase):
 
+    EXPECTED_CHART_DATA = os.path.join(
+        ProjManManServiceTestBase.TEST_DATA_PATH, 'expected_chart_values.yaml')
+
     PROJECT_DATA = {
         'name': 'gvl'
     }
@@ -139,12 +152,17 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
     CHART_DATA = {
         'name': 'galaxy',
         'display_name': 'Galaxy',
-        'chart_version': '1.0.0',
+        'chart_version': '3.3.0',
         'state': "DEPLOYED",
         'values': {
             'hello': 'world'
         }
     }
+
+    def setUp(self):
+        super().setUp()
+        with open(self.EXPECTED_CHART_DATA) as f:
+            self.EXPECTED_CHART_VALUES = yaml.safe_load(f)
 
     def _create_project(self):
         url = reverse('projman:projects-list')
@@ -154,7 +172,9 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
 
     def _create_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
-        return self.client.post(url, self.CHART_DATA, format='json')
+        chart_data = dict(self.CHART_DATA)
+        chart_data['install_template'] = 'galaxy'
+        return self.client.post(url, chart_data, format='json')
 
     def _delete_project(self, project_id):
         # delete the object
@@ -165,16 +185,29 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-list', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][0]['project'])
-        self.assertDictContainsSubset(self.CHART_DATA, response.data['results'][0])
-        return response.data['results'][0]['id']
+        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][1]['project'])
+        # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
+        response_chart = hm_helpers.flatten_dict(response.data['results'][1])
+        expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)
+        self.assertDictContainsSubset(expected_chart, response_chart)
+        response_values = hm_helpers.flatten_dict(response.data['results'][1]['values'])
+        expected_values = hm_helpers.flatten_dict(self.EXPECTED_CHART_VALUES)
+        self.assertDictContainsSubset(expected_values, response_values)
+
+        return response.data['results'][1]['id']
 
     def _check_project_chart_exists(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.PROJECT_DATA, response.data['project'])
-        self.assertDictContainsSubset(self.CHART_DATA, response.data)
+        # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
+        response_chart = hm_helpers.flatten_dict(response.data)
+        expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)
+        self.assertDictContainsSubset(expected_chart, response_chart)
+        response_values = hm_helpers.flatten_dict(response.data['values'])
+        expected_values = hm_helpers.flatten_dict(self.EXPECTED_CHART_VALUES)
+        self.assertDictContainsSubset(expected_values, response_values)
         return response.data['id']
 
     def _delete_project_chart(self, project_id, chart_id):
@@ -185,7 +218,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-list', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
+        # There's always the default projman chart, so ignore that
+        self.assertEqual(len(response.data['results']), 1)
 
     def _update_project_chart(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])

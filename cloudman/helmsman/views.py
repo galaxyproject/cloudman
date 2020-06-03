@@ -66,3 +66,20 @@ class NamespaceViewSet(drf_helpers.CustomModelViewSet):
         """Get info about a specific chart."""
         return (HelmsManAPI.from_request(self.request)
                 .namespaces.get(self.kwargs["pk"]))
+
+
+class InstallTemplatesViewSet(drf_helpers.CustomModelViewSet):
+    """Returns list of templates managed by CloudMan."""
+
+    permission_classes = (IsAuthenticated,)
+    # Required for the Browsable API renderer to have a nice form.
+    serializer_class = serializers.HMInstallTemplateSerializer
+
+    def list_objects(self):
+        """Get a list of all registered templates."""
+        return HelmsManAPI.from_request(self.request).templates.list()
+
+    def get_object(self):
+        """Get info about a specific chart."""
+        return (HelmsManAPI.from_request(self.request)
+                .templates.get(self.kwargs["pk"]))

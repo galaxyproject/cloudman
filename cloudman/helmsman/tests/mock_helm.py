@@ -4,6 +4,8 @@ from io import StringIO
 import uuid
 import yaml
 
+import jsonmerge
+
 
 class MockHelm(object):
     """
@@ -81,7 +83,7 @@ class MockHelm(object):
         parser_inst.add_argument('--namespace', type=str, help='namespace')
         parser_inst.add_argument('--version', type=str, help='version')
         parser_inst.add_argument(
-            '-f', '--values', type=str, help='value files')
+            '-f', '--values', type=str, help='value files', nargs="*", action="append")
         parser_inst.set_defaults(func=self._helm_install)
 
         # Helm upgrade
@@ -94,7 +96,7 @@ class MockHelm(object):
             '--reuse-values', action='store_true',
             help="reuse the last release's values and merge in any overrides")
         parser_upgrade.add_argument(
-            '-f', '--values', type=str, help='value files')
+            '-f', '--values', type=str, help='value files', nargs="*", action="append")
         parser_upgrade.add_argument(
             '--namespace', type=str, help='namespace of release')
         parser_upgrade.set_defaults(func=self._helm_upgrade)
@@ -201,10 +203,13 @@ class MockHelm(object):
             'DESCRIPTION': 'Initial Install',
             'VALUES': {}
         }
-        if args.values:
-            with open(args.values, 'r') as f:
+        # flatten the values file list
+        value_files = [f for vfl in args.values or [] for f in vfl]
+        for vals_file in value_files:
+            with open(vals_file, 'r') as f:
                 values = yaml.safe_load(f)
-                revision['VALUES'] = values
+                revision['VALUES'] = jsonmerge.merge(
+                    revision.get('VALUES') or {}, values)
         self.chart_database[release_name] = [revision]
         return revision
 
@@ -216,10 +221,13 @@ class MockHelm(object):
         new_release = dict(latest_release)
         new_release['REVISION'] += 1
         new_release['DESCRIPTION'] = 'Upgraded successfully'
-        if args.values:
-            with open(args.values, 'r') as f:
+        # flatten the values file list
+        value_files = [f for vfl in args.values or [] for f in vfl]
+        for vals_file in value_files:
+            with open(vals_file, 'r') as f:
                 values = yaml.safe_load(f)
-                new_release['VALUES'] = values
+                new_release['VALUES'] = jsonmerge.merge(
+                    new_release.get('VALUES') or {}, values)
         revisions.append(new_release)
         return new_release
 

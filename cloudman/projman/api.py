@@ -54,6 +54,10 @@ class PMService(object):
             "Object does not exist or you do not have permissions to "
             "perform '%s'" % (scopes,))
 
+    def _get_helmsman_api(self):
+        admin = User.objects.filter(is_superuser=True).first()
+        return HelmsManAPI(HMServiceContext(user=admin))
+
 
 class ProjManAPI(PMService):
 
@@ -99,10 +103,21 @@ class PMProjectService(PMService):
         self.check_permissions('projman.view_project', obj)
         return self.to_api_object(obj)
 
+    def _init_default_project_charts(self, project):
+        # TODO: We should add a notion of project templates
+        # in addition to install templates.
+        # That way, we can define a project with pre-installed
+        # charts
+        client = self._get_helmsman_api()
+        chart_template = client.templates.find('projman')
+        if chart_template:
+            project.charts.create(chart_template.name)
+        else:
+            client.charts.create("cloudve", "projman", project.name)
+
     def create(self, name):
         self.check_permissions('projman.add_project')
-        admin = User.objects.filter(is_superuser=True).first()
-        client = HelmsManAPI(HMServiceContext(user=admin))
+        client = self._get_helmsman_api()
         namespace = slugify(name)
         if client.namespaces.get(namespace):
             message = (
@@ -113,6 +128,7 @@ class PMProjectService(PMService):
             name=name, namespace=namespace, owner=self.context.user)
         client.namespaces.create(namespace)
         project = self.to_api_object(obj)
+        self._init_default_project_charts(project)
         return project
 
     def delete(self, project_id):
@@ -144,10 +160,6 @@ class PMProjectChartService(PMService):
         super(PMProjectChartService, self).__init__(context)
         self.project = project
 
-    def _get_helmsman_api(self):
-        admin = User.objects.filter(is_superuser=True).first()
-        return HelmsManAPI(HMServiceContext(user=admin))
-
     def _to_proj_chart(self, chart):
         chart.project = self.project
         # Remap the helm API's delete method to the project chart API method
@@ -155,6 +167,14 @@ class PMProjectChartService(PMService):
         # the HelmChart object.
         chart.delete = lambda: self.delete(chart.id)
         return chart
+
+    def find(self, name):
+        matches = [self._to_proj_chart(chart) for chart
+                   in self.list() if chart.name == name]
+        if matches:
+            return matches[0]
+        else:
+            return None
 
     def list(self):
         return [self._to_proj_chart(chart) for chart
@@ -167,12 +187,16 @@ class PMProjectChartService(PMService):
         return (self._to_proj_chart(chart)
                 if chart and chart.namespace == self.project.name else None)
 
-    def create(self, repo_name, chart_name, release_name=None, version=None,
-               values=None):
+    def create(self, template_name, release_name=None,
+               values=None, context=None):
         self.check_permissions('projman.add_chart')
-        return self._to_proj_chart(self._get_helmsman_api().charts.create(
-            repo_name, chart_name, self.project.name, release_name, version,
-            values))
+        template = self._get_helmsman_api().templates.get(template_name)
+        if not context:
+            context = {}
+        context.update({'project': self.project.name})
+        return self._to_proj_chart(
+            template.install(self.project.name, release_name,
+                             values, context=context))
 
     def update(self, chart, values):
         self.check_permissions('projman.change_chart', chart)
@@ -181,7 +205,8 @@ class PMProjectChartService(PMService):
 
     def rollback(self, chart, revision=None):
         self.check_permissions('projman.change_chart', chart)
-        updated_chart = self._get_helmsman_api().charts.rollback(chart, revision)
+        updated_chart = self._get_helmsman_api().charts.rollback(chart,
+                                                                 revision)
         return self._to_proj_chart(updated_chart)
 
     def delete(self, chart_id):

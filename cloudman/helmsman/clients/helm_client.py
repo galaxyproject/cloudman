@@ -1,9 +1,14 @@
 """A wrapper around the helm commandline client"""
+import contextlib
 import shutil
-import tempfile
+
 import yaml
-from clusterman.clients import helpers
+
 from enum import Enum
+
+from clusterman.clients import helpers
+
+from helmsman import helpers as hm_helpers
 
 
 class HelmService(object):
@@ -65,17 +70,26 @@ class HelmReleaseService(HelmService):
     def get(self, namespace, release_name):
         return {}
 
-    def _set_values_and_run_command(self, cmd, values):
+    def _set_values_and_run_command(self, cmd, values_list):
         """
         Handles helm values by writing values to a temporary file,
         after which the command is run. The temporary file is cleaned
         up on exit from this method. This allows special values like braces
         to be handled without complex escaping, which the helm --set flag
         can't handle.
+
+        The values can be a list of values files, in which case they will
+        all be written to multiple temp files and passed to helm.
         """
-        with tempfile.NamedTemporaryFile(mode="w", prefix="helmsman") as f:
-            yaml.dump(values, stream=f, default_flow_style=False)
-            cmd += ["-f", f.name]
+        if not isinstance(values_list, list):
+            values_list = [values_list]
+        # contextlib.exitstack allows multiple temp files to be cleaned up
+        # on exit. ref: https://stackoverflow.com/a/19412700
+        with contextlib.ExitStack() as stack:
+            files = [stack.enter_context(hm_helpers.TempValuesFile(values))
+                     for values in values_list]
+            for file in files:
+                cmd += ["-f", file.name]
             return helpers.run_command(cmd)
 
     def create(self, chart, namespace, release_name=None,

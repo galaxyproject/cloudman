@@ -1,9 +1,19 @@
 """HelmsMan Service API."""
 import jsonmerge
+import jinja2
+import yaml
+
+from django.apps import apps
+from django.db import IntegrityError
+from django.db import transaction
+
+from django.contrib.auth.models import User
 
 from rest_framework.exceptions import PermissionDenied
 
 from clusterman.clients.kube_client import KubeClient
+
+from . import models
 
 from .clients.helm_client import HelmClient
 from .clients.helm_client import HelmValueHandling
@@ -26,6 +36,14 @@ class NamespaceExistsException(HelmsmanException):
 
 
 class ChartNotFoundException(HelmsmanException):
+    pass
+
+
+class InstallTemplateExistsException(HelmsmanException):
+    pass
+
+
+class InstallTemplateNotFoundException(HelmsmanException):
     pass
 
 
@@ -83,6 +101,7 @@ class HelmsManAPI(HelmsManService):
         self._repo_svc = HMChartRepoService(context)
         self._chart_svc = HMChartService(context)
         self._namespace_svc = HMNamespaceService(context)
+        self._templates_svc = HMInstallTemplateService(context)
 
     @classmethod
     def from_request(cls, request):
@@ -100,6 +119,10 @@ class HelmsManAPI(HelmsManService):
     @property
     def namespaces(self):
         return self._namespace_svc
+
+    @property
+    def templates(self):
+        return self._templates_svc
 
 
 class HMNamespaceService(HelmsManService):
@@ -213,11 +236,11 @@ class HMChartService(HelmsManService):
                release_name=None, version=None, values=None):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
-        existing_release = [
+        existing_chart = [
             r for r in client.releases.list(namespace)
             if chart_name == client.releases.parse_chart_name(r.get('CHART'))
         ]
-        if existing_release:
+        if existing_chart:
             raise ChartExistsException(
                 f"Chart {repo_name}/{chart_name} already installed in namespace {namespace}.")
         else:
@@ -260,6 +283,60 @@ class HMChartService(HelmsManService):
         HelmClient().releases.delete(chart.namespace, chart.id)
 
 
+class HMInstallTemplateService(HelmsManService):
+
+    def __init__(self, context):
+        super(HMInstallTemplateService, self).__init__(context)
+
+    def to_api_object(self, template):
+        return HelmInstallTemplate(self, template)
+
+    def create(self, name, repo, chart, chart_version=None,
+               template=None, context=None, **kwargs):
+        self.check_permissions('helmsman.add_install_template')
+        try:
+            with transaction.atomic():
+                obj = models.HMInstallTemplate.objects.create(
+                    name=name, repo=repo, chart=chart,
+                    chart_version=chart_version,
+                    template=template, context=context, **kwargs)
+            install_template = self.to_api_object(obj)
+            return install_template
+        except IntegrityError as e:
+            raise InstallTemplateExistsException(
+                "Install template '%s' already exists" % name) from e
+
+    def get(self, name):
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=name)
+        except models.HMInstallTemplate.DoesNotExist as e:
+            raise InstallTemplateNotFoundException("Could not find install template '%s'" % name)
+        self.check_permissions('helmsman.view_install_template', obj)
+        return self.to_api_object(obj)
+
+    def delete(self, template):
+        if template:
+            self.check_permissions('helmsman.delete_install_template', template)
+            template_name = template.name if isinstance(template, HelmInstallTemplate) else template
+            models.HMInstallTemplate.objects.filter(name=template_name).delete()
+
+    def list(self):
+        return list(map(
+            self.to_api_object,
+            (tmpl for tmpl in models.HMInstallTemplate.objects.all()
+             if self.has_permissions('helmsman.view_install_template', tmpl))))
+
+    def find(self, name):
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=name)
+            if self.has_permissions('helmsman.view_install_template', obj):
+                return self.to_api_object(obj)
+            else:
+                return None
+        except models.HMInstallTemplate.DoesNotExist:
+            return None
+
+
 class HelmsManResource(object):
     """Marker interface for HelmsMan resources"""
     def __init__(self, service):
@@ -296,6 +373,90 @@ class KubeNamespace(HelmsManResource):
         self.name = kwargs.get('NAME')
         self.status = kwargs.get('STATUS')
         self.age = kwargs.get('AGE')
+
+    def delete(self):
+        self.service.delete(self.name)
+
+
+class HelmInstallTemplate(HelmsManResource):
+
+    def __init__(self, service, template_obj):
+        super().__init__(service)
+        self.template_obj = template_obj
+
+    @property
+    def name(self):
+        return self.template_obj.name
+
+    @property
+    def repo(self):
+        return self.template_obj.repo
+
+    @property
+    def chart(self):
+        return self.template_obj.chart
+
+    @property
+    def chart_version(self):
+        return self.template_obj.chart_version
+
+    @property
+    def template(self):
+        return self.template_obj.template
+
+    @property
+    def context(self):
+        if self.template_obj.context:
+            return yaml.safe_load(self.template_obj.context)
+        else:
+            return {}
+
+    @property
+    def display_name(self):
+        return self.template_obj.display_name or self.template_obj.name.title()
+
+    @property
+    def summary(self):
+        return self.template_obj.summary
+
+    @property
+    def description(self):
+        return self.template_obj.description
+
+    @property
+    def maintainers(self):
+        return self.template_obj.maintainers
+
+    @property
+    def info_url(self):
+        return self.template_obj.info_url
+
+    @property
+    def icon_url(self):
+        return self.template_obj.icon_url
+
+    def render_values(self, context):
+        if not context:
+            context = {}
+        default_context = self.context or {}
+        context.update(default_context)
+        tmpl = jinja2.Template(
+            "\n".join([apps.get_app_config('helmsman').default_macros,
+                       self.template or '']))
+        return tmpl.render({"context": context})
+
+    def install(self, namespace, release_name=None, values=None,
+                context=None):
+        default_values = yaml.safe_load(
+            self.render_values(context or {}))
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.charts.create(repo_name=self.repo,
+                                    chart_name=self.chart,
+                                    namespace=namespace,
+                                    release_name=release_name,
+                                    version=self.chart_version,
+                                    values=[default_values, values or {}])
 
     def delete(self):
         self.service.delete(self.name)

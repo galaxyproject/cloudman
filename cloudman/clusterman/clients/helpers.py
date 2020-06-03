@@ -38,16 +38,3 @@ def run_yaml_command(command):
     """
     output = run_command(command)
     return yaml.safe_load(output)
-
-
-# based on: https://codereview.stackexchange.com/questions/21033/flatten-dic
-# tionary-in-python-functional-style
-# def flatten_dict(d):
-#     def items():
-#         for key, value in d.items():
-#             if isinstance(value, dict):
-#                 for subkey, subvalue in flatten_dict(value).items():
-#                     yield key + "." + subkey, subvalue
-#             else:
-#                 yield key, value
-#     return dict(items())

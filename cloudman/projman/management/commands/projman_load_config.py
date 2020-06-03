@@ -1,5 +1,4 @@
 import argparse
-import tempfile
 import yaml
 
 from django.core.management import call_command
@@ -18,6 +17,18 @@ class Command(BaseCommand):
 
     @staticmethod
     def process_settings(settings):
-        for project in settings.get('projects'):
-            if project.get('name'):
-                call_command("projman_create_project", project.get('name'))
+        projects = settings.get('projects')
+        for project in projects:
+            if project:
+                call_command("projman_create_project", project)
+                charts = projects.get(project).get('charts', [])
+                for chart in charts:
+                    template = charts.get(chart).get("install_template")
+                    if template:
+                        release_name = charts.get(chart).get("release_name", '')
+                        values = yaml.safe_load(charts.get(chart).get("values", '')) or ''
+                        context = yaml.safe_load(charts.get(chart).get("context", '')) or ''
+                        call_command("install_template_in_project",
+                                     project, template,
+                                     release_name,
+                                     values, context)

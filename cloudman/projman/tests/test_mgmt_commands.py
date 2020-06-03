@@ -14,6 +14,8 @@ from projman import models as pm_models
 class CommandsTestCase(TestCase):
 
     TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
+    INITIAL_HELMSMAN_DATA = os.path.join(
+        TEST_DATA_PATH, 'helmsman_config.yaml')
     INITIAL_PROJECT_DATA = os.path.join(
         TEST_DATA_PATH, 'projman_config.yaml')
 
@@ -31,16 +33,17 @@ class CommandsTestCase(TestCase):
             call_command('projman_load_config')
 
     def test_projman_load_config(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
         call_command('projman_load_config', self.INITIAL_PROJECT_DATA)
-        project1 = pm_models.CMProject.objects.get(name='defaultproj')
-        project2 = pm_models.CMProject.objects.get(name='proj2')
-        self.assertEquals(project1.name, 'defaultproj')
+        project1 = pm_models.CMProject.objects.get(name='first')
+        project2 = pm_models.CMProject.objects.get(name='second')
+        self.assertEquals(project1.name, 'first')
         self.assertEquals(project1.owner.username, 'admin')
-        self.assertEquals(project2.name, 'proj2')
+        self.assertEquals(project2.name, 'second')
         self.assertEquals(project2.owner.username, 'admin')
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
-        self.assertEquals(client.namespaces.get(project2.name).name, 'proj2')
+        self.assertEquals(client.namespaces.get(project2.name).name, 'second')
         # Test error for default namespace
         with self.assertRaises(NamespaceExistsException):
             call_command("projman_create_project", "default")

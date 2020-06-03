@@ -1,0 +1,73 @@
+app_config:
+  config_appliance:
+    inventoryTemplate:
+    repository: https://github.com/CloudVE/ansible-cloudman2
+    runner: ansible
+    sshUser: ubuntu
+  config_cloudlaunch:
+    customImageID: null
+    firewall:
+    - rules:
+      - cidr: 0.0.0.0/0
+        from: "22"
+        protocol: tcp
+        to: "22"
+      securityGroup: cloudlaunch-cm2
+    gateway: null
+    keyPair: null
+    network: null
+    provider_settings:
+      ebsOptimised: null
+      volumeIOPS: null
+    rootStorageType: instance
+    staticIP: null
+    subnet: null
+    vmType: m2.large
+  config_cloudman2:
+    clusterPassword: 123456
+    cm_boot_image: cloudve/cloudman-boot
+    pulsarOnly: false
+cloud_config:
+  credentials:
+    # temp credentials don't have id and name
+    os_username: "testuser@domain.com"
+    os_password: "testpassword"
+    os_project_name: testproject
+    os_project_domain_name: test_project_domain
+    os_user_domain_name: test_user_domain
+  image:
+    description: Ubuntu 16.04 with Docker
+    image_id: ami-123456
+    name: Ubuntu 16.04 with Docker
+  target:
+    id: 28
+    resourcetype: CloudDeploymentTarget
+    target_zone:
+      cloud:
+        id: openstack
+        name: OpenStack
+        resourcetype: OpenStackCloud
+      name: melbourne
+      region:
+        cloud: openstack
+        id: 25
+        name: melbourne
+        region_id: melbourne
+        resourcetype: OpenStackRegion
+      zone_id: default
+host_config:
+  host_address: 127.0.0.1
+  run_cmd: null
+  ssh_private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MSomeREASONABLECcontentBAQEFAASCBKkwggSlAgEAAoIBAQDV8ZKINVKPejyt
+    e1KdtdUcj4zA9d3R0qI6UrrZICaXCiCST8Wyd0GbtDxElwMx1I4Wvce4r4ESZcdO
+        zZZdd8whRDbQDY0lYJrXGpoZvg==
+    -----END PRIVATE KEY-----
+  ssh_public_key: ssh-rsa AAAASomeKey/0DV
+  ssh_user: ubuntu
+rancher_config:
+  rancher_url: https://127.0.0.1:4430
+  rancher_api_key: token-bf4j5:sometoken
+  rancher_cluster_id: c-abcd1
+  rancher_project_id: c-abcd1:p-7zr5p

@@ -1,3 +1,11 @@
 projects:
-  - name: defaultproj
-  - name: proj2
+  first:
+    charts:
+      galaxy:
+        install_template: galaxy
+  second:
+    charts:
+      galaxy:
+        install_template: galaxy
+      jupyterhub:
+        install_template: jupyter

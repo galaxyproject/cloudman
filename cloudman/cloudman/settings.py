@@ -16,7 +16,7 @@ INSTALLED_APPS += [
     'bossoidc',
     'djangooidc',
     'clusterman',
-    'helmsman',
+    'helmsman.apps.HelmsManConfig',
     'projman',
     # Discover and apply permission rules in each project
     'rules.apps.AutodiscoverRulesConfig'

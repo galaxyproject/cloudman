@@ -24,8 +24,11 @@ class Command(BaseCommand):
             admin = User.objects.filter(is_superuser=True).first()
             pmapi = ProjManAPI(PMServiceContext(user=admin))
             if not pmapi.projects.find(name):
-                pmapi.projects.create(name)
+                proj = pmapi.projects.create(name)
                 print("Project created successfully.")
+                return proj
+            else:
+                return pmapi.projects.find(name)
         except Exception as e:
             log.exception(f"An error occurred while "
                           f"creating the project '{name}':", e)

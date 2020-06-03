@@ -44,3 +44,7 @@ class CommandsTestCase(TestCase):
     def test_add_chart_no_namespace(self):
         with self.assertRaises(NamespaceNotFoundException):
             call_command("add_chart", "cloudve/galaxy", namespace="new")
+
+    def test_helmsman_install_duplicate_template(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)

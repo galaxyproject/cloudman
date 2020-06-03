@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase
 from .client_mocker import ClientMocker
 
 from helmsman.api import ChartExistsException
+from helmsman.api import InstallTemplateExistsException
 from helmsman.api import NamespaceExistsException
 
 
@@ -16,9 +17,6 @@ class HelmsManServiceTestBase(APITestCase):
         self.mock_client = ClientMocker(self)
         self.client.force_login(
             User.objects.get_or_create(username='admin', is_superuser=True)[0])
-
-    def tearDown(self):
-        self.client.logout()
 
 
 class RepoServiceTests(HelmsManServiceTestBase):
@@ -236,3 +234,106 @@ class NamespaceServiceTests(HelmsManServiceTestBase):
         response = self._delete_namespace(ns_id_now)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_extra_namespaces_exist()
+
+
+class InstallTemplateServiceTests(HelmsManServiceTestBase):
+
+    INSTALL_TEMPLATE_DATA = {
+        'name': 'galaxy',
+        'repo': 'galaxyproject',
+        'chart': 'galaxy',
+        'chart_version': '',
+        'summary': 'Web-based data analysis platform',
+        'description': 'A more detailed description',
+        'display_name': 'Galaxy',
+        'maintainers': 'Galaxy Team',
+        'info_url': 'https://usegalaxy.org',
+        'icon_url': 'https://usegalaxy.org/some_icon.png',
+        'context': {'project': 'test'},
+        'template': """ingress:
+              enabled: true
+              path: '/{{context.project}}/galaxy'
+            hub:
+              baseUrl: '/{{context.project}}/galaxy'
+            proxy:
+              secretToken: '{{random_alphanumeric(65)}}'"""
+    }
+
+    def _create_install_template(self):
+        # create the object
+        url = reverse('helmsman:install_templates-list')
+        return self.client.post(url, self.INSTALL_TEMPLATE_DATA, format='json')
+
+    def _list_install_templates(self):
+        # list existing objects
+        url = reverse('helmsman:install_templates-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertDictContainsSubset(self.INSTALL_TEMPLATE_DATA, response.data['results'][0])
+        return response.data['results'][0]['name']
+
+    def _check_install_template_exists(self, ns_id):
+        # check it exists
+        url = reverse('helmsman:install_templates-detail', args=[ns_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertDictContainsSubset(self.INSTALL_TEMPLATE_DATA, response.data)
+        return response.data['name']
+
+    def _delete_install_template(self, ns_id):
+        url = reverse('helmsman:install_templates-detail', args=[ns_id])
+        return self.client.delete(url)
+
+    def _check_no_install_templates_exist(self):
+        url = reverse('helmsman:install_templates-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)
+
+    def test_crud_install_template(self):
+        response = self._create_install_template()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED,
+                         response.data)
+
+        obj_id = self._list_install_templates()
+        # Assert that the originally created obj id is the same as the one
+        # returned by list
+        self.assertEquals(response.data['name'], obj_id)
+
+        # create duplicate object
+        with self.assertRaises(InstallTemplateExistsException):
+            self._create_install_template()
+
+        obj_id = self._check_install_template_exists(obj_id)
+        response = self._delete_install_template(obj_id)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_install_templates_exist()
+
+
+    def test_create_unauthorized(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
+        response = self._create_install_template()
+        self.assertEquals(response.status_code, 403, response.data)
+        self._check_no_install_templates_exist()
+
+    def test_list_unauthorized(self):
+        self.client.force_login(
+            User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
+        self._check_no_install_templates_exist()
+
+    def test_delete_unauthorized(self):
+        self._create_install_template()
+        obj_id_then = self._list_install_templates()
+        self.client.force_login(
+            User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
+        response = self._delete_install_template(obj_id_then)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='admin'))
+        obj_id_now = self._list_install_templates()
+        assert obj_id_now  # should still exist
+        assert obj_id_then == obj_id_now  # should be the same chart
+        response = self._delete_install_template(obj_id_now)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+        self._check_no_install_templates_exist()

@@ -4,22 +4,9 @@ repositories:
   - name: jupyterhub
     url: https://jupyterhub.github.io/helm-chart/
 install_templates:
-    dummy:
-      repo: dummy
-      chart: dummy
-      summary: dummy chart
-      description: dummy chart description
-      display_name: dummy
-      maintainers: dummy
     jupyter:
       repo: jupyterhub
       chart: jupyterhub
-      summary: jupyter chart
-      description: jupyter chart description
-      display_name: "Jupyter"
-      maintainers: jupyter
-      info_url: https://jupyter.org/
-      icon_url: https://jupyter.org/assets/hublogo.svg
       template: |
         ingress:
           enabled: true
@@ -32,6 +19,8 @@ install_templates:
       repo: cloudve
       chart: galaxy
       chart_version: 3.3.0
+      context:
+          storageclass: ebs-provisioner
       template: |
         config:
           oidc_backends_config.xml: |
@@ -75,7 +64,7 @@ install_templates:
           storageClass: nfs-provisioner
         postgresql:
           persistence:
-            storageClass: ebs-provisioner
+            storageClass: {{ context.storageclass }}
 
 charts:
   dashboard:
@@ -102,8 +91,3 @@ charts:
           secretName: ngkc4-cloudve-org-key
       rbac:
         clusterAdminRole: true
-  dummy_chart:
-    name: dummy/dummy
-    namespace: dummy
-    create_namespace: true
-    chart_version: 1.0.0

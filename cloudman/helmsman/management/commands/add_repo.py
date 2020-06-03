@@ -7,8 +7,8 @@ class Command(BaseCommand):
     help = 'Adds a new repository to helm'
 
     def add_arguments(self, parser):
-        parser.add_argument('name')
-        parser.add_argument('url')
+        parser.add_argument('name', help='Name of the repository')
+        parser.add_argument('url', help='Url to the repository')
 
     def handle(self, *args, **options):
         self.add_chart(options['name'], options['url'])
