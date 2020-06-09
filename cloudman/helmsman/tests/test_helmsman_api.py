@@ -252,9 +252,9 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         'context': {'project': 'test'},
         'template': """ingress:
               enabled: true
-              path: '/{{context.project}}/galaxy'
+              path: '{{context.project.access_path}}/galaxy'
             hub:
-              baseUrl: '/{{context.project}}/galaxy'
+              baseUrl: '{{context.project.access_path}}/galaxy'
             proxy:
               secretToken: '{{random_alphanumeric(65)}}'"""
     }
