@@ -199,7 +199,7 @@ class PMProjectChartService(PMService):
             'access_path': f"/{self.project.namespace}",
         }})
         return self._to_proj_chart(
-            template.install(self.project.name, release_name,
+            template.install(self.project.namespace, release_name,
                              values, context=context))
 
     def update(self, chart, values):

@@ -185,9 +185,9 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         with open(self.EXPECTED_CHART_DATA) as f:
             self.EXPECTED_CHART_VALUES = yaml.safe_load(f)
 
-    def _create_project(self):
+    def _create_project(self, project_data=None):
         url = reverse('projman:projects-list')
-        response = self.client.post(url, self.PROJECT_DATA, format='json')
+        response = self.client.post(url, project_data or self.PROJECT_DATA, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         return response.data['id']
 
@@ -202,11 +202,11 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:projects-detail', args=[project_id])
         return self.client.delete(url)
 
-    def _list_project_chart(self, project_id):
+    def _list_project_chart(self, project_id, project_data=None):
         url = reverse('projman:chart-list', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][1]['project'])
+        self.assertDictContainsSubset(project_data or self.PROJECT_DATA, response.data['results'][1]['project'])
         # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
         response_chart = hm_helpers.flatten_dict(response.data['results'][1])
         expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)
@@ -382,3 +382,12 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
             User.objects.get(username='projadmin'))
         response = self._delete_project(project_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+
+    def test_install_into_project_name_special_chars(self):
+        PROJECT_DATA = {
+            "name": "A non RFC1123 compli'ant name"
+        }
+        project_id = self._create_project(project_data=PROJECT_DATA)
+        # create the project chart
+        response = self._create_project_chart(project_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
