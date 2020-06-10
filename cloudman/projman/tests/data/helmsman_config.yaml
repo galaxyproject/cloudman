@@ -10,9 +10,9 @@ install_templates:
       template: |
         ingress:
           enabled: true
-          path: '/{{context.project}}/jupyterhub'
+          path: '{{context.project.access_path}}/jupyterhub'
         hub:
-          baseUrl: '/{{context.project}}/jupyterhub'
+          baseUrl: '{{context.project.access_path}}/jupyterhub'
         proxy:
           secretToken: '{{random_alphanumeric(65)}}'
     galaxy:
@@ -30,7 +30,7 @@ install_templates:
                     <url>https://ngkc4.cloudve.org/auth</url>
                     <client_id>galaxy-auth</client_id>
                     <client_secret>{{random_alphanumeric(8)}}-{{random_alphanumeric(4)}}-{{random_alphanumeric(4)}}-{{random_alphanumeric(12)}}</client_secret>
-                    <redirect_uri>https://ngkc4.cloudve.org/{{context.project}}/galaxy/authnz/custos/callback</redirect_uri>
+                    <redirect_uri>https://ngkc4.cloudve.org{{context.project.access_path}}/galaxy/authnz/custos/callback</redirect_uri>
                     <realm>master</realm>
                 </provider>
             </OIDC>
@@ -54,7 +54,7 @@ install_templates:
           enabled: true
           hosts:
             - ngkc4.cloudve.org
-          path: /{{context.project}}/galaxy
+          path: {{context.project.access_path}}/galaxy
           tls:
             - hosts:
                 - ngkc4.cloudve.org

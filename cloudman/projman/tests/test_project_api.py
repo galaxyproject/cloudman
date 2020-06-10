@@ -34,25 +34,25 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         'name': 'GVL'
     }
 
-    def _create_project(self):
+    def _create_project(self, project_data=None):
         # create the object
         url = reverse('projman:projects-list')
-        return self.client.post(url, self.PROJECT_DATA, format='json')
+        return self.client.post(url, project_data or self.PROJECT_DATA, format='json')
 
-    def _list_project(self):
+    def _list_project(self, project_data=None):
         # list existing objects
         url = reverse('projman:projects-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['results'][0])
+        self.assertDictContainsSubset(project_data or self.PROJECT_DATA, response.data['results'][0])
         return response.data['results'][0]['id']
 
-    def _check_project_exists(self, project_id):
+    def _check_project_exists(self, project_id, project_data=None):
         # check it exists
         url = reverse('projman:projects-detail', args=[project_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data)
+        self.assertDictContainsSubset(project_data or self.PROJECT_DATA, response.data)
         return response.data['id']
 
     def _delete_project(self, project_id):
@@ -139,6 +139,27 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         obj = client.namespaces.get(namespace)
         self.assertIsNone(obj, "Deleting the project should delete namespace")
 
+    def test_project_name_special_chars(self):
+        """
+        When creating a project with special chars, the corresponding namespace
+        should be RFC1123 compliant.
+        """
+        PROJECT_DATA = {
+            "name": "A non RFC1123 compli'ant name"
+        }
+        response = self._create_project(project_data=PROJECT_DATA)
+        # Namespace should be slugified version of project name
+        project_id = response.data['id']
+        namespace = response.data['namespace']
+        self.assertEquals(namespace, "a-non-rfc1123-compliant-name")
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        obj = client.namespaces.get(namespace)
+        assert obj
+        self._delete_project(project_id)
+        obj = client.namespaces.get(namespace)
+        self.assertIsNone(obj, "Deleting the project should delete namespace")
+
 
 class ProjectChartServiceTests(ProjManManServiceTestBase):
 
@@ -196,11 +217,11 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
 
         return response.data['results'][1]['id']
 
-    def _check_project_chart_exists(self, project_id, chart_id):
+    def _check_project_chart_exists(self, project_id, chart_id, project_data=None):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertDictContainsSubset(self.PROJECT_DATA, response.data['project'])
+        self.assertDictContainsSubset(project_data or self.PROJECT_DATA, response.data['project'])
         # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
         response_chart = hm_helpers.flatten_dict(response.data)
         expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)

@@ -113,7 +113,7 @@ class PMProjectService(PMService):
         if chart_template:
             project.charts.create(chart_template.name)
         else:
-            client.charts.create("cloudve", "projman", project.name)
+            client.charts.create("cloudve", "projman", project.namespace)
 
     def create(self, name):
         self.check_permissions('projman.add_project')
@@ -178,14 +178,14 @@ class PMProjectChartService(PMService):
 
     def list(self):
         return [self._to_proj_chart(chart) for chart
-                in self._get_helmsman_api().charts.list(self.project.name)
+                in self._get_helmsman_api().charts.list(self.project.namespace)
                 if self.has_permissions('projman.view_chart', chart)]
 
     def get(self, chart_id):
         chart = self._get_helmsman_api().charts.get(chart_id)
         self.check_permissions('projman.view_chart', chart)
         return (self._to_proj_chart(chart)
-                if chart and chart.namespace == self.project.name else None)
+                if chart and chart.namespace == self.project.namespace else None)
 
     def create(self, template_name, release_name=None,
                values=None, context=None):
@@ -193,7 +193,11 @@ class PMProjectChartService(PMService):
         template = self._get_helmsman_api().templates.get(template_name)
         if not context:
             context = {}
-        context.update({'project': self.project.name})
+        context.update({'project': {
+            'name': self.project.name,
+            'namespace': self.project.namespace,
+            'access_path': f"/{self.project.namespace}",
+        }})
         return self._to_proj_chart(
             template.install(self.project.name, release_name,
                              values, context=context))

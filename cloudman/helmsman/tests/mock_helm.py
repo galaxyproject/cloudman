@@ -1,6 +1,7 @@
 import argparse
 import csv
 from io import StringIO
+import re
 import uuid
 import yaml
 
@@ -12,6 +13,8 @@ class MockHelm(object):
     A mock version of the helm binary. Maintains an in-memory database
     to simulate helm commands.
     """
+
+    DNS_SUBDOMAIN_REGEX = re.compile('^(?![0-9]+$)(?!-)[a-zA-Z0-9-]{,63}(?<!-)$')
 
     def __init__(self):
         self.revision_history = [
@@ -60,6 +63,13 @@ class MockHelm(object):
         self.repo_search_field_names = ["NAME", "CHART VERSION", "APP VERSION", "DESCRIPTION"]
         self.parser = self._create_parser()
 
+    def validate_namespace(self, value):
+        value = str(value)
+        if not self.DNS_SUBDOMAIN_REGEX.match(value):
+            raise argparse.ArgumentTypeError(
+                "Namespace: \"%s\" must be a valid subdomain name which is RFC1123 compliant." % value)
+        return value
+
     def _create_parser(self):
         parser = argparse.ArgumentParser(prog='helm')
 
@@ -69,7 +79,8 @@ class MockHelm(object):
         parser_list = subparsers.add_parser('list', help='list releases')
         parser_list.add_argument('--all-namespaces', action='store_true',
                                  help='list releases from all namespaces')
-        parser_list.add_argument('--namespace', type=str, help='namespace')
+        parser_list.add_argument('--namespace', type=self.validate_namespace,
+                                 help='namespace')
         parser_list.set_defaults(func=self._helm_list)
 
         # Helm install
@@ -80,7 +91,8 @@ class MockHelm(object):
             'chart', type=str, help='chart name')
         parser_inst.add_argument(
             '--generate-name', action='store_true', help='generate random name')
-        parser_inst.add_argument('--namespace', type=str, help='namespace')
+        parser_inst.add_argument('--namespace', type=self.validate_namespace,
+                                 help='namespace')
         parser_inst.add_argument('--version', type=str, help='version')
         parser_inst.add_argument(
             '-f', '--values', type=str, help='value files', nargs="*", action="append")
@@ -108,14 +120,16 @@ class MockHelm(object):
         parser_rollback.add_argument(
             'revision', type=int, help='revision number')
         parser_rollback.add_argument(
-            '--namespace', type=str, help='namespace of release')
+            '--namespace', type=self.validate_namespace,
+            help='namespace of release')
         parser_rollback.set_defaults(func=self._helm_rollback)
 
         # Helm history
         parser_history = subparsers.add_parser('history', help='prints historical revisions for a given release')
         parser_history.add_argument(
             'release', type=str, help='release name')
-        parser_history.add_argument('--namespace', type=str, help='namespace')
+        parser_history.add_argument('--namespace', type=self.validate_namespace,
+                                    help='namespace')
         parser_history.set_defaults(func=self._helm_history)
 
         # Helm repo commands
@@ -142,7 +156,8 @@ class MockHelm(object):
         p_get_values.add_argument(
             '--all', action='store_true', help='dump all values')
         p_get_values.add_argument(
-            '--namespace', type=str, help='namespace of release')
+            '--namespace', type=self.validate_namespace,
+            help='namespace of release')
         p_get_values.set_defaults(func=self._helm_get_values)
 
 
@@ -153,7 +168,8 @@ class MockHelm(object):
         # Helm delete
         parser_delete = subparsers.add_parser('delete', help='delete a release')
         parser_delete.add_argument('release', type=str, help='release name')
-        parser_delete.add_argument('--namespace', type=str, help='namespace')
+        parser_delete.add_argument('--namespace', type=self.validate_namespace,
+                                   help='namespace')
         parser_delete.set_defaults(func=self._helm_delete)
 
         # Helm search
