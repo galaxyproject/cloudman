@@ -3,6 +3,8 @@ import jsonmerge
 import jinja2
 import yaml
 
+from ansible.plugins.filter import ipaddr
+
 from django.apps import apps
 from django.db import IntegrityError
 from django.db import transaction
@@ -440,10 +442,18 @@ class HelmInstallTemplate(HelmsManResource):
             context = {}
         default_context = self.context or {}
         context.update(default_context)
-        tmpl = jinja2.Template(
+        jinja2_env = self._get_jinja2_env()
+        tmpl = jinja2_env.from_string(
             "\n".join([apps.get_app_config('helmsman').default_macros,
                        self.template or '']))
         return tmpl.render({"context": context})
+
+    @staticmethod
+    def _get_jinja2_env():
+        env = jinja2.Environment(loader=jinja2.BaseLoader)
+        f = ipaddr.FilterModule()
+        env.filters.update(f.filters())
+        return env
 
     def install(self, namespace, release_name=None, values=None,
                 context=None):
