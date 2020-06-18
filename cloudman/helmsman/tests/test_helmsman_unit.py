@@ -1,6 +1,5 @@
-from unittest import TestCase
-
 from django.contrib.auth.models import User
+from django.test import TestCase
 
 from helmsman.api import HelmsManAPI
 from helmsman.api import HMServiceContext
@@ -13,30 +12,24 @@ class InstallTemplateUnitTest(TestCase):
         self.client = HelmsManAPI(HMServiceContext(user=admin))
 
     def test_render_values(self):
-        base_tpl = """
-                hosts:
-                  - ~
-                {% if not (server_host | ipaddr) %}
-                  - "{{ server_host }}"
-                {% endif %}
-        """
+        base_tpl = ('hosts:\n'
+                    '  - ~\n'
+                    '  {%- if not (context.domain | ipaddr) %}\n'
+                    '  - "{{ context.domain }}"\n'
+                    '  {%- endif %}')
 
         tpl = self.client.templates.create(
                         'dummytpl', 'dummyrepo', 'dummychart',
                         template=base_tpl)
 
-        ip_expected = """
-                hosts:
-                  - ~
-        """
-        host_expected = """
-                hosts:
-                  - ~
-                  - "example.com"
-        """
+        ip_expected = ('hosts:\n'
+                       '  - ~')
+        host_expected = ('hosts:\n'
+                         '  - ~\n'
+                         '  - "example.com"')
 
-        ip_rendered = tpl.render_values(context={'server_host': '192.168.2.1'})
+        ip_rendered = tpl.render_values(context={'domain': '192.168.2.1'})
         self.assertEquals(ip_expected, ip_rendered)
 
-        host_rendered = tpl.render_values(context={'server_host': 'example.com'})
+        host_rendered = tpl.render_values(context={'domain': 'example.com'})
         self.assertEquals(host_expected, host_rendered)
