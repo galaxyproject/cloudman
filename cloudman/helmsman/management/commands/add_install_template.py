@@ -60,7 +60,7 @@ class Command(BaseCommand):
             print(f"Adding template: {name}")
             admin = User.objects.filter(is_superuser=True).first()
             client = HelmsManAPI(HMServiceContext(user=admin))
-            existing_template = client.templates.find(name)
+            existing_template = client.templates.find(name=name)
             if existing_template:
                 print(f"Template named: '{name}' for chart: '{repo}/{chart}'"
                       " already exists.")

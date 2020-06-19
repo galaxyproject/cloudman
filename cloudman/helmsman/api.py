@@ -203,7 +203,9 @@ class HMChartService(HelmsManService):
                 state=release.get("STATUS"),
                 updated=release.get("UPDATED"),
                 values=HelmClient().releases.get_values(
-                    release.get("NAMESPACE"), release.get("NAME"), get_all=True)
+                    release.get("NAMESPACE"), release.get("NAME"), get_all=True),
+                install_template=self._find_closest_install_template(
+                    client.releases.parse_chart_name(release.get('CHART')))
             )
             for release in releases
         )
@@ -214,6 +216,10 @@ class HMChartService(HelmsManService):
         chart = next(charts, None)
         self.check_permissions('helmsman.view_chart', chart)
         return chart
+
+    def _find_closest_install_template(self, chart_name):
+        client = HelmsManAPI(self.context)
+        return client.templates.find(chart_name=chart_name)
 
     def _get_from_namespace(self, namespace, chart_name):
         matches = [c for c in self.list(namespace) if c.name == chart_name]
@@ -328,15 +334,14 @@ class HMInstallTemplateService(HelmsManService):
             (tmpl for tmpl in models.HMInstallTemplate.objects.all()
              if self.has_permissions('helmsman.view_install_template', tmpl))))
 
-    def find(self, name):
-        try:
-            obj = models.HMInstallTemplate.objects.get(name=name)
-            if self.has_permissions('helmsman.view_install_template', obj):
-                return self.to_api_object(obj)
-            else:
-                return None
-        except models.HMInstallTemplate.DoesNotExist:
-            return None
+    def find(self, name=None, chart_name=None):
+        search_terms = {'name': name, 'chart': chart_name}
+        matches = list(models.HMInstallTemplate.objects.filter(
+            **{k: v for k, v in search_terms.items() if v}))
+        if matches:
+            if self.has_permissions('helmsman.view_install_template', matches[0]):
+                return self.to_api_object(matches[0])
+        return None
 
 
 class HelmsManResource(object):
@@ -363,6 +368,7 @@ class HelmChart(HelmsManResource):
         self.updated = kwargs.get('updated')
         self.access_address = '/%s/' % name
         self.values = kwargs.get('values') or {}
+        self.install_template = kwargs.get('install_template')
 
     def delete(self):
         self.service.delete(self)

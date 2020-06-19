@@ -109,7 +109,7 @@ class PMProjectService(PMService):
         # That way, we can define a project with pre-installed
         # charts
         client = self._get_helmsman_api()
-        chart_template = client.templates.find('projman')
+        chart_template = client.templates.find(name='projman')
         if chart_template:
             project.charts.create(chart_template.name)
         else:
