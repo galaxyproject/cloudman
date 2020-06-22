@@ -28,6 +28,7 @@ class Migration(migrations.Migration):
                 ('maintainers', models.TextField(blank=True, null=True)),
                 ('info_url', models.TextField(blank=True, null=True)),
                 ('icon_url', models.TextField(blank=True, null=True)),
+                ('screenshot_url', models.TextField(blank=True, null=True)),
             ],
             options={
                 'verbose_name': 'Install Template',

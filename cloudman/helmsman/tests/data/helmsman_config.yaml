@@ -20,6 +20,7 @@ install_templates:
       maintainers: jupyter
       info_url: https://jupyter.org/
       icon_url: https://jupyter.org/assets/hublogo.svg
+      screenshot_url: https://jupyter.org/assets/hublogo.svg
       template: |
         ingress:
           enabled: true

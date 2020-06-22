@@ -249,6 +249,7 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         'maintainers': 'Galaxy Team',
         'info_url': 'https://usegalaxy.org',
         'icon_url': 'https://usegalaxy.org/some_icon.png',
+        'screenshot_url': 'https://usegalaxy.org/some_screenshot.png',
         'context': {'project': 'test'},
         'template': """ingress:
               enabled: true

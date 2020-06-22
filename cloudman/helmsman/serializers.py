@@ -18,6 +18,7 @@ class HMInstallTemplateSerializer(serializers.Serializer):
     maintainers = serializers.CharField(allow_blank=True, required=False)
     info_url = serializers.CharField(allow_blank=True, required=False)
     icon_url = serializers.CharField(allow_blank=True, required=False)
+    screenshot_url = serializers.CharField(allow_blank=True, required=False)
 
     def create(self, valid_data):
         return HelmsManAPI.from_request(
@@ -33,7 +34,8 @@ class HMInstallTemplateSerializer(serializers.Serializer):
                 description=valid_data.get('description'),
                 maintainers=valid_data.get('maintainers'),
                 info_url=valid_data.get('info_url'),
-                icon_url=valid_data.get('icon_url'))
+                icon_url=valid_data.get('icon_url'),
+                screenshot_url=valid_data.get('screenshot_url'))
 
     def render_values(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']
