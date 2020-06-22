@@ -21,6 +21,11 @@ class ProjManManServiceTestBase(HelmsManServiceTestBase):
     INITIAL_HELMSMAN_DATA = os.path.join(
         TEST_DATA_PATH, 'helmsman_config.yaml')
 
+    @staticmethod
+    def load_install_template(template_path):
+        with open(template_path) as f:
+            return yaml.safe_load(f.read())
+
     def setUp(self):
         super().setUp()
         self.client.force_login(
@@ -170,6 +175,10 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         'name': 'gvl'
     }
 
+    INSTALL_TEMPLATE_DATA = ProjManManServiceTestBase.load_install_template(
+        ProjManManServiceTestBase.INITIAL_HELMSMAN_DATA).get(
+        'install_templates').get('galaxy')
+
     CHART_DATA = {
         'name': 'galaxy',
         'display_name': 'Galaxy',
@@ -194,7 +203,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
     def _create_project_chart(self, project_id):
         url = reverse('projman:chart-list', args=[project_id])
         chart_data = dict(self.CHART_DATA)
-        chart_data['install_template'] = 'galaxy'
+        chart_data['use_install_template'] = 'galaxy'
         return self.client.post(url, chart_data, format='json')
 
     def _delete_project(self, project_id):
@@ -208,9 +217,15 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertDictContainsSubset(project_data or self.PROJECT_DATA, response.data['results'][1]['project'])
         # Flatten dicts because assertDictContainsSubset doesn't handle nested dicts
+        # Validate chart
         response_chart = hm_helpers.flatten_dict(response.data['results'][1])
         expected_chart = hm_helpers.flatten_dict(self.CHART_DATA)
         self.assertDictContainsSubset(expected_chart, response_chart)
+        # Validate template
+        response_values = hm_helpers.flatten_dict(response.data['results'][1]['install_template'])
+        expected_values = hm_helpers.flatten_dict(self.INSTALL_TEMPLATE_DATA)
+        self.assertDictContainsSubset(expected_values, response_values)
+        # Validate values
         response_values = hm_helpers.flatten_dict(response.data['results'][1]['values'])
         expected_values = hm_helpers.flatten_dict(self.EXPECTED_CHART_VALUES)
         self.assertDictContainsSubset(expected_values, response_values)
