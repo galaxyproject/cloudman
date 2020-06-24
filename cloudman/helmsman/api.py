@@ -443,6 +443,10 @@ class HelmInstallTemplate(HelmsManResource):
     def icon_url(self):
         return self.template_obj.icon_url
 
+    @property
+    def screenshot_url(self):
+        return self.template_obj.screenshot_url
+
     def render_values(self, context):
         if not context:
             context = {}

@@ -21,6 +21,7 @@ class HMInstallTemplate(models.Model):
     maintainers = models.TextField(blank=True, null=True)
     info_url = models.TextField(blank=True, null=True)
     icon_url = models.TextField(blank=True, null=True)
+    screenshot_url = models.TextField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Install Template"

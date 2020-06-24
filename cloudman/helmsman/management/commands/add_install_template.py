@@ -38,6 +38,8 @@ class Command(BaseCommand):
                             help='chart info url')
         parser.add_argument('--icon_url', required=False,
                             help='chart icon url')
+        parser.add_argument('--screenshot_url', required=False,
+                            help='chart screenshot url')
 
     def handle(self, *args, **options):
         self.add_install_template(
@@ -50,12 +52,13 @@ class Command(BaseCommand):
             options.get('description'),
             options.get('maintainers'),
             options.get('info_url'),
-            options.get('icon_url'))
+            options.get('icon_url'),
+            options.get('screenshot_url'))
 
     @staticmethod
     def add_install_template(name, repo, chart, chart_version, template,
                              context, display_name, summary, description,
-                             maintainers, info_url, icon_url):
+                             maintainers, info_url, icon_url, screenshot_url):
         try:
             print(f"Adding template: {name}")
             admin = User.objects.filter(is_superuser=True).first()
@@ -69,7 +72,7 @@ class Command(BaseCommand):
                     name, repo, chart, chart_version, template, context,
                     display_name=display_name, summary=summary,
                     description=description, maintainers=maintainers,
-                    info_url=info_url, icon_url=icon_url)
+                    info_url=info_url, icon_url=icon_url, screenshot_url=screenshot_url)
                 print(f"Successfully added template named: '{name}'"
                       f" for chart: '{repo}/{chart}'.")
         except Exception as e:
