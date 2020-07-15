@@ -1,4 +1,5 @@
 import argparse
+import copy
 import csv
 import yaml
 
@@ -100,6 +101,24 @@ class MockKubeCtl(object):
                 }
             }
         ]
+        self.secrets = [
+            {
+                'apiVersion': 'v1',
+                'data': {'POSTGRES_DATABASE': 'cm9vdA==',
+                         'POSTGRES_HOST': 'a2V5Y2xvYWstcG9zdGdyZXNxbA==',
+                         'POSTGRES_SUPERUSER': 'dHJ1ZQ==',
+                         'oidc-client-secret': 'ZXhhbXBsZS1rZXljbG9hay1DTmY3eVhwY1M3UXZLM0JLZ0plejBTbV9xYTBXRG1aRnpFSzlhcXRmdlZJPQ=='},
+                'kind': 'Secret',
+                'metadata': {'creationTimestamp': '2020-07-10T15:55:57Z',
+                             'labels': {'app': 'keycloak'},
+                             'name': 'gvl-projman-secret',
+                             'namespace': 'default',
+                             'resourceVersion': '4664946',
+                             'selfLink': '/api/v1/namespaces/default/secrets/keycloak-db-secret',
+                             'uid': '48ae55dc-2bed-4bee-9720-28ae725e47f0'},
+                'type': 'Opaque'
+            }
+        ]
         self.parser = self._create_parser()
 
     def _create_parser(self):
@@ -129,6 +148,13 @@ class MockKubeCtl(object):
             '--field-selector', type=str)
         parser_list_pods.add_argument('-o', choices=['yaml'], default="yaml")
         parser_list_pods.set_defaults(func=self._kubectl_get_pods)
+        # kubectl get secrets
+        parser_list_secrets = subparsers_get.add_parser(
+            'secrets', help='List secrets')
+        parser_list_secrets.add_argument('-o', choices=['yaml'], default="yaml")
+        parser_list_secrets.add_argument('-n', "--namespace", default=None)
+        parser_list_secrets.add_argument('name', default=None)
+        parser_list_secrets.set_defaults(func=self._kubectl_get_secrets)
 
         # kubectl create
         parser_create = subparsers.add_parser('create', help='create')
@@ -136,7 +162,7 @@ class MockKubeCtl(object):
             help='Resources to create')
         # kubectl create namespace
         parser_create_ns = subparsers_create.add_parser('namespace',
-                                            help='create a namespace')
+                                                        help='create a namespace')
         parser_create_ns.add_argument(
             'namespace', type=str, help='namespace name')
         parser_create_ns.set_defaults(func=self._kubectl_create_namespace)
@@ -246,4 +272,21 @@ class MockKubeCtl(object):
     def _kubectl_drain(self, args):
         with StringIO() as output:
             output.write(f"node/{args.node_name} drained")
+            return output.getvalue()
+
+    def _kubectl_get_secrets(self, args):
+        if args.name:
+            # Temporary workaround to always return a matching secret to the
+            # name requested. This is because the secret should have been auto created
+            # when the projman helm chart is installed, which we aren't doing in the mocker.
+            secret = copy.deepcopy(self.secrets[0])
+            secret.get('metadata')['name'] = args.name
+            response = secret
+        else:
+            # get a copy of the response template
+            response = dict(self.list_template)
+            # add node to template
+            response['items'] = self.secrets
+        with StringIO() as output:
+            yaml.dump(response, stream=output, default_flow_style=False)
             return output.getvalue()

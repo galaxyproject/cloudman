@@ -1,8 +1,11 @@
 """ProjMan Service API."""
+import base64
+
 from django.contrib.auth.models import User
 from django.template.defaultfilters import slugify
 
 from . import models
+from clusterman.clients.kube_client import KubeClient
 from helmsman.api import HelmsManAPI, HMServiceContext
 from helmsman.api import NamespaceExistsException
 from rest_framework.exceptions import PermissionDenied
@@ -187,6 +190,14 @@ class PMProjectChartService(PMService):
         return (self._to_proj_chart(chart)
                 if chart and chart.namespace == self.project.namespace else None)
 
+    def _get_project_oidc_secret(self):
+        try:
+            secret = KubeClient().secrets.get(f"{self.project.namespace}-projman-secrets",
+                                              namespace=self.project.namespace)
+            return base64.b64decode(secret.get('data').get('oidc-client-secret')).decode('utf-8')
+        except Exception:
+            return None
+
     def create(self, template_name, release_name=None,
                values=None, context=None):
         self.check_permissions('projman.add_chart')
@@ -197,6 +208,8 @@ class PMProjectChartService(PMService):
             'name': self.project.name,
             'namespace': self.project.namespace,
             'access_path': f"/{self.project.namespace}",
+            'oidc_client_id': f"projman-{self.project.namespace}",
+            'oidc_client_secret': self._get_project_oidc_secret()
         }})
         return self._to_proj_chart(
             template.install(self.project.namespace, release_name,
