@@ -1,16 +1,18 @@
 """DRF serializers for the CloudMan Create API endpoints."""
-
 from rest_framework import serializers
 from djcloudbridge import serializers as dj_serializers
 from helmsman import serializers as helmsman_serializers
 from .api import ProjManAPI
 from rest_framework.exceptions import ValidationError
 
+from django.utils.crypto import get_random_string
+
 
 class PMProjectSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField()
     namespace = serializers.CharField(read_only=True)
+    oidc_client_secret = serializers.CharField(read_only=True)
     permissions = serializers.SerializerMethodField()
 
     def get_permissions(self, project):
@@ -24,8 +26,16 @@ class PMProjectSerializer(serializers.Serializer):
         }
 
     def create(self, valid_data):
+        def _random_alphanumeric(n):
+            return get_random_string(n, '0123456789abcdefghijklmnopqrstuvwxyz')
+
         return ProjManAPI.from_request(self.context['request']).projects.create(
-            valid_data.get('name'))
+            valid_data.get('name'),
+            "{}-{}-{}-{}-{}".format(_random_alphanumeric(8),
+                                    _random_alphanumeric(4),
+                                    _random_alphanumeric(4),
+                                    _random_alphanumeric(4),
+                                    _random_alphanumeric(12)))
 
 
 class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):

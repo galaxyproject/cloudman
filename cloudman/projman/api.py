@@ -115,7 +115,7 @@ class PMProjectService(PMService):
         else:
             client.charts.create("cloudve", "projman", project.namespace)
 
-    def create(self, name):
+    def create(self, name, oidc_client_secret):
         self.check_permissions('projman.add_project')
         client = self._get_helmsman_api()
         namespace = slugify(name)
@@ -125,7 +125,9 @@ class PMProjectService(PMService):
                 f"A namespace by the same name already exists.")
             raise NamespaceExistsException(message)
         obj = models.CMProject.objects.create(
-            name=name, namespace=namespace, owner=self.context.user)
+            name=name, namespace=namespace,
+            oidc_client_secret=oidc_client_secret,
+            owner=self.context.user)
         client.namespaces.create(namespace)
         project = self.to_api_object(obj)
         self._init_default_project_charts(project)
@@ -196,6 +198,7 @@ class PMProjectChartService(PMService):
         context.update({'project': {
             'name': self.project.name,
             'namespace': self.project.namespace,
+            'oidc_client_secret': self.project.oidc_client_secret,
             'access_path': f"/{self.project.namespace}",
         }})
         return self._to_proj_chart(

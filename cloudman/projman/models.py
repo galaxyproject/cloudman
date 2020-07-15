@@ -13,6 +13,7 @@ class CMProject(models.Model):
     namespace = models.SlugField(max_length=253, unique=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                               null=False)
+    oidc_client_secret = models.CharField(max_length=60, unique=True)
 
     class Meta:
         verbose_name = "Project"
