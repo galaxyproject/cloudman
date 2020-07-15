@@ -22,6 +22,7 @@ class KubeClient(KubeService):
         super(KubeClient, self).__init__(self)
         self._namespace_svc = KubeNamespaceService(self)
         self._node_svc = KubeNodeService(self)
+        self._secret_svc = KubeSecretService(self)
 
     @staticmethod
     def _check_environment():
@@ -35,6 +36,10 @@ class KubeClient(KubeService):
     @property
     def nodes(self):
         return self._node_svc
+
+    @property
+    def secrets(self):
+        return self._secret_svc
 
 
 class KubeNamespaceService(KubeService):
@@ -111,3 +116,16 @@ class KubeNodeService(KubeService):
              f"--force={'true' if force else 'false'}",
              f"--ignore-daemonsets={'true' if ignore_daemonsets else 'false'}"]
         )
+
+
+class KubeSecretService(KubeService):
+
+    def __init__(self, client):
+        super(KubeSecretService, self).__init__(client)
+
+    def get(self, secret_name, namespace=None):
+        command = ["kubectl", "get", "secrets", "-o", "yaml", secret_name]
+        if namespace:
+            command += ["-n", namespace]
+        data = helpers.run_yaml_command(command)
+        return data
