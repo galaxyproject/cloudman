@@ -12,7 +12,7 @@ def assign_oidc_roles(user, roles):
                            Note: Contains both realm roles and client roles
     """
     for role in roles:
-        group, _ = Group.objects.get_or_create(name=f"{role}-admin")
+        group, _ = Group.objects.get_or_create(name=f"{role}")
         user.groups.add(group)
         user.save()
 
@@ -20,10 +20,24 @@ def assign_oidc_roles(user, roles):
 
 # Predicates
 @rules.predicate
+def can_view_project(user, project):
+    if not project:
+        return False
+    return rules.is_group_member(f'projman-{project.namespace}')(user)
+
+
+@rules.predicate
+def is_project_admin(user, project):
+    if not project:
+        return False
+    return rules.is_group_member(f'projman-{project.namespace}-admin')(user)
+
+
+@rules.predicate
 def is_project_owner(user, project):
     if not project:
         return False
-    return project.owner == user or rules.is_group_member(f'projman-{project.namespace}-admin')(user)
+    return project.owner == user
 
 
 @rules.predicate
@@ -35,12 +49,12 @@ def is_chart_owner(user, proj_chart):
 
 
 # Permissions
-rules.add_perm('projman.view_project', is_project_owner | rules.is_staff)
-rules.add_perm('projman.add_project', is_project_owner | rules.is_staff)
-rules.add_perm('projman.change_project', is_project_owner | rules.is_staff)
-rules.add_perm('projman.delete_project', is_project_owner | rules.is_staff)
+rules.add_perm('projman.view_project', is_project_owner | rules.is_staff | can_view_project)
+rules.add_perm('projman.add_project', is_project_owner | rules.is_staff | is_project_admin)
+rules.add_perm('projman.change_project', is_project_owner | rules.is_staff | is_project_admin)
+rules.add_perm('projman.delete_project', is_project_owner | rules.is_staff | is_project_admin)
 
-rules.add_perm('projman.view_chart', is_chart_owner | rules.is_staff)
-rules.add_perm('projman.add_chart', is_chart_owner | rules.is_staff)
-rules.add_perm('projman.change_chart', is_chart_owner | rules.is_staff)
-rules.add_perm('projman.delete_chart', is_chart_owner | rules.is_staff)
+rules.add_perm('projman.view_chart', is_chart_owner | rules.is_staff | can_view_project)
+rules.add_perm('projman.add_chart', is_chart_owner | rules.is_staff | is_project_admin)
+rules.add_perm('projman.change_chart', is_chart_owner | rules.is_staff | is_project_admin)
+rules.add_perm('projman.delete_chart', is_chart_owner | rules.is_staff | is_project_admin)
