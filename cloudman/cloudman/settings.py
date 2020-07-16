@@ -47,6 +47,7 @@ BOSSOIDC_PRESERVE_EXISTING_USER = True
 if OIDC_ENABLED:
     LOGIN_URL = "/openid/openid/KeyCloak"
     LOGOUT_URL = "/openid/logout"
+    LOAD_USER_ROLES = 'projman.rules.assign_oidc_roles'
     configure_oidc(auth_uri, client_id, public_uri)  # NOTE: scope is optional and can be left out
 else:
     OIDC_PROVIDERS = {}

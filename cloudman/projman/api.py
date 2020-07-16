@@ -182,11 +182,11 @@ class PMProjectChartService(PMService):
     def list(self):
         return [self._to_proj_chart(chart) for chart
                 in self._get_helmsman_api().charts.list(self.project.namespace)
-                if self.has_permissions('projman.view_chart', chart)]
+                if self.has_permissions('projman.view_chart', self._to_proj_chart(chart))]
 
     def get(self, chart_id):
         chart = self._get_helmsman_api().charts.get(chart_id)
-        self.check_permissions('projman.view_chart', chart)
+        self.check_permissions('projman.view_chart', self._to_proj_chart(chart))
         return (self._to_proj_chart(chart)
                 if chart and chart.namespace == self.project.namespace else None)
 
@@ -200,7 +200,7 @@ class PMProjectChartService(PMService):
 
     def create(self, template_name, release_name=None,
                values=None, context=None):
-        self.check_permissions('projman.add_chart')
+        self.check_permissions('projman.add_chart', obj=self.project)
         template = self._get_helmsman_api().templates.get(template_name)
         if not context:
             context = {}

@@ -19,6 +19,7 @@ class PMProjectSerializer(serializers.Serializer):
         """
         user = self.context['view'].request.user
         return {
+            'add_project': user.has_perm('projman.add_project', project),
             'change_project': user.has_perm('projman.change_project', project),
             'delete_project': user.has_perm('projman.delete_project', project)
         }

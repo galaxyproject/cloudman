@@ -1,7 +1,8 @@
 """ProjMan Create views."""
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 
 from djcloudbridge import drf_helpers
 from . import serializers
@@ -43,8 +44,11 @@ class ProjectChartViewSet(drf_helpers.CustomModelViewSet):
     serializer_class = serializers.PMProjectChartSerializer
 
     def list_objects(self):
-        project = ProjManAPI.from_request(self.request).projects.get(
-            self.kwargs["project_pk"])
+        try:
+            project = ProjManAPI.from_request(self.request).projects.get(
+                self.kwargs["project_pk"])
+        except PermissionDenied:
+            project = None
         if project:
             return project.charts.list()
         else:
