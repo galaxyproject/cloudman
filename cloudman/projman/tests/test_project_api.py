@@ -377,6 +377,14 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         response = self._delete_project(project_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
 
+    def test_chart_create_assign_project_admin(self):
+        project_id = self._create_project()
+        non_admin = User.objects.get_or_create(username='projadminassigned', is_staff=False)[0]
+        self.client.force_login(non_admin)
+        rules.assign_oidc_roles(non_admin, ["projman-gvl-admin"])
+        response = self._create_project_chart(project_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
     def test_chart_rollback(self):
         project_id = self._create_project()
         self._create_project_chart(project_id)
