@@ -1,10 +1,10 @@
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Group
 
 import rules
 
-
-# called by boss-oidc to process JWT user roles
-def load_oidc_roles(user, roles):
+# Called by boss-oidc to process JWT user roles
+# This function should be in a separate module, but leaving it here for now
+def assign_oidc_roles(user, roles):
     """Default implementation of the LOAD_USER_ROLES callback
     Args:
         user (UserModel): Django user object for the user logging in
@@ -12,8 +12,9 @@ def load_oidc_roles(user, roles):
                            Note: Contains both realm roles and client roles
     """
     for role in roles:
-        perm = Permission.objects.get_or_create(codename=role + "-admin")
-        user.user_permissions.add(perm)
+        group, _ = Group.objects.get_or_create(name=f"{role}-admin")
+        user.groups.add(group)
+        user.save()
 
 # Delegate to keycloak in future iteration
 
@@ -22,7 +23,7 @@ def load_oidc_roles(user, roles):
 def is_project_owner(user, project):
     if not project:
         return False
-    return project.owner == user or user.has_perm(f'projman-{project.namespace}-admin')
+    return project.owner == user or rules.is_group_member(f'projman-{project.namespace}-admin')(user)
 
 
 @rules.predicate

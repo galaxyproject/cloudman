@@ -13,6 +13,8 @@ from helmsman.api import NamespaceExistsException
 from helmsman.tests import HelmsManServiceTestBase
 from helmsman import helpers as hm_helpers
 
+from projman import rules
+
 
 # Create your tests here.
 class ProjManManServiceTestBase(HelmsManServiceTestBase):
@@ -117,10 +119,11 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         self._check_no_projects_exist()
 
     def test_can_view_shared_project(self):
-        self._create_project()
+        response = self._create_project()
         project_id_then = self._list_project()
-        self.client.force_login(
-            User.objects.get_or_create(username='notaprojadmin', is_staff=False)[0])
+        non_admin = User.objects.get_or_create(username='notaprojadmin', is_staff=False)[0]
+        self.client.force_login(non_admin)
+        rules.assign_oidc_roles(non_admin, ["projman-" + response.data['namespace']])
         project_id_now = self._list_project()
         assert project_id_now  # should be visible
         assert project_id_then == project_id_now  # should be the same project
@@ -255,7 +258,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # There's always the default projman chart, so ignore that
-        self.assertEqual(len(response.data['results']), 1)
+        self.assertLessEqual(len(response.data['results']), 1)
 
     def _update_project_chart(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
