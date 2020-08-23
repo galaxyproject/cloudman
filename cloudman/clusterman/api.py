@@ -32,7 +32,6 @@ class CMServiceContext(object):
 
     @property
     def cloudlaunch_token(self):
-        # Always perform internal tasks as the admin user
         token_obj, _ = cl_models.AuthToken.objects.get_or_create(
             name='cloudman', user=self.user)
         return token_obj.key
@@ -165,11 +164,12 @@ class CMClusterNodeService(CMService):
         self.check_permissions('clusternodes.view_clusternode', obj)
         return self.to_api_object(obj)
 
-    def create(self, vm_type=None, zone=None, autoscaler=None):
+    def create(self, vm_type=None, zone=None, autoscaler=None, min_vcpus=0, min_ram=0):
         self.check_permissions('clusternodes.add_clusternode')
         name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.get_cluster_template()
-        cli_deployment = template.add_node(name, vm_type=vm_type, zone=zone)
+        cli_deployment = template.add_node(name, vm_type=vm_type, zone=zone,
+                                           min_vcpus=min_vcpus, min_ram=min_ram)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(

@@ -64,7 +64,7 @@ class Cluster(object):
     def _get_default_scaler(self):
         return self.autoscalers.get_or_create_default()
 
-    def scaleup(self, zone_name=None):
+    def scaleup(self, zone_name=None, min_vcpus=None, min_ram=None):
         if zone_name:
             zone = cb_models.Zone.objects.get(name=zone_name)
         else:
@@ -75,10 +75,10 @@ class Cluster(object):
             for scaler in self.autoscalers.list():
                 if scaler.match(zone=zone):
                     matched = True
-                    scaler.scaleup()
+                    scaler.scaleup(min_vcpus=min_vcpus, min_ram=min_ram)
             if not matched:
                 scaler = self._get_default_scaler()
-                scaler.scaleup()
+                scaler.scaleup(min_vcpus=min_vcpus, min_ram=min_ram)
         else:
             log.debug("Autoscale up signal received but autoscaling is disabled.")
 
@@ -174,11 +174,12 @@ class ClusterAutoScaler(object):
         # matches a scaling signal.
         return zone == self.db_model.zone
 
-    def scaleup(self):
+    def scaleup(self, min_vcpus=0, min_ram=0):
         node_count = self.db_model.nodegroup.count()
         if node_count < self.max_nodes:
             self.cluster.nodes.create(
-                vm_type=self.vm_type, zone=self.zone, autoscaler=self)
+                vm_type=self.vm_type, min_vcpus=min_vcpus, min_ram=min_ram,
+                zone=self.zone, autoscaler=self)
 
     def scaledown(self):
         node_count = self.db_model.nodegroup.count()
