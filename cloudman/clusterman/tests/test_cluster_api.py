@@ -126,7 +126,7 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         # Assert that the originally created cluster id is the same as the one
         # returned by list
         self.assertEquals(response.data['id'], cluster_id)
-        self.assertEquals(response.data['default_vm_type'], 'm2.large')
+        self.assertEquals(response.data['default_vm_type'], 'm5.24xlarge')
         self.assertEquals(response.data['default_zone']['name'], 'us-east-1b')
 
         # check details
@@ -688,7 +688,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that the created node has the correct size
         vm_types = self._get_cluster_node_vm_types(cluster_id)
         self.assertEqual(len(vm_types), 1)
-        self.assertTrue("m2.large" in vm_types)
+        self.assertTrue("m5.24xlarge" in vm_types)
 
     @responses.activate
     def test_scale_down_default(self):
@@ -864,7 +864,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that the created node has the correct size
         vm_types = self._get_cluster_node_vm_types(cluster_id)
         self.assertEqual(len(vm_types), 1)
-        self.assertTrue("m2.large")
+        self.assertTrue("m5.24xlarge")
 
     def _login_as_autoscaling_user(self, impersonate_user=None):
         if impersonate_user:
