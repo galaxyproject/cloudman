@@ -565,16 +565,16 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
                 "labels": {
                     "alertname": "PodNotSchedulable",
                     "container": "job-container",
-                    "cpus": "96",
+                    "cpus": "93.5",
                     "instance": "10.42.0.19:8080",
                     "job": "kube-state-metrics",
-                    "memory": "768000000000",
+                    "memory": "768000000000.5",
                     "pod": "galaxy-galaxy-1596991139-245-lc4mg",
                     "severity": "warning"
                 },
                 "annotations": {
-                    "cpus": "96",
-                    "memory": "768000000000",
+                    "cpus": "93.5",
+                    "memory": "768000000000.5",
                     "message": "Cluster has unschedulable pods due to insufficient CPU or memory"
                 },
                 "startsAt": "2020-08-21T11:47:31.470370261Z",
@@ -588,16 +588,16 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "commonLabels": {
             "alertname": "PodNotSchedulable",
             "container": "job-container",
-            "cpus": "96",
+            "cpus": "93.5",
             "instance": "10.42.0.19:8080",
             "job": "kube-state-metrics",
-            "memory": "768000000000",
+            "memory": "768000000000.5",
             "pod": "galaxy-galaxy-1596991139-245-lc4mg",
             "severity": "warning"
         },
         "commonAnnotations": {
-            "cpus": "96",
-            "memory": "768000000000",
+            "cpus": "93.5",
+            "memory": "768000000000.5",
             "message": "Cluster has unschedulable pods due to insufficient CPU or memory"
         },
         "externalURL": "http://cloudman-prometheus-alertmanager.cloudman:9093",

@@ -103,9 +103,9 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
         # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
-        vcpus = int(serializer.validated_data.get(
+        vcpus = float(serializer.validated_data.get(
             'commonAnnotations', {}).get('cpus', 0))
-        ram = int(serializer.validated_data.get(
+        ram = float(serializer.validated_data.get(
             'commonAnnotations', {}).get('memory', 0)) / 1024 / 1024 / 1024
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
