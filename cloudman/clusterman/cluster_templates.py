@@ -86,6 +86,11 @@ class CMRancherTemplate(CMClusterTemplate):
         """
         vm_type = default_vm_type or self.cluster.default_vm_type
         if min_vcpus > 0 or min_ram > 0 or not vm_type.startswith(vm_family):
+            # Add some accommodation for rancher and k8s reserved resources
+            # https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/
+            min_vcpus += 1.0
+            min_ram *= 1.1
+
             cloud = self.context.cloudlaunch_client.infrastructure.clouds.get(
                 zone_model.region.cloud.id)
             region = cloud.regions.get(zone_model.region.region_id)
@@ -93,12 +98,12 @@ class CMRancherTemplate(CMClusterTemplate):
             default_matches = zone.vm_types.list(vm_type_prefix=vm_type)
             if default_matches:
                 default_match = default_matches[0]
-                min_vcpus = min_vcpus if min_vcpus > int(default_match.vcpus) else default_match.vcpus
+                min_vcpus = min_vcpus if min_vcpus > float(default_match.vcpus) else default_match.vcpus
                 min_ram = min_ram if min_ram > float(default_match.ram) else default_match.ram
             candidates = zone.vm_types.list(min_vcpus=min_vcpus, min_ram=min_ram,
                                             vm_type_prefix=vm_family)
             if candidates:
-                candidate_type = sorted(candidates, key=lambda x: int(x.vcpus) * float(x.ram))[0]
+                candidate_type = sorted(candidates, key=lambda x: float(x.vcpus) * float(x.ram))[0]
                 return candidate_type.name
         return vm_type
 
