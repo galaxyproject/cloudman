@@ -126,7 +126,7 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         # Assert that the originally created cluster id is the same as the one
         # returned by list
         self.assertEquals(response.data['id'], cluster_id)
-        self.assertEquals(response.data['default_vm_type'], 'm2.large')
+        self.assertEquals(response.data['default_vm_type'], 'm5.24xlarge')
         self.assertEquals(response.data['default_zone']['name'], 'us-east-1b')
 
         # check details
@@ -185,6 +185,7 @@ class LiveServerSingleThread(LiveServerThread):
     """Runs a single threaded server rather than multi threaded. Reverts https://github.com/django/django/pull/7832"""
 
     def _create_server(self):
+        QuietWSGIRequestHandler.handle = QuietWSGIRequestHandler.handle_one_request
         return WSGIServer((self.host, self.port), QuietWSGIRequestHandler, allow_reuse_address=False)
 
 
@@ -555,6 +556,55 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
     }
 
+    SCALE_SIGNAL_DATA_POD_UNSCHEDULABLE = {
+        "receiver": "cloudman",
+        "status": "firing",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {
+                    "alertname": "PodNotSchedulable",
+                    "container": "job-container",
+                    "cpus": "92.5",
+                    "instance": "10.42.0.19:8080",
+                    "job": "kube-state-metrics",
+                    "memory": "691100000000.5",
+                    "pod": "galaxy-galaxy-1596991139-245-lc4mg",
+                    "severity": "warning"
+                },
+                "annotations": {
+                    "cpus": "92.5",
+                    "memory": "691100000000.5",
+                    "message": "Cluster has unschedulable pods due to insufficient CPU or memory"
+                },
+                "startsAt": "2020-08-21T11:47:31.470370261Z",
+                "endsAt": "0001-01-01T00:00:00Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            }
+        ],
+        "groupLabels": {
+            "alertname": "PodNotSchedulable"
+        },
+        "commonLabels": {
+            "alertname": "PodNotSchedulable",
+            "container": "job-container",
+            "cpus": "92.5",
+            "instance": "10.42.0.19:8080",
+            "job": "kube-state-metrics",
+            "memory": "691100000000.5",
+            "pod": "galaxy-galaxy-1596991139-245-lc4mg",
+            "severity": "warning"
+        },
+        "commonAnnotations": {
+            "cpus": "92.5",
+            "memory": "691100000000.5",
+            "message": "Cluster has unschedulable pods due to insufficient CPU or memory"
+        },
+        "externalURL": "http://cloudman-prometheus-alertmanager.cloudman:9093",
+        "version": "4",
+        "groupKey": "{}/{alertname=\"PodNotSchedulable\"}:{alertname=\"PodNotSchedulable\"}"
+    }
+
     fixtures = ['initial_test_data.json']
 
     def _create_cluster_raw(self):
@@ -590,6 +640,13 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return response.data['count']
+
+    def _get_cluster_node_vm_types(self, cluster_id):
+        url = reverse('clusterman:node-list', args=[cluster_id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return [n['deployment']['application_config']['config_cloudlaunch']['vmType']
+                for n in response.data['results']]
 
     def _signal_scaleup(self, cluster_id, data=SCALE_SIGNAL_DATA):
         url = reverse('clusterman:scaleupsignal-list', args=[cluster_id])
@@ -627,6 +684,11 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that node was created
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
+
+        # Ensure that the created node has the correct size
+        vm_types = self._get_cluster_node_vm_types(cluster_id)
+        self.assertEqual(len(vm_types), 1)
+        self.assertTrue("m5.24xlarge" in vm_types)
 
     @responses.activate
     def test_scale_down_default(self):
@@ -696,7 +758,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 2)
 
-        # Make sure nodes to not shrink below mininimum
+        # Make sure nodes do not shrink below mininimum
         self._signal_scaledown(cluster_id)
         self._signal_scaledown(cluster_id)
         self._signal_scaledown(cluster_id)
@@ -704,6 +766,11 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that manual node remains
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
+
+        # Ensure that the created node has the correct size
+        vm_types = self._get_cluster_node_vm_types(cluster_id)
+        self.assertEqual(len(vm_types), 1)
+        self.assertTrue("m1.medium" in vm_types)
 
     @responses.activate
     def test_scaling_with_manual_nodes(self):
@@ -793,6 +860,11 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure the total nodes are 1
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
+
+        # Ensure that the created node has the correct size
+        vm_types = self._get_cluster_node_vm_types(cluster_id)
+        self.assertEqual(len(vm_types), 1)
+        self.assertTrue("m5.24xlarge")
 
     def _login_as_autoscaling_user(self, impersonate_user=None):
         if impersonate_user:
@@ -891,3 +963,23 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 0)
+
+    @responses.activate
+    def test_scale_up_unschedulable(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # send autoscale signal with unschedulable pod
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_POD_UNSCHEDULABLE)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+        # Ensure that the created node has the correct size
+        vm_types = self._get_cluster_node_vm_types(cluster_id)
+        self.assertEqual(len(vm_types), 1)
+        self.assertTrue("r5.24xlarge" in vm_types or "r5d.24xlarge" in vm_types)

@@ -103,13 +103,18 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
         # whose profile contains the relevant cloud credentials, usually an admin
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
+        vcpus = float(serializer.validated_data.get(
+            'commonAnnotations', {}).get('cpus', 0))
+        ram = float(serializer.validated_data.get(
+            'commonAnnotations', {}).get('memory', 0)) / 1024 / 1024 / 1024
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
                        or User.objects.filter(is_superuser=True).first())
         cmapi = CloudManAPI(CMServiceContext(user=impersonate))
         cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
-            return cluster.scaleup(zone_name=zone_name)
+            return cluster.scaleup(zone_name=zone_name, min_vcpus=vcpus,
+                                   min_ram=ram)
         else:
             return None
 

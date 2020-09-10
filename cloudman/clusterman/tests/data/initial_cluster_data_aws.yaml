@@ -22,7 +22,7 @@ app_config:
     rootStorageType: instance
     staticIP: null
     subnet: null
-    vmType: m2.large
+    vmType: m5.24xlarge
   config_cloudman2:
     clusterPassword: 123456
     cm_boot_image: cloudve/cloudman-boot
