@@ -8,7 +8,9 @@ from django.test import TestCase
 from .client_mocker import ClientMocker
 from ..clients.helm_client import HelmClient
 
+from helmsman import models as hm_models
 from helmsman.api import NamespaceNotFoundException
+
 
 
 class CommandsTestCase(TestCase):
@@ -36,6 +38,8 @@ class CommandsTestCase(TestCase):
         repos = client.repositories.list()
         for repo in repos:
             self.assertIn(repo.get('NAME'), ["stable", "cloudve", "jupyterhub"])
+        template = hm_models.HMInstallTemplate.objects.get(name='dummy')
+        self.assertEqual(template.summary, "dummy chart")
         releases = client.releases.list("default")
         for rel in releases:
             self.assertIn(rel.get('CHART'),
@@ -48,3 +52,9 @@ class CommandsTestCase(TestCase):
     def test_helmsman_install_duplicate_template(self):
         call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
         call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+
+    def test_helmsman_load_config_template_registry(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+        template = hm_models.HMInstallTemplate.objects.get(name='terminalman')
+        self.assertEqual(template.chart, "terminalman")
+        self.assertIn("domain", template.context)

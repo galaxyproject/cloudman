@@ -3,6 +3,9 @@ repositories:
     url: https://raw.githubusercontent.com/CloudVE/helm-charts/master/
   - name: jupyterhub
     url: https://jupyterhub.github.io/helm-chart/
+template_registries:
+  - name: cloudve
+    url:  https://raw.githubusercontent.com/galaxyproject/cloudlaunch-registry/master/template-registry.yaml
 install_templates:
     dummy:
       repo: dummy
