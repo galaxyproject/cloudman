@@ -11,12 +11,12 @@ from djcloudbridge.drf_routers import HybridNestedRouter
 
 router = HybridDefaultRouter()
 router.register(r'projects', views.ProjectViewSet,
-                base_name='projects')
+                basename='projects')
 
 project_router = HybridNestedRouter(router, r'projects',
                                     lookup='project')
 project_router.register(r'charts', views.ProjectChartViewSet,
-                        base_name='chart')
+                        basename='chart')
 
 app_name = "projman"
 
