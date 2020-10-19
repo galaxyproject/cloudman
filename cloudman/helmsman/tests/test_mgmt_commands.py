@@ -58,3 +58,9 @@ class CommandsTestCase(TestCase):
         template = hm_models.HMInstallTemplate.objects.get(name='terminalman')
         self.assertEqual(template.chart, "terminalman")
         self.assertIn("domain", template.context)
+
+    def test_update_chart(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+        template = hm_models.HMInstallTemplate.objects.get(name='terminalman')
+        self.assertEqual(template.chart, "terminalman")
+        self.assertIn("domain", template.context)

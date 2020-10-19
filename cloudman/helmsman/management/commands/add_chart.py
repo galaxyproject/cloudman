@@ -25,21 +25,27 @@ class Command(BaseCommand):
         parser.add_argument('--create_namespace', dest='create_namespace',
                             action='store_true',
                             help='attempt to create namespace if not found')
+        parser.add_argument('--upgrade', dest='upgrade_chart',
+                            action='store_true',
+                            help='upgrade chart if it already exists')
 
     def handle(self, *args, **options):
         self.add_chart(options['chart_ref'], options['namespace'],
                        options['release_name'], options['chart_version'],
-                       options['values_file'], options['create_namespace'])
+                       options['values_file'], options['create_namespace'],
+                       options['upgrade_chart'])
 
     @staticmethod
     def add_chart(chart_ref, namespace, release_name, version, values_file,
-                  create_namespace):
-        Command.install_if_not_exist(chart_ref, namespace, release_name,
-                                     version, values_file, create_namespace)
+                  create_namespace, upgrade_chart):
+        Command.install_or_upgrade(chart_ref, namespace, release_name,
+                                   version, values_file, create_namespace,
+                                   upgrade_chart)
 
     @staticmethod
-    def install_if_not_exist(chart_ref, namespace, release_name,
-                             version, values_file, create_namespace):
+    def install_or_upgrade(chart_ref, namespace, release_name,
+                           version, values_file, create_namespace,
+                           upgrade_chart):
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         repo_name, chart_name = chart_ref.split("/")
@@ -57,10 +63,16 @@ class Command(BaseCommand):
                            f"Use the '--create_namespace' flag if you have "
                            f"appropriate permissions.")
                 raise NamespaceNotFoundException(message)
-        print(f"Installing chart {repo_name}/{chart_name} into namespace"
-              f" {namespace}")
-        try:
-            client.charts.create(repo_name, chart_name, namespace,
-                                 release_name, version, values)
-        except ChartExistsException as e:
-            print(f"Chart {repo_name}/{chart_name} already installed.")
+        chart = client.charts.find(namespace, chart_name)
+        if chart and upgrade_chart:
+            print(f"Upgrading chart {repo_name}/{chart_name} in namespace"
+                  f" {namespace}")
+            client.charts.update(chart, values, version=version)
+        else:
+            print(f"Installing chart {repo_name}/{chart_name} into namespace"
+                  f" {namespace}")
+            try:
+                client.charts.create(repo_name, chart_name, namespace,
+                                     release_name, version, values)
+            except ChartExistsException as e:
+                print(f"Chart {repo_name}/{chart_name} already installed.")
