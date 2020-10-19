@@ -284,6 +284,29 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
               secretToken: '{{random_alphanumeric(65)}}'"""
     }
 
+    INSTALL_TEMPLATE_UPDATE = {
+        'name': 'galaxy',
+        'repo': 'galaxyproject',
+        'chart': 'galaxy',
+        'chart_version': '2.0.0',
+        'summary': 'Web-based data analysis platform',
+        'description': 'A more detailed description',
+        'display_name': 'Galaxy',
+        'maintainers': 'Galaxy Team',
+        'info_url': 'https://usegalaxy.org',
+        'icon_url': 'https://usegalaxy.org/some_icon.png',
+        'screenshot_url': 'https://usegalaxy.org/some_screenshot.png',
+        'context': {'project': 'test'},
+        'template': """ingress:
+              enabled: true
+              path: '{{context.project.access_path}}/galaxy'
+            dummy: updated_value
+            hub:
+              baseUrl: '{{context.project.access_path}}/galaxy'
+            proxy:
+              secretToken: '{{random_alphanumeric(65)}}'"""
+    }
+
     def _create_install_template(self):
         # create the object
         url = reverse('helmsman:install_templates-list')
@@ -297,16 +320,22 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         self.assertDictContainsSubset(self.INSTALL_TEMPLATE_DATA, response.data['results'][0])
         return response.data['results'][0]['name']
 
-    def _check_install_template_exists(self, ns_id):
+    def _check_install_template_exists(self, tpl_id):
         # check it exists
-        url = reverse('helmsman:install_templates-detail', args=[ns_id])
+        url = reverse('helmsman:install_templates-detail', args=[tpl_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.INSTALL_TEMPLATE_DATA, response.data)
         return response.data['name']
 
-    def _delete_install_template(self, ns_id):
-        url = reverse('helmsman:install_templates-detail', args=[ns_id])
+    def _update_install_template(self, tpl_id):
+        url = reverse('helmsman:install_templates-detail', args=[tpl_id])
+        response = self.client.put(url, self.INSTALL_TEMPLATE_UPDATE, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response
+
+    def _delete_install_template(self, tpl_id):
+        url = reverse('helmsman:install_templates-detail', args=[tpl_id])
         return self.client.delete(url)
 
     def _check_no_install_templates_exist(self):
@@ -330,6 +359,11 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
             self._create_install_template()
 
         obj_id = self._check_install_template_exists(obj_id)
+
+        # test update template
+        response = self._update_install_template(obj_id)
+        self.assertDictContainsSubset(response.data, self.INSTALL_TEMPLATE_UPDATE)
+
         response = self._delete_install_template(obj_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_install_templates_exist()

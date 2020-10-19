@@ -43,6 +43,23 @@ class HMInstallTemplateSerializer(serializers.Serializer):
                                             valid_data.get('name'),
                                             **valid_data)
 
+    def update(self, template, valid_data):
+        return HelmsManAPI.from_request(self.context['request']).templates.update(
+            template,
+            repo=valid_data.get('repo'),
+            chart=valid_data.get('chart'),
+            chart_version=valid_data.get('chart_version'),
+            template=valid_data.get('template'),
+            context=valid_data.get('context'),
+            display_name=valid_data.get('display_name'),
+            summary=valid_data.get('summary'),
+            description=valid_data.get('description'),
+            maintainers=valid_data.get('maintainers'),
+            info_url=valid_data.get('info_url'),
+            icon_url=valid_data.get('icon_url'),
+            screenshot_url=valid_data.get('screenshot_url')
+        )
+
     def delete(self, valid_data):
         return HelmsManAPI.from_request(self.context['request']
                                         ).templates.delete(

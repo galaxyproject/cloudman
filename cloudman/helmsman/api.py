@@ -320,6 +320,21 @@ class HMInstallTemplateService(HelmsManService):
             raise InstallTemplateExistsException(
                 "Install template '%s' already exists" % name) from e
 
+    def update(self, tpl, repo, chart, chart_version=None,
+               template=None, context=None, **kwargs):
+        self.check_permissions('helmsman.change_install_template')
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=tpl.name)
+            obj.repo = repo
+            obj.chart = chart
+            obj.chart_version = chart_version
+            obj.template = template
+            obj.context = context
+            obj.save()
+            return self.to_api_object(obj)
+        except models.HMInstallTemplate.DoesNotExist as e:
+            raise InstallTemplateNotFoundException("Could not find install template '%s'" % tpl.name)
+
     def get(self, name):
         try:
             obj = models.HMInstallTemplate.objects.get(name=name)
