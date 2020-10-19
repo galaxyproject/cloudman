@@ -105,7 +105,7 @@ class HelmReleaseService(HelmService):
         return self._set_values_and_run_command(cmd, values)
 
     def update(self, namespace, release_name, chart, values=None,
-               value_handling=HelmValueHandling.REUSE):
+               value_handling=HelmValueHandling.REUSE, version=None):
         """
         The chart argument can be either: a chart reference('stable/mariadb'),
         a path to a chart directory, a packaged chart, or a fully qualified
@@ -120,6 +120,8 @@ class HelmReleaseService(HelmService):
             cmd += ["--reuse-values"]
         else:  # value_handling.DEFAULT
             pass
+        if version:
+            cmd += ["--version", version]
         return self._set_values_and_run_command(cmd, values)
 
     def history(self, namespace, release_name):

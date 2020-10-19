@@ -264,6 +264,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
         chart = response.data
+        chart['chart_version'] = '3.4.0'
         chart['values']['hello'] = 'anotherworld'
         chart['values']['new_value'] = 'anothervalue'
         response = self.client.put(url, chart, format='json')
@@ -281,6 +282,7 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['chart_version'], '3.4.0')
         self.assertEqual(response.data['revision'], 2)
         self.assertEqual(response.data['values']['hello'], 'anotherworld')
         self.assertEqual(response.data['values']['new_value'], 'anothervalue')

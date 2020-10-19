@@ -82,7 +82,7 @@ class HMChartSerializer(serializers.Serializer):
             return (HelmsManAPI.from_request(self.context['request']).charts
                     .rollback(chart))
         return HelmsManAPI.from_request(self.context['request']).charts.update(
-            chart, validated_data.get('values'))
+            chart, validated_data.get('values'), version=validated_data.get('chart_version'))
 
 
 class HMNamespaceSerializer(serializers.Serializer):

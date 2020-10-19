@@ -240,14 +240,19 @@ class HMChartService(HelmsManService):
         else:
             return None
 
-    def create(self, repo_name, chart_name, namespace,
-               release_name=None, version=None, values=None):
-        self.check_permissions('helmsman.add_chart')
+    def find(self, namespace, chart_name):
         client = HelmClient()
         existing_chart = [
             r for r in client.releases.list(namespace)
             if chart_name == client.releases.parse_chart_name(r.get('CHART'))
         ]
+        return existing_chart[0] if existing_chart else None
+
+    def create(self, repo_name, chart_name, namespace,
+               release_name=None, version=None, values=None):
+        self.check_permissions('helmsman.add_chart')
+        client = HelmClient()
+        existing_chart = self.find(namespace, chart_name)
         if existing_chart:
             raise ChartExistsException(
                 f"Chart {repo_name}/{chart_name} already installed in namespace {namespace}.")
@@ -258,7 +263,7 @@ class HMChartService(HelmsManService):
                                    values=values)
         return self._get_from_namespace(namespace, chart_name)
 
-    def update(self, chart, values):
+    def update(self, chart, values, version=None):
         self.check_permissions('helmsman.change_chart', chart)
         # 1. Retrieve chart's current user-defined values
         cur_vals = HelmClient().releases.get_values(chart.namespace, chart.id, get_all=False)
@@ -276,8 +281,9 @@ class HMChartService(HelmsManService):
         # 4. Apply the updated config to the chart
         HelmClient().releases.update(
             chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=cur_vals,
-            value_handling=HelmValueHandling.REUSE)
+            value_handling=HelmValueHandling.REUSE, version=version)
         chart.values = jsonmerge.merge(chart.values, cur_vals)
+        chart.chart_version = version
         return chart
 
     def rollback(self, chart, revision=None):

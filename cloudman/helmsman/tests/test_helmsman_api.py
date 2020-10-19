@@ -44,6 +44,18 @@ class ChartServiceTests(HelmsManServiceTestBase):
         }
     }
 
+    CHART_DATA_UPDATE = {
+        'name': 'galaxy',
+        'display_name': 'Galaxy',
+        'chart_version': '3.2.0',
+        'namespace': 'gvl',
+        'state': "DEPLOYED",
+        'values': {
+            'hello': 'newworld',
+            'newkey': 'newvalue'
+        }
+    }
+
     def _create_chart(self):
         # create the object
         url = reverse('helmsman:charts-list')
@@ -64,6 +76,13 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictContainsSubset(self.CHART_DATA, response.data)
         return response.data['id']
+
+    def _update_chart(self, chart_id):
+        # create the object
+        url = reverse('helmsman:charts-detail', args=[chart_id])
+        response = self.client.put(url, self.CHART_DATA_UPDATE, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response
 
     def _delete_chart(self, chart_id):
         # delete the object
@@ -104,6 +123,11 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.assertEquals(response.data['id'], chart_id)
 
         chart_id = self._check_chart_exists(chart_id)
+
+        # update chart
+        response = self._update_chart(chart_id)
+        self.assertDictContainsSubset(self.CHART_DATA_UPDATE, response.data)
+
         response = self._delete_chart(chart_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_extra_charts_exist()
