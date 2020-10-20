@@ -52,6 +52,8 @@ class Command(BaseCommand):
                     extra_args['create_namespace'] = True
             if chart.get('version'):
                 extra_args["chart_version"] = chart.get('version')
+            if chart.get('upgrade'):
+                extra_args["upgrade"] = True
             if chart.get('values'):
                 values = chart.get('values')
                 with helpers.TempValuesFile(values) as f:

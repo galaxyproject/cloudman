@@ -22,12 +22,14 @@ class Command(BaseCommand):
             if project:
                 call_command("projman_create_project", project)
                 charts = projects.get(project).get('charts', [])
-                for chart in charts:
-                    template = charts.get(chart).get("install_template")
+                for key in charts:
+                    chart = charts.get(key)
+                    template = chart.get("install_template")
                     if template:
-                        release_name = charts.get(chart).get("release_name", '')
-                        values = yaml.safe_load(charts.get(chart).get("values", '')) or ''
-                        context = yaml.safe_load(charts.get(chart).get("context", '')) or ''
+                        release_name = chart.get("release_name", '')
+                        values = yaml.safe_load(chart.get("values", '')) or ''
+                        context = yaml.safe_load(chart.get("context", '')) or ''
+                        upgrade = chart.get("upgrade")
                         call_command("install_template_in_project",
                                      project, template,
                                      release_name,

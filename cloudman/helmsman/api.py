@@ -1,5 +1,4 @@
 """HelmsMan Service API."""
-import jsonmerge
 import jinja2
 import yaml
 
@@ -265,26 +264,17 @@ class HMChartService(HelmsManService):
 
     def update(self, chart, values, version=None):
         self.check_permissions('helmsman.change_chart', chart)
-        # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.namespace, chart.id, get_all=False)
-        # 2. Deep merge the latest differences on top
-        if cur_vals:
-            cur_vals = jsonmerge.merge(cur_vals, values)
-        else:
-            cur_vals = values
-        # 3. Guess which repo the chart came from
+        # 1. Guess which repo the chart came from
         repo_name = self._find_repo_for_chart(chart)
         if not repo_name:
             raise ChartNotFoundException(
                 "Could not find chart: %s, version: %s in any repository" %
                 (chart.name, chart.chart_version))
-        # 4. Apply the updated config to the chart
+        # 2. Apply the updated config to the chart
         HelmClient().releases.update(
-            chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=cur_vals,
+            chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=values,
             value_handling=HelmValueHandling.REUSE, version=version)
-        chart.values = jsonmerge.merge(chart.values, cur_vals)
-        chart.chart_version = version
-        return chart
+        return self.get(chart.id)
 
     def rollback(self, chart, revision=None):
         self.check_permissions('helmsman.change_chart', chart)
@@ -496,6 +486,16 @@ class HelmInstallTemplate(HelmsManResource):
                                     chart_name=self.chart,
                                     namespace=namespace,
                                     release_name=release_name,
+                                    version=self.chart_version,
+                                    values=[default_values, values or {}])
+
+    def upgrade(self, chart, values=None,
+                context=None):
+        default_values = yaml.safe_load(
+            self.render_values(context or {}))
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.charts.update(chart,
                                     version=self.chart_version,
                                     values=[default_values, values or {}])
 

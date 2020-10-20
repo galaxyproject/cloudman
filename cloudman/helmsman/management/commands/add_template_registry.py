@@ -47,6 +47,8 @@ class Command(BaseCommand):
                 extra_args += ["--icon_url", template.get('icon_url')]
             if template.get('screenshot_url'):
                 extra_args += ["--screenshot_url", template.get('screenshot_url')]
+            if template.get('upgrade'):
+                extra_args += ["--upgrade"]
             if template.get('template'):
                 with helpers.TempInputFile(template.get('template')) as f:
                     extra_args += ["--template_file", f.name]

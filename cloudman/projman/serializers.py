@@ -65,8 +65,7 @@ class PMProjectChartSerializer(helmsman_serializers.HMChartSerializer):
         if validated_data.get('state') == "rollback":
             return project.charts.rollback(chart)
         else:
-            return project.charts.update(chart, validated_data.get("values"),
-                                         version=validated_data.get("chart_version"))
+            return project.charts.update(chart, validated_data.get("values"))
 
 
 class UserSerializer(dj_serializers.UserDetailsSerializer):

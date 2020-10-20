@@ -186,9 +186,12 @@ class PMProjectChartService(PMService):
 
     def get(self, chart_id):
         chart = self._get_helmsman_api().charts.get(chart_id)
-        self.check_permissions('projman.view_chart', self._to_proj_chart(chart))
-        return (self._to_proj_chart(chart)
-                if chart and chart.namespace == self.project.namespace else None)
+        if chart:
+            proj_chart = self._to_proj_chart(chart)
+            self.check_permissions('projman.view_chart', proj_chart)
+            return (proj_chart if proj_chart.namespace == self.project.namespace else None)
+        else:
+            return None
 
     def _get_project_oidc_secret(self):
         try:
@@ -198,26 +201,34 @@ class PMProjectChartService(PMService):
         except Exception:
             return None
 
-    def create(self, template_name, release_name=None,
-               values=None, context=None):
-        self.check_permissions('projman.add_chart', obj=self.project)
-        template = self._get_helmsman_api().templates.get(template_name)
-        if not context:
-            context = {}
-        context.update({'project': {
+    def _add_projman_default_context(self, context):
+        new_context = dict(context or {})
+        new_context.update({'project': {
             'name': self.project.name,
             'namespace': self.project.namespace,
             'access_path': f"/{self.project.namespace}",
             'oidc_client_id': f"projman-{self.project.namespace}",
             'oidc_client_secret': self._get_project_oidc_secret()
         }})
+        return new_context
+
+    def create(self, template_name, release_name=None,
+               values=None, context=None):
+        self.check_permissions('projman.add_chart', obj=self.project)
+        template = self._get_helmsman_api().templates.get(template_name)
+        context = self._add_projman_default_context(context)
         return self._to_proj_chart(
             template.install(self.project.namespace, release_name,
                              values, context=context))
 
-    def update(self, chart, values, version=None):
+    def update(self, chart, values, context=None):
         self.check_permissions('projman.change_chart', chart)
-        updated_chart = self._get_helmsman_api().charts.update(chart, values, version=version)
+        context = self._add_projman_default_context(context)
+        if chart.install_template:
+            updated_chart = chart.install_template.upgrade(
+                chart, values=values, context=context)
+        else:
+            updated_chart = self._get_helmsman_api().charts.update(chart, values)
         return self._to_proj_chart(updated_chart)
 
     def rollback(self, chart, revision=None):
