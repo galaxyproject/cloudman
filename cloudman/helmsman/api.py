@@ -240,10 +240,9 @@ class HMChartService(HelmsManService):
             return None
 
     def find(self, namespace, chart_name):
-        client = HelmClient()
         existing_chart = [
-            r for r in client.releases.list(namespace)
-            if chart_name == client.releases.parse_chart_name(r.get('CHART'))
+            c for c in self.list(namespace=namespace)
+            if c.name == chart_name
         ]
         return existing_chart[0] if existing_chart else None
 
@@ -320,6 +319,8 @@ class HMInstallTemplateService(HelmsManService):
             obj.chart_version = chart_version
             obj.template = template
             obj.context = context
+            for attr, value in kwargs.items():
+                setattr(obj, attr, value)
             obj.save()
             return self.to_api_object(obj)
         except models.HMInstallTemplate.DoesNotExist as e:

@@ -10,7 +10,7 @@ from ..clients.helm_client import HelmClient
 
 from helmsman import models as hm_models
 from helmsman.api import NamespaceNotFoundException
-
+from helmsman.api import HelmsManAPI, HMServiceContext
 
 
 class CommandsTestCase(TestCase):
@@ -18,6 +18,8 @@ class CommandsTestCase(TestCase):
     TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
     INITIAL_HELMSMAN_DATA = os.path.join(
         TEST_DATA_PATH, 'helmsman_config.yaml')
+    INITIAL_HELMSMAN_DATA_UPDATE = os.path.join(
+        TEST_DATA_PATH, 'helmsman_config_update.yaml')
 
     def setUp(self):
         super().setUp()
@@ -59,8 +61,24 @@ class CommandsTestCase(TestCase):
         self.assertEqual(template.chart, "terminalman")
         self.assertIn("domain", template.context)
 
+    def test_update_install_template(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA_UPDATE)
+        # dummy template should be unchanged since upgrade = false
+        template = hm_models.HMInstallTemplate.objects.get(name='dummy')
+        self.assertEqual(template.display_name, "dummy")
+        # another dummy template should be updated since upgrade was specified
+        template = hm_models.HMInstallTemplate.objects.get(name='anotherdummy')
+        self.assertEqual(template.chart_version, "4.0.0")
+
     def test_update_chart(self):
         call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
-        template = hm_models.HMInstallTemplate.objects.get(name='terminalman')
-        self.assertEqual(template.chart, "terminalman")
-        self.assertIn("domain", template.context)
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA_UPDATE)
+        helm_api = HelmsManAPI(HMServiceContext(
+            user=User.objects.get_or_create(username='admin', is_superuser=True)[0]))
+        chart = helm_api.charts.find("anotherdummy", "anotherdummy")
+        # version should be unchanged since upgrade = false
+        self.assertEqual(chart.chart_version, "2.0.0")
+        # dummy chart should be updated since upgrade = true
+        chart = helm_api.charts.find("dummy", "dummy")
+        self.assertEqual(chart.chart_version, "2.0.0")

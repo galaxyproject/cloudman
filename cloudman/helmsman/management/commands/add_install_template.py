@@ -69,7 +69,15 @@ class Command(BaseCommand):
             admin = User.objects.filter(is_superuser=True).first()
             client = HelmsManAPI(HMServiceContext(user=admin))
             existing_template = client.templates.find(name=name)
-            if existing_template:
+            if existing_template and upgrade_template:
+                client.templates.update(
+                    existing_template, repo, chart, chart_version, template, context,
+                    display_name=display_name, summary=summary,
+                    description=description, maintainers=maintainers,
+                    info_url=info_url, icon_url=icon_url, screenshot_url=screenshot_url)
+                print(f"Successfully added template named: '{name}'"
+                      f" for chart: '{repo}/{chart}'.")
+            elif existing_template:
                 print(f"Template named: '{name}' for chart: '{repo}/{chart}'"
                       " already exists.")
             else:

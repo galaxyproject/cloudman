@@ -52,6 +52,18 @@ class MockHelm(object):
                 'CHART VERSION': '1.0.0',
                 'APP VERSION': '20.01',
                 'DESCRIPTION': 'A Helm chart for Galaxy'
+            },
+            {
+                'NAME': 'cloudve/dummy\\v',
+                'CHART VERSION': '1.0.0',
+                'APP VERSION': '10.01',
+                'DESCRIPTION': 'A dummy chart'
+            },
+            {
+                'NAME': 'cloudve/anotherdummy\\v',
+                'CHART VERSION': '3.0.0',
+                'APP VERSION': '10.01',
+                'DESCRIPTION': 'Another dummy chart'
             }
         ]
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
