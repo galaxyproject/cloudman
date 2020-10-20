@@ -270,6 +270,13 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return response.data['id']
 
+    def _update_project_chart_unauthorized(self, project_id, chart_id, chart):
+        url = reverse('projman:chart-detail', args=[project_id, chart_id])
+        chart['values']['hello'] = 'anotherworld'
+        chart['values']['new_value'] = 'anothervalue'
+        response = self.client.put(url, chart, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def _rollback_project_chart(self, project_id, chart_id):
         url = reverse('projman:chart-detail', args=[project_id, chart_id])
         response = self.client.get(url)
@@ -346,6 +353,18 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
             User.objects.get(username='projadmin'))
         response = self._delete_project(project_id)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
+
+    def test_chart_update_unauthorized(self):
+        project_id = self._create_project()
+        response = self._create_project_chart(project_id)
+        chart_id = self._list_project_chart(project_id)
+        self.client.force_login(
+            User.objects.get_or_create(username='projadminnoauth', is_staff=False)[0])
+        self._update_project_chart_unauthorized(project_id, chart_id, response.data)
+        self.client.force_login(
+            User.objects.get(username='projadmin'))
+        # Chart should be unchanged
+        self._check_project_chart_exists(project_id, chart_id)
 
     def test_chart_delete_unauthorized(self):
         project_id = self._create_project()

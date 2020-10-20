@@ -84,6 +84,13 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return response
 
+    def _update_chart_unauthorized(self, chart_id):
+        # create the object
+        url = reverse('helmsman:charts-detail', args=[chart_id])
+        response = self.client.put(url, self.CHART_DATA_UPDATE, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        return response
+
     def _delete_chart(self, chart_id):
         # delete the object
         url = reverse('helmsman:charts-detail', args=[chart_id])
@@ -143,6 +150,17 @@ class ChartServiceTests(HelmsManServiceTestBase):
         self.client.force_login(
             User.objects.get_or_create(username='chartnoauth', is_staff=False)[0])
         self._check_no_charts_exist()
+
+    def test_update_unauthorized(self):
+        self._create_chart()
+        chart_id = self._list_chart()
+        self.client.force_login(
+            User.objects.get_or_create(username='chartnoauth', is_staff=False)[0])
+        response = self._update_chart_unauthorized(chart_id)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.client.force_login(
+            User.objects.get(username='admin'))
+        self._check_chart_exists(chart_id)
 
     def test_delete_unauthorized(self):
         self._create_chart()
@@ -334,6 +352,12 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         return response
 
+    def _update_install_template_unauthorized(self, tpl_id):
+        url = reverse('helmsman:install_templates-detail', args=[tpl_id])
+        response = self.client.put(url, self.INSTALL_TEMPLATE_UPDATE, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        return response
+
     def _delete_install_template(self, tpl_id):
         url = reverse('helmsman:install_templates-detail', args=[tpl_id])
         return self.client.delete(url)
@@ -368,7 +392,6 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT, response.data)
         self._check_no_install_templates_exist()
 
-
     def test_create_unauthorized(self):
         self.client.force_login(
             User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
@@ -380,6 +403,17 @@ class InstallTemplateServiceTests(HelmsManServiceTestBase):
         self.client.force_login(
             User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
         self._check_no_install_templates_exist()
+
+    def test_update_unauthorized(self):
+        self._create_install_template()
+        obj_id = self._list_install_templates()
+        self.client.force_login(
+            User.objects.get_or_create(username='nsnoauth', is_staff=False)[0])
+        self._update_install_template_unauthorized(obj_id)
+        self.client.force_login(
+            User.objects.get(username='admin'))
+        # data should be unchanged
+        self._check_install_template_exists(obj_id)
 
     def test_delete_unauthorized(self):
         self._create_install_template()
