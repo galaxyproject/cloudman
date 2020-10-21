@@ -1,0 +1,16 @@
+projects:
+  first:
+    charts:
+      galaxy:
+        install_template: galaxy
+        context:
+            storageclass: updated-provisioner
+  second:
+    charts:
+      galaxy:
+        install_template: galaxy
+        context:
+            storageclass: updated-provisioner
+        upgrade: true
+      jupyterhub:
+        install_template: jupyter

@@ -460,15 +460,14 @@ class HelmInstallTemplate(HelmsManResource):
         return self.template_obj.screenshot_url
 
     def render_values(self, context):
-        if not context:
-            context = {}
         default_context = self.context or {}
-        context.update(default_context)
+        new_context = dict(default_context)
+        new_context.update(context or {})
         jinja2_env = self._get_jinja2_env()
         tmpl = jinja2_env.from_string(
             "\n".join([apps.get_app_config('helmsman').default_macros,
                        self.template or '']))
-        return tmpl.render({"context": context})
+        return tmpl.render({"context": new_context})
 
     @staticmethod
     def _get_jinja2_env():

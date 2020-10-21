@@ -4,6 +4,8 @@ import yaml
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
+from helmsman import helpers
+
 
 class Command(BaseCommand):
     help = 'Loads projman config data from a yaml file'
@@ -27,10 +29,16 @@ class Command(BaseCommand):
                     template = chart.get("install_template")
                     if template:
                         release_name = chart.get("release_name", '')
-                        values = yaml.safe_load(chart.get("values", '')) or ''
-                        context = yaml.safe_load(chart.get("context", '')) or ''
-                        upgrade = chart.get("upgrade")
-                        call_command("install_template_in_project",
-                                     project, template,
-                                     release_name,
-                                     values, context)
+                        values = chart.get("values", '')
+                        context = chart.get("context", '')
+                        extra_args = []
+                        if chart.get("upgrade"):
+                            extra_args += ['--upgrade']
+                        with helpers.TempValuesFile(values) as values_file:
+                            with helpers.TempValuesFile(context) as context_file:
+                                call_command("install_template_in_project",
+                                             project, template,
+                                             release_name,
+                                             values_file.name,
+                                             context_file.name,
+                                             *extra_args)
