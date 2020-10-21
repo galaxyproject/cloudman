@@ -1,4 +1,3 @@
-planemosqlalchemy
 git+https://github.com/celery/django-celery-results
 brotlipy
 git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[test]

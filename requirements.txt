@@ -1,4 +1,4 @@
-requirements.txt# install edge till this is released: https://github.com/encode/django-rest-framework/pull/7571
+# install edge till this is released: https://github.com/encode/django-rest-framework/pull/7571
 git+https://github.com/encode/django-rest-framework
 # install edge till this is released: https://github.com/celery/django-celery-results/issues/157
 git+https://github.com/celery/django-celery-results
