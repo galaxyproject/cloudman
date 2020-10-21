@@ -1,6 +1,7 @@
-Django>=2.2.13,<3.0
-djangorestframework==3.9.3
-gunicorn[gevent]
+# install edge till this is released: https://github.com/encode/django-rest-framework/pull/7571
+git+https://github.com/encode/django-rest-framework
+# install edge till this is released: https://github.com/celery/django-celery-results/issues/157
+git+https://github.com/celery/django-celery-results
 # moto==1.1.11
 # for eclipse debugging
 pydevd>=1.0.0

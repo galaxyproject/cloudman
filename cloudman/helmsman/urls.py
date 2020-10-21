@@ -9,13 +9,13 @@ from djcloudbridge.drf_routers import HybridDefaultRouter
 
 router = HybridDefaultRouter()
 router.register(r'repositories', views.ChartRepoViewSet,
-                base_name='repositories')
+                basename='repositories')
 router.register(r'charts', views.ChartViewSet,
-                base_name='charts')
+                basename='charts')
 router.register(r'namespaces', views.NamespaceViewSet,
-                base_name='namespaces')
+                basename='namespaces')
 router.register(r'install_templates', views.InstallTemplatesViewSet,
-                base_name='install_templates')
+                basename='install_templates')
 
 app_name = "helmsman"
 

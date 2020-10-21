@@ -11,15 +11,17 @@ install_templates:
       repo: dummy
       chart: dummy
       version: 1.0.0
-      summary: dummy chart
-      description: dummy chart description
-      display_name: dummy
-      maintainers: dummy
+      summary: modified dummy chart
+      description: modified dummy chart description
+      display_name: modified dummy
+      maintainers: modified dummy
+      upgrade: false
     anotherdummy:
+      upgrade: true
       repo: dummy
       chart: anotherdummy
       summary: dummy chart
-      chart_version: 3.0.0
+      chart_version: 4.0.0
       description: dummy chart description
       display_name: dummy
       maintainers: dummy
@@ -29,7 +31,7 @@ install_templates:
       summary: jupyter chart
       description: jupyter chart description
       display_name: "Jupyter"
-      maintainers: jupyter
+      maintainers: jupyter updated
       info_url: https://jupyter.org/
       icon_url: https://jupyter.org/assets/hublogo.svg
       screenshot_url: https://jupyter.org/assets/hublogo.svg
@@ -42,6 +44,7 @@ install_templates:
         proxy:
           secretToken: '{{random_alphanumeric(65)}}'
     galaxy:
+      upgrade: true
       repo: cloudve
       chart: galaxy
       chart_version: 3.3.0
@@ -95,7 +98,7 @@ charts:
     name: stable/kubernetes-dashboard
     namespace: kube-system
     create_namespace: true
-    chart_version: 2.0.0
+    version: 2.0.0
     values:
       enableInsecureLogin: true
       ingress:
@@ -120,10 +123,11 @@ charts:
     name: dummy/dummy
     namespace: dummy
     create_namespace: true
-    version: 1.0.0
+    version: 2.0.0
+    upgrade: true
   anotherdummy:
     name: dummy/anotherdummy
     namespace: anotherdummy
     create_namespace: true
-    version: 2.0.0
+    version: 3.0.0
     upgrade: false

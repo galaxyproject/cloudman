@@ -52,6 +52,18 @@ class MockHelm(object):
                 'CHART VERSION': '1.0.0',
                 'APP VERSION': '20.01',
                 'DESCRIPTION': 'A Helm chart for Galaxy'
+            },
+            {
+                'NAME': 'cloudve/dummy\\v',
+                'CHART VERSION': '1.0.0',
+                'APP VERSION': '10.01',
+                'DESCRIPTION': 'A dummy chart'
+            },
+            {
+                'NAME': 'cloudve/anotherdummy\\v',
+                'CHART VERSION': '3.0.0',
+                'APP VERSION': '10.01',
+                'DESCRIPTION': 'Another dummy chart'
             }
         ]
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
@@ -104,6 +116,7 @@ class MockHelm(object):
             'release', type=str, help='release name')
         parser_upgrade.add_argument(
             'chart', type=str, help='chart name')
+        parser_upgrade.add_argument('--version', type=str, help='version')
         parser_upgrade.add_argument(
             '--reuse-values', action='store_true',
             help="reuse the last release's values and merge in any overrides")
@@ -235,6 +248,9 @@ class MockHelm(object):
             return 'Error: "%s" has no deployed releases' % args.release
         latest_release = revisions[-1]
         new_release = dict(latest_release)
+        if args.version:
+            chart_name, version = new_release['CHART'].split("-")
+            new_release['CHART'] = '%s-%s' % (chart_name, args.version or "1.0.0")
         new_release['REVISION'] += 1
         new_release['DESCRIPTION'] = 'Upgraded successfully'
         # flatten the values file list

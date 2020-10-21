@@ -1,5 +1,4 @@
 """HelmsMan Service API."""
-import jsonmerge
 import jinja2
 import yaml
 
@@ -240,14 +239,18 @@ class HMChartService(HelmsManService):
         else:
             return None
 
+    def find(self, namespace, chart_name):
+        existing_chart = [
+            c for c in self.list(namespace=namespace)
+            if c.name == chart_name
+        ]
+        return existing_chart[0] if existing_chart else None
+
     def create(self, repo_name, chart_name, namespace,
                release_name=None, version=None, values=None):
         self.check_permissions('helmsman.add_chart')
         client = HelmClient()
-        existing_chart = [
-            r for r in client.releases.list(namespace)
-            if chart_name == client.releases.parse_chart_name(r.get('CHART'))
-        ]
+        existing_chart = self.find(namespace, chart_name)
         if existing_chart:
             raise ChartExistsException(
                 f"Chart {repo_name}/{chart_name} already installed in namespace {namespace}.")
@@ -258,27 +261,19 @@ class HMChartService(HelmsManService):
                                    values=values)
         return self._get_from_namespace(namespace, chart_name)
 
-    def update(self, chart, values):
+    def update(self, chart, values, version=None):
         self.check_permissions('helmsman.change_chart', chart)
-        # 1. Retrieve chart's current user-defined values
-        cur_vals = HelmClient().releases.get_values(chart.namespace, chart.id, get_all=False)
-        # 2. Deep merge the latest differences on top
-        if cur_vals:
-            cur_vals = jsonmerge.merge(cur_vals, values)
-        else:
-            cur_vals = values
-        # 3. Guess which repo the chart came from
+        # 1. Guess which repo the chart came from
         repo_name = self._find_repo_for_chart(chart)
         if not repo_name:
             raise ChartNotFoundException(
                 "Could not find chart: %s, version: %s in any repository" %
                 (chart.name, chart.chart_version))
-        # 4. Apply the updated config to the chart
+        # 2. Apply the updated config to the chart
         HelmClient().releases.update(
-            chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=cur_vals,
-            value_handling=HelmValueHandling.REUSE)
-        chart.values = jsonmerge.merge(chart.values, cur_vals)
-        return chart
+            chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=values,
+            value_handling=HelmValueHandling.REUSE, version=version)
+        return self.get(chart.id)
 
     def rollback(self, chart, revision=None):
         self.check_permissions('helmsman.change_chart', chart)
@@ -313,6 +308,23 @@ class HMInstallTemplateService(HelmsManService):
         except IntegrityError as e:
             raise InstallTemplateExistsException(
                 "Install template '%s' already exists" % name) from e
+
+    def update(self, tpl, repo, chart, chart_version=None,
+               template=None, context=None, **kwargs):
+        self.check_permissions('helmsman.change_install_template')
+        try:
+            obj = models.HMInstallTemplate.objects.get(name=tpl.name)
+            obj.repo = repo
+            obj.chart = chart
+            obj.chart_version = chart_version
+            obj.template = template
+            obj.context = context
+            for attr, value in kwargs.items():
+                setattr(obj, attr, value)
+            obj.save()
+            return self.to_api_object(obj)
+        except models.HMInstallTemplate.DoesNotExist as e:
+            raise InstallTemplateNotFoundException("Could not find install template '%s'" % tpl.name)
 
     def get(self, name):
         try:
@@ -448,15 +460,14 @@ class HelmInstallTemplate(HelmsManResource):
         return self.template_obj.screenshot_url
 
     def render_values(self, context):
-        if not context:
-            context = {}
         default_context = self.context or {}
-        context.update(default_context)
+        new_context = dict(default_context)
+        new_context.update(context or {})
         jinja2_env = self._get_jinja2_env()
         tmpl = jinja2_env.from_string(
             "\n".join([apps.get_app_config('helmsman').default_macros,
                        self.template or '']))
-        return tmpl.render({"context": context})
+        return tmpl.render({"context": new_context})
 
     @staticmethod
     def _get_jinja2_env():
@@ -475,6 +486,16 @@ class HelmInstallTemplate(HelmsManResource):
                                     chart_name=self.chart,
                                     namespace=namespace,
                                     release_name=release_name,
+                                    version=self.chart_version,
+                                    values=[default_values, values or {}])
+
+    def upgrade(self, chart, values=None,
+                context=None):
+        default_values = yaml.safe_load(
+            self.render_values(context or {}))
+        admin = User.objects.filter(is_superuser=True).first()
+        client = HelmsManAPI(HMServiceContext(user=admin))
+        return client.charts.update(chart,
                                     version=self.chart_version,
                                     values=[default_values, values or {}])
 
