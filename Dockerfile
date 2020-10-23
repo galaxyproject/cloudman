@@ -1,10 +1,10 @@
-FROM ubuntu:18.04 as stage1
+FROM ubuntu:20.04 as stage1
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED 1
 
-ENV KUBE_LATEST_VERSION=v1.16.2
-ENV HELM_VERSION=v3.0.2
+ENV KUBE_LATEST_VERSION=v1.19.3
+ENV HELM_VERSION=v3.3.4
 ENV HELM_FILENAME=helm-${HELM_VERSION}-linux-amd64.tar.gz
 
 RUN set -xe; \
@@ -43,16 +43,10 @@ RUN /app/venv/bin/pip3 install -U pip && /app/venv/bin/pip3 install --no-cache-d
 
 
 # Stage-2
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED 1
-
-# Env vars required for correct cloudman bootup
-# ENV RANCHER_URL
-# ENV RANCHER_TOKEN
-# ENV RANCHER_CLUSTER_ID
-# ENV RANCHER_PROJECT_ID
 
 # Create cloudman user environment
 RUN useradd -ms /bin/bash cloudman \
