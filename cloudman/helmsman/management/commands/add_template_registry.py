@@ -1,8 +1,9 @@
-from django.core.management import call_command
-from django.core.management.base import BaseCommand
-
+import logging as log
 import requests
 import yaml
+
+from django.core.management import call_command
+from django.core.management.base import BaseCommand
 
 from helmsman import helpers
 
@@ -19,10 +20,16 @@ class Command(BaseCommand):
 
     @staticmethod
     def add_template_registry(name, url):
-        with requests.get(url) as r:
-            registry = yaml.safe_load(r.content)
-            if registry.get('install_templates'):
-                Command.process_install_templates(registry.get('install_templates'))
+        print(f"Importing template registry: {name} from: {url}")
+        try:
+            with requests.get(url) as r:
+                registry = yaml.safe_load(r.content)
+                if registry.get('install_templates'):
+                    Command.process_install_templates(registry.get('install_templates'))
+        except Exception as e:
+            log.exception(f"An error occurred while importing registry '{name}':", e)
+            print(f"An error occurred while importing registry '{name}':", str(e))
+            raise e
 
     @staticmethod
     def process_install_templates(install_templates):
