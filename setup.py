@@ -72,7 +72,7 @@ REQS_BASE = [
 REQS_PROD = ([
     # postgres database driver
     'psycopg2-binary',
-    'gunicorn'] + REQS_BASE
+    'gunicorn[gevent]'] + REQS_BASE
 )
 
 REQS_TEST = ([
