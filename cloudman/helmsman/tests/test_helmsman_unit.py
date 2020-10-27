@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from helmsman.api import HelmsManAPI
 from helmsman.api import HMServiceContext
@@ -30,6 +30,25 @@ class InstallTemplateUnitTest(TestCase):
 
         ip_rendered = tpl.render_values(context={'domain': '192.168.2.1'})
         self.assertEquals(ip_expected, ip_rendered)
+
+        host_rendered = tpl.render_values(context={'domain': 'example.com'})
+        self.assertEquals(host_expected, host_rendered)
+
+    @override_settings(CM_GLOBAL_CONTEXT={'domain': 'globaldomain.com'})
+    def test_render_values_global_context(self):
+        base_tpl = ('hosts:\n'
+                    '  - ~\n'
+                    '  {%- if not (context.global.domain | ipaddr) %}\n'
+                    '  - "{{ context.global.domain }}"\n'
+                    '  {%- endif %}')
+
+        tpl = self.client.templates.create(
+                        'dummytpl', 'dummyrepo', 'dummychart',
+                        template=base_tpl)
+
+        host_expected = ('hosts:\n'
+                         '  - ~\n'
+                         '  - "globaldomain.com"')
 
         host_rendered = tpl.render_values(context={'domain': 'example.com'})
         self.assertEquals(host_expected, host_rendered)

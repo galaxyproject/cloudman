@@ -78,6 +78,16 @@ DATABASES = {
     }
 }
 
+CM_GLOBAL_CONTEXT_PATH = "/opt/cloudman/global_context.yaml"
+
+if os.path.isfile(CM_GLOBAL_CONTEXT_PATH) and os.access(CM_GLOBAL_CONTEXT_PATH, os.R_OK):
+    import yaml
+    with open(CM_GLOBAL_CONTEXT_PATH) as f:
+        print(f"Loading cloudman global context from: {CM_GLOBAL_CONTEXT_PATH}")
+        CM_GLOBAL_CONTEXT = yaml.load(f)
+else:
+    CM_GLOBAL_CONTEXT = {}
+
 # Allow settings to be overridden in a cloudman/settings_local.py
 try:
     from cloudman.settings_local import *  # noqa
