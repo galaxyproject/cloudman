@@ -5,6 +5,7 @@ import yaml
 from ansible.plugins.filter import ipaddr
 
 from django.apps import apps
+from django.conf import settings
 from django.db import IntegrityError
 from django.db import transaction
 
@@ -460,8 +461,12 @@ class HelmInstallTemplate(HelmsManResource):
         return self.template_obj.screenshot_url
 
     def render_values(self, context):
-        default_context = self.context or {}
-        new_context = dict(default_context)
+        global_context = settings.CM_GLOBAL_CONTEXT
+        # 1. Start with global context
+        new_context = {'global': dict(global_context)}
+        # 2. Add template default context
+        new_context.update(self.context or {})
+        # 3. Add user specified context
         new_context.update(context or {})
         jinja2_env = self._get_jinja2_env()
         tmpl = jinja2_env.from_string(
