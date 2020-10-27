@@ -21,16 +21,28 @@ class Command(BaseCommand):
     @staticmethod
     def process_settings(settings):
         if settings.get('repositories'):
+            print("Processing chart repositories...")
             Command.process_helm_repos(settings.get('repositories'))
+        else:
+            print("No chart repositories defined.")
 
         if settings.get('template_registries'):
+            print("Processing template registries...")
             Command.process_template_registries(settings.get('template_registries'))
+        else:
+            print("No template registries defined.")
 
         if settings.get('install_templates'):
+            print("Processing install templates...")
             TplCommand.process_install_templates(settings.get('install_templates'))
+        else:
+            print("No install templates defined.")
 
         if settings.get('charts'):
+            print("Processing charts in helmsman config...")
             Command.process_helm_charts(settings.get('charts'))
+        else:
+            print("No charts defined in helmsan config.")
 
     @staticmethod
     def process_helm_repos(repositories):
