@@ -15,6 +15,7 @@ install_templates:
           baseUrl: '{{context.project.access_path}}/jupyterhub'
         proxy:
           secretToken: '{{random_alphanumeric(65)}}'
+        greeting: {{context.dummy}}
     galaxy:
       repo: cloudve
       chart: galaxy

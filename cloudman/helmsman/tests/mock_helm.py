@@ -64,6 +64,12 @@ class MockHelm(object):
                 'CHART VERSION': '3.0.0',
                 'APP VERSION': '10.01',
                 'DESCRIPTION': 'Another dummy chart'
+            },
+            {
+                'NAME': 'cloudve/jupyterhub\\v',
+                'CHART VERSION': '3.0.0',
+                'APP VERSION': '10.01',
+                'DESCRIPTION': 'Another dummy chart'
             }
         ]
         self.chart_list_field_names = ["NAME", "REVISION", "UPDATED", "STATUS",
@@ -220,7 +226,7 @@ class MockHelm(object):
 
     def _helm_install(self, args):
         repo_name, chart_name = args.chart.split('/')
-        release_name = '%s-%s' % (chart_name, uuid.uuid4().hex[:6])
+        release_name = args.name or '%s-%s' % (chart_name, uuid.uuid4().hex[:6])
         revision = {
             'NAME': release_name,
             'REVISION': 1,
