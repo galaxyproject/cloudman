@@ -8,4 +8,7 @@ projects:
       galaxy:
         install_template: galaxy
       jupyterhub:
+        release_name: jup
         install_template: jupyter
+        context:
+            dummy: "hello"

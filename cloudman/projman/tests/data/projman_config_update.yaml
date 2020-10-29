@@ -13,4 +13,8 @@ projects:
             storageclass: updated-provisioner
         upgrade: true
       jupyterhub:
+        release_name: jup
         install_template: jupyter
+        upgrade: true
+        context:
+            dummy: "world"

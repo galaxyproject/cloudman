@@ -54,7 +54,10 @@ class Command(BaseCommand):
                 print("Cannot find project {}.")
                 return None
             try:
-                existing = proj.charts.find(release_name or template_name)
+                if release_name:
+                    existing = proj.charts.get(release_name)
+                else:
+                    existing = proj.charts.find(template_name)
                 if existing and upgrade_chart:
                     ch = proj.charts.update(existing, values, context=context)
                     print(f"Successfully updated template '{template_name}' "

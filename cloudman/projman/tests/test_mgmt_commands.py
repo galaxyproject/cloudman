@@ -69,3 +69,15 @@ class CommandsTestCase(TestCase):
         chart2 = proj2.charts.find("galaxy")
         self.assertEqual(chart2.values['postgresql']['persistence']['storageClass'],
                          "updated-provisioner")
+
+    def test_projman_context_update_by_release_name(self):
+        call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
+        call_command('projman_load_config', self.INITIAL_PROJECT_DATA)
+        projman_api = ProjManAPI(PMServiceContext(
+            user=User.objects.get_or_create(username='admin', is_superuser=True)[0]))
+        proj = projman_api.projects.find("second")
+        chart = proj.charts.get("jup")
+        self.assertEqual(chart.values['greeting'], "hello")
+        call_command('projman_load_config', self.INITIAL_PROJECT_DATA_UPDATE)
+        chart = proj.charts.get("jup")
+        self.assertEqual(chart.values['greeting'], "world")
