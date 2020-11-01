@@ -13,9 +13,4 @@ git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+https://github.com/CloudVE/cloudlaunch-cli
 git+https://github.com/galaxyproject/cloudlaunch
-# for openid connect
-# oic==0.13.0  # Fix this at this version or django-oidc acts up
-git+https://github.com/CloudVE/django-oidc#egg=django-oidc
-git+https://github.com/CloudVE/boss-oidc.git#egg=boss-oidc
-git+https://github.com/jhuapl-boss/drf-oidc-auth.git
 -e ".[prod]"

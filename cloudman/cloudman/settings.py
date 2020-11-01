@@ -2,6 +2,7 @@
 Django settings for cloudman project.
 """
 from cloudlaunchserver.settings import *
+from cloudman.auth import get_from_well_known
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -13,8 +14,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Application definition
 INSTALLED_APPS += [
-    'bossoidc',
-    'djangooidc',
+    'mozilla_django_oidc',
     'clusterman',
     'helmsman.apps.HelmsManConfig',
     'projman',
@@ -25,32 +25,41 @@ INSTALLED_APPS += [
 AUTHENTICATION_BACKENDS = [
     'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend',
-    'bossoidc.backend.OpenIdConnectBackend'
+    'cloudman.oidc.CMOIDCAuthenticationBackend'
 ]
 
-REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += ('oidc_auth.authentication.BearerTokenAuthentication',)
+MIDDLEWARE += [
+    'mozilla_django_oidc.middleware.SessionRefresh'
+]
+
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += ('mozilla_django_oidc.contrib.drf.OIDCAuthentication',)
 
 OIDC_ENABLED = os.environ.get('OIDC_ENABLED', False)
 
-# KeyCloak realm url
-auth_uri = os.environ.get("OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master"
-# Client ID configured in the Auth Server
-client_id = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
-# URL of the client
-public_uri = os.environ.get("OIDC_PUBLIC_URI") or "http://localhost:4200/cloudman"
-
-OIDC_ALLOW_DYNAMIC_OP = False
-
-from bossoidc.settings import *
-BOSSOIDC_PRESERVE_EXISTING_USER = True
+# OIDC settings. Set only if OIDC_ENABLED
+OIDC_RP_CLIENT_ID = None
+OIDC_RP_CLIENT_SECRET = None
+OIDC_OP_AUTHORIZATION_ENDPOINT = None
+OIDC_OP_TOKEN_ENDPOINT = None
+OIDC_OP_USER_ENDPOINT = None
+OIDC_OP_JWKS_ENDPOINT = None
+OIDC_RP_SIGN_ALGO = "RS256"
 
 if OIDC_ENABLED:
-    LOGIN_URL = "/openid/openid/KeyCloak"
-    LOGOUT_URL = "/openid/logout"
-    LOAD_USER_ROLES = 'projman.rules.assign_oidc_roles'
-    configure_oidc(auth_uri, client_id, public_uri)  # NOTE: scope is optional and can be left out
-else:
-    OIDC_PROVIDERS = {}
+    # KeyCloak realm url
+    OIDC_OP_METADATA_ENDPOINT = os.environ.get(
+        "OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"
+    # Client ID configured in the Auth Server
+    OIDC_RP_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
+    OIDC_RP_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET")
+    OIDC_OP_AUTHORIZATION_ENDPOINT = get_from_well_known(OIDC_OP_METADATA_ENDPOINT, 'authorization_endpoint')
+    OIDC_OP_TOKEN_ENDPOINT = get_from_well_known(OIDC_OP_METADATA_ENDPOINT, 'token_endpoint')
+    OIDC_OP_USER_ENDPOINT = get_from_well_known(OIDC_OP_METADATA_ENDPOINT, 'userinfo_endpoint')
+    OIDC_OP_JWKS_ENDPOINT = get_from_well_known(OIDC_OP_METADATA_ENDPOINT, 'jwks_uri')
+    OIDC_RP_SIGN_ALGO = os.environ.get("OIDC_SIGN_ALGO") or "RS256"
+    OIDC_USERNAME_ALGO = lambda claim: claim
+    OIDC_OP_LOGOUT_URL_METHOD = 'cloudman.oidc.provider_logout'
+
 
 ROOT_URLCONF = 'cloudman.urls'
 

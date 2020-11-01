@@ -66,7 +66,9 @@ REQS_BASE = [
     'cloudlaunch-cli',
     # ===== CloudMan =====
     # To store generic key-value pairs
-    'django-hierarkey'
+    'django-hierarkey',
+    # ==== OIDC ====
+    'mozilla-django-oidc'
 ]
 
 REQS_PROD = ([
