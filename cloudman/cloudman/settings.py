@@ -37,12 +37,12 @@ REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] += ('mozilla_django_oidc.contri
 OIDC_ENABLED = os.environ.get('OIDC_ENABLED', False)
 
 # OIDC settings. Set only if OIDC_ENABLED
-OIDC_RP_CLIENT_ID = None
+OIDC_RP_CLIENT_ID = "cloudman"
 OIDC_RP_CLIENT_SECRET = None
-OIDC_OP_AUTHORIZATION_ENDPOINT = None
-OIDC_OP_TOKEN_ENDPOINT = None
-OIDC_OP_USER_ENDPOINT = None
-OIDC_OP_JWKS_ENDPOINT = None
+OIDC_OP_AUTHORIZATION_ENDPOINT = "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"
+OIDC_OP_TOKEN_ENDPOINT = "dummy"
+OIDC_OP_USER_ENDPOINT = "dummy"
+OIDC_OP_JWKS_ENDPOINT = "dummy"
 OIDC_RP_SIGN_ALGO = "RS256"
 
 if OIDC_ENABLED:
