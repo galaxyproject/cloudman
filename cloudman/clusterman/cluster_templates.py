@@ -119,7 +119,7 @@ class CMRancherTemplate(CMClusterTemplate):
             'application_version': '0.1.0',
             'config_app': {
                 'rancher_action': 'add_node',
-                'config_rancher_kube': {
+                'config_kube_rancher': {
                     'rancher_url': self.rancher_url,
                     'rancher_api_key': self.rancher_api_key,
                     'rancher_cluster_id': self.rancher_cluster_id,

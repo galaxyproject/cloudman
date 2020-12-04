@@ -29,14 +29,14 @@ class RancherKubernetesApp(BaseVMAppPlugin):
     @staticmethod
     def validate_app_config(provider, name, cloud_config, app_config):
         rancher_config = get_required_val(
-            app_config, "config_rancher_kube", "Rancher configuration data"
-            " must be provided. config_rancher_kube entry not found in"
+            app_config, "config_kube_rancher", "Rancher configuration data"
+            " must be provided. config_kube_rancher entry not found in"
             " app_config.")
         #user_data = "#!/bin/bash\n"
         #user_data += get_required_val(
         #    rancher_config, "rancher_node_command",
         #    "The rancher node command for adding the worker node must be"
-        #    "included as part of config_rancher_kube")
+        #    "included as part of config_kube_rancher")
         #user_data += "\n"
         #return user_data
         return app_config
@@ -70,7 +70,7 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         the deployment - this is an un-recoverable action.
         """
         app_config = deployment.get('app_config')
-        rancher_cfg = app_config.get('config_rancher_kube')
+        rancher_cfg = app_config.get('config_kube_rancher')
         rancher_client = self._create_rancher_client(rancher_cfg)
         node_ip = deployment.get(
             'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
@@ -111,7 +111,7 @@ class RancherKubernetesApp(BaseVMAppPlugin):
         # Add required cluster tag for AWS
         if provider.PROVIDER_ID == "aws":
             inst_id = result['cloudLaunch'].get('instance').get('id')
-            cluster_id = app_config.get('config_rancher_kube', {}).get(
+            cluster_id = app_config.get('config_kube_rancher', {}).get(
                 'rancher_cluster_id')
             inst = provider.compute.instances.get(inst_id)
             # pylint:disable=protected-access
@@ -126,7 +126,7 @@ class RancherKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
 
     def configure(self, app_config, provider_config):
         playbook_vars = [
-            ('ansible_shell_command', app_config.get('config_rancher_kube', {}).get(
+            ('ansible_shell_command', app_config.get('config_kube_rancher', {}).get(
                 'rancher_node_command'))
         ]
         return super().configure(app_config, provider_config,
