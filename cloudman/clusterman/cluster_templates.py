@@ -1,6 +1,5 @@
 import abc
 from rest_framework.exceptions import ValidationError
-from .clients.rancher import RancherClient
 from cloudlaunch import models as cl_models
 
 
@@ -32,44 +31,34 @@ class CMClusterTemplate(object):
 
     @staticmethod
     def get_template_for(context, cluster):
-        if cluster.cluster_type == "KUBE_RANCHER":
-            return CMRancherTemplate(context, cluster)
+        if cluster.cluster_type == "KUBE_RKE":
+            return CMRKETemplate(context, cluster)
         else:
             raise KeyError("Cannon get cluster template for unknown cluster "
                            "type: %s" % cluster.cluster_type)
 
 
-class CMRancherTemplate(CMClusterTemplate):
+class CMRKETemplate(CMClusterTemplate):
 
     def __init__(self, context, cluster):
-        super(CMRancherTemplate, self).__init__(context, cluster)
-        settings = cluster.connection_settings.get('rancher_config')
-        self._rancher_url = settings.get('rancher_url')
-        self._rancher_api_key = settings.get('rancher_api_key')
-        self._rancher_cluster_id = settings.get('rancher_cluster_id')
-        self._rancher_project_id = settings.get('rancher_project_id')
+        super(CMRKETemplate, self).__init__(context, cluster)
+        settings = cluster.connection_settings.get('rke_config')
+        self._rke_registration_server = settings.get('rke_registration_server')
+        self._rke_registration_token = settings.get('rke_registration_token')
+        self._rke_cluster_id = settings.get('rke_cluster_id')
 
     @property
-    def rancher_url(self):
-        return self._rancher_url
+    def rke_registration_server(self):
+        return self._rke_registration_server
 
     @property
-    def rancher_api_key(self):
-        return self._rancher_api_key
+    def rke_registration_token(self):
+        return self._rke_registration_token
 
     @property
-    def rancher_cluster_id(self):
-        return self._rancher_cluster_id
+    def rke_cluster_id(self):
+        return self._rke_cluster_id
 
-    @property
-    def rancher_project_id(self):
-        return self._rancher_project_id
-
-    @property
-    def rancher_client(self):
-        return RancherClient(self.rancher_url, self.rancher_api_key,
-                             self.rancher_cluster_id,
-                             self.rancher_project_id)
 
     def _find_matching_vm_type(self, zone_model=None, default_vm_type=None,
                                min_vcpus=0, min_ram=0, vm_family=""):
@@ -114,24 +103,20 @@ class CMRancherTemplate(CMClusterTemplate):
             target_zone=zone)
         params = {
             'name': name,
-            'application': 'cm_rancher_kubernetes_plugin',
+            'application': 'cm_rke_kubernetes_plugin',
             'deployment_target_id': deployment_target.id,
             'application_version': '0.1.0',
             'config_app': {
-                'rancher_action': 'add_node',
-                'config_kube_rancher': {
-                    'rancher_url': self.rancher_url,
-                    'rancher_api_key': self.rancher_api_key,
-                    'rancher_cluster_id': self.rancher_cluster_id,
-                    'rancher_project_id': self.rancher_project_id,
-                    'rancher_node_command': (
-                        self.rancher_client.get_cluster_registration_command()
-                        + " --worker")
+                'action': 'add_node',
+                'config_kube_rke': {
+                    'rke_registration_server': self.rke_registration_server,
+                    'rke_registration_token': self.rke_registration_token,
+                    'rke_cluster_id': self.rke_cluster_id
                 },
                 "config_appliance": {
                     "sshUser": "ubuntu",
                     "runner": "ansible",
-                    "repository": "https://github.com/CloudVE/ansible-docker-boot",
+                    "repository": "https://github.com/CloudVE/cloudman-boot",
                     "inventoryTemplate": "${host}\n\n"
                                          "[all:vars]\n"
                                          "ansible_ssh_port=22\n"
@@ -166,4 +151,3 @@ class CMRancherTemplate(CMClusterTemplate):
     def remove_node(self, node):
         return self.context.cloudlaunch_client.deployments.tasks.create(
             action='DELETE', deployment_pk=node.deployment.pk)
-

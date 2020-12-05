@@ -100,7 +100,7 @@ class KubeNodeService(KubeService):
              f"spec.nodeName={node_name},status.phase={state}",
              "--selector", "job-name", "-o", "yaml"])
 
-    def wait_till_jobs_complete(self, node, timeout=3600):
+    def wait_till_jobs_complete(self, node, timeout=3600*24*7):
         name = node.get('metadata', {}).get('name')
         retryer = tenacity.Retrying(
             stop=tenacity.stop_after_delay(timeout),
@@ -115,6 +115,12 @@ class KubeNodeService(KubeService):
             ["kubectl", "drain", name, f"--timeout={timeout}s",
              f"--force={'true' if force else 'false'}",
              f"--ignore-daemonsets={'true' if ignore_daemonsets else 'false'}"]
+        )
+
+    def delete(self, node):
+        name = node.get('metadata', {}).get('name')
+        return helpers.run_command(
+            ["kubectl", "delete", "node", name]
         )
 
 

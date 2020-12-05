@@ -12,7 +12,7 @@ from clusterman import exceptions
 
 class Command(BaseCommand):
     help = 'Creates a CloudMan cluster. Currently supported cluster' \
-           'types: RANCHER_KUBE. Specify rancher connection settings in yaml' \
+           'types: KUBE_RKE. Specify RKE connection settings in yaml' \
            'format in the settings_file.'
 
     def add_arguments(self, parser):
