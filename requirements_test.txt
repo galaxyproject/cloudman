@@ -1,6 +1,7 @@
 git+https://github.com/celery/django-celery-results
 responses<=0.12
 brotlipy
+paramiko
 git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[test]
 git+https://github.com/CloudVE/djcloudbridge#egg=djcloudbridge[test]
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
