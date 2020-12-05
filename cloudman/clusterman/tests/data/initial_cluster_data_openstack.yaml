@@ -66,8 +66,7 @@ host_config:
     -----END PRIVATE KEY-----
   ssh_public_key: ssh-rsa AAAASomeKey/0DV
   ssh_user: ubuntu
-rancher_config:
-  rancher_url: https://127.0.0.1:4430
-  rancher_api_key: token-bf4j5:sometoken
-  rancher_cluster_id: c-abcd1
-  rancher_project_id: c-abcd1:p-7zr5p
+rke_config:
+  rke_registration_server: 10.1.1.210
+  rke_registration_token: token-bf4j5:sometoken
+  rke_cluster_id: cluster.hostname.com
