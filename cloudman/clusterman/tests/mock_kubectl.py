@@ -177,6 +177,12 @@ class MockKubeCtl(object):
         parser_delete_ns.add_argument(
             'namespace', type=str, help='namespace name')
         parser_delete_ns.set_defaults(func=self._kubectl_delete_namespace)
+        # Kubectl delete node
+        parser_delete_node = subparsers_delete.add_parser(
+            'node', help='delete a node')
+        parser_delete_node.add_argument(
+            'node', type=str, help='node name')
+        parser_delete_node.set_defaults(func=self._kubectl_delete_node)
 
         # kubectl cordon
         parser_cordon = subparsers.add_parser('cordon', help='cordon node')
@@ -250,6 +256,10 @@ class MockKubeCtl(object):
         with StringIO() as output:
             yaml.dump(response, stream=output, default_flow_style=False)
             return output.getvalue()
+
+    def _kubectl_delete_node(self, args):
+        # pretend to succeed
+        pass
 
     def _kubectl_get_pods(self, args):
         # get a copy of the response template
