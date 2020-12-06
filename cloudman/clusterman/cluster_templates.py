@@ -117,12 +117,19 @@ class CMRKETemplate(CMClusterTemplate):
                     "sshUser": "ubuntu",
                     "runner": "ansible",
                     "repository": "https://github.com/CloudVE/cloudman-boot",
-                    "inventoryTemplate": "${host}\n\n"
-                                         "[all:vars]\n"
-                                         "ansible_ssh_port=22\n"
-                                         "ansible_user='${user}'\n"
-                                         "ansible_ssh_private_key_file=pk\n"
-                                         "ansible_ssh_extra_args='-o StrictHostKeyChecking=no'\n"
+                    "inventoryTemplate":
+                        "[controllers]\n\n"
+                        "[agents]\n"
+                        "${host}\n\n"
+                        "[rke_cluster:children]\n"
+                        "controllers\n"
+                        "agents\n\n"
+                        "[all:vars]\n"
+                        "ansible_ssh_port=22\n"
+                        "ansible_user='${user}'\n"
+                        "ansible_ssh_private_key_file=pk\n"
+                        "ansible_ssh_extra_args='-o StrictHostKeyChecking=no"
+                        " -o ControlMaster=no'\n"
                 },
                 'config_cloudlaunch': (settings.get('app_config', {})
                                        .get('config_cloudlaunch', {})),
