@@ -48,7 +48,7 @@ OIDC_RP_SIGN_ALGO = "RS256"
 if OIDC_ENABLED:
     # KeyCloak realm url
     OIDC_OP_METADATA_ENDPOINT = os.environ.get(
-        "OIDC_AUTH_URI") or "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"
+        "OIDC_METADATA_URI") or "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"
     # Client ID configured in the Auth Server
     OIDC_RP_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID") or "cloudman"
     OIDC_RP_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET")
@@ -59,7 +59,10 @@ if OIDC_ENABLED:
     OIDC_RP_SIGN_ALGO = os.environ.get("OIDC_SIGN_ALGO") or "RS256"
     OIDC_USERNAME_ALGO = lambda claim: claim
     OIDC_OP_LOGOUT_URL_METHOD = 'cloudman.oidc.provider_logout'
+    OIDC_AUTHENTICATE_CLASS = 'cloudman.oidc.OIDCAuthenticationRequestView'
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+LOGIN_REDIRECT_URL = "/"
 
 ROOT_URLCONF = 'cloudman.urls'
 
