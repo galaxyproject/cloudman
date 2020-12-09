@@ -19,9 +19,12 @@ from django.urls import include
 from django.urls import path
 from rest_framework.schemas import get_schema_view
 
+
+
 schema_view = get_schema_view(title='CloudMan API', url=settings.REST_SCHEMA_BASE_URL,
                               urlconf='cloudman.urls')
 
+app_name = 'cloudman'
 urlpatterns = [
     path('cloudman/cloudlaunch/cloudlaunch/api/v1/auth/user/', include('cloudlaunchserver.urls')),
     path('cloudman/', include('cloudlaunchserver.urls')),
