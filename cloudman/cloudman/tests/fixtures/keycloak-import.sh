@@ -1,0 +1,2 @@
+docker run -p 8080:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=testpassword -v `pwd`:/testdata/ -e JAVA_OPTS="-server -Xms64m -Xmx512m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=256m -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman -Djava.awt.headless=true -Dkeycloak.migration.action=import -Dkeycloak.migration.provider=singleFile -Dkeycloak.migration.file=/testdata/realm-export.json -Dkeycloak.migration.strategy=OVERWRITE_EXISTING" jboss/keycloak:7.0.0
+
