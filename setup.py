@@ -68,7 +68,9 @@ REQS_BASE = [
     # To store generic key-value pairs
     'django-hierarkey',
     # ==== OIDC ====
-    'mozilla-django-oidc'
+    'mozilla-django-oidc',
+    # for deployments
+    'paramiko'
 ]
 
 REQS_PROD = ([
