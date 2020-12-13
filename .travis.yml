@@ -12,7 +12,6 @@ env:
     - PYTHONUNBUFFERED=True
     - COVERALLS_PARALLEL=true
   jobs:
-    - TOX_ENV=py36
     - TOX_ENV=py36-integration
 matrix:
   fast_finish: true
