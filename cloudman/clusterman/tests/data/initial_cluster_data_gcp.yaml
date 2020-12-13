@@ -1,4 +1,4 @@
-cloudman/clusterman/tests/data/initial_cluster_data_gcp.yaml app_config:
+app_config:
   config_appliance:
     inventoryTemplate:
     repository: https://github.com/CloudVE/ansible-cloudman2
