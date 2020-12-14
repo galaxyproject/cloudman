@@ -74,16 +74,16 @@ class ClusterCommandTestCase(TestCase):
             call_command('create_cluster')
 
     def test_create_cluster(self):
-        call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
+        call_command('create_cluster', 'test_cluster', 'KUBE_RKE', self.INITIAL_CLUSTER_DATA)
         cluster = cm_models.CMCluster.objects.get(name='test_cluster')
-        self.assertEquals(cluster.cluster_type, 'KUBE_RANCHER')
+        self.assertEquals(cluster.cluster_type, 'KUBE_RKE')
 
     def test_create_cluster_existing(self):
         with transaction.atomic():
-            call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
+            call_command('create_cluster', 'test_cluster', 'KUBE_RKE', self.INITIAL_CLUSTER_DATA)
         self.assertEqual(cm_models.CMCluster.objects.all().count(), 1)
         with transaction.atomic():
-            call_command('create_cluster', 'test_cluster', 'KUBE_RANCHER', self.INITIAL_CLUSTER_DATA)
+            call_command('create_cluster', 'test_cluster', 'KUBE_RKE', self.INITIAL_CLUSTER_DATA)
         self.assertEqual(cm_models.CMCluster.objects.all().count(), 1)
 
 

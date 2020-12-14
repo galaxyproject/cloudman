@@ -13,8 +13,6 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APILiveServerTestCase
 
-import responses
-
 from .client_mocker import ClientMocker
 
 
@@ -39,7 +37,7 @@ class CMClusterServiceTestBase(APITestCase):
 
     CLUSTER_DATA = {
         'name': 'testcluster2',
-        'cluster_type': 'KUBE_RANCHER',
+        'cluster_type': 'KUBE_RKE',
         'connection_settings': load_cluster_data()
     }
 
@@ -60,8 +58,6 @@ class CMClusterServiceTestBase(APITestCase):
 
         self.client.force_login(
             User.objects.get_or_create(username='clusteradmin', is_superuser=True, is_staff=True)[0])
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusters/c-abcd1?action=generateKubeconfig',
-                      json={'config': load_kube_config()}, status=200)
 
 
 class CMClusterServiceTests(CMClusterServiceTestBase):
@@ -111,7 +107,6 @@ class CMClusterServiceTests(CMClusterServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 0)
 
-    @responses.activate
     def test_crud_cluster(self):
         """
         Ensure we can register a new cluster with cloudman.
@@ -224,23 +219,6 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher4.start()
         self.addCleanup(patcher4.stop)
 
-        responses.add_passthru('http://localhost')
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/clusterregistrationtoken',
-                      json={'nodeCommand': 'docker run rancher --worker'}, status=200)
-        responses.add(responses.GET, 'https://127.0.0.1:4430/v3/nodes/?clusterId=c-abcd1',
-                      json=
-                      {'data': [
-                          {'id': 'c-ph9ck:m-01606aca4649',
-                           'ipAddress': '10.1.1.1',
-                           'externalIpAddress': None
-                           }
-                      ]},
-                      status=200)
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649?action=drain',
-                      json={}, status=200)
-        responses.add(responses.DELETE, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649',
-                      json={}, status=200)
-
         super().setUp()
 
 
@@ -281,19 +259,6 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
         return response.data['id']
 
     def _delete_cluster_node(self, cluster_id, node_id):
-        responses.add(responses.GET, 'https://127.0.0.1:4430/v3/nodes/?clusterId=c-abcd1',
-                      json=
-                      {'data': [
-                          {'id': 'c-ph9ck:m-01606aca4649',
-                           'ipAddress': '10.1.1.1',
-                           'externalIpAddress': None
-                           }
-                      ]},
-                      status=200)
-        responses.add(responses.POST, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649?action=drain',
-                      json={}, status=200)
-        responses.add(responses.DELETE, 'https://127.0.0.1:4430/v3/nodes/c-ph9ck:m-01606aca4649',
-                      json={}, status=200)
         url = reverse('clusterman:node-detail', args=[cluster_id, node_id])
         return self.client.delete(url)
 
@@ -303,7 +268,6 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 0)
 
-    @responses.activate
     def test_crud_cluster_node(self):
         """
         Ensure we can register a new node with cloudman.
@@ -328,7 +292,6 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
         # check it no longer exists
         self._check_no_cluster_nodes_exist(cluster_id)
 
-    @responses.activate
     def test_node_create_unauthorized(self):
         cluster_id = self._create_cluster()
         self.client.force_login(
@@ -336,7 +299,6 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
         response = self._create_cluster_node(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    @responses.activate
     def test_node_delete_unauthorized(self):
         cluster_id = self._create_cluster()
         self._create_cluster_node(cluster_id)
@@ -416,7 +378,6 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 0)
 
-    @responses.activate
     def test_crud_autoscaler(self):
         """
         Ensure we can register a new node with cloudman.
@@ -445,7 +406,6 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         # check it no longer exists
         self._check_no_autoscalers_exist(cluster_id)
 
-    @responses.activate
     def test_autoscaler_create_unauthorized(self):
         cluster_id = self._create_cluster()
         self.client.force_login(
@@ -453,7 +413,6 @@ class CMClusterAutoScalerTests(CMClusterServiceTestBase):
         response = self._create_autoscaler(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    @responses.activate
     def test_autoscaler_delete_unauthorized(self):
         cluster_id = self._create_cluster()
         self._create_autoscaler(cluster_id)
@@ -670,7 +629,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         return len([n for n in response.data['results']
                     if n['autoscaler'] == int(autoscaler_id)])
 
-    @responses.activate
     def test_scale_up_default(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -690,7 +648,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(len(vm_types), 1)
         self.assertTrue("m5.24xlarge" in vm_types)
 
-    @responses.activate
     def test_scale_down_default(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -709,7 +666,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 0)
 
-    @responses.activate
     def test_scaling_while_deactivated(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -738,7 +694,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
-    @responses.activate
     def test_scaling_is_within_bounds(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -772,7 +727,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(len(vm_types), 1)
         self.assertTrue("m1.medium" in vm_types)
 
-    @responses.activate
     def test_scaling_with_manual_nodes(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -798,7 +752,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
-    @responses.activate
     def test_scaling_within_zone_group(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -875,7 +828,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.client.force_login(
             User.objects.get_or_create(username='autoscaletestuser')[0])
 
-    @responses.activate
     def test_autoscaling_user_scale_up_permissions(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -887,7 +839,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
-    @responses.activate
     def test_autoscaling_user_scale_down_permissions(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
@@ -900,7 +851,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 0)
 
-    @responses.activate
     def test_autoscaling_user_no_extra_permissions(self):
         # create a parent cluster
         cluster_id = self._create_cluster()
@@ -915,7 +865,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         response = self._update_cluster(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    @responses.activate
     def test_autoscale_up_signal_unauthorized(self):
         cluster_id = self._create_cluster()
         self._create_autoscaler(cluster_id)
@@ -924,7 +873,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         response = self._signal_scaleup(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    @responses.activate
     def test_autoscale_down_signal_unauthorized(self):
         cluster_id = self._create_cluster()
         self._create_autoscaler(cluster_id)
@@ -933,7 +881,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         response = self._signal_scaledown(cluster_id)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
-    @responses.activate
     def test_create_autoscale_user_impersonate(self):
         # create a parent cluster
         cluster_id = self._create_cluster()
@@ -945,7 +892,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 1)
 
-    @responses.activate
     def test_create_autoscale_user_impersonate_no_perms(self):
         # create a parent cluster
         cluster_id = self._create_cluster()
@@ -964,7 +910,6 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         count = self._count_cluster_nodes(cluster_id)
         self.assertEqual(count, 0)
 
-    @responses.activate
     def test_scale_up_unschedulable(self):
         # create the parent cluster
         cluster_id = self._create_cluster()

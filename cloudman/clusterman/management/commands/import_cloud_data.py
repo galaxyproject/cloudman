@@ -97,9 +97,9 @@ class Command(BaseCommand):
         image_obj, _ = cl_models.Image.objects.get_or_create(
             name=name, defaults={**image, "region": region_obj})
 
-        # connect rancher app as target
+        # connect rke app as target
         version = cl_models.ApplicationVersion.objects.filter(
-            application='cm_rancher_kubernetes_plugin').first()
+            application='cm_rke_kubernetes_plugin').first()
         target = cl_models.CloudDeploymentTarget.objects.filter(
             target_zone=zone_obj).first()
         cl_models.ApplicationVersionCloudConfig.objects.create(

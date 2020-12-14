@@ -1,17 +1,17 @@
 [
 {
   "model": "cloudlaunch.application",
-  "pk": "cm_rancher_kubernetes_plugin",
+  "pk": "cm_rke_kubernetes_plugin",
   "fields": {
     "added": "2016-06-27T22:10:17.212Z",
     "updated": "2017-12-22T21:38:44.060Z",
-    "name": "Rancher Kubernetes Plugin",
+    "name": "RKE Kubernetes Plugin",
     "status": "LIVE",
-    "summary": "A rancher kubernetes plugin for cloudman",
+    "summary": "A RKE kubernetes plugin for cloudman",
     "maintainer": "cloudve.org",
-    "description": "A rancher kubernetes plugin for cloudman",
+    "description": "A RKE kubernetes plugin for cloudman",
     "info_url": "",
-    "icon_url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Logo-ubuntu_no%28r%29-black_orange-hex.svg?download",
+    "icon_url": "https://docs.rke2.io/assets/logo-horizontal-rke.svg",
     "default_launch_config": "",
     "default_version": 1,
     "display_order": 1000,
@@ -22,12 +22,12 @@
   "model": "cloudlaunch.applicationversion",
   "pk": 1,
   "fields": {
-    "application": "cm_rancher_kubernetes_plugin",
+    "application": "cm_rke_kubernetes_plugin",
     "version": "0.1.0",
     "frontend_component_path": "",
     "frontend_component_name": "",
-    "backend_component_name": "clusterman.plugins.rancher_kubernetes_app.RancherKubernetesApp",
-    "default_launch_config": "{\r\n   \"config_cloudlaunch\":{\r\n      \"firewall\":[\r\n         {\r\n            \"securityGroup\":\"cloudlaunch-vm\",\r\n            \"rules\":[\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"22\",\r\n                  \"to\":\"22\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"443\",\r\n                  \"to\":\"443\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"udp\",\r\n                  \"from\":\"8472\",\r\n                  \"to\":\"8472\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"9099\",\r\n                  \"to\":\"9099\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"10254\",\r\n                  \"to\":\"10254\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"6443\",\r\n                  \"to\":\"6443\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               }\r\n            ]\r\n         }\r\n      ]\r\n   }\r\n}",
+    "backend_component_name": "clusterman.plugins.rke_kubernetes_app.RKEKubernetesApp",
+    "default_launch_config": "{\r\n   \"config_cloudlaunch\":{\r\n      \"firewall\":[\r\n         {\r\n            \"securityGroup\":\"cloudlaunch-vm\",\r\n            \"rules\":[\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"22\",\r\n                  \"to\":\"22\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n               {\r\n                  \"protocol\":\"tcp\",\r\n                  \"from\":\"443\",\r\n                  \"to\":\"443\",\r\n                  \"cidr\":\"0.0.0.0/0\"\r\n               },\r\n            ]\r\n         }\r\n      ]\r\n   }\r\n}",
     "default_target": null
   }
 }
