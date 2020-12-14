@@ -11,3 +11,6 @@
 venv
 venv3
 docs
+*.log
+*.db
+*.sqlite3

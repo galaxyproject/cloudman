@@ -59,7 +59,7 @@ class CommandsTestCase(TestCase):
         call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)
         template = hm_models.HMInstallTemplate.objects.get(name='terminalman')
         self.assertEqual(template.chart, "terminalman")
-        self.assertIn("domain", template.context)
+        self.assertIn("starting_dir", template.context)
 
     def test_update_install_template(self):
         call_command('helmsman_load_config', self.INITIAL_HELMSMAN_DATA)

@@ -66,7 +66,11 @@ REQS_BASE = [
     'cloudlaunch-cli',
     # ===== CloudMan =====
     # To store generic key-value pairs
-    'django-hierarkey'
+    'django-hierarkey',
+    # ==== OIDC ====
+    'mozilla-django-oidc',
+    # for deployments
+    'paramiko'
 ]
 
 REQS_PROD = ([
@@ -78,6 +82,7 @@ REQS_PROD = ([
 REQS_TEST = ([
     'responses',  # For mocking responses during tests
     'tox>=2.9.1',
+    'tox-docker>=2.0.0a3',
     'coverage>=4.4.1',
     'flake8>=3.4.1',
     'flake8-import-order>=0.13'] + REQS_BASE

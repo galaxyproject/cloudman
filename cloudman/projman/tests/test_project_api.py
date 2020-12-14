@@ -2,6 +2,7 @@ import os
 import yaml
 
 from django.urls import reverse
+from django.contrib.auth.models import Group
 from django.contrib.auth.models import User
 from django.core.management import call_command
 
@@ -12,8 +13,6 @@ from helmsman.api import HMServiceContext
 from helmsman.api import NamespaceExistsException
 from helmsman.tests import HelmsManServiceTestBase
 from helmsman import helpers as hm_helpers
-
-from projman import rules
 
 
 # Create your tests here.
@@ -123,7 +122,8 @@ class ProjectServiceTests(ProjManManServiceTestBase):
         project_id_then = self._list_project()
         non_admin = User.objects.get_or_create(username='notaprojadmin', is_staff=False)[0]
         self.client.force_login(non_admin)
-        rules.assign_oidc_roles(non_admin, ["projman-" + response.data['namespace']])
+        group, _ = Group.objects.get_or_create(name="projman-" + response.data['namespace'])
+        group.user_set.add(non_admin)
         project_id_now = self._list_project()
         assert project_id_now  # should be visible
         assert project_id_then == project_id_now  # should be the same project
@@ -400,7 +400,8 @@ class ProjectChartServiceTests(ProjManManServiceTestBase):
         project_id = self._create_project()
         non_admin = User.objects.get_or_create(username='projadminassigned', is_staff=False)[0]
         self.client.force_login(non_admin)
-        rules.assign_oidc_roles(non_admin, ["projman-gvl-admin"])
+        group, _ = Group.objects.get_or_create(name="projman-gvl-admin")
+        group.user_set.add(non_admin)
         response = self._create_project_chart(project_id)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
 

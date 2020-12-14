@@ -1,4 +1,5 @@
 git+https://github.com/celery/django-celery-results
+responses<=0.12
 brotlipy
 git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[test]
 git+https://github.com/CloudVE/djcloudbridge#egg=djcloudbridge[test]

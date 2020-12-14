@@ -15,21 +15,24 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
 from django.conf import settings
-from django.conf.urls import include
-from django.conf.urls import url
+from django.urls import include
+from django.urls import path
 from rest_framework.schemas import get_schema_view
+
+
 
 schema_view = get_schema_view(title='CloudMan API', url=settings.REST_SCHEMA_BASE_URL,
                               urlconf='cloudman.urls')
 
+app_name = 'cloudman'
 urlpatterns = [
-    url(r'^cloudman/cloudlaunch/cloudlaunch/api/v1/auth/user/', include('cloudlaunchserver.urls')),
-    url(r'^cloudman/', include('cloudlaunchserver.urls')),
-    url(r'^cloudman/api/v1/', include('clusterman.urls')),
-    url(r'^cloudman/api/v1/', include('helmsman.urls')),
-    url(r'^cloudman/api/v1/', include('projman.urls')),
-    url(r'^cloudman/api/v1/schema/$', schema_view),
-    url(r'^cloudman/openid/', include('djangooidc.urls')),
+    path('cloudman/cloudlaunch/cloudlaunch/api/v1/auth/user/', include('cloudlaunchserver.urls')),
+    path('cloudman/', include('cloudlaunchserver.urls')),
+    path('cloudman/api/v1/', include('clusterman.urls')),
+    path('cloudman/api/v1/', include('helmsman.urls')),
+    path('cloudman/api/v1/', include('projman.urls')),
+    path('cloudman/api/v1/schema/', schema_view),
+    path('cloudman/oidc/', include('mozilla_django_oidc.urls')),
 ]
 
 # Uncomment to have Gunicorn serve static content (dev only)
