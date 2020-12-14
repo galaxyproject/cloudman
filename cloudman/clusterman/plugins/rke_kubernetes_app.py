@@ -29,6 +29,7 @@ class RKEKubernetesApp(BaseVMAppPlugin):
             app_config, "config_kube_rke", "RKE configuration data"
             " must be provided. config_kube_rke entry not found in"
             " app_config.")
+        assert 'rke_cluster_id' in rke_config
         assert 'rke_registration_server' in rke_config
         assert 'rke_registration_token' in rke_config
         return app_config
@@ -96,9 +97,21 @@ class RKEKubernetesApp(BaseVMAppPlugin):
 class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
     """Add CloudMan2 specific vars to playbook."""
 
+    def _cb_provider_id_to_kube_provider_id(self, provider_id):
+        CB_CLOUD_TO_KUBE_CLOUD_MAP = {
+            'aws': 'aws',
+            'openstack': 'openstack',
+            'azure': 'azure',
+            'gcp': 'gce'
+        }
+        return CB_CLOUD_TO_KUBE_CLOUD_MAP.get(provider_id)
+
     def configure(self, app_config, provider_config):
         playbook_vars = {
-            'kube_cloud_provider': provider_config.get('cloud_provider'),
+            'kube_cloud_provider': self._cb_provider_id_to_kube_provider_id(
+                provider_config.get('cloud_provider').PROVIDER_ID),
+            'cluster_hostname': app_config.get('config_kube_rke', {}).get(
+                'rke_cluster_id'),
             'rke_registration_server': app_config.get('config_kube_rke', {}).get(
                 'rke_registration_server'),
             'rke_registration_token': app_config.get('config_kube_rke', {}).get(

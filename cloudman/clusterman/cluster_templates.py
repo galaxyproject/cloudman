@@ -59,7 +59,6 @@ class CMRKETemplate(CMClusterTemplate):
     def rke_cluster_id(self):
         return self._rke_cluster_id
 
-
     def _find_matching_vm_type(self, zone_model=None, default_vm_type=None,
                                min_vcpus=0, min_ram=0, vm_family=""):
         """
