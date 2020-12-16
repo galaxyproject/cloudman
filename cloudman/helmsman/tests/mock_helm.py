@@ -173,6 +173,10 @@ class MockHelm(object):
         p_get_values.add_argument(
             'release', type=str, help='release name')
         p_get_values.add_argument(
+            '-o', '--output', type=str, help='output format',
+            choices=['table', 'json', 'yaml'], default='table',
+            const='all', nargs='?')
+        p_get_values.add_argument(
             '--all', action='store_true', help='dump all values')
         p_get_values.add_argument(
             '--namespace', type=self.validate_namespace,
@@ -328,7 +332,11 @@ class MockHelm(object):
             return 'Error: release: "%s" not found' % args.release
         latest_release = revisions[-1]
         with StringIO() as output:
-            yaml.safe_dump(latest_release.get('VALUES'), output, allow_unicode=True)
+            if args.output == "yaml":
+                yaml.safe_dump(latest_release.get('VALUES'), output, allow_unicode=True)
+            else:
+                output.write("USER-SUPPLIED VALUES:")
+                yaml.safe_dump(latest_release.get('VALUES'), output, allow_unicode=True)
             return output.getvalue()
 
     def _helm_get_manifest(self, args):

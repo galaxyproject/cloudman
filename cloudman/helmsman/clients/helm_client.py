@@ -2,8 +2,6 @@
 import contextlib
 import shutil
 
-import yaml
-
 from enum import Enum
 
 from clusterman.clients import helpers
@@ -150,7 +148,8 @@ class HelmReleaseService(HelmService):
         get_all=True will also dump chart default values.
         get_all=False will only return user overridden values.
         """
-        cmd = ["helm", "get", "values", "--namespace", namespace, release_name]
+        cmd = ["helm", "get", "values", "-o", "yaml",
+               "--namespace", namespace, release_name]
         if get_all:
             cmd += ["--all"]
         return helpers.run_yaml_command(cmd)
