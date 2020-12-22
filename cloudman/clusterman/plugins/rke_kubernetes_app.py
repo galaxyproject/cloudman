@@ -1,4 +1,6 @@
 """Plugin implementation for a simple web application."""
+import tenacity
+
 from celery.utils.log import get_task_logger
 
 from cloudlaunch.backend_plugins.base_vm_app import BaseVMAppPlugin
@@ -94,6 +96,10 @@ class RKEKubernetesApp(BaseVMAppPlugin):
         return result
 
 
+class NodeNotRegistered(Exception):
+    pass
+
+
 class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
     """Add CloudMan2 specific vars to playbook."""
 
@@ -106,6 +112,28 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
         }
         return CB_CLOUD_TO_KUBE_CLOUD_MAP.get(provider_id)
 
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2),
+                    retry=tenacity.retry_if_exception_type(NodeNotRegistered),
+                    wait=tenacity.wait_fixed(10),
+                    reraise=True,
+                    after=lambda *args: log.debug("Node not registered yet, checking again..."))
+    def has_reached_desired_state(self, provider_config):
+        # Newly added node should now be registered with the cluster
+        kube_client = KubeClient()
+        node_ip = provider_config.get(
+            'host_config', {}).get('public_ip')
+        k8s_node = kube_client.nodes.find(node_ip)
+        if k8s_node and k8s_node[0]:
+            return True
+        else:
+            raise NodeNotRegistered(
+                f"New node with ip: {node_ip} has still not registered with k8s cluster")
+
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2),
+                    retry=tenacity.retry_if_exception_type(NodeNotRegistered),
+                    wait=tenacity.wait_fixed(10),
+                    reraise=True,
+                    after=lambda *args: log.debug("Node not registered, rerunning playbook..."))
     def configure(self, app_config, provider_config):
         playbook_vars = {
             'kube_cloud_provider': self._cb_provider_id_to_kube_provider_id(
@@ -117,5 +145,10 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
             'rke_registration_token': app_config.get('config_kube_rke', {}).get(
                 'rke_registration_token')
         }
-        return super().configure(app_config, provider_config,
-                                 playbook_vars=playbook_vars)
+        result = super().configure(app_config, provider_config,
+                                   playbook_vars=playbook_vars)
+        if self.has_reached_desired_state(provider_config):
+            return result
+        else:
+            raise NodeNotRegistered(
+                f"Node has not been added to the cluster")

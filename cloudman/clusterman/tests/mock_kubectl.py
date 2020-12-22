@@ -257,9 +257,16 @@ class MockKubeCtl(object):
             yaml.dump(response, stream=output, default_flow_style=False)
             return output.getvalue()
 
+    # this function only exists to help with tests.
+    # it adds a new node to the cluster
+    def _kubectl_add_node(self, node):
+        self.nodes.append(node)
+
     def _kubectl_delete_node(self, args):
-        # pretend to succeed
-        pass
+        for node in self.nodes:
+            if node.get('metadata', {}).get('name') == args.name:
+                return self.nodes.pop(node, None)
+        return f'Error from server (NotFound): nodes "{args.name}" not found'
 
     def _kubectl_get_pods(self, args):
         # get a copy of the response template
