@@ -13,6 +13,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APILiveServerTestCase
 
+from clusterman.clients.kube_client import KubeClient
 from .client_mocker import ClientMocker
 
 
@@ -215,11 +216,42 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher3.start()
         self.addCleanup(patcher3.stop)
 
-        patcher4 = patch('cloudlaunch.configurers.AnsibleAppConfigurer.configure')
+        patcher4 = patch('cloudlaunch.configurers.AnsibleAppConfigurer.configure',
+                         side_effect=self._add_dummy_node)
         patcher4.start()
         self.addCleanup(patcher4.stop)
 
         super().setUp()
+
+    def _add_dummy_node(self, app_config, provider_config, playbook_vars=None):
+        node_name = app_config.get('config_kube_rke', {}).get('rke_cluster_id')
+        node_ip = provider_config.get('host_config', {}).get('public_ip')
+        node = {
+            "apiVersion": "v1",
+            "kind": "Node",
+            "metadata": {
+                "labels": {
+                    "kubernetes.io/hostname": node_name,
+                    "node-role.kubernetes.io/master": ""
+                },
+                "name": node_name,
+                "resourceVersion": "3932510",
+                "selfLink": f"/api/v1/nodes/{node_name}",
+                "uid": "166c6e35-76b7-4f28-a1a0-590dd3e05662"
+            },
+            "spec": {},
+            "status": {
+                "addresses": [
+                    {
+                        "address": node_ip,
+                        "type": "ExternalIP"
+                    }
+                ],
+            }
+        }
+        kube_mocker = self.mock_client.mockers[0]
+        kube_mocker.mock_kubectl._kubectl_add_node(node)
+        return {}
 
 
 class CMClusterNodeServiceTests(CMClusterNodeTestBase):
@@ -291,6 +323,69 @@ class CMClusterNodeServiceTests(CMClusterNodeTestBase):
 
         # check it no longer exists
         self._check_no_cluster_nodes_exist(cluster_id)
+
+    def test_celery_task_create_cluster_node(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # should initially have 1 node
+        client = KubeClient()
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 1)
+
+        # create cluster node
+        response = self._create_cluster_node(cluster_id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+
+        # A new node should have been added
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 2)
+
+    def test_celery_task_create_cluster_node_retry(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # should initially have 1 node
+        client = KubeClient()
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 1)
+
+        # create cluster node, but fail to add node
+        with patch('cloudlaunch.configurers.AnsibleAppConfigurer.configure',
+                   return_value={}) as node_add_fail:
+            self._create_cluster_node(cluster_id)
+            self.assertEqual(node_add_fail.call_count, 2)
+
+        # A new node should not have been added
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 1)
+
+    def test_celery_task_create_cluster_node_succeed_on_second_try(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # should initially have 1 node
+        client = KubeClient()
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 1)
+
+        counter_ref = [0]
+
+        def succeed_on_second_try(count_ref, *args, **kwargs):
+            if count_ref[0] > 0:
+                self._add_dummy_node(*args, **kwargs)
+            count_ref[0] += 1
+
+        # create cluster node, but trigger a retry
+        with patch('cloudlaunch.configurers.AnsibleAppConfigurer.configure',
+                   side_effect=lambda *args, **kwargs: succeed_on_second_try(
+                       counter_ref, *args, **kwargs)) as node_add_fail:
+            self._create_cluster_node(cluster_id)
+            self.assertEqual(node_add_fail.call_count, 2)
+
+        # A new node should have been added
+        node_list = client.nodes.list()
+        self.assertEqual(len(node_list), 2)
 
     def test_node_create_unauthorized(self):
         cluster_id = self._create_cluster()

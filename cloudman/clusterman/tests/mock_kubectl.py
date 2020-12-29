@@ -181,7 +181,7 @@ class MockKubeCtl(object):
         parser_delete_node = subparsers_delete.add_parser(
             'node', help='delete a node')
         parser_delete_node.add_argument(
-            'node', type=str, help='node name')
+            'name', type=str, help='node name')
         parser_delete_node.set_defaults(func=self._kubectl_delete_node)
 
         # kubectl cordon
@@ -257,9 +257,16 @@ class MockKubeCtl(object):
             yaml.dump(response, stream=output, default_flow_style=False)
             return output.getvalue()
 
+    # this function only exists to help with tests.
+    # it adds a new node to the cluster
+    def _kubectl_add_node(self, node):
+        self.nodes.append(node)
+
     def _kubectl_delete_node(self, args):
-        # pretend to succeed
-        pass
+        for node in self.nodes:
+            if node.get('metadata', {}).get('name') == args.name:
+                return self.nodes.remove(node)
+        return f'Error from server (NotFound): nodes "{args.name}" not found'
 
     def _kubectl_get_pods(self, args):
         # get a copy of the response template
