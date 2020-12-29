@@ -21,6 +21,10 @@ def get_required_val(data, name, message):
     return val
 
 
+class NodeNotDeleted(Exception):
+    pass
+
+
 class RKEKubernetesApp(BaseVMAppPlugin):
     """
     RKE Kubernetes Appliance.
@@ -48,6 +52,24 @@ class RKEKubernetesApp(BaseVMAppPlugin):
             name, task, app_config, provider_config)
         return result
 
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2),
+                    wait=tenacity.wait_fixed(10),
+                    reraise=True,
+                    after=lambda *args: log.debug("Node not deleted yet, checking again..."))
+    def check_node_no_longer_exists(self, node_ip):
+        # Newly added node should now be registered with the cluster
+        kube_client = KubeClient()
+        k8s_node = kube_client.nodes.find(node_ip)
+        if not k8s_node:
+            return True
+        else:
+            raise NodeNotDeleted(
+                f"Deleted node with ip: {node_ip} still attached to the cluster.")
+
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2),
+                    wait=tenacity.wait_fixed(10),
+                    reraise=True,
+                    after=lambda *args: log.debug("Node not removed, retrying......"))
     def delete(self, provider, deployment):
         """
         Delete resource(s) associated with the supplied deployment.
@@ -62,21 +84,27 @@ class RKEKubernetesApp(BaseVMAppPlugin):
             'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
         try:
             kube_client = KubeClient()
-            k8s_node = kube_client.nodes.find(node_ip)[0]
-            try:
-                # stop new jobs being scheduled on this node
-                kube_client.nodes.cordon(k8s_node)
-                # let existing jobs finish
-                kube_client.nodes.wait_till_jobs_complete(k8s_node)
-                # drain remaining pods
-                kube_client.nodes.drain(k8s_node, timeout=120)
-
-            finally:
-                # delete the k8s node
-                kube_client.nodes.delete(k8s_node)
+            k8s_node = kube_client.nodes.find(node_ip)
+            if k8s_node:
+                k8s_node = k8s_node[0]
+                try:
+                    # stop new jobs being scheduled on this node
+                    kube_client.nodes.cordon(k8s_node)
+                    # let existing jobs finish
+                    kube_client.nodes.wait_till_jobs_complete(k8s_node)
+                    # drain remaining pods
+                    kube_client.nodes.drain(k8s_node, timeout=120)
+                finally:
+                    # delete the k8s node
+                    kube_client.nodes.delete(k8s_node)
         finally:
             # delete the VM
-            return super().delete(provider, deployment)
+            result = super().delete(provider, deployment)
+        if self.check_node_no_longer_exists(node_ip):
+            return result
+        else:
+            raise NodeNotDeleted(
+                f"Node has not been removed from the cluster")
 
     def _get_configurer(self, app_config):
         # CloudMan2 can only be configured with ansible
@@ -113,7 +141,6 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
         return CB_CLOUD_TO_KUBE_CLOUD_MAP.get(provider_id)
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(2),
-                    retry=tenacity.retry_if_exception_type(NodeNotRegistered),
                     wait=tenacity.wait_fixed(10),
                     reraise=True,
                     after=lambda *args: log.debug("Node not registered yet, checking again..."))
@@ -130,7 +157,6 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
                 f"New node with ip: {node_ip} has still not registered with k8s cluster")
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(2),
-                    retry=tenacity.retry_if_exception_type(NodeNotRegistered),
                     wait=tenacity.wait_fixed(10),
                     reraise=True,
                     after=lambda *args: log.debug("Node not registered, rerunning playbook..."))

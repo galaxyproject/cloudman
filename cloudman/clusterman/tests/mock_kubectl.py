@@ -181,7 +181,7 @@ class MockKubeCtl(object):
         parser_delete_node = subparsers_delete.add_parser(
             'node', help='delete a node')
         parser_delete_node.add_argument(
-            'node', type=str, help='node name')
+            'name', type=str, help='node name')
         parser_delete_node.set_defaults(func=self._kubectl_delete_node)
 
         # kubectl cordon
@@ -265,7 +265,7 @@ class MockKubeCtl(object):
     def _kubectl_delete_node(self, args):
         for node in self.nodes:
             if node.get('metadata', {}).get('name') == args.name:
-                return self.nodes.pop(node, None)
+                return self.nodes.remove(node)
         return f'Error from server (NotFound): nodes "{args.name}" not found'
 
     def _kubectl_get_pods(self, args):
