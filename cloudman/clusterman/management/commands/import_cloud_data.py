@@ -102,5 +102,5 @@ class Command(BaseCommand):
             application='cm_rke_kubernetes_plugin').first()
         target = cl_models.CloudDeploymentTarget.objects.filter(
             target_zone=zone_obj).first()
-        cl_models.ApplicationVersionCloudConfig.objects.create(
+        cl_models.ApplicationVersionCloudConfig.objects.get_or_create(
             application_version=version, target=target, image=image_obj)

@@ -148,7 +148,7 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
         # Newly added node should now be registered with the cluster
         kube_client = KubeClient()
         node_ip = provider_config.get(
-            'host_config', {}).get('public_ip')
+            'host_config', {}).get('private_ip')
         k8s_node = kube_client.nodes.find(node_ip)
         if k8s_node and k8s_node[0]:
             return True
