@@ -142,7 +142,7 @@ class CMRKETemplate(CMClusterTemplate):
             self._find_matching_vm_type(
                 zone_model=zone, default_vm_type=vm_type, min_vcpus=min_vcpus,
                 min_ram=min_ram, vm_family=vm_family)
-        params['config_app']['config_cloudlaunch']['skip_floating_ip'] = True
+        # params['config_app']['config_cloudlaunch']['skip_floating_ip'] = True
 
         print("Adding node: {0} of type: {1}".format(
             name, params['config_app']['config_cloudlaunch']['vmType']))
