@@ -545,6 +545,15 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         'max_nodes': '2'
     }
 
+    AUTOSCALER_DATA_ALLOWED_VM_TYPES = {
+        'name': 'secondary',
+        'vm_type': 'm1.medium',
+        'allowed_vm_type_prefixes': 'i5.,m3',
+        'zone': 3,
+        'min_nodes': '0',
+        'max_nodes': '2'
+    }
+
     SCALE_SIGNAL_DATA = {
         "receiver": "cloudman",
         "status": "resolved",
@@ -1023,3 +1032,22 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         vm_types = self._get_cluster_node_vm_types(cluster_id)
         self.assertEqual(len(vm_types), 1)
         self.assertTrue("m5.24xlarge" in vm_types)
+
+    def test_scale_up_allowed_vm_Types(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        self._create_autoscaler(cluster_id, data=self.AUTOSCALER_DATA_ALLOWED_VM_TYPES)
+
+        # send autoscale signal
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+
+        # Ensure that node was created
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 1)
+
+        # Ensure that the created node has the correct size
+        vm_types = self._get_cluster_node_vm_types(cluster_id)
+        self.assertEqual(len(vm_types), 1)
+        self.assertTrue("m5.24xlarge" not in vm_types)

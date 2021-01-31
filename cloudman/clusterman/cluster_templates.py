@@ -73,10 +73,11 @@ class CMRKETemplate(CMClusterTemplate):
         :return:
         """
         vm_type = default_vm_type or self.cluster.default_vm_type
-        if min_vcpus > 0 or min_ram > 0 or not vm_type.startswith(vm_family):
+        vm_family = vm_family or ""
+        if min_vcpus > 0 or min_ram > 0 or not vm_type.startswith(tuple(vm_family.split(","))):
             # Add some accommodation for rancher and k8s reserved resources
             # https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/
-            min_vcpus += 1.0
+            min_vcpus += 0.5
             min_ram *= 1.1
 
             cloud = self.context.cloudlaunch_client.infrastructure.clouds.get(

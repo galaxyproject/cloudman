@@ -136,6 +136,14 @@ class ClusterAutoScaler(object):
         self.db_model.vm_type = value
 
     @property
+    def allowed_vm_type_prefixes(self):
+        return self.db_model.allowed_vm_type_prefixes
+
+    @allowed_vm_type_prefixes.setter
+    def allowed_vm_type_prefixes(self, value):
+        self.db_model.allowed_vm_type_prefixes = value
+
+    @property
     def zone_id(self):
         return self.db_model.zone.id
 
