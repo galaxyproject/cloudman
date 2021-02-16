@@ -1,7 +1,7 @@
 sudo: false
 language: python
 cache: pip
-python: 3.6
+python: 3.8
 os:
   - linux
 #  - osx
@@ -12,7 +12,7 @@ env:
     - PYTHONUNBUFFERED=True
     - COVERALLS_PARALLEL=true
   jobs:
-    - TOX_ENV=py36-integration
+    - TOX_ENV=py38-integration
 matrix:
   fast_finish: true
   allow_failures:
