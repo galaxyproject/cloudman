@@ -181,11 +181,14 @@ class CMClusterNodeService(CMService):
 
     def delete(self, node):
         if node:
+            print(f"Deleting node: {node.name}")
             self.check_permissions('clusternodes.delete_clusternode', node)
             template = self.cluster.get_cluster_template()
             template.remove_node(node)
             # call the saved django delete method which we remapped
             node.original_delete()
+        else:
+            print(f"Unexpected, asked to delete a null node!")
 
 
 class CMClusterAutoScalerService(CMService):

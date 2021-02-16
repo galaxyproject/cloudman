@@ -1033,7 +1033,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(len(vm_types), 1)
         self.assertTrue("m5.24xlarge" in vm_types)
 
-    def test_scale_up_allowed_vm_Types(self):
+    def test_scale_up_allowed_vm_types(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
 

@@ -131,6 +131,7 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
     def perform_create(self, serializer):
         # first, check whether the current user has permissions to
         # autoscale
+        print(f"Scale down signal received...")
         cmapi = CloudManAPI.from_request(self.request)
         cmapi.check_permissions('autoscalers.can_autoscale')
         # If so, the remaining actions must be carried out as an impersonated user

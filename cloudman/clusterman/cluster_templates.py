@@ -157,5 +157,6 @@ class CMRKETemplate(CMClusterTemplate):
             raise ValidationError("Could not launch node: " + str(e))
 
     def remove_node(self, node):
+        print(f"Deleting deployment for node: {node.name}")
         return self.context.cloudlaunch_client.deployments.tasks.create(
             action='DELETE', deployment_pk=node.deployment.pk)
