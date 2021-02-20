@@ -1,8 +1,11 @@
-responses<=0.12
 git+https://github.com/celery/django-celery-results
-responses<=0.12
 brotlipy
 paramiko
+# needed by celery
+sqlalchemy
+# required by moto
+sshpubkeys
+git+https://github.com/CloudVE/moto@fix_unknown_instance_type
 git+https://github.com/CloudVE/cloudbridge
 git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch

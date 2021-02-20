@@ -225,7 +225,8 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
 
     def _add_dummy_node(self, app_config, provider_config, playbook_vars=None):
         node_name = app_config.get('config_kube_rke', {}).get('rke_cluster_id')
-        node_ip = provider_config.get('host_config', {}).get('public_ip')
+        node_public_ip = provider_config.get('host_config', {}).get('public_ip')
+        node_private_ip = provider_config.get('host_config', {}).get('private_ip')
         node = {
             "apiVersion": "v1",
             "kind": "Node",
@@ -243,8 +244,12 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
             "status": {
                 "addresses": [
                     {
-                        "address": node_ip,
+                        "address": node_public_ip,
                         "type": "ExternalIP"
+                    },
+                    {
+                        "address": node_private_ip,
+                        "type": "InternalIP"
                     }
                 ],
             }
@@ -1031,7 +1036,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that the created node has the correct size
         vm_types = self._get_cluster_node_vm_types(cluster_id)
         self.assertEqual(len(vm_types), 1)
-        self.assertTrue("m5.24xlarge" in vm_types)
+        self.assertTrue("i3en.24xlarge" in vm_types)
 
     def test_scale_up_allowed_vm_types(self):
         # create the parent cluster
