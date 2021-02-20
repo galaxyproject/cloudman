@@ -168,8 +168,10 @@ class CMClusterNodeService(CMService):
         self.check_permissions('clusternodes.add_clusternode')
         name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         template = self.cluster.get_cluster_template()
-        cli_deployment = template.add_node(name, vm_type=vm_type, zone=zone,
-                                           min_vcpus=min_vcpus, min_ram=min_ram)
+        cli_deployment = template.add_node(
+            name, vm_type=vm_type, zone=zone,
+            min_vcpus=min_vcpus, min_ram=min_ram,
+            vm_family=autoscaler.allowed_vm_type_prefixes if autoscaler else "")
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(
@@ -179,11 +181,14 @@ class CMClusterNodeService(CMService):
 
     def delete(self, node):
         if node:
+            print(f"Deleting node: {node.name}")
             self.check_permissions('clusternodes.delete_clusternode', node)
             template = self.cluster.get_cluster_template()
             template.remove_node(node)
             # call the saved django delete method which we remapped
             node.original_delete()
+        else:
+            print(f"Unexpected, asked to delete a null node!")
 
 
 class CMClusterAutoScalerService(CMService):
@@ -207,14 +212,15 @@ class CMClusterAutoScalerService(CMService):
         obj = models.CMAutoScaler.objects.get(id=autoscaler_id)
         return self.to_api_object(obj)
 
-    def create(self, vm_type=None, name=None, zone=None,
-               min_nodes=None, max_nodes=None):
+    def create(self, vm_type=None, allowed_vm_type_prefixes=None, name=None,
+               zone=None, min_nodes=None, max_nodes=None):
         self.check_permissions('clusters.change_cluster', self.cluster)
         if not name:
             name = "{0}-{1}".format(self.cluster.name, str(uuid.uuid4())[:6])
         vm_type = vm_type or self.cluster.default_vm_type
         autoscaler = models.CMAutoScaler.objects.create(
             cluster=self.cluster.db_model, name=name, vm_type=vm_type,
+            allowed_vm_type_prefixes=allowed_vm_type_prefixes,
             zone=zone, min_nodes=min_nodes, max_nodes=max_nodes)
         return self.to_api_object(autoscaler)
 

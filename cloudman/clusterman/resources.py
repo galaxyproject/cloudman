@@ -65,6 +65,7 @@ class Cluster(object):
         return self.autoscalers.get_or_create_default()
 
     def scaleup(self, zone_name=None, min_vcpus=None, min_ram=None):
+        print(f"Scale up requested. zone: {zone_name}, vcpus: {min_vcpus}: ram: {min_ram}")
         if zone_name:
             zone = cb_models.Zone.objects.get(name=zone_name)
         else:
@@ -83,6 +84,7 @@ class Cluster(object):
             log.debug("Autoscale up signal received but autoscaling is disabled.")
 
     def scaledown(self, zone_name=None):
+        print(f"Scale down requested. zone: {zone_name}")
         if zone_name:
             zone = cb_models.Zone.objects.get(name=zone_name)
         else:
@@ -134,6 +136,14 @@ class ClusterAutoScaler(object):
     @vm_type.setter
     def vm_type(self, value):
         self.db_model.vm_type = value
+
+    @property
+    def allowed_vm_type_prefixes(self):
+        return self.db_model.allowed_vm_type_prefixes
+
+    @allowed_vm_type_prefixes.setter
+    def allowed_vm_type_prefixes(self, value):
+        self.db_model.allowed_vm_type_prefixes = value
 
     @property
     def zone_id(self):

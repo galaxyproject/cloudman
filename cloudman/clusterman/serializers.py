@@ -63,6 +63,7 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
     name = serializers.CharField(allow_blank=True)
     cluster = CMClusterSerializer(read_only=True)
     vm_type = serializers.CharField()
+    allowed_vm_type_prefixes = serializers.CharField(allow_null=True, required=False)
     zone = serializers.PrimaryKeyRelatedField(queryset=cb_models.Zone.objects.all())
     min_nodes = serializers.IntegerField(min_value=0, allow_null=True,
                                          required=False)
@@ -75,17 +76,20 @@ class CMClusterAutoScalerSerializer(serializers.Serializer):
         if not cluster:
             raise ValidationError("Specified cluster id: %s does not exist"
                                   % cluster_id)
-        return cluster.autoscalers.create(valid_data.get('vm_type'),
-                                          name=valid_data.get('name'),
-                                          zone=valid_data.get('zone'),
-                                          min_nodes=valid_data.get('min_nodes'),
-                                          max_nodes=valid_data.get('max_nodes'))
+        return cluster.autoscalers.create(
+            valid_data.get('vm_type'),
+            allowed_vm_type_prefixes=valid_data.get('allowed_vm_type_prefixes'),
+            name=valid_data.get('name'),
+            zone=valid_data.get('zone'),
+            min_nodes=valid_data.get('min_nodes'),
+            max_nodes=valid_data.get('max_nodes'))
 
     def update(self, instance, valid_data):
         cluster_id = self.context['view'].kwargs.get("cluster_pk")
         cluster = CloudManAPI.from_request(self.context['request']).clusters.get(cluster_id)
         instance.name = valid_data.get('name') or instance.name
         instance.vm_type = valid_data.get('vm_type') or instance.vm_type
+        instance.allowed_vm_type_prefixes = valid_data.get('allowed_vm_type_prefixes')
         instance.min_nodes = (instance.min_nodes if valid_data.get('min_nodes') is None
                               else valid_data.get('min_nodes'))
         instance.max_nodes = (instance.max_nodes if valid_data.get('max_nodes') is None

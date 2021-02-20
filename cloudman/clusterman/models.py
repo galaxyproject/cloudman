@@ -69,6 +69,8 @@ class CMAutoScaler(models.Model):
     cluster = models.ForeignKey(CMCluster, on_delete=models.CASCADE,
                                 null=False, related_name="autoscaler_list")
     vm_type = models.CharField(max_length=200)
+    allowed_vm_type_prefixes = models.CharField(max_length=300, blank=True,
+                                                default=None, null=True)
     zone = models.ForeignKey(cb_models.Zone, on_delete=models.CASCADE,
                              null=False, related_name="autoscaler_list")
     min_nodes = models.IntegerField(default=0)
