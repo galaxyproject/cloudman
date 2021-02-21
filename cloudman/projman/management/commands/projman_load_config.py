@@ -20,11 +20,11 @@ class Command(BaseCommand):
     @staticmethod
     def process_settings(settings):
         projects = settings.get('projects')
-        for project in projects:
+        for project in projects or {}:
             if project:
                 call_command("projman_create_project", project)
                 charts = projects.get(project).get('charts', [])
-                for key in charts:
+                for key in charts or []:
                     chart = charts.get(key)
                     template = chart.get("install_template")
                     if template:
