@@ -221,6 +221,11 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher4.start()
         self.addCleanup(patcher4.stop)
 
+        patcher5 = patch('clusterman.tasks.wait_till_deployment_deleted',
+                         side_effect=self._wait_till_deployment_deleted)
+        patcher5.start()
+        self.addCleanup(patcher5.stop)
+
         super().setUp()
 
     def _add_dummy_node(self, app_config, provider_config, playbook_vars=None):
@@ -257,6 +262,9 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         kube_mocker = self.mock_client.mockers[0]
         kube_mocker.mock_kubectl._kubectl_add_node(node)
         return {}
+
+    def _wait_till_deployment_deleted(*args, **kwargs):
+        return
 
 
 class CMClusterNodeServiceTests(CMClusterNodeTestBase):

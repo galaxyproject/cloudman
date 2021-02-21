@@ -10,6 +10,7 @@ from cloudlaunch_cli.api.client import APIClient
 from . import exceptions
 from . import models
 from . import resources
+from . import tasks
 
 
 class CMServiceContext(object):
@@ -184,9 +185,9 @@ class CMClusterNodeService(CMService):
             print(f"Deleting node: {node.name}")
             self.check_permissions('clusternodes.delete_clusternode', node)
             template = self.cluster.get_cluster_template()
-            template.remove_node(node)
-            # call the saved django delete method which we remapped
-            node.original_delete()
+            task = template.remove_node(node)
+            tasks.delete_node.delay(task.asdict().get('celery_id'),
+                                    node.cluster_id, node.id)
         else:
             print(f"Unexpected, asked to delete a null node!")
 
