@@ -226,6 +226,11 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher5.start()
         self.addCleanup(patcher5.stop)
 
+        patcher6 = patch('clusterman.resources.ClusterAutoScaler._filter_stable_nodes',
+                         side_effect=self._filter_stable_nodes)
+        patcher6.start()
+        self.addCleanup(patcher5.stop)
+
         super().setUp()
 
     def _add_dummy_node(self, app_config, provider_config, playbook_vars=None):
@@ -265,6 +270,11 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
 
     def _wait_till_deployment_deleted(*args, **kwargs):
         return
+
+    def _filter_stable_nodes(self, nodegroup):
+        # All nodes are PENDING during tests, so we can't really sort
+        # by stable nodes, so just return all nodes
+        return list(reversed(nodegroup.all()))
 
 
 class CMClusterNodeServiceTests(CMClusterNodeTestBase):

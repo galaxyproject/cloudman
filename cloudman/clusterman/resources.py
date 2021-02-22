@@ -184,6 +184,13 @@ class ClusterAutoScaler(object):
         # matches a scaling signal.
         return zone == self.db_model.zone
 
+    def _filter_stable_nodes(self, nodegroup):
+        return list(reversed(
+            [node for node in nodegroup.all()
+             if node.deployment.tasks.latest('updated').status
+             in ['SUCCESS', 'FAILURE']])
+        )
+
     def scaleup(self, min_vcpus=0, min_ram=0):
         node_count = self.db_model.nodegroup.count()
         if node_count < self.max_nodes:
@@ -192,8 +199,9 @@ class ClusterAutoScaler(object):
                 zone=self.zone, autoscaler=self)
 
     def scaledown(self):
-        node_count = self.db_model.nodegroup.count()
+        nodes = self._filter_stable_nodes(self.db_model.nodegroup)
+        node_count = len(nodes)
         if node_count > self.min_nodes:
-            last_node = self.db_model.nodegroup.last()
+            last_node = nodes[0]
             node = self.cluster.nodes.get(last_node.id)
             node.delete()
