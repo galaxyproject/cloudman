@@ -160,6 +160,13 @@ class CMClusterNodeService(CMService):
         return [self.to_api_object(n) for n in nodes
                 if self.has_permissions('clusternodes.view_clusternode', n)]
 
+    def find(self, labels=None):
+        template = self.cluster.get_cluster_template()
+        n = template.find_matching_node(labels=labels)
+        return (n
+                if self.has_permissions('clusternodes.view_clusternode', n)
+                else None)
+
     def get(self, node_id):
         obj = models.CMClusterNode.objects.get(id=node_id)
         self.check_permissions('clusternodes.view_clusternode', obj)

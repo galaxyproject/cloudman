@@ -64,41 +64,33 @@ class Cluster(object):
     def _get_default_scaler(self):
         return self.autoscalers.get_or_create_default()
 
-    def scaleup(self, zone_name=None, min_vcpus=None, min_ram=None):
-        print(f"Scale up requested. zone: {zone_name}, vcpus: {min_vcpus}: ram: {min_ram}")
-        if zone_name:
-            zone = cb_models.Zone.objects.get(name=zone_name)
-        else:
-            zone = None
+    def scaleup(self, labels=None):
+        print(f"Scale up requested. labels: {labels}")
 
         if self.autoscale:
             matched = False
             for scaler in self.autoscalers.list():
-                if scaler.match(zone=zone):
+                if scaler.match(labels=labels):
                     matched = True
-                    scaler.scaleup(min_vcpus=min_vcpus, min_ram=min_ram)
+                    scaler.scaleup(labels=labels)
             if not matched:
                 scaler = self._get_default_scaler()
-                scaler.scaleup(min_vcpus=min_vcpus, min_ram=min_ram)
+                scaler.scaleup(labels=labels)
         else:
             log.debug("Autoscale up signal received but autoscaling is disabled.")
 
-    def scaledown(self, zone_name=None):
-        print(f"Scale down requested. zone: {zone_name}")
-        if zone_name:
-            zone = cb_models.Zone.objects.get(name=zone_name)
-        else:
-            zone = None
+    def scaledown(self, labels=None):
+        print(f"Scale down requested. labels: {labels}")
 
         if self.autoscale:
             matched = False
             for scaler in self.autoscalers.list():
-                if scaler.match(zone=zone):
+                if scaler.match(labels=labels):
                     matched = True
-                    scaler.scaledown()
+                    scaler.scaledown(labels=labels)
             if not matched:
                 scaler = self._get_default_scaler()
-                scaler.scaledown()
+                scaler.scaledown(labels=labels)
         else:
             log.debug("Autoscale down signal received but autoscaling is disabled.")
 
@@ -177,31 +169,70 @@ class ClusterAutoScaler(object):
     def delete(self):
         return self.service.delete(self)
 
-    def match(self, zone=None):
-        # Currently, a scaling group matches by zone name only.
+    def match(self, labels=None):
+        # Currently, a scaling group matches by zone name and node only.
         # In future, we could add other criteria, like the scaling group name
         # itself, or custom labels to determine whether this scaling group
         # matches a scaling signal.
-        return zone == self.db_model.zone
+        labels = labels.copy() if labels else {}
+        zone = labels.pop('availability_zone', None)
+        # Ignore these keys anyway
+        labels.pop('min_vcpus', None)
+        labels.pop('min_ram', None)
+        if not zone and not labels:
+            return False
+        match = False
+        if zone:
+            match = zone == self.db_model.zone.name
+        if labels:
+            node = self.cluster.nodes.find(labels=labels)
+            if node:
+                match = bool(self.db_model.nodegroup.filter(id=node.id)
+                             .first())
+        return match
 
     def _filter_stable_nodes(self, nodegroup):
         return list(reversed(
             [node for node in nodegroup.all()
-             if node.deployment.tasks.latest('updated').status
-             in ['SUCCESS', 'FAILURE']])
+             if node.is_stable()])
         )
 
-    def scaleup(self, min_vcpus=0, min_ram=0):
+    def scaleup(self, labels=None):
+        labels = labels or {}
         node_count = self.db_model.nodegroup.count()
         if node_count < self.max_nodes:
             self.cluster.nodes.create(
-                vm_type=self.vm_type, min_vcpus=min_vcpus, min_ram=min_ram,
-                zone=self.zone, autoscaler=self)
+                vm_type=self.vm_type,
+                min_vcpus=labels.get('min_vcpus', 0),
+                min_ram=labels.get('min_ram', 0),
+                zone=self.zone,
+                autoscaler=self)
 
-    def scaledown(self):
+    def scaledown(self, labels=None):
+        # If we've got here, we've already matched availability zone
+        zone = labels.pop('availability_zone', None)
         nodes = self._filter_stable_nodes(self.db_model.nodegroup)
         node_count = len(nodes)
         if node_count > self.min_nodes:
-            last_node = nodes[0]
-            node = self.cluster.nodes.get(last_node.id)
-            node.delete()
+            if labels:
+                matching_node = self.cluster.nodes.find(
+                    labels=labels)
+                if matching_node and matching_node.is_stable():
+                    print(f"Performing targeted deletion of: {matching_node}")
+                    matching_node.delete()
+                elif matching_node:
+                    print(f"Node targeted for deletion found {matching_node}"
+                          " but not deleting as another operation is already"
+                          " in progress.")
+                else:
+                    print(f"Targeted downscale attempted, but matching node"
+                          f" not found with labels: {labels}")
+                    return
+            else:
+                # if no host was specified,
+                # remove the last added node
+                last_node = nodes[0]
+                print(f"Non-targeted downscale deleting last launched"
+                      f" node: {last_node}")
+                node = self.cluster.nodes.get(last_node.id)
+                node.delete()

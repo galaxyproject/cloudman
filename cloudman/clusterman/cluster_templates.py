@@ -2,6 +2,8 @@ import abc
 from rest_framework.exceptions import ValidationError
 from cloudlaunch import models as cl_models
 
+from clusterman.clients.kube_client import KubeClient
+
 
 class CMClusterTemplate(object):
 
@@ -19,6 +21,10 @@ class CMClusterTemplate(object):
 
     @abc.abstractmethod
     def remove_node(self):
+        pass
+
+    @abc.abstractmethod
+    def find_matching_node(self, labels=None):
         pass
 
     @abc.abstractmethod
@@ -160,3 +166,23 @@ class CMRKETemplate(CMClusterTemplate):
         print(f"Deleting deployment for node: {node.name}")
         return self.context.cloudlaunch_client.deployments.tasks.create(
             action='DELETE', deployment_pk=node.deployment.pk)
+
+    def find_matching_node(self, labels=None):
+        labels = labels.copy() if labels else {}
+        node_name = labels.pop('usegalaxy.org/cm_node_name', None)
+        # if labels remain, find matching k8s node
+        if labels:
+            kube_client = KubeClient()
+            # find the k8s node which matches this hostname
+            k8s_matches = kube_client.nodes.find(labels=labels)
+            if k8s_matches:
+                k8s_node = k8s_matches[0]
+            else:
+                return
+        else:
+            k8s_node = None
+        if k8s_node:
+            node_name = k8s_node.get('metadata', {}).get('labels', {}).get('usegalaxy.org/cm_node_name')
+        for node in self.cluster.nodes.list():
+            if node.name == node_name:
+                return node

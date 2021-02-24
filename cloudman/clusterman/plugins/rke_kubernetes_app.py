@@ -56,15 +56,15 @@ class RKEKubernetesApp(BaseVMAppPlugin):
                     wait=tenacity.wait_fixed(10),
                     reraise=True,
                     after=lambda *args: log.debug("Node not deleted yet, checking again..."))
-    def check_node_no_longer_exists(self, node_ip):
+    def check_node_no_longer_exists(self, node_name):
         # Newly added node should now be registered with the cluster
         kube_client = KubeClient()
-        k8s_node = kube_client.nodes.find(node_ip)
+        k8s_node = kube_client.nodes.find(labels={'usegalaxy.org/cm_node_name': node_name})
         if not k8s_node:
             return True
         else:
             raise NodeNotDeleted(
-                f"Deleted node with ip: {node_ip} still attached to the cluster.")
+                f"Deleted node with name: {node_name} still attached to the cluster.")
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(2),
                     wait=tenacity.wait_fixed(10),
@@ -80,27 +80,31 @@ class RKEKubernetesApp(BaseVMAppPlugin):
         *Note* that this method will delete resource(s) associated with
         the deployment - this is an un-recoverable action.
         """
-        node_ip = deployment.get(
-            'launch_result', {}).get('cloudLaunch', {}).get('publicIP')
+        deployment_name = deployment.get('name')
         try:
             kube_client = KubeClient()
-            k8s_node = kube_client.nodes.find(node_ip)
+            k8s_node = kube_client.nodes.find(labels={
+                'usegalaxy.org/cm_node_name': deployment_name})
             if k8s_node:
                 k8s_node = k8s_node[0]
                 try:
                     # stop new jobs being scheduled on this node
+                    print(f"Cordoning node: {deployment_name}")
                     kube_client.nodes.cordon(k8s_node)
                     # let existing jobs finish
+                    print(f"Waiting for jobs to finish on node: {deployment_name}")
                     kube_client.nodes.wait_till_jobs_complete(k8s_node)
                     # drain remaining pods
+                    print(f"Draining node: {deployment_name}")
                     kube_client.nodes.drain(k8s_node, timeout=120)
                 finally:
                     # delete the k8s node
+                    print(f"Deleting k8s node: {deployment_name}")
                     kube_client.nodes.delete(k8s_node)
         finally:
             # delete the VM
             result = super().delete(provider, deployment)
-        if self.check_node_no_longer_exists(node_ip):
+        if self.check_node_no_longer_exists(deployment_name):
             return result
         else:
             raise NodeNotDeleted(
@@ -149,7 +153,7 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
         kube_client = KubeClient()
         node_ip = provider_config.get(
             'host_config', {}).get('private_ip')
-        k8s_node = kube_client.nodes.find(node_ip)
+        k8s_node = kube_client.nodes.find(address=node_ip)
         if k8s_node and k8s_node[0]:
             return True
         else:
@@ -174,6 +178,17 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
         result = super().configure(app_config, provider_config,
                                    playbook_vars=playbook_vars)
         if self.has_reached_desired_state(provider_config):
+            kube_client = KubeClient()
+            node_ip = provider_config.get(
+                'host_config', {}).get('private_ip')
+            k8s_node = kube_client.nodes.find(address=node_ip)[0]
+            kube_client.nodes.set_label(
+                k8s_node,
+                {
+                    'usegalaxy.org/cm_node_name': app_config.get(
+                        'deployment_config', {}).get('name', '')
+                }
+            )
             return result
         else:
             raise NodeNotRegistered(

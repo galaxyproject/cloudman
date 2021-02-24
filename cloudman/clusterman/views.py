@@ -101,20 +101,26 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
         cmapi.check_permissions('autoscalers.can_autoscale')
         # If so, the remaining actions must be carried out as an impersonated user
         # whose profile contains the relevant cloud credentials, usually an admin
+        labels = {}
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
+        if zone_name:
+            labels['availability_zone'] = zone_name
         vcpus = float(serializer.validated_data.get(
-            'commonAnnotations', {}).get('cpus', 0))
+            'commonAnnotations', {}).get('cpus') or 0)
+        if vcpus:
+            labels['min_vcpus'] = vcpus
         ram = float(serializer.validated_data.get(
-            'commonAnnotations', {}).get('memory', 0)) / 1024 / 1024 / 1024
+            'commonAnnotations', {}).get('memory') or 0) / 1024 / 1024 / 1024
+        if ram:
+            labels['min_ram'] = ram
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
                        or User.objects.filter(is_superuser=True).first())
         cmapi = CloudManAPI(CMServiceContext(user=impersonate))
         cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
-            return cluster.scaleup(zone_name=zone_name, min_vcpus=vcpus,
-                                   min_ram=ram)
+            return cluster.scaleup(labels=labels)
         else:
             return None
 
@@ -136,14 +142,24 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
         cmapi.check_permissions('autoscalers.can_autoscale')
         # If so, the remaining actions must be carried out as an impersonated user
         # whose profile contains the relevant cloud credentials, usually an admin
+        labels = {}
         zone_name = serializer.validated_data.get(
             'commonLabels', {}).get('availability_zone')
+        if zone_name:
+            labels['availability_zone'] = zone_name
+
+        node_name = serializer.validated_data.get(
+            'alerts', [{}])[0].get('labels', {}).get(
+            'label_usegalaxy_org_cm_node_name')
+        if node_name:
+            labels['usegalaxy.org/cm_node_name'] = node_name
+
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
                        or User.objects.filter(is_superuser=True).first())
         cmapi = CloudManAPI(CMServiceContext(user=impersonate))
         cluster = cmapi.clusters.get(self.kwargs["cluster_pk"])
         if cluster:
-            return cluster.scaledown(zone_name=zone_name)
+            return cluster.scaledown(labels=labels)
         else:
             return None

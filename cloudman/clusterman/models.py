@@ -100,3 +100,12 @@ class CMClusterNode(models.Model):
     class Meta:
         verbose_name = "Cluster Node"
         verbose_name_plural = "Cluster Nodes"
+
+    def is_stable(self):
+        """
+        Return true if node is in a stable state, such as SUCCESS or FAILURE
+        and not PROGRESSING or DELETING
+        """
+        return (self.deployment.tasks.latest('updated').status
+                in ['SUCCESS', 'FAILURE'])
+
