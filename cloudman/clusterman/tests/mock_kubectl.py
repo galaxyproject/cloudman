@@ -190,6 +190,32 @@ class MockKubeCtl(object):
             'node_name', type=str, help='node to cordon')
         parser_cordon.set_defaults(func=self._kubectl_cordon)
 
+        class KeyValue(argparse.Action):
+            # Constructor calling
+            def __call__(self, parser, namespace,
+                         values, option_string=None):
+                setattr(namespace, self.dest, dict())
+
+                for value in values:
+                    # split it into key and value
+                    key, value = value.split('=')
+                    # assign into dictionary
+                    getattr(namespace, self.dest)[key] = value
+
+        # kubectl label
+        parser_label = subparsers.add_parser('label', help='label')
+        subparsers_label = parser_label.add_subparsers(
+            help='Resources to label')
+        # kubectl label node
+        parser_label_node = subparsers_label.add_parser('nodes',
+                                                        help='label a node')
+        parser_label_node.add_argument(
+            'name', type=str, help='name of node to label')
+        parser_label_node.add_argument(
+            'labels', type=str, metavar="KEY=VALUE", nargs='+',
+            help='labels to apply', action=KeyValue)
+        parser_label_node.set_defaults(func=self._kubectl_label_node)
+
         def str2bool(v):
             if isinstance(v, bool):
                 return v
@@ -307,3 +333,8 @@ class MockKubeCtl(object):
         with StringIO() as output:
             yaml.dump(response, stream=output, default_flow_style=False)
             return output.getvalue()
+
+    def _kubectl_label_node(self, args):
+        for node in self.nodes:
+            if node.get('metadata', {}).get('name') == args.name:
+                node['metadata']['labels'].update(args.labels)
