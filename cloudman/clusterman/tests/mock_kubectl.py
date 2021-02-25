@@ -338,3 +338,4 @@ class MockKubeCtl(object):
         for node in self.nodes:
             if node.get('metadata', {}).get('name') == args.name:
                 node['metadata']['labels'].update(args.labels)
+                return

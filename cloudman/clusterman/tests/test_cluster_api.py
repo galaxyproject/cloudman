@@ -203,12 +203,16 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
         patcher1.start()
         self.addCleanup(patcher1.stop)
 
-        def create_mock_provider(self, name, config):
-            provider_class = self.get_provider_class("mock")
-            return provider_class(config)
+        self._mock_provider = None
+
+        def create_mock_provider_singleton(factory, name, config):
+            if not getattr(self, '_mock_provider', None):
+                provider_class = factory.get_provider_class("mock")
+                self._mock_provider = provider_class(config)
+            return self._mock_provider
 
         patcher2 = patch('cloudbridge.factory.CloudProviderFactory.create_provider',
-                         new=create_mock_provider)
+                         new=create_mock_provider_singleton)
         patcher2.start()
         self.addCleanup(patcher2.stop)
 
@@ -233,8 +237,11 @@ class CMClusterNodeTestBase(CMClusterServiceTestBase, LiveServerSingleThreadedTe
 
         super().setUp()
 
+    def tearDown(self):
+        self._mock_provider = None
+
     def _add_dummy_node(self, app_config, provider_config, playbook_vars=None):
-        node_name = app_config.get('deployment', {}).get('name')
+        node_name = app_config.get('deployment_config', {}).get('name')
         host_name = app_config.get('config_kube_rke', {}).get('rke_cluster_id')
         node_public_ip = provider_config.get('host_config', {}).get('public_ip')
         node_private_ip = provider_config.get('host_config', {}).get('private_ip')

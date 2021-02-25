@@ -154,6 +154,12 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
         if node_name:
             labels['usegalaxy.org/cm_node_name'] = node_name
 
+        scaling_group = serializer.validated_data.get(
+            'alerts', [{}])[0].get('labels', {}).get(
+            'label_usegalaxy_org_cm_autoscaling_group')
+        if scaling_group:
+            labels['usegalaxy.org/cm_autoscaling_group'] = scaling_group
+
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
                        or User.objects.filter(is_superuser=True).first())

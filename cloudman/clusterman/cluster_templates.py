@@ -16,7 +16,8 @@ class CMClusterTemplate(object):
         return self.cluster.connection_settings
 
     @abc.abstractmethod
-    def add_node(self, name, size):
+    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family="",
+                 autoscaling_group=None):
         pass
 
     @abc.abstractmethod
@@ -102,7 +103,8 @@ class CMRKETemplate(CMClusterTemplate):
                 return candidate_type.name
         return vm_type
 
-    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family=""):
+    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family="",
+                 autoscaling_group=None):
         settings = self.cluster.connection_settings
         zone = zone or self.cluster.default_zone
         deployment_target = cl_models.CloudDeploymentTarget.objects.get(
@@ -140,7 +142,8 @@ class CMRKETemplate(CMClusterTemplate):
                 'config_cloudlaunch': (settings.get('app_config', {})
                                        .get('config_cloudlaunch', {})),
                 'config_cloudman': {
-                    'cluster_name': self.cluster.name
+                    'cluster_name': self.cluster.name,
+                    'autoscaling_group': autoscaling_group
                 }
             }
         }
@@ -169,20 +172,15 @@ class CMRKETemplate(CMClusterTemplate):
 
     def find_matching_node(self, labels=None):
         labels = labels.copy() if labels else {}
-        node_name = labels.pop('usegalaxy.org/cm_node_name', None)
-        # if labels remain, find matching k8s node
-        if labels:
-            kube_client = KubeClient()
-            # find the k8s node which matches this hostname
-            k8s_matches = kube_client.nodes.find(labels=labels)
-            if k8s_matches:
-                k8s_node = k8s_matches[0]
-            else:
-                return
-        else:
-            k8s_node = None
-        if k8s_node:
-            node_name = k8s_node.get('metadata', {}).get('labels', {}).get('usegalaxy.org/cm_node_name')
-        for node in self.cluster.nodes.list():
-            if node.name == node_name:
-                return node
+        kube_client = KubeClient()
+        # find the k8s node which matches these labels
+        k8s_matches = kube_client.nodes.find(labels=labels)
+        if k8s_matches:
+            k8s_node = k8s_matches[0]
+            node_name = k8s_node.get('metadata', {}).get('labels', {}).get(
+                'usegalaxy.org/cm_node_name')
+            # find the corresponding cloudman node
+            for node in self.cluster.nodes.list():
+                if node.name == node_name:
+                    return node
+        return None

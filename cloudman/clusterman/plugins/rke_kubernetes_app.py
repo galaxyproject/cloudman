@@ -186,7 +186,9 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
                 k8s_node,
                 {
                     'usegalaxy.org/cm_node_name': app_config.get(
-                        'deployment_config', {}).get('name', '')
+                        'deployment_config', {}).get('name', ''),
+                    'usegalaxy.org/cm_autoscaling_group': app_config.get(
+                        'config_cloudman', {}).get('autoscaling_group', ''),
                 }
             )
             return result

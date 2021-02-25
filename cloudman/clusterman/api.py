@@ -179,7 +179,8 @@ class CMClusterNodeService(CMService):
         cli_deployment = template.add_node(
             name, vm_type=vm_type, zone=zone,
             min_vcpus=min_vcpus, min_ram=min_ram,
-            vm_family=autoscaler.allowed_vm_type_prefixes if autoscaler else "")
+            vm_family=autoscaler.allowed_vm_type_prefixes if autoscaler else "",
+            autoscaling_group=autoscaler.name if autoscaler else None)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(
