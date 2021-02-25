@@ -114,6 +114,12 @@ class ClusterScaleUpSignalViewSet(CustomCreateOnlyModelViewSet):
             'commonAnnotations', {}).get('memory') or 0) / 1024 / 1024 / 1024
         if ram:
             labels['min_ram'] = ram
+
+        scaling_group = serializer.validated_data.get('commonLabels', {}).get(
+            'label_usegalaxy_org_cm_autoscaling_group')
+        if scaling_group:
+            labels['usegalaxy.org/cm_autoscaling_group'] = scaling_group
+
         impersonate = (User.objects.filter(
             username=GlobalSettings().settings.autoscale_impersonate).first()
                        or User.objects.filter(is_superuser=True).first())
@@ -134,28 +140,18 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
     permission_classes = (IsAuthenticated,)
     authentication_classes = [SessionAuthentication, BasicAuthentication]
 
-    def perform_create(self, serializer):
-        # first, check whether the current user has permissions to
-        # autoscale
-        print(f"Scale down signal received...")
-        cmapi = CloudManAPI.from_request(self.request)
-        cmapi.check_permissions('autoscalers.can_autoscale')
-        # If so, the remaining actions must be carried out as an impersonated user
-        # whose profile contains the relevant cloud credentials, usually an admin
+    def _process_alert(self, alert):
         labels = {}
-        zone_name = serializer.validated_data.get(
-            'commonLabels', {}).get('availability_zone')
+        zone_name = alert.get('labels', {}).get('availability_zone')
         if zone_name:
             labels['availability_zone'] = zone_name
 
-        node_name = serializer.validated_data.get(
-            'alerts', [{}])[0].get('labels', {}).get(
+        node_name = alert.get('labels', {}).get(
             'label_usegalaxy_org_cm_node_name')
         if node_name:
             labels['usegalaxy.org/cm_node_name'] = node_name
 
-        scaling_group = serializer.validated_data.get(
-            'alerts', [{}])[0].get('labels', {}).get(
+        scaling_group = alert.get('labels', {}).get(
             'label_usegalaxy_org_cm_autoscaling_group')
         if scaling_group:
             labels['usegalaxy.org/cm_autoscaling_group'] = scaling_group
@@ -169,3 +165,26 @@ class ClusterScaleDownSignalViewSet(CustomCreateOnlyModelViewSet):
             return cluster.scaledown(labels=labels)
         else:
             return None
+
+    def perform_create(self, serializer):
+        # first, check whether the current user has permissions to
+        # autoscale
+        print(f"Scale down signal received...")
+        cmapi = CloudManAPI.from_request(self.request)
+        cmapi.check_permissions('autoscalers.can_autoscale')
+        # If so, the remaining actions must be carried out as an impersonated user
+        # whose profile contains the relevant cloud credentials, usually an admin
+
+        alerts = serializer.validated_data.get('alerts', [])
+
+        # pick only one alert per scaling group
+        alerts_per_group = {}
+        for alert in alerts:
+            scaling_group = alert.get('labels', {}).get(
+                'label_usegalaxy_org_cm_autoscaling_group')
+            if scaling_group not in alerts_per_group:
+                alerts_per_group[scaling_group] = alert
+
+        # dispatch scale down signal for each alert
+        for alert in alerts_per_group.values():
+            self._process_alert(alert)

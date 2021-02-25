@@ -73,6 +73,7 @@ class Cluster(object):
                 if scaler.match(labels=labels):
                     matched = True
                     scaler.scaleup(labels=labels)
+                    break
             if not matched:
                 scaler = self._get_default_scaler()
                 scaler.scaleup(labels=labels)
@@ -88,6 +89,7 @@ class Cluster(object):
                 if scaler.match(labels=labels):
                     matched = True
                     scaler.scaledown(labels=labels)
+                    break
             if not matched:
                 scaler = self._get_default_scaler()
                 scaler.scaledown(labels=labels)
@@ -176,6 +178,7 @@ class ClusterAutoScaler(object):
         # matches a scaling signal.
         labels = labels.copy() if labels else {}
         zone = labels.pop('availability_zone', None)
+        scaling_group = labels.get('usegalaxy.org/cm_autoscaling_group')
         # Ignore these keys anyway
         labels.pop('min_vcpus', None)
         labels.pop('min_ram', None)
@@ -184,6 +187,8 @@ class ClusterAutoScaler(object):
         match = False
         if zone:
             match = zone == self.db_model.zone.name
+        if scaling_group:
+            match = self.name == scaling_group
         if labels:
             node = self.cluster.nodes.find(labels=labels)
             if node:
@@ -198,6 +203,7 @@ class ClusterAutoScaler(object):
         )
 
     def scaleup(self, labels=None):
+        print(f"Scaling up in group {self.name} with labels: {labels}")
         labels = labels or {}
         node_count = self.db_model.nodegroup.count()
         if node_count < self.max_nodes:
@@ -209,6 +215,7 @@ class ClusterAutoScaler(object):
                 autoscaler=self)
 
     def scaledown(self, labels=None):
+        print(f"Scaling down in group {self.name} with labels: {labels}")
         # If we've got here, we've already matched availability zone
         zone = labels.pop('availability_zone', None)
         nodes = self._filter_stable_nodes(self.db_model.nodegroup)
