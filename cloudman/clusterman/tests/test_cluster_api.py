@@ -576,6 +576,14 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         'max_nodes': '2'
     }
 
+    AUTOSCALER_DATA_GPU = {
+        'name': 'gpu',
+        'vm_type': 'g4dn.xlarge',
+        'zone': 3,
+        'min_nodes': '0',
+        'max_nodes': '2'
+    }
+
     AUTOSCALER_DATA_ALLOWED_VM_TYPES = {
         'name': 'secondary',
         'vm_type': 'm1.medium',
@@ -645,6 +653,29 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "commonLabels": {
             "alertname": "KubeCPUOvercommit",
             "availability_zone": "us-east-1c"
+        },
+        "version": "4",
+        "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
+    }
+
+    SCALE_SIGNAL_DATA_GPU_GROUP = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeCPUOvercommit",
+                    "label_usegalaxy_org_cm_autoscaling_group": "gpu"
+                },
+                "annotations": {
+                    "summary": "Cluster has overcommitted CPU resources"
+                }
+            }
+        ],
+        "commonLabels": {
+            "alertname": "KubeCPUOvercommit",
+            "label_usegalaxy_org_cm_autoscaling_group": "gpu"
         },
         "version": "4",
         "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
@@ -745,6 +776,85 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "version": "4",
         "groupKey": "{}/{}:{alertname=\"KubeInstanceIdle\"}"
     }
+
+    SCALE_DOWN_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname1",
+                    "node": "192.168.1.1",
+                    "severity": "critical",
+                    "tier": "svc",
+                    "label_usegalaxy_org_cm_node_name": "node1",
+                    "label_usegalaxy_org_cm_autoscaling_group": "default"
+                },
+                "annotations": {
+                    "summary": "Cluster has underutilized instance"
+                },
+                "startsAt": "2019-01-02T10:31:46.05445419Z",
+                "endsAt": "2019-01-02T10:36:46.05445419Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            },
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname2",
+                    "node": "192.168.1.1",
+                    "severity": "critical",
+                    "tier": "svc",
+                    "label_usegalaxy_org_cm_node_name": "node2",
+                    "label_usegalaxy_org_cm_autoscaling_group": "secondary"
+                },
+                "annotations": {
+                    "summary": "Cluster has underutilized instance"
+                },
+                "startsAt": "2019-01-02T10:31:46.05445419Z",
+                "endsAt": "2019-01-02T10:36:46.05445419Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            },
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname3",
+                    "node": "192.168.1.3",
+                    "severity": "critical",
+                    "tier": "svc",
+                    "label_usegalaxy_org_cm_node_name": "node3",
+                    "label_usegalaxy_org_cm_autoscaling_group": "gpu"
+                },
+                "annotations": {
+                    "summary": "Cluster has underutilized instance"
+                },
+                "startsAt": "2019-01-02T10:31:46.05445419Z",
+                "endsAt": "2019-01-02T10:36:46.05445419Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            }
+        ],
+        "groupLabels": {
+            "alertname": "KubeInstanceIdle"
+        },
+        "commonLabels": {
+            "alertname": "KubeInstanceIdle",
+            "job": "node-exporter",
+            "severity": "critical",
+            "tier": "svc"
+        },
+        "commonAnnotations": {
+            "host_tier": "testhostname",
+            "summary": "Cluster has underutilized instance"
+        },
+        "externalURL": "http://alertmanager:9093",
+        "version": "4",
+        "groupKey": "{}/{}:{alertname=\"KubeInstanceIdle\"}"
+    }
+
+
     fixtures = ['initial_test_data.json']
 
     def _create_cluster_raw(self):
@@ -1155,3 +1265,57 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
             middle_node['name'],
             [n['name'] for n
              in self._get_cluster_nodes(cluster_id)['results']])
+
+    def test_scale_signal_target_multiple_groups(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        autoscaler_default_id = self._create_autoscaler(cluster_id)
+
+        # create another autoscaler
+        autoscaler_secondary_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_SECOND_ZONE)
+
+        # create a third  autoscaler
+        autoscaler_gpu_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_GPU)
+
+        # everything should be zero initially
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # sending autoscale signals for two groups
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_SECOND_ZONE)
+        self._signal_scaleup(cluster_id, data=self.SCALE_SIGNAL_DATA_GPU_GROUP)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        count_gpu = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_gpu_id)
+        self.assertEqual(count_default, 0)
+        self.assertEqual(count_secondary, 1)
+        self.assertEqual(count_gpu, 1)
+
+        second_node = self._get_cluster_nodes(cluster_id)['results'][0]
+        self.SCALE_DOWN_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS['alerts'][1]['labels'][
+            'label_usegalaxy_org_cm_node_name'] = second_node['name']
+        gpu_node = self._get_cluster_nodes(cluster_id)['results'][1]
+        self.SCALE_DOWN_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS['alerts'][2]['labels'][
+            'label_usegalaxy_org_cm_node_name'] = gpu_node['name']
+
+        # send downscale signal targeting multiple groups
+        self._signal_scaledown(
+            cluster_id, data=self.SCALE_DOWN_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        count_gpu = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_gpu_id)
+        self.assertEqual(count_default, 0)
+        self.assertEqual(count_secondary, 0)
+        self.assertEqual(count_gpu, 0)
