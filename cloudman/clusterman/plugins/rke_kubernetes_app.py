@@ -182,15 +182,15 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
             node_ip = provider_config.get(
                 'host_config', {}).get('private_ip')
             k8s_node = kube_client.nodes.find(address=node_ip)[0]
-            kube_client.nodes.set_label(
-                k8s_node,
-                {
-                    'usegalaxy.org/cm_node_name': app_config.get(
-                        'deployment_config', {}).get('name', ''),
-                    'usegalaxy.org/cm_autoscaling_group': app_config.get(
-                        'config_cloudman', {}).get('autoscaling_group', ''),
-                }
-            )
+            labels = {
+                'usegalaxy.org/cm_node_name': app_config.get(
+                    'deployment_config', {}).get('name', '')
+            }
+            autoscaling_group = app_config.get('config_cloudman', {}).get(
+                'autoscaling_group', '')
+            if autoscaling_group:
+                labels['usegalaxy.org/cm_autoscaling_group'] = autoscaling_group
+            kube_client.nodes.set_label(k8s_node, labels)
             return result
         else:
             raise NodeNotRegistered(
