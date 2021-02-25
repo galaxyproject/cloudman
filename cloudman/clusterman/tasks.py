@@ -11,10 +11,8 @@ from clusterman.clients.kube_client import KubeClient
 
 def node_not_present(node):
     kube_client = KubeClient()
-    launch_task = node.deployment.tasks.filter(action='LAUNCH').first()
-    node_ip = launch_task.result.get('cloudLaunch', {}).get('private_ip')
-    print(f"Checking for presence of node ip: {node_ip}")
-    k8s_node = kube_client.nodes.find(node_ip)
+    print(f"Checking for presence of node: {node.name}")
+    k8s_node = kube_client.nodes.find(labels={'usegalaxy.org/cm_node_name': node.name})
     return not k8s_node
 
 

@@ -2,6 +2,8 @@ import abc
 from rest_framework.exceptions import ValidationError
 from cloudlaunch import models as cl_models
 
+from clusterman.clients.kube_client import KubeClient
+
 
 class CMClusterTemplate(object):
 
@@ -14,11 +16,16 @@ class CMClusterTemplate(object):
         return self.cluster.connection_settings
 
     @abc.abstractmethod
-    def add_node(self, name, size):
+    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family="",
+                 autoscaling_group=None):
         pass
 
     @abc.abstractmethod
     def remove_node(self):
+        pass
+
+    @abc.abstractmethod
+    def find_matching_node(self, labels=None):
         pass
 
     @abc.abstractmethod
@@ -96,7 +103,8 @@ class CMRKETemplate(CMClusterTemplate):
                 return candidate_type.name
         return vm_type
 
-    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family=""):
+    def add_node(self, name, vm_type=None, zone=None, min_vcpus=0, min_ram=0, vm_family="",
+                 autoscaling_group=None):
         settings = self.cluster.connection_settings
         zone = zone or self.cluster.default_zone
         deployment_target = cl_models.CloudDeploymentTarget.objects.get(
@@ -134,7 +142,8 @@ class CMRKETemplate(CMClusterTemplate):
                 'config_cloudlaunch': (settings.get('app_config', {})
                                        .get('config_cloudlaunch', {})),
                 'config_cloudman': {
-                    'cluster_name': self.cluster.name
+                    'cluster_name': self.cluster.name,
+                    'autoscaling_group': autoscaling_group
                 }
             }
         }
@@ -160,3 +169,18 @@ class CMRKETemplate(CMClusterTemplate):
         print(f"Deleting deployment for node: {node.name}")
         return self.context.cloudlaunch_client.deployments.tasks.create(
             action='DELETE', deployment_pk=node.deployment.pk)
+
+    def find_matching_node(self, labels=None):
+        labels = labels.copy() if labels else {}
+        kube_client = KubeClient()
+        # find the k8s node which matches these labels
+        k8s_matches = kube_client.nodes.find(labels=labels)
+        if k8s_matches:
+            k8s_node = k8s_matches[0]
+            node_name = k8s_node.get('metadata', {}).get('labels', {}).get(
+                'usegalaxy.org/cm_node_name')
+            # find the corresponding cloudman node
+            for node in self.cluster.nodes.list():
+                if node.name == node_name:
+                    return node
+        return None

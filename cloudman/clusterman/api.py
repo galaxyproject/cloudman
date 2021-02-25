@@ -160,6 +160,13 @@ class CMClusterNodeService(CMService):
         return [self.to_api_object(n) for n in nodes
                 if self.has_permissions('clusternodes.view_clusternode', n)]
 
+    def find(self, labels=None):
+        template = self.cluster.get_cluster_template()
+        n = template.find_matching_node(labels=labels)
+        return (n
+                if self.has_permissions('clusternodes.view_clusternode', n)
+                else None)
+
     def get(self, node_id):
         obj = models.CMClusterNode.objects.get(id=node_id)
         self.check_permissions('clusternodes.view_clusternode', obj)
@@ -172,7 +179,8 @@ class CMClusterNodeService(CMService):
         cli_deployment = template.add_node(
             name, vm_type=vm_type, zone=zone,
             min_vcpus=min_vcpus, min_ram=min_ram,
-            vm_family=autoscaler.allowed_vm_type_prefixes if autoscaler else "")
+            vm_family=autoscaler.allowed_vm_type_prefixes if autoscaler else "",
+            autoscaling_group=autoscaler.name if autoscaler else None)
         deployment = cl_models.ApplicationDeployment.objects.get(
             pk=cli_deployment.id)
         node = models.CMClusterNode.objects.create(

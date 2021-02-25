@@ -79,11 +79,17 @@ class KubeNodeService(KubeService):
         data = helpers.run_yaml_command(["kubectl", "get", "nodes", "-o", "yaml"])
         return data['items']
 
-    def find(self, node_ip):
+    def find(self, address=None, labels=None):
+        labels = labels or {}
         nodes = self.list()
-        return [node for node in nodes
-                if node_ip in [addr.get('address') for addr in
-                               node.get('status', {}).get('addresses', {})]]
+        if address:
+            nodes = [node for node in nodes if address
+                     in [addr.get('address') for addr in
+                         node.get('status', {}).get('addresses', {})]]
+        if labels:
+            nodes = [node for node in nodes if labels.items()
+                     <= node.get('metadata', {}).get('labels', {}).items()]
+        return nodes
 
     def cordon(self, node):
         name = node.get('metadata', {}).get('name')
@@ -121,6 +127,13 @@ class KubeNodeService(KubeService):
         name = node.get('metadata', {}).get('name')
         return helpers.run_command(
             ["kubectl", "delete", "node", name]
+        )
+
+    def set_label(self, node, labels):
+        name = node.get('metadata', {}).get('name')
+        return helpers.run_command(
+            ["kubectl", "label", "nodes", name]
+            + [f"{key}={value}" for key, value in labels.items()]
         )
 
 
