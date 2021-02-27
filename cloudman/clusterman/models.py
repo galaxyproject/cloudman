@@ -109,3 +109,11 @@ class CMClusterNode(models.Model):
         return (self.deployment.tasks.latest('updated').status
                 in ['SUCCESS', 'FAILURE'])
 
+    def is_running(self):
+        """
+        Return true if node was successfully launched
+        """
+        return (self.deployment.tasks.filter(
+            action=cl_models.ApplicationDeploymentTask.LAUNCH).first().status
+                in ['SUCCESS', 'FAILURE'])
+

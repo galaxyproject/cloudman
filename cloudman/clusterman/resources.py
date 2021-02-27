@@ -202,11 +202,21 @@ class ClusterAutoScaler(object):
              if node.is_stable()])
         )
 
+    def _filter_running_nodes(self, nodegroup):
+        return list(reversed(
+            [node for node in nodegroup.all()
+             if node.is_running()])
+        )
+
     def scaleup(self, labels=None):
         print(f"Scaling up in group {self.name} with labels: {labels}")
         labels = labels or {}
-        node_count = self.db_model.nodegroup.count()
-        if node_count < self.max_nodes:
+        total_node_count = self.db_model.nodegroup.count()
+        running_nodes = self._filter_running_nodes(self.db_model.nodegroup)
+        running_count = len(running_nodes)
+
+        # Allow 5 times the number of max nodes to be in a failed state
+        if running_count < self.max_nodes and total_node_count < (5 * self.max_nodes):
             self.cluster.nodes.create(
                 vm_type=self.vm_type,
                 min_vcpus=labels.get('min_vcpus', 0),
