@@ -777,6 +777,50 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "groupKey": "{}/{}:{alertname=\"KubeInstanceIdle\"}"
     }
 
+    SCALE_UP_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {
+                    "alertname": "PodNotSchedulable",
+                    "cpus": "92.5",
+                    "memory": "691100000000.5",
+                    "label_usegalaxy_org_cm_autoscaling_group": "default"
+                },
+                "annotations": {
+                    "cpus": "92.5",
+                    "memory": "691100000000.5",
+                },
+                "startsAt": "2020-08-21T11:47:31.470370261Z",
+                "endsAt": "0001-01-01T00:00:00Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            },
+            {
+                "status": "firing",
+                "labels": {
+                    "alertname": "PodNotSchedulable",
+                    "cpus": "3",
+                    "memory": "291100000000.5",
+                    "label_usegalaxy_org_cm_autoscaling_group": "gpu"
+                },
+                "annotations": {
+                    "cpus": "3",
+                    "memory": "291100000000.5"
+                },
+                "startsAt": "2020-08-21T11:47:31.470370261Z",
+                "endsAt": "0001-01-01T00:00:00Z",
+                "generatorURL": "http://prometheus.int/graph?g0.expr=up%7Bjob%3D%22node-exporter%22%2Ctier%21%3D%22ephemeral%22%7D+%3D%3D+0&g0.tab=1"
+            }
+        ],
+        "commonLabels": {
+            "alertname": "KubeCPUOvercommit"
+        },
+        "version": "4",
+        "groupKey": "{}/{}:{alertname=\"KubeCPUOvercommit\"}"
+    }
+
     SCALE_DOWN_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS = {
         "receiver": "cloudman",
         "status": "resolved",
@@ -1266,7 +1310,40 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
             [n['name'] for n
              in self._get_cluster_nodes(cluster_id)['results']])
 
-    def test_scale_signal_target_multiple_groups(self):
+    def test_scale_up_signal_target_multiple_groups(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        autoscaler_default_id = self._create_autoscaler(cluster_id)
+
+        # create another autoscaler
+        autoscaler_secondary_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_SECOND_ZONE)
+
+        # create a third autoscaler
+        autoscaler_gpu_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_GPU)
+
+        # everything should be zero initially
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # send scale up signal targeting multiple groups
+        self._signal_scaleup(
+            cluster_id, data=self.SCALE_UP_SIGNAL_DATA_TARGET_MULTIPLE_GROUPS)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        count_gpu = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_gpu_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 0)
+        self.assertEqual(count_gpu, 1)
+
+    def test_scale_down_signal_target_multiple_groups(self):
         # create the parent cluster
         cluster_id = self._create_cluster()
 
