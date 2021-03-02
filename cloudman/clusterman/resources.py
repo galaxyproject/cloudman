@@ -74,10 +74,12 @@ class Cluster(object):
                     matched = True
                     scaler.scaleup(labels=labels)
                     break
-            if not matched and not labels.get("usegalaxy.org/cm_autoscaling_group"):
-                scaler = self._get_default_scaler()
-                labels["usegalaxy.org/cm_autoscaling_group"] = scaler.name
-                scaler.scaleup(labels=labels)
+            if not matched:
+                default_scaler = self._get_default_scaler()
+                requested_group = labels.get("usegalaxy.org/cm_autoscaling_group")
+                if not requested_group or requested_group == default_scaler.name:
+                    labels["usegalaxy.org/cm_autoscaling_group"] = default_scaler.name
+                    default_scaler.scaleup(labels=labels)
         else:
             log.debug("Autoscale up signal received but autoscaling is disabled.")
 
@@ -91,10 +93,12 @@ class Cluster(object):
                     matched = True
                     scaler.scaledown(labels=labels)
                     break
-            if not matched and not labels.get("usegalaxy.org/cm_autoscaling_group"):
-                scaler = self._get_default_scaler()
-                labels["usegalaxy.org/cm_autoscaling_group"] = scaler.name
-                scaler.scaledown(labels=labels)
+            if not matched:
+                default_scaler = self._get_default_scaler()
+                requested_group = labels.get("usegalaxy.org/cm_autoscaling_group")
+                if not requested_group or requested_group == default_scaler.name:
+                    labels["usegalaxy.org/cm_autoscaling_group"] = default_scaler.name
+                    default_scaler.scaledown(labels=labels)
         else:
             log.debug("Autoscale down signal received but autoscaling is disabled.")
 

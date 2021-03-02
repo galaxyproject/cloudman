@@ -115,5 +115,5 @@ class CMClusterNode(models.Model):
         """
         return (self.deployment.tasks.filter(
             action=cl_models.ApplicationDeploymentTask.LAUNCH).first().status
-                in ['SUCCESS', 'FAILURE'])
-
+                not in ['FAILURE'] and self.deployment.tasks.filter(
+            action=cl_models.ApplicationDeploymentTask.DELETE).count() == 0)
