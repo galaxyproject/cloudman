@@ -898,6 +898,44 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         "groupKey": "{}/{}:{alertname=\"KubeInstanceIdle\"}"
     }
 
+    SCALE_SIGNAL_NO_SCALING_GROUP = {
+        "receiver": "cloudman",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname1"
+                }
+            },
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname2",
+                    "label_usegalaxy_org_cm_autoscaling_group": ""
+                }
+            },
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname3",
+                    "label_usegalaxy_org_cm_autoscaling_group": "non_existent"
+                }
+            },
+            {
+                "status": "resolved",
+                "labels": {
+                    "alertname": "KubeInstanceIdle",
+                    "hostname": "testhostname4",
+                    "label_usegalaxy_org_cm_autoscaling_group": "secondary"
+                }
+            }
+        ],
+        "version": "4"
+    }
 
     fixtures = ['initial_test_data.json']
 
@@ -1396,3 +1434,59 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         self.assertEqual(count_default, 0)
         self.assertEqual(count_secondary, 0)
         self.assertEqual(count_gpu, 0)
+
+    def test_scale_up_no_scaling_group(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        autoscaler_default_id = self._create_autoscaler(cluster_id)
+
+        # create another autoscaler
+        autoscaler_secondary_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_SECOND_ZONE)
+
+        # everything should be zero initially
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # send scale up signal targeting non existent and empty scaling groups
+        self._signal_scaleup(
+            cluster_id, data=self.SCALE_SIGNAL_NO_SCALING_GROUP)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 2)
+        self.assertEqual(count_secondary, 1)
+
+    def test_scale_down_no_scaling_group(self):
+        # create the parent cluster
+        cluster_id = self._create_cluster()
+
+        # manually create autoscaler
+        autoscaler_default_id = self._create_autoscaler(cluster_id)
+
+        # create another autoscaler
+        autoscaler_secondary_id = self._create_autoscaler(
+            cluster_id, data=self.AUTOSCALER_DATA_SECOND_ZONE)
+
+        # everything should be zero initially
+        count = self._count_cluster_nodes(cluster_id)
+        self.assertEqual(count, 0)
+
+        # send scale up signal targeting non existent and empty scaling groups
+        self._signal_scaleup(
+            cluster_id, data=self.SCALE_SIGNAL_NO_SCALING_GROUP)
+
+        # send scale down signal targeting same non existent and empty scaling groups
+        self._signal_scaledown(
+            cluster_id, data=self.SCALE_SIGNAL_NO_SCALING_GROUP)
+
+        count_default = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_default_id)
+        count_secondary = self._count_nodes_in_scale_group(
+            cluster_id, autoscaler_secondary_id)
+        self.assertEqual(count_default, 1)
+        self.assertEqual(count_secondary, 0)
