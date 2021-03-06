@@ -163,7 +163,7 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
     @tenacity.retry(stop=tenacity.stop_after_attempt(2),
                     wait=tenacity.wait_fixed(10),
                     reraise=True,
-                    after=lambda *args: log.debug("Node not registered, rerunning playbook..."))
+                    after=lambda *args, **kwargs: log.debug("Node not registered, rerunning playbook..."))
     def configure(self, app_config, provider_config):
         playbook_vars = {
             'kube_cloud_provider': self._cb_provider_id_to_kube_provider_id(
