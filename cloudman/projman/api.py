@@ -195,9 +195,9 @@ class PMProjectChartService(PMService):
 
     def _get_project_oidc_secret(self):
         try:
-            secret = KubeClient().secrets.get(f"{self.project.namespace}-projman-secrets",
+            secret = KubeClient().secrets.get(f"keycloak-client-secret-{self.project.namespace}",
                                               namespace=self.project.namespace)
-            return base64.b64decode(secret.get('data').get('oidc-client-secret')).decode('utf-8')
+            return base64.b64decode(secret.get('data').get('CLIENT_SECRET')).decode('utf-8')
         except Exception:
             return None
 
