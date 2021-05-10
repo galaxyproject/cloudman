@@ -19,6 +19,7 @@ class Command(BaseCommand):
         parser.add_argument('values_file', help='Values file to apply to the chart')
         parser.add_argument('context_file', help='Context to apply to the chart')
         parser.add_argument('--upgrade', dest='upgrade_chart', action='store_true')
+        parser.add_argument('--reset_values', dest='reset_values', action='store_true')
 
     def handle(self, *args, **options):
         values_file = options.get("values_file")
@@ -38,12 +39,13 @@ class Command(BaseCommand):
                                          options['release_name'],
                                          values,
                                          context=context,
-                                         upgrade_chart=options['upgrade_chart'])
+                                         upgrade_chart=options['upgrade_chart'],
+                                         reset_values=options['reset_values'])
 
     @staticmethod
     def install_template_in_project(project_name, template_name,
                                     release_name=None, values=None, context=None,
-                                    upgrade_chart=False):
+                                    upgrade_chart=False, reset_values=False):
         try:
             print("Installing template {}"
                   " into project: {}".format(template_name, project_name))
@@ -59,7 +61,8 @@ class Command(BaseCommand):
                 else:
                     existing = proj.charts.find(template_name)
                 if existing and upgrade_chart:
-                    ch = proj.charts.update(existing, values, context=context)
+                    ch = proj.charts.update(existing, values, context=context,
+                                            reset_values=reset_values)
                     print(f"Successfully updated template '{template_name}' "
                           f"with release named '{release_name}' into project "
                           f"'{project_name}'")

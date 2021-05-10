@@ -221,14 +221,16 @@ class PMProjectChartService(PMService):
             template.install(self.project.namespace, release_name,
                              values, context=context))
 
-    def update(self, chart, values, context=None):
+    def update(self, chart, values, context=None, reset_values=None):
         self.check_permissions('projman.change_chart', chart)
         context = self._add_projman_default_context(context)
         if chart.install_template:
             updated_chart = chart.install_template.upgrade(
-                chart, values=values, context=context)
+                chart, values=values, context=context,
+                reset_values=reset_values)
         else:
-            updated_chart = self._get_helmsman_api().charts.update(chart, values)
+            updated_chart = self._get_helmsman_api().charts.update(
+                chart, values, reset_values=reset_values)
         return self._to_proj_chart(updated_chart)
 
     def rollback(self, chart, revision=None):

@@ -127,6 +127,9 @@ class MockHelm(object):
             '--reuse-values', action='store_true',
             help="reuse the last release's values and merge in any overrides")
         parser_upgrade.add_argument(
+            '--reset-values', action='store_true',
+            help="reset the last release's values and merge in any overrides")
+        parser_upgrade.add_argument(
             '-f', '--values', type=str, help='value files', nargs="*", action="append")
         parser_upgrade.add_argument(
             '--namespace', type=str, help='namespace of release')

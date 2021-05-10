@@ -34,6 +34,8 @@ class Command(BaseCommand):
                         extra_args = []
                         if chart.get("upgrade"):
                             extra_args += ['--upgrade']
+                        if chart.get("reset_values"):
+                            extra_args += ['--reset_values']
                         with helpers.TempValuesFile(values) as values_file:
                             with helpers.TempValuesFile(context) as context_file:
                                 call_command("install_template_in_project",

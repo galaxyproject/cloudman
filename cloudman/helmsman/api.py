@@ -262,7 +262,7 @@ class HMChartService(HelmsManService):
                                    values=values)
         return self._get_from_namespace(namespace, chart_name)
 
-    def update(self, chart, values, version=None):
+    def update(self, chart, values, version=None, reset_values=None):
         self.check_permissions('helmsman.change_chart', chart)
         # 1. Guess which repo the chart came from
         repo_name = self._find_repo_for_chart(chart)
@@ -273,7 +273,8 @@ class HMChartService(HelmsManService):
         # 2. Apply the updated config to the chart
         HelmClient().releases.update(
             chart.namespace, chart.id, "%s/%s" % (repo_name, chart.name), values=values,
-            value_handling=HelmValueHandling.REUSE, version=version)
+            value_handling=HelmValueHandling.RESET if reset_values else HelmValueHandling.REUSE,
+            version=version)
         return self.get(chart.id)
 
     def rollback(self, chart, revision=None):
@@ -495,14 +496,15 @@ class HelmInstallTemplate(HelmsManResource):
                                     values=[default_values, values or {}])
 
     def upgrade(self, chart, values=None,
-                context=None):
+                context=None, reset_values=None):
         default_values = yaml.safe_load(
             self.render_values(context or {}))
         admin = User.objects.filter(is_superuser=True).first()
         client = HelmsManAPI(HMServiceContext(user=admin))
         return client.charts.update(chart,
                                     version=self.chart_version,
-                                    values=[default_values, values or {}])
+                                    values=[default_values, values or {}],
+                                    reset_values=reset_values)
 
     def delete(self):
         self.service.delete(self.name)

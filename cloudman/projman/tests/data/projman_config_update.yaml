@@ -12,6 +12,7 @@ projects:
         context:
             storageclass: updated-provisioner
         upgrade: true
+        reset_values: true
       jupyterhub:
         release_name: jup
         install_template: jupyter
