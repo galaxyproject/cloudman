@@ -1,5 +1,6 @@
 import tempfile
 import yaml
+from django.conf import settings
 
 from contextlib import contextmanager
 
@@ -16,7 +17,7 @@ def TempInputFile(text, prefix="helmsman"):
         with TempInputFile("hello world"):
             do_something()
     """
-    with tempfile.NamedTemporaryFile(mode="w", prefix=prefix) as f:
+    with tempfile.NamedTemporaryFile(mode="w", prefix=prefix, delete=not settings.DEBUG) as f:
         f.write(text)
         f.flush()
         yield f
@@ -34,7 +35,7 @@ def TempValuesFile(values, prefix="helmsman"):
         with TempValuesFile({'hello': 'world'}):
             do_something()
     """
-    with tempfile.NamedTemporaryFile(mode="w", prefix=prefix) as f:
+    with tempfile.NamedTemporaryFile(mode="w", prefix=prefix, delete=not settings.DEBUG) as f:
         yaml.safe_dump(values, stream=f, default_flow_style=False)
         yield f
 
