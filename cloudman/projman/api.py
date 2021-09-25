@@ -116,7 +116,7 @@ class PMProjectService(PMService):
         if chart_template:
             project.charts.create(chart_template.name)
         else:
-            client.charts.create("cloudve", "projman", project.namespace)
+            client.charts.create("cloudve", "projman", project.namespace, release_name='projman')
 
     def create(self, name):
         self.check_permissions('projman.add_project')
