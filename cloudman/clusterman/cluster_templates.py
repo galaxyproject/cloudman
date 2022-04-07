@@ -130,7 +130,7 @@ class CMRKETemplate(CMClusterTemplate):
                 "config_appliance": {
                     "sshUser": "ubuntu",
                     "runner": "ansible",
-                    "repository": "https://github.com/bioconductor/cloudman-boot",
+                    "repository": "https://github.com/CloudVE/cloudman-boot",
                     "inventoryTemplate":
                         "[controllers]\n\n"
                         "[agents]\n"
