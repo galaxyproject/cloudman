@@ -53,6 +53,11 @@ class CMRKETemplate(CMClusterTemplate):
         self._rke_registration_server = settings.get('rke_registration_server')
         self._rke_registration_token = settings.get('rke_registration_token')
         self._rke_cluster_id = settings.get('rke_cluster_id')
+        self._kube_cloud_conf = settings.get('kube_cloud_conf')
+
+    @property
+    def kube_cloud_conf(self):
+        return self._kube_cloud_conf
 
     @property
     def rke_registration_server(self):
@@ -119,12 +124,13 @@ class CMRKETemplate(CMClusterTemplate):
                 'config_kube_rke': {
                     'rke_registration_server': self.rke_registration_server,
                     'rke_registration_token': self.rke_registration_token,
-                    'rke_cluster_id': self.rke_cluster_id
+                    'rke_cluster_id': self.rke_cluster_id,
+                    'kube_cloud_conf': self.kube_cloud_conf
                 },
                 "config_appliance": {
                     "sshUser": "ubuntu",
                     "runner": "ansible",
-                    "repository": "https://github.com/CloudVE/cloudman-boot",
+                    "repository": "https://github.com/bioconductor/cloudman-boot",
                     "inventoryTemplate":
                         "[controllers]\n\n"
                         "[agents]\n"
