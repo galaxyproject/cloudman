@@ -172,6 +172,8 @@ class RKEKubernetesAnsibleAppConfigurer(AnsibleAppConfigurer):
                 'rke_cluster_id'),
             'rke_registration_server': app_config.get('config_kube_rke', {}).get(
                 'rke_registration_server'),
+            'kube_cloud_conf': app_config.get('config_kube_rke', {}).get(
+                'kube_cloud_conf'),
             'rke_registration_token': app_config.get('config_kube_rke', {}).get(
                 'rke_registration_token')
         }
