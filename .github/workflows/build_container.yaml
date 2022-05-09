@@ -1,0 +1,24 @@
+name: Build Image
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - 'master'
+jobs:
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - run: docker build . -t galaxy/cloudman-server:latest
+      - name: Login to docker hub
+        uses: actions-hub/docker/login@master
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Push to docker hub
+        uses: actions-hub/docker@master
+        with:
+          args: push galaxy/cloudman-server:latest

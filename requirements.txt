@@ -1,5 +1,6 @@
 # needed by celery
 sqlalchemy
+pyYAML<6.0
 # install edge till this is released: https://github.com/encode/django-rest-framework/pull/7571
 git+https://github.com/encode/django-rest-framework
 # install edge till this is released: https://github.com/celery/django-celery-results/issues/157
@@ -10,7 +11,7 @@ pydevd>=1.0.0
 # jinja2 for rendering install templates
 jinja2
 # get latest package versions for now
-git+https://github.com/CloudVE/cloudbridge
+git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[full]
 git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+https://github.com/CloudVE/cloudlaunch-cli
