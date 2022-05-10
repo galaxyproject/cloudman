@@ -96,7 +96,7 @@ if os.path.isfile(CM_GLOBAL_CONTEXT_PATH) and os.access(CM_GLOBAL_CONTEXT_PATH, 
     import yaml
     with open(CM_GLOBAL_CONTEXT_PATH) as f:
         print(f"Loading cloudman global context from: {CM_GLOBAL_CONTEXT_PATH}")
-        CM_GLOBAL_CONTEXT = yaml.load(f)
+        CM_GLOBAL_CONTEXT = yaml.safe_load(f)
 else:
     CM_GLOBAL_CONTEXT = {}
 
