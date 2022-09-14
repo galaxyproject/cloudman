@@ -15,7 +15,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         settings = yaml.safe_load(options['config_file'].read())
-        self.process_settings(settings)
+        self.process_settings(settings or {})
 
     @staticmethod
     def process_settings(settings):
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         for project in projects or {}:
             if project:
                 call_command("projman_create_project", project)
-                charts = projects.get(project).get('charts', [])
+                charts = projects.get(project, {}).get('charts', [])
                 for key in charts or []:
                     chart = charts.get(key)
                     template = chart.get("install_template")
