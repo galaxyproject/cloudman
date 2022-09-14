@@ -6,7 +6,7 @@ sqlalchemy
 # required by moto
 sshpubkeys
 git+https://github.com/CloudVE/moto@fix_unknown_instance_type
-git+https://github.com/CloudVE/cloudbridge
+git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[full]
 git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+https://github.com/CloudVE/cloudlaunch-cli

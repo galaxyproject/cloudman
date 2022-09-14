@@ -1,0 +1,25 @@
+name: Run tests
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    name: tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: 'Set up Python'
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - uses: actions/checkout@v2
+      - run: pip install tox
+      - run: pip install tox-docker>=2.0.0a3
+      - run: pip install coveralls
+      - run: tox -e py38-integration
+      - run: coveralls -v

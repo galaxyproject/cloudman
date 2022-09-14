@@ -1,12 +1,12 @@
 CloudMan is a cloud infrastructure and application manager, primarily for Galaxy.
 
+.. image:: https://github.com/galaxyproject/cloudman/actions/workflows/tests.yaml/badge.svg
+   :target: https://github.com/galaxyproject/cloudman/actions/workflows/tests.yaml
+   :alt: Github Build Status
+
 .. image:: https://coveralls.io/repos/github/galaxyproject/cloudman/badge.svg?branch=master
    :target: https://coveralls.io/github/galaxyproject/cloudman?branch=master
    :alt: Test Coverage Report
-
-.. image:: https://travis-ci.org/galaxyproject/cloudman.svg?branch=master
-   :target: https://travis-ci.org/galaxyproject/cloudman
-   :alt: Travis Build Status
 
 Installation
 ------------
