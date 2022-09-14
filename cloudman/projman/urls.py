@@ -1,7 +1,7 @@
 """CloudMan Create URL configuration."""
 
-from django.conf.urls import include
-from django.conf.urls import url
+from django.urls import include
+from django.urls import re_path
 
 from . import views
 
@@ -22,6 +22,6 @@ app_name = "projman"
 
 cluster_regex_pattern = r'^'
 urlpatterns = [
-    url(r'^', include(router.urls)),
-    url(cluster_regex_pattern, include(project_router.urls))
+    re_path(r'^', include(router.urls)),
+    re_path(cluster_regex_pattern, include(project_router.urls))
 ]
