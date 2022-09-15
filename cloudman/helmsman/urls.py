@@ -1,7 +1,7 @@
 """CloudMan Create URL configuration."""
 
-from django.conf.urls import include
-from django.conf.urls import url
+from django.urls import include
+from django.urls import re_path
 
 from . import views
 from djcloudbridge.drf_routers import HybridDefaultRouter
@@ -20,5 +20,5 @@ router.register(r'install_templates', views.InstallTemplatesViewSet,
 app_name = "helmsman"
 
 urlpatterns = [
-    url(r'^', include(router.urls)),
+    re_path(r'^', include(router.urls)),
 ]

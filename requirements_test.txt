@@ -5,11 +5,12 @@ paramiko
 sqlalchemy
 # required by moto
 sshpubkeys
-git+https://github.com/CloudVE/moto@fix_unknown_instance_type
-git+https://github.com/CloudVE/cloudbridge
+git+https://github.com/CloudVE/cloudbridge#egg=cloudbridge[dev]
 git+https://github.com/CloudVE/djcloudbridge
 # Leave cloudlaunch-cli before cloudlaunch-server due to coreapi version mismatch
 git+https://github.com/CloudVE/cloudlaunch-cli
 git+https://github.com/galaxyproject/cloudlaunch
+pytz>=2022.2.1
+tzdata>=2022.2
 -r requirements.txt
 -e ".[test]"
