@@ -22,4 +22,6 @@ jobs:
       - run: pip install tox-docker>=2.0.0a3
       - run: pip install coveralls
       - run: tox -e py38-integration
-      - run: coveralls -v
+      - run: coveralls -v --service=github
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
