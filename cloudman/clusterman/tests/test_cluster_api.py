@@ -1301,7 +1301,7 @@ class CMClusterScaleSignalTests(CMClusterNodeTestBase):
         # Ensure that the created node has the correct size
         vm_types = self._get_cluster_node_vm_types(cluster_id)
         self.assertEqual(len(vm_types), 1)
-        self.assertTrue("i3en.24xlarge" in vm_types)
+        self.assertTrue("i3en.24xlarge" in vm_types or 'dl1.24xlarge' in vm_types)
 
     def test_scale_up_allowed_vm_types(self):
         # create the parent cluster
